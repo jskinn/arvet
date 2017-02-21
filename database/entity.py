@@ -1,4 +1,13 @@
-class Entity:
+import database.entity_registry as reg
+
+
+class EntityMetaclass(type):
+    def __init__(cls, name, bases, dict_):
+        super().__init__(name, bases, dict_)
+        reg.register_entity(cls)
+
+
+class Entity(metaclass=EntityMetaclass):
     """
     A generic class for all database entities.
     Children of this class can be serialized to the database

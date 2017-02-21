@@ -1,6 +1,7 @@
-from pymongo import MongoClient
-from database.entity import Entity
-from util.dict_utils import defaults
+import pymongo
+import database.entity
+import database.entity_registry
+import util.dict_utils as du
 
 
 class DatabaseClient:
@@ -37,7 +38,7 @@ class DatabaseClient:
             db_config = {}
 
         # Default configuration. Also serves as an exemplar configuration argument
-        db_config = defaults(db_config, {
+        db_config = du.defaults(db_config, {
             'connection_parameters': {},
             'database_name': 'benchmark_system',
             'collections': {
@@ -57,10 +58,8 @@ class DatabaseClient:
         self._results_collection_name = db_config['collections']['results_collection']
         self._trained_state_collection_name = db_config['collections']['trained_state_collection']
 
-        self._mongo_client = MongoClient(**conn_kwargs)
+        self._mongo_client = pymongo.MongoClient(**conn_kwargs)
         self._database = self._mongo_client[db_name]
-
-        self._entity_register = {}
 
     @property
     def dataset_collection(self):
@@ -82,12 +81,9 @@ class DatabaseClient:
     def trained_state_collection(self):
         return self._database[self._trained_state_collection_name]
 
-    def register_entity(self, entity_class):
-        if issubclass(entity_class, Entity):
-            self._entity_register[entity_class.__name__] = entity_class
-
     def deserialize_entity(self, s_entity):
         type_name = s_entity['_type']
-        if type_name in self._entity_register:
-            return self._entity_register[type_name].deserialize(s_entity)
+        entity_type = database.entity_registry.get_entity_type(type_name)
+        if entity_type:
+            return entity_type.deserialize(s_entity)
         return None
