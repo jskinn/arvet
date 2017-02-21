@@ -1,4 +1,4 @@
-from collections import Mapping
+import collections
 
 
 def defaults(base, *args, modify_base=True):
@@ -45,7 +45,7 @@ def split_period_keys(base):
             else:
                 if subkeys[idx] not in inner:
                     inner[subkeys[idx]] = {}
-                elif not isinstance(inner[subkeys[idx]], Mapping):
+                elif not isinstance(inner[subkeys[idx]], collections.Mapping):
                     break   # we've hit a non-dict before we ran out of keys, break
                 inner = inner[subkeys[idx]]
     return result
