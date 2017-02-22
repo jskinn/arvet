@@ -1,10 +1,24 @@
+import abc
 import database.entity_registry as reg
 
 
 class EntityMetaclass(type):
+    """
+    Entity metaclass.
+    When an entity class is declared, it will register the class name in the entity register.
+    This is so that type names stored as strings in the database can be turned back to entity instances.
+    """
     def __init__(cls, name, bases, dict_):
         super().__init__(name, bases, dict_)
         reg.register_entity(cls)
+
+
+class AbstractEntityMetaclass(EntityMetaclass, abc.ABCMeta):
+    """
+    A simple combination class for entity classes that are also abstract classes.
+    """
+    def __init__(cls, name, bases, dict_):
+        super().__init__(cls, name, bases, dict_)
 
 
 class Entity(metaclass=EntityMetaclass):
@@ -39,6 +53,14 @@ class Entity(metaclass=EntityMetaclass):
         """
         if self._id is None and id_ is not None:
             self._id = id_
+
+    def validate(self):
+        """
+        Check that the entity is valid.
+        This lets us check things like whether references files still exist.
+        :return: True iff the entity is in a valid state, and can be used.
+        """
+        return True
 
     def serialize(self):
         """
