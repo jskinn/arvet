@@ -1,13 +1,13 @@
-from abc import ABCMeta, abstractproperty
+import abc
 
 
-class ReferencedClass(metaclass=ABCMeta):
+class ReferencedClass(metaclass=abc.ABCMeta):
     """
     A superclass for classes that can be referred to in the database.
     They have an identifier.
     """
 
-    @abstractproperty
+    @abc.abstractproperty
     def identifier(self):
         """
         Get the ID of the class, to which things will be associated in the database.
