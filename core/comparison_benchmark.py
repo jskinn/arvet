@@ -1,17 +1,18 @@
-from abc import ABCMeta, abstractmethod
-from database.referenced_class import ReferencedClass
+import abc
+import database.referenced_class
 import core.benchmark
 
 
-class ComparisonBenchmark(ReferencedClass, metaclass=ABCMeta):
+class ComparisonBenchmark(database.referenced_class.ReferencedClass, metaclass=abc.ABCMeta):
     """
-    A class for comparing
+    Some benchmarks and performance measures only make sense when comparing two different results,
+    that is, by comparing two similar runs and measuring the difference in some way.
 
-    This is an abstract base class defining an interface for all benchmarks,
+    This is an abstract base class defining an interface for all such benchmarks,
     to allow them to be called easily and in a structured way.
     """
 
-    @abstractmethod
+    @abc.abstractmethod
     def get_trial_requirements(self):
         """
         Get the requirements to determine which trial_results are relevant for this benchmark.
@@ -21,7 +22,7 @@ class ComparisonBenchmark(ReferencedClass, metaclass=ABCMeta):
         """
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def compare_results(self, trial_result, reference_trial_result, reference_dataset_images):
         """
         Benchmark the result of a particular trial
@@ -40,7 +41,7 @@ class ComparisonBenchmarkResult(core.benchmark.BenchmarkResult):
     def __init__(self, benchmark_id, trial_result_id, reference_id, success, id_=None, **kwargs):
         """
 
-        :param success: Did the benchmark succeeed. Everything not a subtype of FailedBenchmark should pass true.
+        :param success: Did the benchmark succeed. Everything not a subtype of FailedBenchmark should pass true.
         """
         super().__init__(benchmark_id, trial_result_id, success, id_)
         self._reference_id = reference_id

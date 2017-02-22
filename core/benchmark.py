@@ -1,9 +1,9 @@
-from abc import ABCMeta, abstractmethod
-from database.entity import Entity
-from database.referenced_class import ReferencedClass
+import abc
+import database.referenced_class
+import database.entity
 
 
-class Benchmark(ReferencedClass, metaclass=ABCMeta):
+class Benchmark(database.referenced_class.ReferencedClass, metaclass=abc.ABCMeta):
     """
     A class that benchmarks SLAM algorithms.
 
@@ -11,7 +11,7 @@ class Benchmark(ReferencedClass, metaclass=ABCMeta):
     to allow them to be called easily and in a structured way.
     """
 
-    @abstractmethod
+    @abc.abstractmethod
     def get_trial_requirements(self):
         """
         Get the requirements to determine which trial_results are relevant for this benchmark.
@@ -21,7 +21,7 @@ class Benchmark(ReferencedClass, metaclass=ABCMeta):
         """
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def benchmark_results(self, dataset_images, trial_result):
         """
         Benchmark the result of a particular trial
@@ -34,14 +34,16 @@ class Benchmark(ReferencedClass, metaclass=ABCMeta):
         pass
 
 
-class BenchmarkResult(Entity):
+class BenchmarkResult(database.entity.Entity):
     """
-    A general superclass for benchmark results for all
+    A general superclass for benchmark results for all benchmarks
     """
     def __init__(self, benchmark_id, trial_result_id, success, id_=None, **kwargs):
         """
 
-        :param success: Did the benchmark succeeed. Everything not a subtype of FailedBenchmark should pass true.
+        :param benchmark_id: The identifier for the benchmark producing this result
+        :param trial_result_id: The id of the trial result measured by this benchmark result
+        :param success: Did the benchmark succeed. Everything not a subtype of FailedBenchmark should pass true.
         """
         super().__init__(id_)
         self._success = success
@@ -89,9 +91,7 @@ class FailedBenchmark(BenchmarkResult):
     def __init__(self, benchmark_id, trial_result_id, reason, id_=None, **kwargs):
         """
 
-        :param reason:
-        :return: FailedBenchmark
-        :rtype: FailedBenchmark
+        :param reason: String explaining what went wrong.
         """
         super().__init__(benchmark_id, trial_result_id, False, id_)
         self._reason = reason
