@@ -32,6 +32,7 @@ class Entity(metaclass=EntityMetaclass):
 
     def __init__(self, id_=None, **kwargs):
         self._id = id_
+        super().__init__(**kwargs)
 
     @property
     def identifier(self):

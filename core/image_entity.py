@@ -1,0 +1,116 @@
+import os
+import os.path
+import copy
+import database.entity
+import util.geometry as geom
+import core.image
+
+
+class ImageEntity(core.image.Image, database.entity.Entity):
+
+    def consolidate_files(self, new_folder):
+        """
+        Move the files associated with this image
+        #TODO: The purpose of this function was to consolidate imagges from my local pc to the HPC.
+        Since there are problems with using the os functions over samba shares, we need a better approach.
+
+        :param new_folder:
+        :return:
+        """
+        pass
+
+    def validate(self):
+        if not os.path.isfile(self.filename):
+            return False
+        if self.depth_filename is not None and not os.path.isfile(self.depth_filename):
+            return False
+        if self.labels_filename is not None and not os.path.isfile(self.labels_filename):
+            return False
+        if self.depth_filename is not None and not os.path.isfile(self.depth_filename):
+            return False
+        return True
+
+    def serialize(self):
+        serialized = super().serialize()
+        serialized['filename'] = self.filename
+        serialized['timestamp'] = self.timestamp
+        serialized['camera_location'] = geom.numpy_vector_to_dict(self.camera_location)
+        serialized['camera_orientation'] = geom.numpy_quarternion_to_dict(self.camera_orientation)
+        serialized['additional_metadata'] = copy.deepcopy(self.additional_metadata)
+        serialized['depth_filename'] = self.depth_filename
+        serialized['labels_filename'] = self.labels_filename
+        serialized['world_normals_filename'] = self.world_normals_filename
+        return serialized
+
+    @classmethod
+    def deserialize(cls, serialized_representation, **kwargs):
+        if 'filename' in serialized_representation:
+            kwargs['filename'] = serialized_representation['filename']
+        if 'timestamp' in serialized_representation:
+            kwargs['timestamp'] = serialized_representation['timestamp']
+        if 'camera_location' in serialized_representation:
+            kwargs['camera_location'] = geom.dict_vector_to_np_array(serialized_representation['camera_location'])
+        if 'camera_orientation' in serialized_representation:
+            kwargs['camera_orientation'] = geom.dict_quaternion_to_np_array(serialized_representation['camera_orientation'])
+        if 'additional_metadata' in serialized_representation:
+            kwargs['additional_metadata'] = serialized_representation['additional_metadata']
+        if 'depth_filename' in serialized_representation:
+            kwargs['depth_filename'] = serialized_representation['depth_filename']
+        if 'labels_filename' in serialized_representation:
+            kwargs['labels_filename'] = serialized_representation['labels_filename']
+        if 'world_normals_filename' in serialized_representation:
+            kwargs['world_normals_filename'] = serialized_representation['world_normals_filename']
+        return super().deserialize(serialized_representation, **kwargs)
+
+    @classmethod
+    def from_image(cls, image):
+        return cls(timestamp=image.timestamp,
+                   filename=image.filename,
+                   camera_location=image.camera_location,
+                   camera_orientation=image.camera_orientation,
+                   additional_metadata=image.additional_metadata,
+                   depth_filename=image.depth_filename,
+                   labels_filename=image.labels_filename,
+                   world_normals_filename=image.world_normals_filename)
+
+
+class StereoImageEntity(core.image.StereoImage, ImageEntity):
+
+    def validate(self):
+        if not super().validate():
+            return False
+        if not os.path.isfile(self.right_filename):
+            return False
+        if self.depth_filename is not None and not os.path.isfile(self.right_depth_filename):
+            return False
+        if self.labels_filename is not None and not os.path.isfile(self.right_labels_filename):
+            return False
+        if self.depth_filename is not None and not os.path.isfile(self.right_depth_filename):
+            return False
+        return True
+
+    def serialize(self):
+        serialized = super().serialize()
+        serialized['right_filename'] = self.right_filename
+        serialized['right_camera_location'] = geom.numpy_vector_to_dict(self.right_camera_location)
+        serialized['right_camera_orientation'] = geom.numpy_quarternion_to_dict(self.right_camera_orientation)
+        serialized['right_depth_filename'] = self.right_depth_filename
+        serialized['right_labels_filename'] = self.right_labels_filename
+        serialized['right_world_normals_filename'] = self.right_world_normals_filename
+        return serialized
+
+    @classmethod
+    def deserialize(cls, serialized_representation, **kwargs):
+        if 'right_filename' in serialized_representation:
+            kwargs['right_filename'] = serialized_representation['right_filename']
+        if 'right_camera_location' in serialized_representation:
+            kwargs['right_camera_location'] = geom.dict_vector_to_np_array(serialized_representation['right_camera_location'])
+        if 'right_camera_orientation' in serialized_representation:
+            kwargs['right_camera_orientation'] = geom.dict_quaternion_to_np_array(serialized_representation['right_camera_orientation'])
+        if 'right_depth_filename' in serialized_representation:
+            kwargs['right_depth_filename'] = serialized_representation['right_depth_filename']
+        if 'right_labels_filename' in serialized_representation:
+            kwargs['right_labels_filename'] = serialized_representation['right_labels_filename']
+        if 'right_world_normals_filename' in serialized_representation:
+            kwargs['right_world_normals_filename'] = serialized_representation['right_world_normals_filename']
+        return super().deserialize(serialized_representation, **kwargs)
