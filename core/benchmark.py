@@ -1,9 +1,9 @@
 import abc
-import database.referenced_class
+import database.identifiable
 import database.entity
 
 
-class Benchmark(database.referenced_class.ReferencedClass, metaclass=abc.ABCMeta):
+class Benchmark(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
     """
     A class that benchmarks SLAM algorithms.
 
