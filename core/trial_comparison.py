@@ -1,12 +1,13 @@
 import abc
-import database.referenced_class
+import database.identifiable
 import core.benchmark
 
 
-class ComparisonBenchmark(database.referenced_class.ReferencedClass, metaclass=abc.ABCMeta):
+class TrialComparison(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
     """
-    Some benchmarks and performance measures only make sense when comparing two different results,
+    Some benchmarks and performance measures only make sense when comparing two different trial results,
     that is, by comparing two similar runs and measuring the difference in some way.
+    Benchmarks of this type take two different trial results, and measures the difference between them.
 
     This is an abstract base class defining an interface for all such benchmarks,
     to allow them to be called easily and in a structured way.
@@ -23,9 +24,10 @@ class ComparisonBenchmark(database.referenced_class.ReferencedClass, metaclass=a
         pass
 
     @abc.abstractmethod
-    def compare_results(self, trial_result, reference_trial_result, reference_dataset_images):
+    def compare_trial_results(self, trial_result, reference_trial_result):
         """
-        Benchmark the result of a particular trial
+        Compare the results of the first trial with a reference trial.
+        Should return a FailedBenchmark if there is a problem.
 
         :param trial_result: TrialResult
         :param reference_trial_result: TrialResult
@@ -34,7 +36,8 @@ class ComparisonBenchmark(database.referenced_class.ReferencedClass, metaclass=a
         """
         pass
 
-class ComparisonBenchmarkResult(core.benchmark.BenchmarkResult):
+
+class TrialComparisonResult(core.benchmark.BenchmarkResult):
     """
     A general superclass for benchmark results for all
     """
@@ -43,11 +46,16 @@ class ComparisonBenchmarkResult(core.benchmark.BenchmarkResult):
 
         :param success: Did the benchmark succeed. Everything not a subtype of FailedBenchmark should pass true.
         """
-        super().__init__(benchmark_id, trial_result_id, success, id_)
+        super().__init__(benchmark_id, trial_result_id, success, id_, **kwargs)
         self._reference_id = reference_id
 
     @property
     def reference_trial_result(self):
+        """
+        The id of the reference trial to which the second trial is compared.
+        This affects the order of the measured difference
+        :return:
+        """
         return self._reference_id
 
     def serialize(self):
