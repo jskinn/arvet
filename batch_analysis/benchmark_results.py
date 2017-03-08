@@ -27,7 +27,7 @@ def benchmark_results(benchmark, database_client, config=None, trained_state_id=
 
     for s_trial_result in trial_results:
         trial_result = database_client.deserialize_entity(s_trial_result)
-        s_dataset = database_client.dataset_collection.find_one({'_id': trial_result.dataset_id})
+        s_dataset = database_client.dataset_collection.find_one({'_id': trial_result.image_source_id})
         dataset = database_client.deserialize_entity(s_dataset)
         dataset_images = dataset.load_images(database_client)
         benchmark_result = benchmark.benchmark_results(dataset_images, trial_result)

@@ -1,12 +1,12 @@
 import copy
 import database.client
-import core.comparison_benchmark
+import core.trial_comparison
 import util.dict_utils as du
 import util.database_helpers as dbutil
 
 
 def compare_results(benchmark, database_client, config=None, trained_state_id=None):
-    if (not isinstance(benchmark, core.comparison_benchmark.ComparisonBenchmark) or
+    if (not isinstance(benchmark, core.trial_comparison.TrialComparison) or
             not isinstance(database_client, database.client.DatabaseClient)):
         return
 
@@ -42,7 +42,7 @@ def compare_results(benchmark, database_client, config=None, trained_state_id=No
         s_temp = database_client.trials_collection.find_one({'_id': ref_trial_id})
         reference_trial = database_client.deserialize_entity(s_temp)
 
-        s_temp = database_client.dataset_collection.find_one({'_id': reference_trial.dataset_id})
+        s_temp = database_client.dataset_collection.find_one({'_id': reference_trial.image_source_id})
         reference_dataset = database_client.deserialize_entity(s_temp)
         reference_dataset_images = reference_dataset.load_images(database_client)
 
@@ -80,7 +80,7 @@ def compare_results(benchmark, database_client, config=None, trained_state_id=No
                 'reference': reference_trial.identifier
             }).count()
             if existing_count <= 0:
-                benchmark_result = benchmark.compare_results(comparison_trial,
-                                                             reference_trial,
-                                                             reference_dataset_images)
+                benchmark_result = benchmark.compare_trial_results(comparison_trial,
+                                                                   reference_trial,
+                                                                   reference_dataset_images)
                 database_client.results_collection.insert(benchmark_result.serialize())
