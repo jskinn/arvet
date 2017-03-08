@@ -1,19 +1,15 @@
 import abc
-import database.referenced_class
+import database.identifiable
 
 
-class VisionSystem(database.referenced_class.ReferencedClass, metaclass=abc.ABCMeta):
+class VisionSystem(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
+    """
+    A Vision system, something that will be run, benchmarked, and analysed by this program.
+    This is the standard interface that everything must implement to work with this system.
+    """
 
-    @abc.abstractproperty
-    def type(self):
-        """
-        Get the type of the system
-        :return:
-        :rtype: VisionSystemType
-        """
-        pass
-
-    @abc.abstractproperty
+    @abc.abstractmethod
+    @property
     def is_deterministic(self):
         """
         Is the visual system deterministic.
@@ -27,39 +23,41 @@ class VisionSystem(database.referenced_class.ReferencedClass, metaclass=abc.ABCM
         pass
 
     @abc.abstractmethod
-    def get_dataset_criteria(self):
-        """
-        Get search criteria for finding datasets that can be processed by this system.
-        I'm not sure what the best way to do this is yet.
-        :return: A set of criteria for finding datasets that match
-        :rtype: dict
-        """
-        pass
-
-    @abc.abstractmethod
-    def is_dataset_appropriate(self, dataset):
+    def is_image_source_appropriate(self, image_source):
         """
         Is the dataset appropriate for testing this vision system.
-        :param dataset: A dataset object.
+        :param image_source: The source for images that this system will potentially be run with.
         :return: True iff the particular dataset is appropriate for this vision system.
         :rtype: bool
         """
         pass
 
     @abc.abstractmethod
-    def run_with_dataset(self, dataset_images):
+    def start_trial(self):
         """
-        Run the system over a given dataset, to produce a trial result.
-        :param dataset_images: A set of images to run over
-        :return: The trial results
-        :rtype: TrialResult
+        Start a trial with this system.
+        After calling this, we can feed images to the system.
+        When the trial is complete, call finish_trial to get the result.
+        :return: void
         """
         pass
 
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        if cls is VisionSystem:
-            for s in subclass.__mro__:
-                if all(name in s.__dict__ for name in dir(VisionSystem)):
-                    return True
-        return NotImplemented
+    @abc.abstractmethod
+    def process_image(self, image):
+        """
+        Process an image as part of the current run.
+        Should automatically start a new trial if none is currently started.
+        :param image:
+        :return: void
+        """
+        pass
+
+    @abc.abstractmethod
+    def finish_trial(self):
+        """
+        End the current trial, returning a trial result.
+        Return none if no trial is started.
+        :return:
+        :rtype TrialResult:
+        """
+        return None
