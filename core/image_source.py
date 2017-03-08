@@ -9,8 +9,8 @@ class ImageSource(metaclass=abc.ABCMeta):
     TODO: We need more ways to interrogate the image source for information about it.
     """
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def is_depth_available(self):
         """
         Can this image source produce depth images.
@@ -19,8 +19,8 @@ class ImageSource(metaclass=abc.ABCMeta):
         """
         return False
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def is_stereo_available(self):
         """
         Can this image source produce stereo images.

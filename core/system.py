@@ -8,8 +8,8 @@ class VisionSystem(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
     This is the standard interface that everything must implement to work with this system.
     """
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def is_deterministic(self):
         """
         Is the visual system deterministic.

@@ -9,8 +9,8 @@ class Identifiable(metaclass=abc.ABCMeta):
     In particular, some classes have static identifiers and are referred to in the database.
     """
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def identifier(self):
         """
         Get the ID of the class, to which things will be associated in the database.
