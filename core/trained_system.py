@@ -15,7 +15,8 @@ class TrainedVisionSystem(core.system.VisionSystem, metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractproperty
+    @abc.abstractmethod
+    @property
     def trained_state(self):
         """
         Get the id of the current trained state,
