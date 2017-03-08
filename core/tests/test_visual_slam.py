@@ -43,7 +43,7 @@ class TestSLAMTrialResult(TestCase):
         if not isinstance(trial_result1, SLAMTrialResult) or not isinstance(trial_result2, SLAMTrialResult):
             self.fail('object was not a SLAMTrialResult')
         self.assertEquals(trial_result1.identifier, trial_result2.identifier)
-        self.assertEquals(trial_result1.dataset_id, trial_result2.dataset_id)
+        self.assertEquals(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEquals(trial_result1.system_id, trial_result2.system_id)
         self.assertEquals(trial_result1.success, trial_result2.success)
         self.assertEquals(trial_result1.dataset_repeats, trial_result2.dataset_repeats)
