@@ -44,6 +44,6 @@ class TestTrialResult(TestCase):
                 not isinstance(trial_result2, core.trial_result.TrialResult)):
             self.fail('object was not a TrialResult')
         self.assertEquals(trial_result1.identifier, trial_result2.identifier)
-        self.assertEquals(trial_result1.dataset_id, trial_result2.dataset_id)
+        self.assertEquals(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEquals(trial_result1.system_id, trial_result2.system_id)
         self.assertEquals(trial_result1.success, trial_result2.success)
