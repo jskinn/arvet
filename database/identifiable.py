@@ -1,10 +1,12 @@
 import abc
 
 
-class ReferencedClass(metaclass=abc.ABCMeta):
+class Identifiable(metaclass=abc.ABCMeta):
     """
     A superclass for classes that can be referred to in the database.
     They have an identifier.
+    All entities are identifiable, although other things may also be identifiable.
+    In particular, some classes have static identifiers and are referred to in the database.
     """
 
     @abc.abstractproperty

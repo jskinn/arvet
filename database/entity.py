@@ -1,4 +1,5 @@
 import abc
+import database.identifiable as identifiable
 import database.entity_registry as reg
 
 
@@ -21,7 +22,7 @@ class AbstractEntityMetaclass(EntityMetaclass, abc.ABCMeta):
         super().__init__(cls, name, bases, dict_)
 
 
-class Entity(metaclass=EntityMetaclass):
+class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
     """
     A generic class for all database entities.
     Children of this class can be serialized to the database
