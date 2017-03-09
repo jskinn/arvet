@@ -7,9 +7,9 @@ class SLAMTrialResult(core.trial_result.TrialResult):
     """
     The results of running a Monocular SLAM system
     """
-    def __init__(self, image_source_id, system_id, trained_state_id, success, system_settings, id_=None,
+    def __init__(self, image_source_id, system_id, success, system_settings, id_=None,
                  trajectory=None, tracking_stats=None, dataset_repeats=0, **kwargs):
-        super().__init__(image_source_id, system_id, trained_state_id, success, system_settings, id_=id_)
+        super().__init__(image_source_id, system_id, success, system_settings, id_=id_)
         if isinstance(dataset_repeats, int):
             self._dataset_repeats = dataset_repeats
         else:

@@ -1,9 +1,8 @@
-from unittest import TestCase
+import unittest
+import dataset.dataset as ds
 
-from dataset import Dataset
 
-
-class TestDataset(TestCase):
+class TestDataset(unittest.TestCase):
 
     # Actual metadata from a dataset I generated.
     EXAMPLE_METADATA = {
@@ -19,6 +18,9 @@ class TestDataset(TestCase):
             "NormalMipMapBias": 0,
             "RoughnessQuality": 0,
             "BaseMipMapBias": 0
+        },
+        "Geometry Detail": {
+            "BaseLODBias": 0
         },
         "Image Filename Format Mappings": {"world": "SunTemplePathGeneration"},
         "World Name": "SunTemplePathGeneration",
@@ -51,19 +53,19 @@ class TestDataset(TestCase):
     }
 
     def test_identifier(self):
-        dataset = Dataset(id_=123, metadata=TestDataset.EXAMPLE_METADATA)
+        dataset = ds.Dataset(id_=123, metadata=TestDataset.EXAMPLE_METADATA)
         self.assertEquals(dataset.identifier, 123)
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'metadata': TestDataset.EXAMPLE_METADATA, 'a':1, 'b':2, 'c': 3}
-        dataset = Dataset(**kwargs)
+        dataset = ds.Dataset(**kwargs)
         self.assertEquals(dataset.identifier, 1234)
 
     def test_serialize_and_deserialize(self):
-        dataset1 = Dataset(id_=12345,metadata=dict(TestDataset.EXAMPLE_METADATA))
+        dataset1 = ds.Dataset(id_=12345,metadata=dict(TestDataset.EXAMPLE_METADATA))
         s_dataset1 = dataset1.serialize()
 
-        dataset2 = Dataset.deserialize(s_dataset1)
+        dataset2 = ds.Dataset.deserialize(s_dataset1)
         s_dataset2 = dataset2.serialize()
 
         self._assert_models_equal(dataset1, dataset2)
@@ -71,7 +73,7 @@ class TestDataset(TestCase):
 
         for idx in range(0, 10):
             # Test that repeated serialization and deserialization does not degrade the information
-            dataset2 = Dataset.deserialize(s_dataset2)
+            dataset2 = ds.Dataset.deserialize(s_dataset2)
             s_dataset2 = dataset2.serialize()
             self._assert_models_equal(dataset1, dataset2)
             self.assertEquals(s_dataset1, s_dataset2)
@@ -83,7 +85,7 @@ class TestDataset(TestCase):
         :param dataset2: Dataset
         :return:
         """
-        if not isinstance(dataset1, Dataset) or not isinstance(dataset2, Dataset):
+        if not isinstance(dataset1, ds.Dataset) or not isinstance(dataset2, ds.Dataset):
             self.fail('object was not a dataset')
         self.assertEquals(dataset1.identifier, dataset2.identifier)
         self.assertEquals(dataset1.type, dataset2.type)

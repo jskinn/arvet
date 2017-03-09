@@ -9,16 +9,16 @@ class TestSLAMTrialResult(TestCase):
         SLAMTrialResult(1, 2, None, True, {})
 
     def test_identifier(self):
-        trial_result = SLAMTrialResult(1, 2, None, True, {}, id_=123, trajectory=None, tracking_stats=[], dataset_repeats=1)
+        trial_result = SLAMTrialResult(1, 2, True, {}, id_=123, trajectory=None, tracking_stats=[], dataset_repeats=1)
         self.assertEquals(trial_result.identifier, 123)
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'trajectory': [], 'tracking_stats': [], 'dataset_repeats': 1, 'a': 1, 'b': 2, 'c': 3}
-        trial_result = SLAMTrialResult(1, 2, None, True, {}, **kwargs)
+        trial_result = SLAMTrialResult(1, 2, True, {}, **kwargs)
         self.assertEquals(trial_result.identifier, 1234)
 
     def test_serialize_and_deserialize(self):
-        trial_result1 = SLAMTrialResult(1, 2, None, True, {}, id_=12345, trajectory=None, tracking_stats=[], dataset_repeats=1)
+        trial_result1 = SLAMTrialResult(1, 2, True, {}, id_=12345, trajectory=None, tracking_stats=[], dataset_repeats=1)
         s_trial_result1 = trial_result1.serialize()
 
         trial_result2 = SLAMTrialResult.deserialize(s_trial_result1)
