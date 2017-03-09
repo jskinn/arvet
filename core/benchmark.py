@@ -93,7 +93,8 @@ class FailedBenchmark(BenchmarkResult):
 
         :param reason: String explaining what went wrong.
         """
-        super().__init__(benchmark_id, trial_result_id, False, id_)
+        kwargs['success'] = False
+        super().__init__(benchmark_id, trial_result_id, id_=id_, **kwargs)
         self._reason = reason
 
     @property
