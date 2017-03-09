@@ -1,5 +1,6 @@
 from unittest import TestCase
-from core.visual_slam import SLAMTrialResult
+
+from slam.visual_slam import SLAMTrialResult
 
 
 class TestSLAMTrialResult(TestCase):
