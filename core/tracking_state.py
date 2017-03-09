@@ -1,11 +1,11 @@
-from enum import Enum
-from core.benchmark import BenchmarkResult
+import enum
 
 
-class TrackingState(Enum):
+class TrackingState(enum.Enum):
     NOT_INITIALIZED = 0
     OK = 1
     LOST = 2
+
 
 def tracking_state_from_string(s_state):
     if s_state == str(TrackingState.OK):
@@ -14,4 +14,3 @@ def tracking_state_from_string(s_state):
         return TrackingState.NOT_INITIALIZED
     else:
         return TrackingState.LOST
-

@@ -39,12 +39,15 @@ class TrialComparison(database.identifiable.Identifiable, metaclass=abc.ABCMeta)
 
 class TrialComparisonResult(core.benchmark.BenchmarkResult):
     """
-    A general superclass for benchmark results for all
+    A general superclass for benchmark results that compare two trials.
     """
     def __init__(self, benchmark_id, trial_result_id, reference_id, success, id_=None, **kwargs):
         """
-
+        :param benchmark_id: The TrialComparison benchmark that produced this result
+        :param trial_result_id: The first TrialResult, which is compared to the reference
+        :param reference_id: The reference TrialResult, to which the first is compared
         :param success: Did the benchmark succeed. Everything not a subtype of FailedBenchmark should pass true.
+        :param id_: The ID of the TrialComparisonResult, if it exists.
         """
         super().__init__(benchmark_id, trial_result_id, success, id_, **kwargs)
         self._reference_id = reference_id
