@@ -1,6 +1,6 @@
 import core.trial_result
 from core.trajectory import Trajectory, serialize_trajectory, deserialize_trajectory
-from core.tracking_state import tracking_state_from_string
+from slam.tracking_state import tracking_state_from_string
 
 
 class SLAMTrialResult(core.trial_result.TrialResult):
