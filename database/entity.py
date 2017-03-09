@@ -19,7 +19,7 @@ class AbstractEntityMetaclass(EntityMetaclass, abc.ABCMeta):
     A simple combination class for entity classes that are also abstract classes.
     """
     def __init__(cls, name, bases, dict_):
-        super().__init__(cls, name, bases, dict_)
+        super().__init__(name, bases, dict_)
 
 
 class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):

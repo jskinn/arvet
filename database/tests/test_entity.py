@@ -1,20 +1,21 @@
-from unittest import TestCase
-from database.entity import Entity
+import unittest
+import database.entity as e
+import database.entity_registry as reg
 
 
-class TestEntity(TestCase):
+class TestEntity(unittest.TestCase):
 
     def test_no_id(self):
-        Entity()
+        e.Entity()
 
     def test_identifier(self):
-        entity = Entity(id_=123)
+        entity = e.Entity(id_=123)
         self.assertEquals(entity.identifier, 123)
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'a':1, 'b':2, 'c': 3}
-        entity = Entity(**kwargs)
-        self.assertEquals(entity.identifier, 1234)
+        with self.assertRaises(TypeError):
+            e.Entity(**kwargs)
 
     def test_serialize_includes_type(self):
         entity = CustomEntity(id_=123)
@@ -22,10 +23,10 @@ class TestEntity(TestCase):
         self.assertEquals(s_entity['_type'], 'CustomEntity')
 
     def test_serialize_and_deserialize(self):
-        entity1 = Entity(id_=12345)
+        entity1 = e.Entity(id_=12345)
         s_entity1 = entity1.serialize()
 
-        entity2 = Entity.deserialize(s_entity1)
+        entity2 = e.Entity.deserialize(s_entity1)
         s_entity2 = entity2.serialize()
 
         self.assertEquals(entity1.identifier, entity2.identifier)
@@ -33,11 +34,14 @@ class TestEntity(TestCase):
 
         for idx in range(0, 10):
             # Test that repeated serialization and deserialization does not degrade the information
-            entity2 = Entity.deserialize(s_entity2)
+            entity2 = e.Entity.deserialize(s_entity2)
             s_entity2 = entity2.serialize()
             self.assertEquals(entity1.identifier, entity2.identifier)
             self.assertEquals(s_entity1, s_entity2)
 
+    def test_entity_automatically_registered(self):
+        self.assertEquals(reg.get_entity_type('CustomEntity'), CustomEntity)
 
-class CustomEntity(Entity):
+
+class CustomEntity(e.Entity):
     pass
