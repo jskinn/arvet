@@ -13,8 +13,8 @@ class TestBenchmarkResult(TestCase):
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'a':1, 'b':2, 'c': 3}
-        benchmark_result = BenchmarkResult(1, 2, True, **kwargs)
-        self.assertEquals(benchmark_result.identifier, 1234)
+        with self.assertRaises(TypeError):
+            BenchmarkResult(1, 2, True, **kwargs)
 
     def test_serialize_and_deserialize(self):
         benchmark_result1 = BenchmarkResult(1, 2, True, id_=12345)

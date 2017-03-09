@@ -45,7 +45,7 @@ class BenchmarkResult(database.entity.Entity):
         :param trial_result_id: The id of the trial result measured by this benchmark result
         :param success: Did the benchmark succeed. Everything not a subtype of FailedBenchmark should pass true.
         """
-        super().__init__(id_)
+        super().__init__(id_=id_, **kwargs)
         self._success = success
         self._benchmark = benchmark_id
         self._trial_result = trial_result_id

@@ -58,6 +58,7 @@ class Image:
         """
         Get the 4x4 transform of the camera when the image was taken.
         #TODO: Find or make a toolkit for working with vectors and transformation matrices
+        # Consider pypi.python.ord/pypi/transforms3d
         :return: A 4x4 numpy array
         """
         q = self.camera_orientation
@@ -112,7 +113,7 @@ class Image:
         """
         return self._world_normals_filename
 
-    def delete(self):
+    def remove(self):
         """
         Remove the image and associated files, for cleanup.
         This may throw exceptions for any of the files, if they are in use.
@@ -267,7 +268,7 @@ class StereoImage(Image):
         """
         return self._right_world_normals_filename
 
-    def delete(self):
+    def remove(self):
         """
         Remove the image and associated files, for cleanup.
         This may throw exceptions for any of the files, if they are in use.

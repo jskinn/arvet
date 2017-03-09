@@ -5,19 +5,19 @@ import core.trial_result
 class TestTrialResult(TestCase):
 
     def test_no_id(self):
-        core.trial_result.TrialResult(1, 2, None, True, {})
+        core.trial_result.TrialResult(1, 2, True, {})
 
     def test_identifier(self):
-        trial_result = core.trial_result.TrialResult(1, 2, None, True, {}, id_=123)
+        trial_result = core.trial_result.TrialResult(1, 2, True, {}, id_=123)
         self.assertEquals(trial_result.identifier, 123)
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'a': 1, 'b': 2, 'c': 3}
-        trial_result = core.trial_result.TrialResult(1, 2, None, True, {}, **kwargs)
-        self.assertEquals(trial_result.identifier, 1234)
+        with self.assertRaises(TypeError):
+            core.trial_result.TrialResult(1, 2, True, {}, **kwargs)
 
     def test_serialize_and_deserialize(self):
-        trial_result1 = core.trial_result.TrialResult(1, 2, None, True, {}, id_=12345)
+        trial_result1 = core.trial_result.TrialResult(1, 2, True, {}, id_=12345)
         s_trial_result1 = trial_result1.serialize()
 
         trial_result2 = core.trial_result.TrialResult.deserialize(s_trial_result1)
