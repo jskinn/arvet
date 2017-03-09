@@ -148,15 +148,16 @@ class StereoImage(Image):
                  left_depth_filename=None, left_labels_filename=None, left_world_normals_filename=None,
                  right_depth_filename=None, right_labels_filename=None, right_world_normals_filename=None, **kwargs):
         # Fiddle the arguments to go to the parents, those not listed here will be passed straight through.
-        kwargs['timestamp'] = timestamp,
-        kwargs['filename'] = left_filename,
-        kwargs['camera_location'] = left_camera_location,
-        kwargs['camera_orientation'] = left_camera_orientation,
-        kwargs['additional_metadata'] = additional_metadata,
-        kwargs['depth_filename'] = left_depth_filename,
-        kwargs['labels_filename'] = left_labels_filename,
-        kwargs['world_normals_filename'] = left_world_normals_filename
-        super().__init__(**kwargs)
+        super().__init__(
+            timestamp=timestamp,
+            filename=left_filename,
+            camera_location=left_camera_location,
+            camera_orientation=left_camera_orientation,
+            additional_metadata=additional_metadata,
+            depth_filename=left_depth_filename,
+            labels_filename=left_labels_filename,
+            world_normals_filename=left_world_normals_filename,
+            **kwargs)
         self._right_filename = right_filename
         self._right_camera_location = right_camera_location
         self._right_camera_orientation = right_camera_orientation

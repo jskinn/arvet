@@ -91,6 +91,14 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
 
     def serialize(self):
         serialized = super().serialize()
+
+        # fiddle the serialized version for left and right images
+        fiddle_keys = ['filename', 'camera_location', 'camera_orientation',
+                       'depth_filename', 'labels_filename', 'world_normals_filename']
+        for key in fiddle_keys:
+            serialized['left_' + key] = serialized[key]
+            del serialized[key]
+
         serialized['right_filename'] = self.right_filename
         serialized['right_camera_location'] = geom.numpy_vector_to_dict(self.right_camera_location)
         serialized['right_camera_orientation'] = geom.numpy_quarternion_to_dict(self.right_camera_orientation)
@@ -101,6 +109,20 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
 
     @classmethod
     def deserialize(cls, serialized_representation, **kwargs):
+
+        if 'left_filename' in serialized_representation:
+            kwargs['left_filename'] = serialized_representation['left_filename']
+        if 'left_camera_location' in serialized_representation:
+            kwargs['left_camera_location'] = geom.dict_vector_to_np_array(serialized_representation['left_camera_location'])
+        if 'left_camera_orientation' in serialized_representation:
+            kwargs['left_camera_orientation'] = geom.dict_quaternion_to_np_array(serialized_representation['left_camera_orientation'])
+        if 'left_depth_filename' in serialized_representation:
+            kwargs['left_depth_filename'] = serialized_representation['left_depth_filename']
+        if 'left_labels_filename' in serialized_representation:
+            kwargs['left_labels_filename'] = serialized_representation['left_labels_filename']
+        if 'left_world_normals_filename' in serialized_representation:
+            kwargs['left_world_normals_filename'] = serialized_representation['left_world_normals_filename']
+
         if 'right_filename' in serialized_representation:
             kwargs['right_filename'] = serialized_representation['right_filename']
         if 'right_camera_location' in serialized_representation:
