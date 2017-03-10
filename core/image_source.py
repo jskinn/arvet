@@ -1,4 +1,5 @@
 import abc
+import core.image_sequence
 
 
 class ImageSource(metaclass=abc.ABCMeta):
@@ -28,6 +29,19 @@ class ImageSource(metaclass=abc.ABCMeta):
         :return:
         """
         return False
+
+    @property
+    @abc.abstractmethod
+    def sequence_type(self):
+        """
+        Get the type of image sequence produced by this image source.
+        For instance, the source may produce sequential images, or disjoint, random images.
+        This may change with the configuration of the image source.
+        It is useful for determining which sources can run with which algorithms.
+        :return: The image sequence type enum
+        :rtype core.image_sequence.ImageSequenceType:
+        """
+        return core.image_sequence.ImageSequenceType.NON_SEQUENTIAL
 
     @abc.abstractmethod
     def begin(self):
