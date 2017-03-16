@@ -30,7 +30,15 @@ class Transform:
     __slots__ = ['_x', '_y', '_z', '_qx', '_qy', '_qz', '_qw']
 
     def __init__(self, location=None, rotation=None, w_first=False):
-        if isinstance(location, np.ndarray) and location.shape == (4, 4):
+        if isinstance(location, Transform):
+            self._x = location._x
+            self._y = location._y
+            self._z = location._z
+            self._qw = location._qw
+            self._qx = location._qx
+            self._qy = location._qy
+            self._qz = location._qz
+        elif isinstance(location, np.ndarray) and location.shape == (4, 4):
             # first parameter is a homogenous transformation matrix, turn it back into
             # location and quaternion
             trans, rot, zooms, shears = tf.affines.decompose44(location)
@@ -49,9 +57,9 @@ class Transform:
                 self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
             elif rotation is not None and len(rotation) >= 4:
                 if w_first:
-                    self._qw, self._qx, self._qy, self._qz = rotation
+                    self._qw, self._qx, self._qy, self._qz = rotation / np.linalg.norm(rotation)
                 else:
-                    self._qx, self._qy, self._qz, self._qw = rotation
+                    self._qx, self._qy, self._qz, self._qw = rotation / np.linalg.norm(rotation)
             else:
                 self._qw = 1
                 self._qx = self._qy = self._qz = 0

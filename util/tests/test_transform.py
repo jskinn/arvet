@@ -13,6 +13,14 @@ def _make_quat(axis, theta):
 
 class TestTransform(unittest.TestCase):
 
+    def test_constructor_clone(self):
+        tf1 = trans.Transform(location=(1, 2, 3),
+                             rotation=(4, 5, 6, 7))
+        tf2 = trans.Transform(tf1)
+        self.assert_array(tf1.location, tf2.location)
+        self.assert_array(tf1.rotation_quat(w_first=True), tf2.rotation_quat(w_first=True))
+        self.assert_array(tf1.transform_matrix, tf2.transform_matrix)
+
     def test_location_basic(self):
         tf = trans.Transform(location=(1, 2, 3))
         self.assert_array((1, 2, 3), tf.location)
@@ -32,10 +40,14 @@ class TestTransform(unittest.TestCase):
     def test_rotation_basic(self):
         # The rotation here is for 45 degrees around axis 1,2,3
         tf = trans.Transform(location=(1, 2, 3), rotation=(0.92387953, 0.10227645, 0.2045529, 0.30682935), w_first=True)
-        self.assert_array(tf.rotation_quat(w_first=True),
+        self.assert_close(tf.rotation_quat(w_first=True),
                           np.array([0.92387953, 0.10227645, 0.2045529, 0.30682935]))
-        self.assert_array(tf.rotation_quat(w_first=False),
+        self.assert_close(tf.rotation_quat(w_first=False),
                           np.array([0.10227645, 0.2045529, 0.30682935, 0.92387953]))
+
+    def test_rotation_handles_non_unit(self):
+        tf = trans.Transform(rotation=(10, 1, 2, 3), w_first=True)
+        self.assert_close(tf.rotation_quat(w_first=True), (0.93658581, 0.09365858, 0.18731716, 0.28097574))
 
     def test_rotation_default(self):
         tf = trans.Transform()
