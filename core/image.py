@@ -1,16 +1,14 @@
-import numpy
 import os
 
 
 class Image:
 
-    def __init__(self, timestamp, filename, camera_location, camera_orientation, additional_metadata=None,
+    def __init__(self, timestamp, filename, camera_pose, additional_metadata=None,
                  depth_filename=None, labels_filename=None, world_normals_filename=None, **kwargs):
-        super().__init__(**kwargs)  # The error here is false, this passes
+        super().__init__(**kwargs)  # The warning here is false, this passes arguments to other constructors for MI
         self._timestamp = timestamp
         self._filename = filename
-        self._camera_location = camera_location
-        self._camera_orientation = camera_orientation
+        self._camera_pose = camera_pose
         self._depth_filename = depth_filename
         self._labels_filename = labels_filename
         self._world_normals_filename = world_normals_filename
@@ -42,7 +40,7 @@ class Image:
         This should be expressed as a 3-element numpy array
         :return: The vector location of the viewpoint when the image is taken, in world coordinates
         """
-        return self._camera_location
+        return self.camera_pose.location
 
     @property
     def camera_orientation(self):
@@ -51,33 +49,24 @@ class Image:
         The orientation is a 4-element numpy array, ordered X, Y, Z, W
         :return:
         """
-        return self._camera_orientation
+        return self.camera_pose.rotation_quat(False)
+
+    @property
+    def camera_transform(self):
+        """
+        Get the 4x4 transform of the camera when the image was taken.
+        :return: A 4x4 numpy array describing the camera pose
+        """
+        return self.camera_pose.transform_matrix
 
     @property
     def camera_pose(self):
         """
-        Get the 4x4 transform of the camera when the image was taken.
-        #TODO: Find or make a toolkit for working with vectors and transformation matrices
-        # Consider pypi.python.ord/pypi/transforms3d
+        Get the underlying Transform object representing the pose of the camera.
+        This is useful to do things like convert points or poses to camera-relative
         :return: A 4x4 numpy array
         """
-        q = self.camera_orientation
-        nq = numpy.dot(q, q)
-        if nq < numpy.finfo(float).eps:
-            return numpy.array((
-                (1.0, 0.0, 0.0, self.camera_location[0]),
-                (0.0, 1.0, 0.0, self.camera_location[1]),
-                (0.0, 0.0, 1.0, self.camera_location[2]),
-                (0.0, 0.0, 0.0, 1.0)
-            ))
-        q *= numpy.sqrt(2.0 / nq)
-        q = numpy.outer(q, q)
-        return numpy.array((
-            (1.0 - q[1, 1] - q[2, 2], q[0, 1] - q[2, 3], q[0, 2] + q[1, 3], self.camera_location[0]),
-            (q[0, 1] + q[2, 3], 1.0 - q[0, 0] - q[2, 2], q[1, 2] - q[0, 3], self.camera_location[1]),
-            (q[0, 2] - q[1, 3], q[1, 2] + q[0, 3], 1.0 - q[0, 0] - q[1, 1], self.camera_location[2]),
-            (0.0, 0.0, 0.0, 1.0)
-        ))
+        return self._camera_pose
 
     @property
     def additional_metadata(self):
@@ -143,7 +132,7 @@ class StereoImage(Image):
     """
 
     def __init__(self, timestamp, left_filename, right_filename,
-                 left_camera_location, left_camera_orientation, right_camera_location, right_camera_orientation,
+                 left_camera_pose, right_camera_pose,
                  additional_metadata=None,
                  left_depth_filename=None, left_labels_filename=None, left_world_normals_filename=None,
                  right_depth_filename=None, right_labels_filename=None, right_world_normals_filename=None, **kwargs):
@@ -151,16 +140,14 @@ class StereoImage(Image):
         super().__init__(
             timestamp=timestamp,
             filename=left_filename,
-            camera_location=left_camera_location,
-            camera_orientation=left_camera_orientation,
+            camera_pose=left_camera_pose,
             additional_metadata=additional_metadata,
             depth_filename=left_depth_filename,
             labels_filename=left_labels_filename,
             world_normals_filename=left_world_normals_filename,
             **kwargs)
         self._right_filename = right_filename
-        self._right_camera_location = right_camera_location
-        self._right_camera_orientation = right_camera_orientation
+        self._right_camera_pose = right_camera_pose
         self._right_depth_filename = right_depth_filename
         self._right_labels_filename = right_labels_filename
         self._right_world_normals_filename = right_world_normals_filename
@@ -200,7 +187,24 @@ class StereoImage(Image):
         """
         return self.camera_orientation
 
-    # TODO: Camera pose as a transform for the left and right image
+    @property
+    def left_camera_transform(self):
+        """
+        Get the 4x4 transform of the left camera when the image was taken.
+        This is the same as 'camera_transform'
+        :return: A 4x4 numpy array describing the camera pose
+        """
+        return self.camera_transform
+
+    @property
+    def left_camera_pose(self):
+        """
+        Get the underlying Transform object representing the pose of the left camera.
+        This is useful to do things like convert points or poses to camera-relative.
+        This is the same as 'camera_pose'
+        :return: A 4x4 numpy array
+        """
+        return self.camera_pose
 
     @property
     def right_camera_location(self):
@@ -208,7 +212,7 @@ class StereoImage(Image):
         The location of the right camera in the stereo pair.
         :return: The location of the right camera in the stereo pair, as a 3-element numpy array
         """
-        return self._right_camera_location
+        return self.right_camera_pose.location
 
     @property
     def right_camera_orientation(self):
@@ -216,7 +220,23 @@ class StereoImage(Image):
         The orientation of the right camera in the stereo pair.
         :return: The orientation of the right camera, as a 4-element numpy array unit quaternion, ordered X, Y, Z, W
         """
-        return self._right_camera_orientation
+        return self.right_camera_pose.rotation_quat(False)
+
+    @property
+    def right_camera_transform(self):
+        """
+        The 4x4 homogenous matrix describing the pose of the right camera
+        :return: A 4x4 numpy array
+        """
+        return self.right_camera_pose.transform
+
+    @property
+    def right_camera_pose(self):
+        """
+        The underlying transform object describing the pose of the right camera.
+        :return: The Transform of the right camera
+        """
+        return self._right_camera_pose
 
     @property
     def left_depth_filename(self):

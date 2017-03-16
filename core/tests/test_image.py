@@ -1,22 +1,23 @@
 import unittest
 import numpy as np
+import util.transform as tf
 import core.image as im
 
 
 class TestImage(unittest.TestCase):
 
     def setUp(self):
+        trans = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         self.image = im.Image(
             timestamp=13/30,
             filename='/home/user/test.png',
-            camera_location=np.array([1, 2, 3]),
-            camera_orientation=np.array([4, 5, 6, 7]))
+            camera_pose=trans)
 
+        trans = tf.Transform((4, 5, 6), (0.5, -0.5, 0.5, -0.5))
         self.full_image = im.Image(
             timestamp=14/31,
             filename='/home/user/test2.png',
-            camera_location=np.array([8, 9, 10]),
-            camera_orientation=np.array([11, 12, 13, 14]),
+            camera_pose=trans,
             depth_filename='/home/user/test2_depth.png',
             labels_filename='/home/user/test2_labels.png',
             world_normals_filename='/home/user/test2_normals.png',
@@ -40,11 +41,11 @@ class TestImage(unittest.TestCase):
 
     def test_camera_location(self):
         self.assertTrue(np.array_equal(self.image.camera_location, np.array([1, 2, 3])))
-        self.assertTrue(np.array_equal(self.full_image.camera_location, np.array([8, 9, 10])))
+        self.assertTrue(np.array_equal(self.full_image.camera_location, np.array([4, 5, 6])))
 
     def test_camera_orientation(self):
-        self.assertTrue(np.array_equal(self.image.camera_orientation, np.array([4, 5, 6, 7])))
-        self.assertTrue(np.array_equal(self.full_image.camera_orientation, np.array([11, 12, 13, 14])))
+        self.assertTrue(np.array_equal(self.image.camera_orientation, np.array([0.5, 0.5, -0.5, -0.5])))
+        self.assertTrue(np.array_equal(self.full_image.camera_orientation, np.array([0.5, -0.5, 0.5, -0.5])))
 
     def test_depth_filename(self):
         self.assertEquals(self.image.depth_filename, None)
@@ -78,13 +79,15 @@ class TestImage(unittest.TestCase):
 class TestStereoImage(unittest.TestCase):
 
     def setUp(self):
+        left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
+        right_pose = tf.Transform(location=left_pose.find_independent((0, 0, 15)),
+                                  rotation=left_pose.rotation_quat(w_first=False),
+                                  w_first=False)
         self.image = im.StereoImage(timestamp=13/30,
                                     left_filename='/home/user/left.png',
-                                    left_camera_location=np.array([1, 2, 3]),
-                                    left_camera_orientation=np.array([4, 5, 6, 7]),
+                                    left_camera_pose=left_pose,
                                     right_filename='/home/user/right.png',
-                                    right_camera_location=np.array([8, 9, 10]),
-                                    right_camera_orientation=np.array([11, 12, 13, 14]))
+                                    right_camera_pose=right_pose)
 
     def test_padded_kwargs(self):
         kwargs = {
@@ -105,3 +108,5 @@ class TestStereoImage(unittest.TestCase):
         self.assertEquals(self.image.filename, self.image.left_filename)
         self.assertTrue(np.array_equal(self.image.camera_location, self.image.left_camera_location))
         self.assertTrue(np.array_equal(self.image.camera_orientation, self.image.left_camera_orientation))
+
+    # TODO: This test is unfinished
