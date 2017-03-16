@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import util.dict_utils as du
+import util.transform as tf
 import database.tests.test_entity as entity_test
 import core.image_entity as ie
 
@@ -14,8 +15,8 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         kwargs = du.defaults(kwargs, {
             'timestamp': 13 / 30,
             'filename': '/home/user/test.png',
-            'camera_location': np.array([1, 2, 3]),
-            'camera_orientation': np.array([4, 5, 6, 7]),
+            'camera_pose': tf.Transform(location=(1, 2, 3),
+                                        rotation=(4, 5, 6, 7)),
             'additional_metadata': {
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -59,14 +60,14 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         kwargs = du.defaults(kwargs, {
             'timestamp': 13 / 30,
             'left_filename': '/home/user/left.png',
-            'left_camera_location': np.array([1, 2, 3]),
-            'left_camera_orientation': np.array([4, 5, 6, 7]),
+            'left_camera_pose': tf.Transform(location=(1, 2, 3),
+                                             rotation=(4, 5, 6, 7)),
             'left_depth_filename': '/home/user/left_depth.png',
             'left_labels_filename': '/home/user/left_labels.png',
             'left_world_normals_filename': '/home/user/left_normals.png',
             'right_filename': '/home/user/right.png',
-            'right_camera_location': np.array([8, 9, 10]),
-            'right_camera_orientation': np.array([11, 12, 13, 14]),
+            'right_camera_pose': tf.Transform(location=(8, 9, 10),
+                                              rotation=(11, 12, 13, 14)),
             'right_depth_filename': '/home/user/right_depth.png',
             'right_labels_filename': '/home/user/right_labels.png',
             'right_world_normals_filename': '/home/user/right_normals.png',
