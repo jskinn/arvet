@@ -5,10 +5,6 @@ import util.dict_utils as du
 
 
 def test_vision_system(system, database_client, config=None):
-    if (not isinstance(system, core.system.VisionSystem) or
-            not isinstance(database_client, database.client.DatabaseClient)):
-        return
-
     if config is None:
         config = {}
     else:
