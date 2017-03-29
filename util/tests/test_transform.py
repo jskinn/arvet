@@ -117,6 +117,12 @@ class TestTransform(unittest.TestCase):
         pose_rel = tf.find_independent(pose)
         self.assert_array(pose_rel.location, (11, 12, 13))
 
+    def test_find_independent_pose_changes_orientation(self):
+        pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        pose_rel = tf.find_independent(pose)
+        self.assert_close(pose_rel.euler, (np.pi / 2, np.pi / 4, 0))
+
     def test_find_relative_undoes_point(self):
         loc = (-13, 27, -127)
         qrot = _make_quat((-1, 0.1, -0.37), 7 * np.pi / 26)
