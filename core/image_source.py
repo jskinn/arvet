@@ -1,5 +1,5 @@
 import abc
-import core.image_sequence
+import core.sequence_type
 
 
 class ImageSource(metaclass=abc.ABCMeta):
@@ -17,6 +17,24 @@ class ImageSource(metaclass=abc.ABCMeta):
         Can this image source produce depth images.
         Some algorithms will require depth images
         :return:
+        """
+        return False
+
+    @property
+    @abc.abstractmethod
+    def is_labels_available(self):
+        """
+        Do images from this image source include object lables
+        :return: True if this image source can produce object labels for each image
+        """
+        return False
+
+    @property
+    @abc.abstractmethod
+    def is_normals_available(self):
+        """
+        Do images from this image source include world normals
+        :return: True if images have world normals associated with them 
         """
         return False
 
@@ -41,7 +59,7 @@ class ImageSource(metaclass=abc.ABCMeta):
         :return: The image sequence type enum
         :rtype core.image_sequence.ImageSequenceType:
         """
-        return core.image_sequence.ImageSequenceType.NON_SEQUENTIAL
+        return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
     @abc.abstractmethod
     def begin(self):
@@ -50,7 +68,7 @@ class ImageSource(metaclass=abc.ABCMeta):
         This will trigger any necessary startup code,
         and will allow get_next_image to be called.
         Return False if there is a problem starting the source.
-        :return: True iff
+        :return: True iff we have successfully started iteration
         """
         return False
 
