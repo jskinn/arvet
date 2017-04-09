@@ -19,9 +19,9 @@ class Transform:
 
     I'm going to establish conventions here, and then for each system, convert to and from them.
     THESES ARE THE RULES:
-    - X is forward, Y is up, Z is right
+    - X is forward, Y is left, Z is up
     - This is a right-handed coordinate system
-    - Euler angles are applied Z, Y, X for roll, pitch, yaw, matching tait-bryan approach
+    - Euler angles are applied Z, Y, X for yaw, pitch, and then roll, matching tait-bryan approach
     YOU MUST CONVERT TO THIS COORDINATE SYSTEM
 
     This class can handle quaternions with W either as the first or last element.
