@@ -1,10 +1,11 @@
 import unittest
 import unittest.mock as mock
 import unrealcv
-import util.transform
+import util.transform as tf
 import core.image
 import simulation.controller
 import simulation.unrealcv.unrealcv_simulator as uecvsim
+import simulation.unrealcv.unreal_transform as uetf
 
 
 # Patch the unrealcv Client API for mocking
@@ -60,7 +61,7 @@ class TestUnrealCVSimulator(unittest.TestCase):
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_gets_pose_from_controller(self, mock_client):
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = util.transform.Transform((17,-21,3), (0.1, 0.7, -0.3, 0.5))
+        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
         self.assertFalse(controller.get_next_pose.called)
@@ -69,8 +70,8 @@ class TestUnrealCVSimulator(unittest.TestCase):
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_sets_camera_pose(self, mock_client):
-        pose = util.transform.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
-        unreal_pose = uecvsim.UnrealCVSimulator.transform_to_unreal(pose)   # This is tested elsewhere, assume works
+        pose = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        unreal_pose = uetf.transform_to_unreal(pose)
 
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
@@ -86,10 +87,9 @@ class TestUnrealCVSimulator(unittest.TestCase):
                                                                               unreal_pose.location[1],
                                                                               unreal_pose.location[2]))),
                       mock_client_instance.request.call_args_list)
-        euler = unreal_pose.euler
-        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(euler[0],
-                                                                     euler[1],
-                                                                     euler[2]))),
+        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(unreal_pose.pitch,
+                                                                              unreal_pose.yaw,
+                                                                              unreal_pose.roll))),
                       mock_client_instance.request.call_args_list)
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
@@ -97,65 +97,62 @@ class TestUnrealCVSimulator(unittest.TestCase):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = util.transform.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
 
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
 
         self.assertFalse(mock_client_instance.request.called)
         subject.get_next_image()
-        self.assertIn(mock.call(("vget /camera/0/lit")), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/lit"), mock_client_instance.request.call_args_list)
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_depth(self, mock_client):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = util.transform.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
 
         subject = uecvsim.UnrealCVSimulator(controller, {'provide_depth': True})
         subject.begin()
 
         self.assertFalse(mock_client_instance.request.called)
         subject.get_next_image()
-        self.assertIn(mock.call(("vget /camera/0/depth")), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/depth"), mock_client_instance.request.call_args_list)
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_labels(self, mock_client):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = util.transform.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
 
         subject = uecvsim.UnrealCVSimulator(controller, {'provide_labels': True})
         subject.begin()
 
         self.assertFalse(mock_client_instance.request.called)
         subject.get_next_image()
-        self.assertIn(mock.call(("vget /camera/0/object_mask")), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/object_mask"), mock_client_instance.request.call_args_list)
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_world_normals(self, mock_client):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = util.transform.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
 
         subject = uecvsim.UnrealCVSimulator(controller, {'provide_world_normals': True})
         subject.begin()
 
         self.assertFalse(mock_client_instance.request.called)
         subject.get_next_image()
-        self.assertIn(mock.call(("vget /camera/0/normal")), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/normal"), mock_client_instance.request.call_args_list)
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_returns_images(self, mock_client):
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = util.transform.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
         image = subject.get_next_image()
         self.assertIsInstance(image, core.image.Image)
-
-    #def test_to_and_from_unreal_is_reflexive(self):
-    #    pose = util.transform.Transform((-19, -23, 300), (0.6, -0.7, -0.3, 1.4))

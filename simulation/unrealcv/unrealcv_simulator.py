@@ -1,8 +1,8 @@
-import util.dict_utils as du
-import util.transform as tf
-import simulation.simulator
-import core.image as im
 import unrealcv
+import util.dict_utils as du
+import core.image as im
+import simulation.simulator
+import simulation.unrealcv.unreal_transform as uetf
 
 
 class UnrealCVSimulator(simulation.simulator.Simulator):
@@ -13,8 +13,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         if config is None:
             config = {}
         config = du.defaults(config, {
-            'framerate': 30,    # fps
-            'stereo_offset': 0, # unreal units
+            'framerate': 30,     # fps
+            'stereo_offset': 0,  # unreal units
             'provide_rgb': True,
             'provide_depth': False,
             'provide_labels': False,
@@ -107,9 +107,6 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :return: True iff the simulator has started correctly.
         """
         # TODO: Launch external process running the simulator
-
-
-
         self.controller.reset()
         self._frame_count = 0
         self._timestamp = 0
@@ -148,7 +145,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         and this method lets those that are not end the iteration.
         :return: True
         """
-        return self._max_frames > 0 and self._frame_count >= self._max_frames
+        return 0 < self._max_frames <= self._frame_count
 
     def set_camera_pose(self, pose):
         """
@@ -158,14 +155,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         """
         if self._client is not None:
             self._current_pose = pose
-            unreal_pose = self.transform_to_unreal(pose)
-            euler_rotation = unreal_pose.euler
+            unreal_pose = uetf.transform_to_unreal(pose)
             self._client.request("vset /camera/0/location {0} {1} {2}".format(unreal_pose.location[0],
                                                                               unreal_pose.location[1],
                                                                               unreal_pose.location[2]))
-            self._client.request("vset /camera/0/rotation {0} {1} {2}".format(euler_rotation[0],
-                                                                              euler_rotation[1],
-                                                                              euler_rotation[2]))
+            self._client.request("vset /camera/0/rotation {0} {1} {2}".format(unreal_pose.pitch,
+                                                                              unreal_pose.yaw,
+                                                                              unreal_pose.roll))
 
     def _get_additional_metadata(self):
         # TODO: Add properties like realism settings and camera FOV as we can control them
@@ -224,35 +220,3 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                             labels_filename=labels_filename,
                             world_normals_filename=world_normals_filename)
         return None
-
-    @staticmethod
-    def transform_to_unreal(pose):
-        """
-        Swap the coordinate frames from my standard coordinate frame
-        to the one used by unreal
-        :param pose: A point, as any 3-length indexable, or a Transform object
-        :return: A tuple or Transform representing the same point in unreal coordinates
-        """
-        if isinstance(pose, tf.Transform):
-            location = pose.location
-            location = (location[0], location[2], location[1])
-            rotation = pose.rotation_quat(w_first=True)
-            rotation = (-rotation[0], rotation[0], rotation[2], rotation[1])
-            return tf.Transform(location=location, rotation=rotation)
-        return pose[0], pose[2], pose[1]
-
-    @staticmethod
-    def transform_from_unreal(pose):
-        """
-        Swap the coordinate frames from unreal coordinates
-        to my standard convention
-        :param pose: A point, as any 3-indexable, or a Transform object
-        :return: A point or Transform object, depending on the parameter
-        """
-        if isinstance(pose, tf.Transform):
-            location = pose.location
-            location = (location[0], location[2], location[1])
-            rotation = pose.rotation_quat(w_first=True)
-            rotation = (-rotation[0], rotation[0], rotation[2], rotation[1])
-            return tf.Transform(location=location, rotation=rotation)
-        return pose[0], pose[2], pose[1]
