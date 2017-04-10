@@ -4,6 +4,7 @@ import util.transform as mytf
 
 
 _TORAD = np.pi / 180.0
+_TODEG = 180 / np.pi
 
 
 class UnrealTransform:
@@ -22,7 +23,7 @@ class UnrealTransform:
         """
 
         :param location: A 4x4 homogenous transformation matrix, Transform object, or and 3-indexable tuple
-        :param rotation: Any 3-indexable tuple listing rotation in degrees
+        :param rotation: Any 3-indexable tuple listing rotation in degrees, order (roll, pitch, yaw)
         """
         if isinstance(location, np.ndarray) and location.shape == (4, 4):
             location = mytf.Transform(location)
@@ -142,18 +143,27 @@ class UnrealTransform:
         if isinstance(pose, mytf.Transform):
             pose = transform_to_unreal(pose)
         if isinstance(pose, UnrealTransform):
-            qrot = tf.taitbryan.euler2quat(_TORAD * self.yaw, _TORAD * self.pitch, _TORAD * self.roll)
-            inv_rot = tf.quaternions.qinverse(qrot)
-            loc = tf.quaternions.rotate_vector(np.asarray(pose.location) - np.asarray(self.location), inv_rot)
+            inv_mat = np.transpose(euler2mat(self.roll, self.pitch, self.yaw))
+            pose_mat = euler2mat(pose.roll, pose.pitch, pose.yaw)
 
-            pose_qrot = tf.taitbryan.euler2quat(_TORAD * pose.yaw, _TORAD * pose.pitch, _TORAD * pose.roll)
-            pose_qrot = tf.quaternions.qmult(inv_rot, pose_qrot)
-            rot = tf.taitbryan.quat2euler(pose_qrot)
-            return UnrealTransform(location=loc, rotation=np.asarray(rot) / _TORAD)
+            loc = np.dot(inv_mat, np.asarray(pose.location) - np.asarray(self.location))
+            rot = np.dot(inv_mat, pose_mat)
+            rot = mat2euler(rot)
+
+            quat = euler2quat(self.roll, self.pitch, self.yaw)
+            inv_quat = tf.quaternions.qconjugate(quat)
+            pose_quat = euler2quat(pose.roll, pose.pitch, pose.yaw)
+
+            loc = tf.quaternions.rotate_vector(np.asarray(pose.location) - np.asarray(self.location), inv_quat)
+            rot = tf.quaternions.qmult(inv_quat, pose_quat)
+
+            return UnrealTransform(location=loc, rotation=quat2euler(rot[0], rot[1], rot[2], rot[3]))
+
         elif len(pose) >= 3:
-            qrot = tf.taitbryan.euler2quat(_TORAD * self.yaw, _TORAD * self.pitch, _TORAD * self.roll)
-            inv_rot = tf.quaternions.qinverse(qrot)
-            return tf.quaternions.rotate_vector(np.asarray(pose) - np.asarray(self.location), inv_rot)
+            #inv_mat = np.transpose(euler2mat(self.roll, self.pitch, self.yaw))
+            #return np.dot(inv_mat, np.asarray(pose) - np.asarray(self.location))
+            inv_quat = tf.quaternions.qinverse(euler2quat(self.roll, self.pitch, self.yaw))
+            return tf.quaternions.rotate_vector(np.asarray(pose) - np.asarray(self.location), inv_quat)
         else:
             raise TypeError('find_relative needs to transform a point or pose')
 
@@ -170,18 +180,124 @@ class UnrealTransform:
         if isinstance(pose, mytf.Transform):
             pose = transform_to_unreal(pose)
         if isinstance(pose, UnrealTransform):
-            qrot = tf.taitbryan.euler2quat(_TORAD * self.yaw, _TORAD * self.pitch, _TORAD * self.roll)
-            pose_qrot = tf.taitbryan.euler2quat(_TORAD * pose.yaw, _TORAD * pose.pitch, _TORAD * pose.roll)
+            quat = euler2quat(self.roll, self.pitch, self.yaw)
+            pose_quat = euler2quat(pose.roll, pose.pitch, pose.yaw)
 
-            loc = np.asarray(self.location) + tf.quaternions.rotate_vector(pose.location, qrot)
-            result_qrot = tf.quaternions.qmult(qrot, pose_qrot)
-            rot = tf.taitbryan.quat2euler(result_qrot)
-            return UnrealTransform(location=loc, rotation=np.asarray(rot) / _TORAD)
+            rot = tf.quaternions.qmult(quat, pose_quat)
+            loc = np.asarray(self.location) + np.asarray(tf.quaternions.rotate_vector(pose.location, quat))
+
+            return UnrealTransform(location=loc, rotation=quat2euler(rot[0], rot[1], rot[2], rot[3]))
         elif len(pose) >= 3:
-            qrot = tf.taitbryan.euler2quat(_TORAD * self.yaw, _TORAD * self.pitch, _TORAD * self.roll)
-            return tf.quaternions.rotate_vector(pose, qrot) + np.asarray(self.location)
+            #mat = euler2mat(self.roll, self.pitch, self.yaw)
+            #return np.dot(mat, np.asarray(pose)) + np.asarray(self.location)
+            quat = euler2quat(self.roll, self.pitch, self.yaw)
+            return tf.quaternions.rotate_vector(np.asarray(pose), quat) + np.asarray(self.location)
+
         else:
             raise TypeError('find_independent needs to transform a point or pose')
+
+
+def euler2mat(roll, pitch, yaw):
+    """
+    Create a rotation matrix for the orientation expressed by this transform.
+    Copied directly from FRotationTranslationMatrix::FRotationTranslationMatrix
+    in Engine/Source/Runtime/Core/Public/Math/RotationTranslationMatrix.h ln 32
+    :return:
+    """
+    angles = _TORAD * np.array((roll, pitch, yaw))
+    sr, sp, sy = np.sin(angles)
+    cr, cp, cy = np.cos(angles)
+
+    return np.array([
+        [cp * cy, sr * sp * cy - cr * sy, -(cr * sp * cy + sr * sy)],
+        [cp * sy, sr * sp * sy + cr * cy, cy * sr - cr * sp * sy],
+        [sp     , -sr * cp              , cr * cp]
+    ])
+
+
+def mat2euler(mat):
+    """
+    Go back from a rotation matrix to euler angles
+    This is copied from FMatrix::Rotator(),
+    in Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp ln 473
+
+    :param mat:
+    :return:
+    """
+    x_axis = mat[0, 0:3]
+    y_axis = mat[1, 0:3]
+    z_axis = mat[2, 0:3]
+
+    pitch = np.arctan2(x_axis[2], np.sqrt(x_axis[0] * x_axis[0] + x_axis[1] * x_axis[1])) * _TODEG
+    yaw = np.arctan2(x_axis[1], x_axis[0]) / _TORAD
+
+    temp_mat = euler2mat(0, pitch, yaw)
+    sy_axis = temp_mat[1, 0:3]
+    # For some crazy reason '|' means dot product for unreal FVector
+    roll = np.arctan2(np.dot(z_axis, sy_axis), np.dot(y_axis, sy_axis)) * _TODEG
+    return roll, pitch, yaw
+
+
+def euler2quat(roll, pitch, yaw):
+    """
+    Convert Unreal Euler angles to a quaternion.
+    Based on FRotator::Quaternion in
+    Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp ln 373
+    :param roll: Roll angle
+    :param pitch: Pitch angle
+    :param yaw: Yaw angle
+    :return: A tuple quaternion in unreal space, w first
+    """
+    angles = np.array([roll, pitch, yaw])
+    angles = angles * _TORAD / 2
+    sr, sp, sy = np.sin(angles)
+    cr, cp, cy = np.cos(angles)
+
+    x =  cr * sp * sy - sr * cp * cy
+    y = -cr * sp * cy - sr * cp * sy
+    z =  cr * cp * sy - sr * sp * cy
+    w =  cr * cp * cy + sr * sp * sy
+    return w, x, y, z
+
+
+def quat2euler(w, x, y, z):
+    """
+    Convert a quaternion in unreal space to euler angles.
+    Based on FQuat::Rotator in
+    Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp ln 536
+    which is in turn based on
+    https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
+    :param w:
+    :param x:
+    :param y:
+    :param z:
+    :return:
+    """
+    SINGULARITY_THRESHOLD = 0.4999995
+
+    singularity_test = z * x - w * y
+    yaw_y = 2 * (w * z + x * y)
+    yaw_x = 1 - 2 * (y * y + z * z)
+
+    yaw = np.arctan2(yaw_y, yaw_x) * _TODEG
+    if singularity_test < -SINGULARITY_THRESHOLD:
+        pitch = -90
+        roll = _clamp_axis(-yaw - 2 * np.arctan2(x, w) * _TODEG)
+    elif singularity_test > SINGULARITY_THRESHOLD:
+        pitch = 90
+        roll = _clamp_axis(yaw - 2 * np.arctan2(x, w) * _TODEG)
+    else:
+        pitch = np.arcsin(2 * singularity_test) / _TORAD
+        roll = np.arctan2(-2 * (w * x + y * z), (1 - 2 * (x * x + y * y))) * _TODEG
+    return roll, pitch, yaw
+
+
+def _clamp_axis(angle):
+    angle %= 360
+    if angle < -180:
+        angle += 360
+    return angle
 
 
 def transform_to_unreal(pose):
@@ -192,13 +308,18 @@ def transform_to_unreal(pose):
     :return: An UnrealTransform object.
     """
     if isinstance(pose, mytf.Transform):
-        location = pose.location
-        location = (location[0], location[2], location[1])
+        location = (pose.location[0], -pose.location[1], pose.location[2])
         rotation = pose.rotation_quat(w_first=True)
-        rotation = (rotation[0], -rotation[1], -rotation[3], -rotation[2])
-        rotation = tf.taitbryan.quat2euler(rotation)
-        return UnrealTransform(location=location, rotation=np.asarray(rotation) / _TORAD)
-    return pose[0], pose[2], pose[1]
+        # Invert Y axis to go to quaternion in unreal frame
+        rotation = (rotation[0], rotation[1], -rotation[2], rotation[3])
+        # Invert the direction of rotation since we're now in a left handed coordinate frame
+        rotation = tf.quaternions.qinverse(rotation)
+        #rotation = tf.taitbryan.quat2euler(rotation)
+        # Change the axis order to roll, pitch, yaw in UE coordinates
+        #rotation = np.array([rotation[2], rotation[1], rotation[0]])
+        #return UnrealTransform(location=location, rotation=rotation * _TODEG)
+        return UnrealTransform(location=location, rotation=quat2euler(rotation[0], rotation[1], rotation[2], rotation[3]))
+    return pose[0], -pose[1], pose[2]
 
 
 def transform_from_unreal(pose):
@@ -209,9 +330,14 @@ def transform_from_unreal(pose):
     :return: A point or Transform object, depending on the parameter
     """
     if isinstance(pose, UnrealTransform):
-        location = pose.location
-        location = (location[0], location[2], location[1])
-        rotation = tf.taitbryan.euler2quat(pose.yaw / _TORAD, pose.pitch / _TORAD, pose.roll / _TORAD)
-        rotation = (rotation[0], -rotation[1], -rotation[3], -rotation[2])
+        location = (pose.location[0], -pose.location[1], pose.location[2])
+        #rotation = tf.taitbryan.euler2quat(pose.yaw * _TORAD, pose.pitch * _TORAD, pose.roll * _TORAD)
+        rotation = euler2quat(pose.roll, pose.pitch, pose.yaw)
+        # Invert the direction of rotation to go to a right-handed coordinate frame
+        rotation = tf.quaternions.qinverse(rotation)
+        # Invert Y-axis to go to my coordinate frame
+        rotation = (rotation[0], rotation[1], -rotation[2], rotation[3])
+
+
         return mytf.Transform(location=location, rotation=rotation, w_first=True)
-    return (pose[0], pose[2], pose[1])
+    return pose[0], -pose[1], pose[2]
