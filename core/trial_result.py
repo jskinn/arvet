@@ -5,6 +5,7 @@ class TrialResult(database.entity.Entity):
     """
     The result of running a particular system with images from a particular image source.
     Contains all the relevant information from the run, and is passed to the benchmark to measure the performance.
+    THIS MUST INCLUDE THE GROUND-TRUTH, for whatever the system is trying to measure.
     Different subtypes of VisionSystem will have different subclasses of this.
 
     All Trial results have a one to many relationship with a particular dataset and system.

@@ -22,9 +22,10 @@ class Benchmark(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def benchmark_results(self, dataset_images, trial_result):
+    def benchmark_results(self, trial_result):
         """
-        Benchmark the result of a particular trial
+        Benchmark the result of a particular trial.
+        The trial result MUST include the ground truth along with the system estimates.
 
         :param dataset_images: DatasetImageSet The dataset with loaded images that produced the trial result
         :param trial_result: TrialResult
