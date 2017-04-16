@@ -20,31 +20,35 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
 
     @property
     def num_pairs(self):
-        return len(self._translational_error)
+        return len(self.translational_error)
 
     @property
     def rmse(self):
-        return np.sqrt(np.dot(self._translational_error, self._translational_error) / self._num_pairs)
+        return np.sqrt(np.dot(self.translational_error, self.translational_error) / self.num_pairs)
 
     @property
     def mean(self):
-        return np.mean(self._translational_error)
+        return np.mean(self.translational_error)
 
     @property
     def median(self):
-        return np.median(self._translational_error)
+        return np.median(self.translational_error)
 
     @property
     def std(self):
-        return np.std(self._translational_error)
+        return np.std(self.translational_error)
 
     @property
     def min(self):
-        return np.min(self._translational_error)
+        return np.min(self.translational_error)
 
     @property
     def max(self):
-        return np.max(self._translational_error)
+        return np.max(self.translational_error)
+
+    @property
+    def translational_error(self):
+        return self.translational_error
 
     @property
     def settings(self):
@@ -52,7 +56,7 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
 
     def serialize(self):
         output = super().serialize()
-        output['trans_error'] = bson.Binary(pickle.dumps(self._translational_error, protocol=pickle.HIGHEST_PROTOCOL))
+        output['trans_error'] = bson.Binary(pickle.dumps(self.translational_error, protocol=pickle.HIGHEST_PROTOCOL))
         output['settings'] = self.settings
         return output
 
