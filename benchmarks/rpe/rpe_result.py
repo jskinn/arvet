@@ -46,6 +46,10 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
         return np.max(self._trans_error)
 
     @property
+    def translational_error(self):
+        return self._trans_error
+
+    @property
     def rot_rmse(self):
         return np.sqrt(np.dot(self._rot_error, self._rot_error)) / len(self._rot_error)
 
@@ -70,13 +74,18 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
         return np.min(self._rot_error)
 
     @property
+    def rotational_error(self):
+        return self._rot_error
+
+    @property
     def settings(self):
         return self._rpe_settings
 
     def serialize(self):
         output = super().serialize()
-        output['translational_error'] = bson.Binary(pickle.dumps(self._trans_error, protocol=pickle.HIGHEST_PROTOCOL))
-        output['rotational_error'] = bson.Binary(pickle.dumps(self._rot_error, protocol=pickle.HIGHEST_PROTOCOL))
+        output['translational_error'] = bson.Binary(pickle.dumps(self.translational_error,
+                                                                 protocol=pickle.HIGHEST_PROTOCOL))
+        output['rotational_error'] = bson.Binary(pickle.dumps(self.rotational_error, protocol=pickle.HIGHEST_PROTOCOL))
         output['settings'] = self.settings
         return output
 

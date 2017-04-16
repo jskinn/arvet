@@ -30,13 +30,13 @@ class ATEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
         :return: 
         """
         trans_error_diff = reference_benchmark_result.translational_error - benchmark_result.translational_error
-        return BenchmarkATEComparisonResult(benchmark_comparison_id=self.identifier,
+        return ATEBenchmarkComparisonResult(benchmark_comparison_id=self.identifier,
                                             benchmark_result=benchmark_result.identifier,
                                             reference_benchmark_result=reference_benchmark_result.identifier,
                                             difference_in_translational_error=trans_error_diff)
 
 
-class BenchmarkATEComparisonResult(core.benchmark_comparison.BenchmarkComparisonResult):
+class ATEBenchmarkComparisonResult(core.benchmark_comparison.BenchmarkComparisonResult):
     """
     The result of comparing two Absolute Trajectory Error measurements.
     Is just the difference in translational error 
