@@ -15,7 +15,8 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
 
     def __init__(self, benchmark_id, trial_result_id, translational_error,
                  rotational_error, rpe_settings, id_=None, **kwargs):
-        super().__init__(benchmark_id, trial_result_id, True, id_, **kwargs)
+        kwargs['success'] = True
+        super().__init__(benchmark_id=benchmark_id, trial_result_id=trial_result_id, id_=id_, **kwargs)
 
         self._trans_error = translational_error
         self._rot_error = rotational_error
@@ -96,5 +97,5 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
         if 'rotational_error' in serialized_representation:
             kwargs['rotational_error'] = pickle.loads(serialized_representation['rotational_error'])
         if 'settings' in serialized_representation:
-            kwargs['ate_settings'] = serialized_representation['settings']
+            kwargs['rpe_settings'] = serialized_representation['settings']
         return super().deserialize(serialized_representation, **kwargs)
