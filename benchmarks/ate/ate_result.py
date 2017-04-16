@@ -14,7 +14,8 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
     """
 
     def __init__(self, benchmark_id, trial_result_id, translational_error, ate_settings, id_=None, **kwargs):
-        super().__init__(benchmark_id, trial_result_id, True, id_, **kwargs)
+        kwargs['success'] = True
+        super().__init__(benchmark_id=benchmark_id, trial_result_id=trial_result_id, id_=id_, **kwargs)
         self._translational_error = translational_error
         self._ate_settings = ate_settings
 
@@ -48,7 +49,7 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
 
     @property
     def translational_error(self):
-        return self.translational_error
+        return self._translational_error
 
     @property
     def settings(self):

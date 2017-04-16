@@ -43,8 +43,12 @@ class ATEBenchmarkComparisonResult(core.benchmark_comparison.BenchmarkComparison
     """
 
     def __init__(self, benchmark_comparison_id, benchmark_result, reference_benchmark_result,
-                 difference_in_translational_error, id_=None):
-        super().__init__(benchmark_comparison_id, benchmark_result, reference_benchmark_result, True, id_)
+                 difference_in_translational_error, id_=None, **kwargs):
+        kwargs['success'] = True
+        super().__init__(benchmark_comparison_id=benchmark_comparison_id,
+                         benchmark_result=benchmark_result,
+                         reference_benchmark_result=reference_benchmark_result,
+                         id_=id_, **kwargs)
         self._trans_error_diff = difference_in_translational_error
 
     @property

@@ -108,6 +108,7 @@ class BenchmarkATE(core.benchmark.Benchmark):
         """
         ground_truth_traj = trial_result.get_ground_truth_camera_poses()
         result_traj = trial_result.get_computed_camera_poses()
+        # TODO: Fix the format of these trajectories to what is expected below
         matches = ass.associate(ground_truth_traj, result_traj, self.offset, self.max_difference)
         if len(matches) < 2:
             return core.benchmark.FailedBenchmark(self.identifier, trial_result.identifier,
