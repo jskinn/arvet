@@ -29,6 +29,9 @@ class RPEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
         :param reference_benchmark_result: 
         :return: 
         """
+
+        #TODO: Need to match the timestamps between the test and reference results.
+
         trans_error_diff = reference_benchmark_result.translational_error - benchmark_result.translational_error
         rot_error_diff = reference_benchmark_result.rotational_error - benchmark_result.rotational_error
         return RPEBenchmarkComparisonResult(benchmark_comparison_id=self.identifier,
