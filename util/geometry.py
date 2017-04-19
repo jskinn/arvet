@@ -15,9 +15,3 @@ def numpy_vector_to_dict(vector):
 
 def numpy_quarternion_to_dict(quarternion):
     return {'X': quarternion[0], 'Y': quarternion[1], 'Z': quarternion[2], 'W': quarternion[3]}
-
-
-def square_length(vector):
-    if isinstance(vector, np.ndarray):
-        return np.sum(vector**2)
-    return vector

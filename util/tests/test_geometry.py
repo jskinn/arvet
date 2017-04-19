@@ -62,14 +62,3 @@ class TestGeometry(unittest.TestCase):
     def test_numpy_quaternion_to_dict(self):
         result = g.numpy_quarternion_to_dict(np.array([1, 2, 3, 4]))
         self.assertEquals(result, {'X': 1, 'Y': 2, 'Z': 3, 'W': 4})
-
-    def test_square_length(self):
-        result = g.square_length(np.array([1,2,3]))
-        self.assertEquals(result, 14)
-
-    def test_square_length_detailed(self):
-        for a in range(-10, 10, 3):
-            x = a * 1.63436326 * np.sin(a)
-            y = x * 8.46546780 * np.sin(x)
-            z = y * 4.27345834 * np.sin(y)
-            self.assertEquals(g.square_length(np.array([x, y, z])), x*x + y*y + z*z)
