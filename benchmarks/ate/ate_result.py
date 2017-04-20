@@ -19,33 +19,43 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
         self._translational_error = translational_error
         self._ate_settings = ate_settings
 
+        # Compute and cache error statistics
+        # We expect translational error to be a map of timestamps to error values as single floats.
+        error_array = np.array(list(translational_error.values()))
+        self._rmse = np.sqrt(np.dot(error_array, error_array) / len(translational_error))
+        self._mean = np.mean(error_array)
+        self._median = np.median(error_array)
+        self._std = np.std(error_array)
+        self._min = np.min(error_array)
+        self._max = np.max(error_array)
+
     @property
     def num_pairs(self):
         return len(self.translational_error)
 
     @property
     def rmse(self):
-        return np.sqrt(np.dot(self.translational_error, self.translational_error) / self.num_pairs)
+        return self._rmse
 
     @property
     def mean(self):
-        return np.mean(self.translational_error)
+        return self._mean
 
     @property
     def median(self):
-        return np.median(self.translational_error)
+        return self._median
 
     @property
     def std(self):
-        return np.std(self.translational_error)
+        return self._std
 
     @property
     def min(self):
-        return np.min(self.translational_error)
+        return self._min
 
     @property
     def max(self):
-        return np.max(self.translational_error)
+        return self._max
 
     @property
     def translational_error(self):
@@ -65,8 +75,6 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
     def deserialize(cls, serialized_representation, **kwargs):
         if 'trans_error' in serialized_representation:
             kwargs['translational_error'] = pickle.loads(serialized_representation['trans_error'])
-        else:
-            kwargs['translational_error'] = np.array(())
         if 'settings' in serialized_representation:
             kwargs['ate_settings'] = serialized_representation['settings']
         return super().deserialize(serialized_representation, **kwargs)

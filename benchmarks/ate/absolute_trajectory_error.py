@@ -116,23 +116,27 @@ class BenchmarkATE(core.benchmark.Benchmark):
                                                   "between groundtruth and estimated trajectory! "
                                                   "Did you choose the correct sequence?")
 
-        # Construct matrices of the ground truth and calculated
-        ground_truth_xyz = np.matrix([[float(value)
-                                       for value
-                                       in ground_truth_traj[a][0:3]]
-                                      for a, b
-                                      in matches]).transpose()
-        result_xyz = np.matrix([[float(value) * float(self.scale)
-                                 for value
-                                 in result_traj[b][0:3]]
-                                for a, b
-                                in matches]).transpose()
+        # Construct matrices of the ground truth and calculated poses
+        ground_truth_xyz = []
+        result_xyz = []
+        gt_timestamps = []
+        for gt_stamp, result_stamp in matches:
+            ground_truth_xyz.append(ground_truth_traj[gt_stamp].location)
+            result_xyz.append(result_traj[result_stamp].location * float(self.scale))
+            gt_timestamps.append(gt_stamp)
 
         # Align the two trajectories, based on the matching timestamps from both
+        ground_truth_xyz = np.matrix(ground_truth_xyz).transpose()
+        result_xyz = np.matrix(result_xyz).transpose()
         rot, trans, trans_error = align(result_xyz, ground_truth_xyz)
 
+        # Match the trans error back to its ground-truth timestamps
+        mapped_error = {}
+        for col_num, timestamp in enumerate(gt_timestamps):
+            mapped_error[timestamp] = trans_error[col_num]
+
         return benchmarks.ate.ate_result.BenchmarkATEResult(self.identifier, trial_result.identifier,
-                                                            trans_error, self.get_settings())
+                                                            mapped_error, self.get_settings())
 
 
 def trajectory_to_dict(trajectory):

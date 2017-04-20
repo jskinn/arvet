@@ -37,6 +37,9 @@ class EntityContract(metaclass=abc.ABCMeta):
         """
         pass
 
+    def assert_serialized_equal(self, s_model1, s_model2):
+        self.assertEqual(s_model1, s_model2)
+
     def test_identifier(self):
         entity = self.make_instance(id_=123)
         self.assertEquals(entity.identifier, 123)
@@ -61,14 +64,14 @@ class EntityContract(metaclass=abc.ABCMeta):
         s_entity2 = entity2.serialize()
 
         self.assert_models_equal(entity1, entity2)
-        self.assertEquals(s_entity1, s_entity2)
+        self.assert_serialized_equal(s_entity1, s_entity2)
 
         for idx in range(0, 10):
             # Test that repeated serialization and deserialization does not degrade the information
             entity2 = EntityClass.deserialize(s_entity2)
             s_entity2 = entity2.serialize()
             self.assert_models_equal(entity1, entity2)
-            self.assertEquals(s_entity1, s_entity2)
+            self.assert_serialized_equal(s_entity1, s_entity2)
 
     def test_entity_automatically_registered(self):
         EntityClass = self.get_class()

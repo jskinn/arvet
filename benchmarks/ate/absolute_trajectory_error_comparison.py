@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import bson
+import util.associate as ass
 import core.benchmark_comparison
 
 
@@ -10,9 +11,42 @@ class ATEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
     Basically just the difference in translational error.
     """
 
+    def __init__(self, offset=0, max_difference=0.02):
+        """
+        Make a Comparison Benchmark for ATE,
+        parameters are for configuring the matches between the two compared benchmarks 
+        :param offset: Offset between
+        :param max_difference:
+        """
+        self._offset = offset
+        self._max_difference = max_difference
+
     @property
     def identifier(self):
         return 'AbsoluteTrajectoryErrorComparison'
+
+    @property
+    def offset(self):
+        return self._offset
+
+    @offset.setter
+    def offset(self, offset):
+        self._offset = offset
+
+    @property
+    def max_difference(self):
+        return self._max_difference
+
+    @max_difference.setter
+    def max_difference(self, max_difference):
+        if max_difference >= 0:
+            self._max_difference = max_difference
+
+    def get_settings(self):
+        return {
+            'offset': self.offset,
+            'max_difference': self.max_difference
+        }
 
     def get_trial_requirements(self):
         """
@@ -29,12 +63,18 @@ class ATEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
         :param reference_benchmark_result: 
         :return: 
         """
-        # TODO: Need to match the timestamps between the test and reference results.
-        trans_error_diff = reference_benchmark_result.translational_error - benchmark_result.translational_error
+        matches = ass.associate(reference_benchmark_result.translational_error, benchmark_result.translational_error,
+                                offset=self.offset, max_difference=self.max_difference)
+
+        trans_error_diff = {}
+        for ref_stamp, result_stamp in matches:
+            trans_error_diff[ref_stamp] = (reference_benchmark_result.translational_error[ref_stamp] -
+                                           benchmark_result.translational_error[result_stamp])
         return ATEBenchmarkComparisonResult(benchmark_comparison_id=self.identifier,
                                             benchmark_result=benchmark_result.identifier,
                                             reference_benchmark_result=reference_benchmark_result.identifier,
-                                            difference_in_translational_error=trans_error_diff)
+                                            difference_in_translational_error=trans_error_diff,
+                                            settings=self.get_settings())
 
 
 class ATEBenchmarkComparisonResult(core.benchmark_comparison.BenchmarkComparisonResult):
@@ -44,17 +84,31 @@ class ATEBenchmarkComparisonResult(core.benchmark_comparison.BenchmarkComparison
     """
 
     def __init__(self, benchmark_comparison_id, benchmark_result, reference_benchmark_result,
-                 difference_in_translational_error, id_=None, **kwargs):
+                 difference_in_translational_error, settings, id_=None, **kwargs):
         kwargs['success'] = True
         super().__init__(benchmark_comparison_id=benchmark_comparison_id,
                          benchmark_result=benchmark_result,
                          reference_benchmark_result=reference_benchmark_result,
                          id_=id_, **kwargs)
         self._trans_error_diff = difference_in_translational_error
+        self._settings = settings
+
+        # Compute and cache error statistics
+        error_array = np.array(list(difference_in_translational_error.values()))
+        self._rmse = np.sqrt(np.dot(error_array, error_array) / len(difference_in_translational_error))
+        self._mean = np.mean(error_array)
+        self._median = np.median(error_array)
+        self._std = np.std(error_array)
+        self._min = np.min(error_array)
+        self._max = np.max(error_array)
 
     @property
     def translational_error_difference(self):
         return self._trans_error_diff
+
+    @property
+    def settings(self):
+        return self._settings
 
     @property
     def num_pairs(self):
@@ -62,12 +116,11 @@ class ATEBenchmarkComparisonResult(core.benchmark_comparison.BenchmarkComparison
 
     @property
     def rmse(self):
-        return np.sqrt(np.dot(self.translational_error_difference, self.translational_error_difference) /
-                       self.num_pairs)
+        return self._rmse
 
     @property
     def mean(self):
-        return np.mean(self.translational_error_difference)
+        return self._mean
 
     @property
     def median(self):
@@ -89,10 +142,13 @@ class ATEBenchmarkComparisonResult(core.benchmark_comparison.BenchmarkComparison
         output = super().serialize()
         output['trans_error_diff'] = bson.Binary(pickle.dumps(self.translational_error_difference,
                                                               protocol=pickle.HIGHEST_PROTOCOL))
+        output['settings'] = self.settings
         return output
 
     @classmethod
     def deserialize(cls, serialized_representation, **kwargs):
         if 'trans_error_diff' in serialized_representation:
             kwargs['difference_in_translational_error'] = pickle.loads(serialized_representation['trans_error_diff'])
+        if 'settings' in serialized_representation:
+            kwargs['settings'] = serialized_representation['settings']
         return super().deserialize(serialized_representation, **kwargs)
