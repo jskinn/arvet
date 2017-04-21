@@ -8,17 +8,9 @@ import benchmarks.ate.absolute_trajectory_error as ate
 
 
 def create_random_trajectory(random_state, duration=600, length=100):
-    return {random_state.rand() * duration: tf.Transform(location=2000 * (random_state.rand(3) - 0.5),
-                                                      rotation=random_state.rand(4))
+    return {random_state.uniform(0, duration): tf.Transform(location=random_state.uniform(-1000, 1000, 3),
+                                                            rotation=random_state.uniform(0, 1, 4))
             for _ in range(length)}
-
-
-def rand_range(min_, max_, random_state):
-    if hasattr(max_, 'shape'):
-        shape = max_.shape
-    else:
-        shape = ()
-    return min_ + (max_ - min_) * random_state.rand(*shape)
 
 
 def create_noise(trajectory, random_state, time_offset=0, time_noise=0.01, loc_noise=100):
@@ -27,15 +19,15 @@ def create_noise(trajectory, random_state, time_offset=0, time_noise=0.01, loc_n
 
     noise = {}
     for time, pose in trajectory.items():
-        noise[time] = rand_range(-loc_noise, loc_noise, random_state)
+        noise[time] = random_state.uniform(-loc_noise, loc_noise)
 
-    relative_frame = tf.Transform(location=2000 * random_state.rand(3) - 1000,
-                                  rotation=random_state.rand(4))
+    relative_frame = tf.Transform(location=random_state.uniform(-1000, 1000, 3),
+                                  rotation=random_state.uniform(0, 1, 4))
 
     changed_trajectory = {}
     for time, pose in trajectory.items():
         relative_pose = relative_frame.find_relative(pose)
-        changed_trajectory[time + time_offset + rand_range(-time_noise, time_noise, random_state)] = tf.Transform(
+        changed_trajectory[time + time_offset + random_state.uniform(-time_noise, time_noise)] = tf.Transform(
             location=relative_pose.location + noise[time],
             rotation=relative_pose.rotation_quat(w_first=True),
             w_first=True)
@@ -110,7 +102,7 @@ class TestBenchmarkATE(unittest.TestCase):
         result = benchmark.benchmark_results(self.trial_result)
         self.assertIsInstance(result, core.benchmark.FailedBenchmark)
 
-    def test_benchmark_results_estimates_no_noise_for_identical_trajectory(self):
+    def test_benchmark_results_estimates_no_error_for_identical_trajectory(self):
         # Copy the ground truth exactly
         self.trial_result.computed_trajectory = copy.deepcopy(self.trial_result.ground_truth_trajectory)
 
@@ -120,7 +112,7 @@ class TestBenchmarkATE(unittest.TestCase):
         for time, error in result.translational_error.items():
             self.assertAlmostEquals(0, error)
 
-    def test_benchmark_results_estimates_no_noise_for_noiseless_trajectory(self):
+    def test_benchmark_results_estimates_no_error_for_noiseless_trajectory(self):
         # Create a new computed trajectory with no noise
         comp_traj, noise = create_noise(self.trial_result.ground_truth_trajectory,
                                         self.random,

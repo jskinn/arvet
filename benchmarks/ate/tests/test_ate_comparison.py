@@ -18,9 +18,12 @@ class TestATEBenchmarkComparisonResult(entity_test.EntityContract, unittest.Test
             'benchmark_comparison_id': np.random.randint(0, 10),
             'benchmark_result': np.random.randint(10, 20),
             'reference_benchmark_result': np.random.randint(20, 30),
-            'difference_in_translational_error': {np.random.rand() * 600: 2000 * np.random.rand() - 1000
+            'difference_in_translational_error': {np.random.uniform(0 ,600): np.random.uniform(-1000, 1000)
                                                   for _ in range(100)},
-            'settings': {}
+            'settings': {
+                'offset': np.random.randint(40, 50),
+                'max_difference': np.random.randint(50, 60)
+            }
         })
         return ate_comp.ATEBenchmarkComparisonResult(*args, **kwargs)
 
@@ -69,14 +72,14 @@ class TestATEBenchmarkComparison(unittest.TestCase):
         random = np.random.RandomState(1687)
         benchmark_result1 = ate_res.BenchmarkATEResult(benchmark_id=random.randint(0, 10),
                                                        trial_result_id=random.randint(10, 20),
-                                                       translational_error={random.rand() * 600:
-                                                                                200 * random.rand() - 100
+                                                       translational_error={random.uniform(0, 600):
+                                                                                random.uniform(-100, 100)
                                                                             for _ in range(100)},
                                                        ate_settings={})
         benchmark_result2 = ate_res.BenchmarkATEResult(benchmark_id=random.randint(20, 30),
                                                        trial_result_id=random.randint(30, 40),
-                                                       translational_error={random.rand() * 600:
-                                                                                200 * random.rand() - 100
+                                                       translational_error={random.uniform(0, 600):
+                                                                                random.uniform(-100, 100)
                                                                             for _ in range(100)},
                                                        ate_settings={})
 
@@ -90,7 +93,7 @@ class TestATEBenchmarkComparison(unittest.TestCase):
     def test_comparison_returns_error_diff(self):
         random = np.random.RandomState(1425)
 
-        ref_error = {random.rand() * 600: 200 * random.rand() - 100 for _ in range(10)}
+        ref_error = {random.uniform(0, 600): random.uniform(-100, 100) for _ in range(100)}
         ref_benchmark_result = ate_res.BenchmarkATEResult(benchmark_id=random.randint(0, 10),
                                                           trial_result_id=random.randint(10, 20),
                                                           translational_error=ref_error,
@@ -98,10 +101,10 @@ class TestATEBenchmarkComparison(unittest.TestCase):
 
         # Add error to the tested benchmark result
         added_error = {}
-        test_error = {random.rand() * 600 + 1000: 200 * random.rand() - 100 for _ in range(1)}
+        test_error = {random.uniform(0, 600) + 1000: random.uniform(-100, 100) for _ in range(10)}
         for time, error in ref_error.items():
-            added_error[time] = 100 * random.rand() - 50
-            test_error[time + 0.01 * random.rand() - 0.005] = error + added_error[time]
+            added_error[time] = random.uniform(-50, 50)
+            test_error[time + random.uniform(-0.005, 0.005)] = error + added_error[time]
         subject_benchmark_result = ate_res.BenchmarkATEResult(benchmark_id=random.randint(20, 30),
                                                               trial_result_id=random.randint(30, 40),
                                                               translational_error=test_error,

@@ -15,7 +15,7 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         kwargs = du.defaults(kwargs, {
             'benchmark_id': np.random.randint(0, 10),
             'trial_result_id': np.random.randint(10, 20),
-            'translational_error': {np.random.rand()*600:  200 * np.random.rand() - 100 for _ in range(100)},
+            'translational_error': {np.random.uniform(0, 600): np.random.uniform(-100, 100) for _ in range(100)},
             'ate_settings': {}
         })
         return ate_res.BenchmarkATEResult(*args, **kwargs)
@@ -62,6 +62,16 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
         self.assertEquals(np.mean(trans_error), subject.mean)
+
+    def test_median_is_correct(self):
+        subject = self.make_instance()
+        trans_error = np.array(list(subject.translational_error.values()))
+        self.assertEquals(np.median(trans_error), subject.median)
+
+    def test_std_is_correct(self):
+        subject = self.make_instance()
+        trans_error = np.array(list(subject.translational_error.values()))
+        self.assertEquals(np.std(trans_error), subject.std)
 
     def test_min_is_correct(self):
         subject = self.make_instance()
