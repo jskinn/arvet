@@ -6,19 +6,19 @@ class TestDatabaseHelpers(unittest.TestCase):
 
     def test_combines_keys(self):
         result = dh.query_to_dot_notation({'a': {'b': 1}})
-        self.assertEquals(result, {'a.b': 1})
+        self.assertEqual(result, {'a.b': 1})
 
     def test_passes_through_non_nested_keys(self):
         result = dh.query_to_dot_notation({'a': 1})
-        self.assertEquals(result, {'a': 1})
+        self.assertEqual(result, {'a': 1})
 
     def test_handles_nested_and_non_nested_keys(self):
         result = dh.query_to_dot_notation({'a': 1, 'b': { 'a': 2.1 }})
-        self.assertEquals(result, {'a': 1, 'b.a': 2.1})
+        self.assertEqual(result, {'a': 1, 'b.a': 2.1})
 
     def test_works_recursively(self):
         result = dh.query_to_dot_notation({'a': {'b': {'c': {'d': 1}}}})
-        self.assertEquals(result, {'a.b.c.d': 1})
+        self.assertEqual(result, {'a.b.c.d': 1})
 
     def test_big(self):
         result = dh.query_to_dot_notation({
@@ -71,7 +71,7 @@ class TestDatabaseHelpers(unittest.TestCase):
                 }
             }
         })
-        self.assertEquals(result, {
+        self.assertEqual(result, {
             'a': 1,
             'b': 2,
             'c.a': 3.1,

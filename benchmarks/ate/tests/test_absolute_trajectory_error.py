@@ -81,8 +81,8 @@ class TestBenchmarkATE(unittest.TestCase):
         result = benchmark.benchmark_results(self.trial_result)
         self.assertIsInstance(result, core.benchmark.BenchmarkResult)
         self.assertNotIsInstance(result, core.benchmark.FailedBenchmark)
-        self.assertEquals(benchmark.identifier, result.benchmark)
-        self.assertEquals(self.trial_result.identifier, result.trial_result)
+        self.assertEqual(benchmark.identifier, result.benchmark)
+        self.assertEqual(self.trial_result.identifier, result.trial_result)
 
     def test_benchmark_results_fails_for_no_matching_timestaps(self):
         # Create two trajectories with no matching keys
@@ -110,7 +110,7 @@ class TestBenchmarkATE(unittest.TestCase):
         result = benchmark.benchmark_results(self.trial_result)
 
         for time, error in result.translational_error.items():
-            self.assertAlmostEquals(0, error)
+            self.assertAlmostEqual(0, error)
 
     def test_benchmark_results_estimates_no_error_for_noiseless_trajectory(self):
         # Create a new computed trajectory with no noise
@@ -125,7 +125,7 @@ class TestBenchmarkATE(unittest.TestCase):
         result = benchmark.benchmark_results(self.trial_result)
 
         for time, error in result.translational_error.items():
-            self.assertAlmostEquals(0, error)
+            self.assertAlmostEqual(0, error)
 
     def test_benchmark_results_estimates_reasonable_trajectory_noise(self):
         benchmark = ate.BenchmarkATE()

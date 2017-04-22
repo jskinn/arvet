@@ -30,11 +30,12 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         if (not isinstance(benchmark_result1, ate_res.BenchmarkATEResult) or
                 not isinstance(benchmark_result2, ate_res.BenchmarkATEResult)):
             self.fail('object was not a BenchmarkATEResult')
-        self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEquals(benchmark_result1.success, benchmark_result2.success)
-        self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertEquals(benchmark_result1.translational_error, benchmark_result2.translational_error)
+        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
+        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
+        self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
+        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.translational_error, benchmark_result2.translational_error)
+        self.assertEqual(benchmark_result1.settings, benchmark_result2.settings)
 
     def assert_serialized_equal(self, s_model1, s_model2):
         """
@@ -43,15 +44,15 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         :param s_model2: 
         :return: 
         """
-        self.assertEquals(set(s_model1.keys()), set(s_model2.keys()))
+        self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
         for key in s_model1.keys():
             if key is not 'trans_error':
-                self.assertEquals(s_model1[key], s_model2[key])
+                self.assertEqual(s_model1[key], s_model2[key])
 
         # Special case for BSON
         trans_error1 = pickle.loads(s_model1['trans_error'])
         trans_error2 = pickle.loads(s_model2['trans_error'])
-        self.assertEquals(set(trans_error1.keys()), set(trans_error2.keys()))
+        self.assertEqual(set(trans_error1.keys()), set(trans_error2.keys()))
         for key in trans_error1:
             self.assertTrue(np.array_equal(trans_error1[key], trans_error2[key]))
 
@@ -59,17 +60,17 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
     def test_mean_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
-        self.assertEquals(np.mean(trans_error), subject.mean)
+        self.assertEqual(np.mean(trans_error), subject.mean)
 
     def test_median_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
-        self.assertEquals(np.median(trans_error), subject.median)
+        self.assertEqual(np.median(trans_error), subject.median)
 
     def test_std_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
-        self.assertEquals(np.std(trans_error), subject.std)
+        self.assertEqual(np.std(trans_error), subject.std)
 
     def test_min_is_correct(self):
         subject = self.make_instance()
@@ -77,7 +78,7 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         for error in subject.translational_error.values():
             if min_ is None or error < min_:
                 min_ = error
-        self.assertEquals(min_, subject.min)
+        self.assertEqual(min_, subject.min)
 
     def test_max_is_correct(self):
         subject = self.make_instance()
@@ -85,4 +86,4 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         for error in subject.translational_error.values():
             if max_ is None or error > max_:
                 max_ = error
-        self.assertEquals(max_, subject.max)
+        self.assertEqual(max_, subject.max)

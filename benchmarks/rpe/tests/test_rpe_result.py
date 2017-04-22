@@ -31,12 +31,13 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         if (not isinstance(benchmark_result1, rpe_res.BenchmarkRPEResult) or
                 not isinstance(benchmark_result2, rpe_res.BenchmarkRPEResult)):
             self.fail('object was not a BenchmarkRPEResult')
-        self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEquals(benchmark_result1.success, benchmark_result2.success)
-        self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertTrue(benchmark_result1.translational_error, benchmark_result2.translational_error)
-        self.assertTrue(benchmark_result1.rotational_error, benchmark_result2.rotational_error)
+        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
+        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
+        self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
+        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.translational_error, benchmark_result2.translational_error)
+        self.assertEqual(benchmark_result1.rotational_error, benchmark_result2.rotational_error)
+        self.assertEqual(benchmark_result1.settings, benchmark_result2.settings)
 
     def assert_serialized_equal(self, s_model1, s_model2):
         """
@@ -45,38 +46,38 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         :param s_model2: 
         :return: 
         """
-        self.assertEquals(set(s_model1.keys()), set(s_model2.keys()))
+        self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
         for key in s_model1.keys():
             if key is not 'trans_error' and key is not 'rot_error':
-                self.assertEquals(s_model1[key], s_model2[key])
+                self.assertEqual(s_model1[key], s_model2[key])
 
         # Special case for BSON
         trans_error1 = pickle.loads(s_model1['trans_error'])
         trans_error2 = pickle.loads(s_model2['trans_error'])
-        self.assertEquals(set(trans_error1.keys()), set(trans_error2.keys()))
+        self.assertEqual(set(trans_error1.keys()), set(trans_error2.keys()))
         for key in trans_error1:
             self.assertTrue(np.array_equal(trans_error1[key], trans_error2[key]))
 
         rot_error1 = pickle.loads(s_model1['rot_error'])
         rot_error2 = pickle.loads(s_model2['rot_error'])
-        self.assertEquals(set(rot_error1.keys()), set(rot_error2.keys()))
+        self.assertEqual(set(rot_error1.keys()), set(rot_error2.keys()))
         for key in rot_error1:
             self.assertTrue(np.array_equal(rot_error1[key], rot_error2[key]))
 
     def test_trans_mean_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
-        self.assertEquals(np.mean(trans_error), subject.trans_mean)
+        self.assertEqual(np.mean(trans_error), subject.trans_mean)
 
     def test_trans_median_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
-        self.assertEquals(np.median(trans_error), subject.trans_median)
+        self.assertEqual(np.median(trans_error), subject.trans_median)
 
     def test_trans_std_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.translational_error.values()))
-        self.assertEquals(np.std(trans_error), subject.trans_std)
+        self.assertEqual(np.std(trans_error), subject.trans_std)
 
     def test_trans_min_is_correct(self):
         subject = self.make_instance()
@@ -84,7 +85,7 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         for error in subject.translational_error.values():
             if min_ is None or error < min_:
                 min_ = error
-        self.assertEquals(min_, subject.trans_min)
+        self.assertEqual(min_, subject.trans_min)
 
     def test_trans_max_is_correct(self):
         subject = self.make_instance()
@@ -92,22 +93,22 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         for error in subject.translational_error.values():
             if max_ is None or error > max_:
                 max_ = error
-        self.assertEquals(max_, subject.trans_max)
+        self.assertEqual(max_, subject.trans_max)
 
     def test_rot_mean_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.rotational_error.values()))
-        self.assertEquals(np.mean(trans_error), subject.rot_mean)
+        self.assertEqual(np.mean(trans_error), subject.rot_mean)
 
     def test_rot_median_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.rotational_error.values()))
-        self.assertEquals(np.median(trans_error), subject.rot_median)
+        self.assertEqual(np.median(trans_error), subject.rot_median)
 
     def test_rot_std_is_correct(self):
         subject = self.make_instance()
         trans_error = np.array(list(subject.rotational_error.values()))
-        self.assertEquals(np.std(trans_error), subject.rot_std)
+        self.assertEqual(np.std(trans_error), subject.rot_std)
 
     def test_rot_min_is_correct(self):
         subject = self.make_instance()
@@ -115,7 +116,7 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         for error in subject.rotational_error.values():
             if min_ is None or error < min_:
                 min_ = error
-        self.assertEquals(min_, subject.rot_min)
+        self.assertEqual(min_, subject.rot_min)
 
     def test_rot_max_is_correct(self):
         subject = self.make_instance()
@@ -123,4 +124,4 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         for error in subject.rotational_error.values():
             if max_ is None or error > max_:
                 max_ = error
-        self.assertEquals(max_, subject.rot_max)
+        self.assertEqual(max_, subject.rot_max)

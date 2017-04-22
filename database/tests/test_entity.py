@@ -30,7 +30,7 @@ class EntityContract(metaclass=abc.ABCMeta):
     def assert_models_equal(self, model1, model2):
         """
         Assert that two entities are the same.
-        Use the self.assertEquals methods to perform the test.
+        Use the self.assertEqual methods to perform the test.
         :param model1:
         :param model2:
         :return:
@@ -42,7 +42,7 @@ class EntityContract(metaclass=abc.ABCMeta):
 
     def test_identifier(self):
         entity = self.make_instance(id_=123)
-        self.assertEquals(entity.identifier, 123)
+        self.assertEqual(entity.identifier, 123)
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'a': 1, 'b': 2, 'c': 3}
@@ -53,7 +53,7 @@ class EntityContract(metaclass=abc.ABCMeta):
         EntityClass = self.get_class()
         entity = self.make_instance(id_=123)
         s_entity = entity.serialize()
-        self.assertEquals(s_entity['_type'], EntityClass.__name__)
+        self.assertEqual(s_entity['_type'], EntityClass.__name__)
 
     def test_serialize_and_deserialize(self):
         EntityClass = self.get_class()
@@ -75,7 +75,7 @@ class EntityContract(metaclass=abc.ABCMeta):
 
     def test_entity_automatically_registered(self):
         EntityClass = self.get_class()
-        self.assertEquals(reg.get_entity_type(EntityClass.__name__), EntityClass)
+        self.assertEqual(reg.get_entity_type(EntityClass.__name__), EntityClass)
 
 
 class TestEntity(EntityContract, unittest.TestCase):
@@ -90,4 +90,4 @@ class TestEntity(EntityContract, unittest.TestCase):
         return database.entity.Entity(*args, **kwargs)
 
     def assert_models_equal(self, model1, model2):
-        self.assertEquals(model1.identifier, model2.identifier)
+        self.assertEqual(model1.identifier, model2.identifier)

@@ -9,7 +9,7 @@ class TestTrialResult(TestCase):
 
     def test_identifier(self):
         trial_result = core.trial_result.TrialResult(1, 2, True, {}, id_=123)
-        self.assertEquals(trial_result.identifier, 123)
+        self.assertEqual(trial_result.identifier, 123)
 
     def test_padded_kwargs(self):
         kwargs = {'id_': 1234, 'a': 1, 'b': 2, 'c': 3}
@@ -24,14 +24,14 @@ class TestTrialResult(TestCase):
         s_trial_result2 = trial_result2.serialize()
 
         self._assert_models_equal(trial_result1, trial_result2)
-        self.assertEquals(s_trial_result1, s_trial_result2)
+        self.assertEqual(s_trial_result1, s_trial_result2)
 
         for idx in range(0, 10):
             # Test that repeated serialization and deserialization does not degrade the information
             trial_result2 = core.trial_result.TrialResult.deserialize(s_trial_result2)
             s_trial_result2 = trial_result2.serialize()
             self._assert_models_equal(trial_result1, trial_result2)
-            self.assertEquals(s_trial_result1, s_trial_result2)
+            self.assertEqual(s_trial_result1, s_trial_result2)
 
     def _assert_models_equal(self, trial_result1, trial_result2):
         """
@@ -43,7 +43,7 @@ class TestTrialResult(TestCase):
         if (not isinstance(trial_result1, core.trial_result.TrialResult) or
                 not isinstance(trial_result2, core.trial_result.TrialResult)):
             self.fail('object was not a TrialResult')
-        self.assertEquals(trial_result1.identifier, trial_result2.identifier)
-        self.assertEquals(trial_result1.image_source_id, trial_result2.image_source_id)
-        self.assertEquals(trial_result1.system_id, trial_result2.system_id)
-        self.assertEquals(trial_result1.success, trial_result2.success)
+        self.assertEqual(trial_result1.identifier, trial_result2.identifier)
+        self.assertEqual(trial_result1.image_source_id, trial_result2.image_source_id)
+        self.assertEqual(trial_result1.system_id, trial_result2.system_id)
+        self.assertEqual(trial_result1.success, trial_result2.success)

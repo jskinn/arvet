@@ -32,12 +32,12 @@ class TestImage(unittest.TestCase):
         )
 
     def test_filename(self):
-        self.assertEquals(self.image.filename, '/home/user/test.png')
-        self.assertEquals(self.full_image.filename, '/home/user/test2.png')
+        self.assertEqual(self.image.filename, '/home/user/test.png')
+        self.assertEqual(self.full_image.filename, '/home/user/test2.png')
 
     def test_timestamp(self):
-        self.assertEquals(self.image.timestamp, 13/30)
-        self.assertEquals(self.full_image.timestamp, 14/31)
+        self.assertEqual(self.image.timestamp, 13/30)
+        self.assertEqual(self.full_image.timestamp, 14/31)
 
     def test_camera_location(self):
         self.assertTrue(np.array_equal(self.image.camera_location, np.array([1, 2, 3])))
@@ -48,20 +48,20 @@ class TestImage(unittest.TestCase):
         self.assertTrue(np.array_equal(self.full_image.camera_orientation, np.array([0.5, -0.5, 0.5, -0.5])))
 
     def test_depth_filename(self):
-        self.assertEquals(self.image.depth_filename, None)
-        self.assertEquals(self.full_image.depth_filename, '/home/user/test2_depth.png')
+        self.assertEqual(self.image.depth_filename, None)
+        self.assertEqual(self.full_image.depth_filename, '/home/user/test2_depth.png')
 
     def test_labels_filename(self):
-        self.assertEquals(self.image.labels_filename, None)
-        self.assertEquals(self.full_image.labels_filename, '/home/user/test2_labels.png')
+        self.assertEqual(self.image.labels_filename, None)
+        self.assertEqual(self.full_image.labels_filename, '/home/user/test2_labels.png')
 
     def test_world_normals_filename(self):
-        self.assertEquals(self.image.world_normals_filename, None)
-        self.assertEquals(self.full_image.world_normals_filename, '/home/user/test2_normals.png')
+        self.assertEqual(self.image.world_normals_filename, None)
+        self.assertEqual(self.full_image.world_normals_filename, '/home/user/test2_normals.png')
 
     def test_additional_metadata(self):
-        self.assertEquals(self.image.additional_metadata, {})
-        self.assertEquals(self.full_image.additional_metadata, {
+        self.assertEqual(self.image.additional_metadata, {})
+        self.assertEqual(self.full_image.additional_metadata, {
             'Source': 'Generated',
             'Resolution': {'width': 1280, 'height': 720},
             'Material Properties': {
@@ -105,7 +105,7 @@ class TestStereoImage(unittest.TestCase):
             im.StereoImage(**kwargs)
 
     def test_left_image_is_base(self):
-        self.assertEquals(self.image.filename, self.image.left_filename)
+        self.assertEqual(self.image.filename, self.image.left_filename)
         self.assertTrue(np.array_equal(self.image.camera_location, self.image.left_camera_location))
         self.assertTrue(np.array_equal(self.image.camera_orientation, self.image.left_camera_orientation))
 

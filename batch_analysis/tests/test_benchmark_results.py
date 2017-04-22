@@ -47,6 +47,6 @@ class TestBenchmarkResults(unittest.TestCase):
         self.assertTrue(self.db_client.trials_collection.find.called)
         call_args, call_kwargs = self.db_client.trials_collection.find.call_args
         query = call_kwargs['filter'] if 'filter' in call_kwargs else call_args[0]
-        self.assertEquals(query['_id'], {'$nin': [1, 2, 3]})
+        self.assertEqual(query['_id'], {'$nin': [1, 2, 3]})
     """
     pass

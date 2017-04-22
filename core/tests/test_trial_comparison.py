@@ -28,8 +28,8 @@ class TestTrialComparisonResult(entity_test.EntityContract, unittest.TestCase):
         if (not isinstance(benchmark_result1, core.trial_comparison.TrialComparisonResult) or
                 not isinstance(benchmark_result2, core.trial_comparison.TrialComparisonResult)):
             self.fail('object was not a BenchmarkResult')
-        self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEquals(benchmark_result1.success, benchmark_result2.success)
-        self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertEquals(benchmark_result1.reference_trial_result, benchmark_result2.reference_trial_result)
+        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
+        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
+        self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
+        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.reference_trial_result, benchmark_result2.reference_trial_result)

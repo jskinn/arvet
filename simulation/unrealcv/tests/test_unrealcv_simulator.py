@@ -33,7 +33,7 @@ class TestUnrealCVSimulator(unittest.TestCase):
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
         self.assertTrue(mock_client.called)
-        self.assertEquals(mock_client.call_args, mock.call(('localhost', 9000)))
+        self.assertEqual(mock_client.call_args, mock.call(('localhost', 9000)))
 
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_begin_connects_to_server(self, mock_client):

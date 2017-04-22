@@ -39,17 +39,15 @@ class TestRPEBenchmarkComparisonResult(entity_test.EntityContract, unittest.Test
         if (not isinstance(benchmark_result1, rpe_comp.RPEBenchmarkComparisonResult) or
                 not isinstance(benchmark_result2, rpe_comp.RPEBenchmarkComparisonResult)):
             self.fail('object was not a BenchmarkRPEResult')
-        self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEquals(benchmark_result1.success, benchmark_result2.success)
-        self.assertEquals(benchmark_result1.comparison_id, benchmark_result2.comparison_id)
-        self.assertEquals(benchmark_result1.benchmark_result, benchmark_result2.benchmark_result)
-        self.assertEquals(benchmark_result1.reference_benchmark_result, benchmark_result2.reference_benchmark_result)
-        self.assertTrue(np.array_equal(benchmark_result1.translational_error_difference,
-                                       benchmark_result2.translational_error_difference),
-                        "Translational error differences were not equal")
-        self.assertTrue(np.array_equal(benchmark_result1.rotational_error_difference,
-                                       benchmark_result2.rotational_error_difference),
-                        "Rotational error differences were not equal")
+        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
+        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
+        self.assertEqual(benchmark_result1.comparison_id, benchmark_result2.comparison_id)
+        self.assertEqual(benchmark_result1.benchmark_result, benchmark_result2.benchmark_result)
+        self.assertEqual(benchmark_result1.reference_benchmark_result, benchmark_result2.reference_benchmark_result)
+        self.assertEqual(benchmark_result1.translational_error_difference,
+                         benchmark_result2.translational_error_difference)
+        self.assertEqual(benchmark_result1.rotational_error_difference,
+                         benchmark_result2.rotational_error_difference)
 
     def assert_serialized_equal(self, s_model1, s_model2):
         """
@@ -58,21 +56,21 @@ class TestRPEBenchmarkComparisonResult(entity_test.EntityContract, unittest.Test
         :param s_model2: 
         :return: 
         """
-        self.assertEquals(set(s_model1.keys()), set(s_model2.keys()))
+        self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
         for key in s_model1.keys():
             if key is not 'trans_error_diff' and key is not 'rot_error_diff':
-                self.assertEquals(s_model1[key], s_model2[key])
+                self.assertEqual(s_model1[key], s_model2[key])
 
         # Special case for BSON
         trans_error1 = pickle.loads(s_model1['trans_error_diff'])
         trans_error2 = pickle.loads(s_model2['trans_error_diff'])
-        self.assertEquals(set(trans_error1.keys()), set(trans_error2.keys()))
+        self.assertEqual(set(trans_error1.keys()), set(trans_error2.keys()))
         for key in trans_error1:
             self.assertTrue(np.array_equal(trans_error1[key], trans_error2[key]))
 
         rot_error1 = pickle.loads(s_model1['rot_error_diff'])
         rot_error2 = pickle.loads(s_model2['rot_error_diff'])
-        self.assertEquals(set(rot_error1.keys()), set(rot_error2.keys()))
+        self.assertEqual(set(rot_error1.keys()), set(rot_error2.keys()))
         for key in rot_error1:
             self.assertTrue(np.array_equal(rot_error1[key], rot_error2[key]))
 
@@ -96,9 +94,9 @@ class TestRPEBenchmarkComparison(unittest.TestCase):
         comparison_benchmark = rpe_comp.RPEBenchmarkComparison()
         comparison_result = comparison_benchmark.compare_trial_results(comp_benchmark_result, ref_benchmark_result)
         self.assertIsInstance(comparison_result, core.benchmark_comparison.BenchmarkComparisonResult)
-        self.assertEquals(comparison_benchmark.identifier, comparison_result.comparison_id)
-        self.assertEquals(comp_benchmark_result.identifier, comparison_result.benchmark_result)
-        self.assertEquals(ref_benchmark_result.identifier, comparison_result.reference_benchmark_result)
+        self.assertEqual(comparison_benchmark.identifier, comparison_result.comparison_id)
+        self.assertEqual(comp_benchmark_result.identifier, comparison_result.benchmark_result)
+        self.assertEqual(ref_benchmark_result.identifier, comparison_result.reference_benchmark_result)
 
     def test_comparison_returns_error_diff(self):
         random = np.random.RandomState(19687)
@@ -130,7 +128,7 @@ class TestRPEBenchmarkComparison(unittest.TestCase):
 
         for time, error in added_trans_error.items():
             self.assertIn(time, comparison_result.translational_error_difference)
-            self.assertAlmostEquals(-1 * error, comparison_result.translational_error_difference[time])
+            self.assertAlmostEqual(-1 * error, comparison_result.translational_error_difference[time])
         for time, error in added_rot_error.items():
             self.assertIn(time, comparison_result.translational_error_difference)
-            self.assertAlmostEquals(-1 * error, comparison_result.rotational_error_difference[time])
+            self.assertAlmostEqual(-1 * error, comparison_result.rotational_error_difference[time])

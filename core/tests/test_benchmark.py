@@ -23,10 +23,10 @@ class TestBenchmarkResult(entity_test.EntityContract, unittest.TestCase):
         if (not isinstance(benchmark_result1, core.benchmark.BenchmarkResult) or
                 not isinstance(benchmark_result2, core.benchmark.BenchmarkResult)):
             self.fail('object was not a BenchmarkResult')
-        self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEquals(benchmark_result1.success, benchmark_result2.success)
-        self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
+        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
+        self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
+        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
 
 
 class TestFailedBenchmark(entity_test.EntityContract, unittest.TestCase):
@@ -52,8 +52,8 @@ class TestFailedBenchmark(entity_test.EntityContract, unittest.TestCase):
         if (not isinstance(benchmark_result1, core.benchmark.FailedBenchmark) or
                 not isinstance(benchmark_result2, core.benchmark.FailedBenchmark)):
             self.fail('object was not a FailedBenchmark')
-        self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEquals(benchmark_result1.success, benchmark_result2.success)
-        self.assertEquals(benchmark_result1.reason, benchmark_result2.reason)
-        self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
+        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
+        self.assertEqual(benchmark_result1.reason, benchmark_result2.reason)
+        self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
+        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)

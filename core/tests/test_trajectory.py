@@ -17,18 +17,18 @@ class TrajectoryTest(TestCase):
         traj = Trajectory(points)
         self.assertTrue(hasattr(traj, '__iter__'))
         for point in traj:
-            self.assertEquals(point, points[point])
+            self.assertEqual(point, points[point])
 
     def test_get(self):
         points = range(10)
         traj = Trajectory(points)
         for point in points:
-            self.assertEquals(point, traj.get(point))
+            self.assertEqual(point, traj.get(point))
 
     def test_len(self):
         points = range(10)
         traj = Trajectory(points)
-        self.assertEquals(len(points), len(traj))
+        self.assertEqual(len(points), len(traj))
 
 
 class TrajectoryPointTest(TestCase):
@@ -36,7 +36,7 @@ class TrajectoryPointTest(TestCase):
     def test_timestamp_cannot_be_negative(self):
         point = TrajectoryPoint(12, nparray([1, 2, 3]), nparray([4, 5, 6, 7]))
         point.timestamp = -21
-        self.assertEquals(point.timestamp, 12)
+        self.assertEqual(point.timestamp, 12)
 
     def test_location_is_reshaped(self):
         point = TrajectoryPoint(1, nparray([[1], [2], [3]]), nparray([4, 5, 6, 7]))
@@ -65,9 +65,9 @@ class TrajectoryBuilderTest(TestCase):
         builder = TrajectoryBuilder()
         builder.add_arguments(1, 2, 3, 4, 5, 6, 7, 8)
         traj = builder.build()
-        self.assertEquals(len(traj), 1)
+        self.assertEqual(len(traj), 1)
         point = traj.get(0)
-        self.assertEquals(point.timestamp, 1)
+        self.assertEqual(point.timestamp, 1)
         self.assertTrue(array_equal(point.location, nparray([2, 3, 4])))
         self.assertTrue(array_equal(point.orientation, nparray([5, 6, 7, 8])))
 
@@ -75,9 +75,9 @@ class TrajectoryBuilderTest(TestCase):
         builder = TrajectoryBuilder()
         builder.add_numpy(1, nparray([2, 3, 4]), nparray([5, 6, 7, 8]))
         traj = builder.build()
-        self.assertEquals(len(traj), 1)
+        self.assertEqual(len(traj), 1)
         point = traj.get(0)
-        self.assertEquals(point.timestamp, 1)
+        self.assertEqual(point.timestamp, 1)
         self.assertTrue(array_equal(point.location, nparray([2, 3, 4])))
         self.assertTrue(array_equal(point.orientation, nparray([5, 6, 7, 8])))
 
@@ -95,7 +95,7 @@ class TestBuilderHelpers(TestCase):
         initial_traj = tuples_to_trajectory(tuples)
         for idx in range(0, len(tuples)):
             point = initial_traj.get(idx)
-            self.assertEquals(point.timestamp, tuples[idx][0])
+            self.assertEqual(point.timestamp, tuples[idx][0])
             self.assertTrue(array_equal(point.location, nparray([tuples[idx][1],
                                                                  tuples[idx][2],
                                                                  tuples[idx][3]])))
@@ -114,4 +114,4 @@ class TestBuilderHelpers(TestCase):
 
         traj = tuples_to_trajectory(tuples)
         tuples2 = trajectory_to_tuples(traj)
-        self.assertEquals(tuples, tuples2)
+        self.assertEqual(tuples, tuples2)
