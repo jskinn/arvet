@@ -30,16 +30,13 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         """
         if (not isinstance(benchmark_result1, rpe_res.BenchmarkRPEResult) or
                 not isinstance(benchmark_result2, rpe_res.BenchmarkRPEResult)):
-            self.fail('object was not a BenchmarkATEResult')
+            self.fail('object was not a BenchmarkRPEResult')
         self.assertEquals(benchmark_result1.identifier, benchmark_result2.identifier)
         self.assertEquals(benchmark_result1.success, benchmark_result2.success)
         self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
         self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertTrue(np.array_equal(benchmark_result1.translational_error, benchmark_result2.translational_error),
-                        "Translational errors were not equal")
-        self.assertTrue(np.array_equal(benchmark_result1.rotational_error, benchmark_result2.rotational_error),
-                        "Rotational errors were not equal")
+        self.assertTrue(benchmark_result1.translational_error, benchmark_result2.translational_error)
+        self.assertTrue(benchmark_result1.rotational_error, benchmark_result2.rotational_error)
 
     def assert_serialized_equal(self, s_model1, s_model2):
         """

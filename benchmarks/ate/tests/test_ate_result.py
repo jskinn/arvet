@@ -34,9 +34,7 @@ class TestBenchmarkATEResult(entity_test.EntityContract, unittest.TestCase):
         self.assertEquals(benchmark_result1.success, benchmark_result2.success)
         self.assertEquals(benchmark_result1.benchmark, benchmark_result2.benchmark)
         self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertEquals(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertTrue(np.array_equal(benchmark_result1.translational_error, benchmark_result2.translational_error),
-                        "Translational errors were not equal")
+        self.assertEquals(benchmark_result1.translational_error, benchmark_result2.translational_error)
 
     def assert_serialized_equal(self, s_model1, s_model2):
         """
