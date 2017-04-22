@@ -24,27 +24,33 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
 
     @property
     def trans_rmse(self):
-        return np.sqrt(np.dot(self._trans_error, self._trans_error)) / len(self._trans_error)
+        trans_error = np.array(list(self.translational_error.values()))
+        return np.sqrt(np.dot(trans_error, trans_error) / len(trans_error))
 
     @property
     def trans_mean(self):
-        return np.mean(self._trans_error)
+        trans_error = np.array(list(self.translational_error.values()))
+        return np.mean(trans_error)
 
     @property
     def trans_median(self):
-        return np.median(self._trans_error)
+        trans_error = np.array(list(self.translational_error.values()))
+        return np.median(trans_error)
 
     @property
     def trans_std(self):
-        return np.std(self._trans_error)
+        trans_error = np.array(list(self.translational_error.values()))
+        return np.std(trans_error)
 
     @property
     def trans_min(self):
-        return np.min(self._trans_error)
+        trans_error = np.array(list(self.translational_error.values()))
+        return np.min(trans_error)
 
     @property
     def trans_max(self):
-        return np.max(self._trans_error)
+        trans_error = np.array(list(self.translational_error.values()))
+        return np.max(trans_error)
 
     @property
     def translational_error(self):
@@ -52,27 +58,33 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
 
     @property
     def rot_rmse(self):
-        return np.sqrt(np.dot(self._rot_error, self._rot_error)) / len(self._rot_error)
+        rot_error = np.array(list(self.rotational_error.values()))
+        return np.sqrt(np.dot(rot_error, rot_error)) / len(rot_error)
 
     @property
     def rot_mean(self):
-        return np.mean(self._rot_error)
+        rot_error = np.array(list(self.rotational_error.values()))
+        return np.mean(rot_error)
 
     @property
     def rot_median(self):
-        return np.median(self._rot_error)
+        rot_error = np.array(list(self.rotational_error.values()))
+        return np.median(rot_error)
 
     @property
     def rot_std(self):
-        return np.std(self._rot_error)
+        rot_error = np.array(list(self.rotational_error.values()))
+        return np.std(rot_error)
 
     @property
     def rot_min(self):
-        return np.min(self._rot_error)
+        rot_error = np.array(list(self.rotational_error.values()))
+        return np.min(rot_error)
 
     @property
     def rot_max(self):
-        return np.min(self._rot_error)
+        rot_error = np.array(list(self.rotational_error.values()))
+        return np.max(rot_error)
 
     @property
     def rotational_error(self):
@@ -84,18 +96,18 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
 
     def serialize(self):
         output = super().serialize()
-        output['translational_error'] = bson.Binary(pickle.dumps(self.translational_error,
+        output['trans_error'] = bson.Binary(pickle.dumps(self.translational_error,
                                                                  protocol=pickle.HIGHEST_PROTOCOL))
-        output['rotational_error'] = bson.Binary(pickle.dumps(self.rotational_error, protocol=pickle.HIGHEST_PROTOCOL))
+        output['rot_error'] = bson.Binary(pickle.dumps(self.rotational_error, protocol=pickle.HIGHEST_PROTOCOL))
         output['settings'] = self.settings
         return output
 
     @classmethod
     def deserialize(cls, serialized_representation, **kwargs):
-        if 'translational_error' in serialized_representation:
-            kwargs['translational_error'] = pickle.loads(serialized_representation['translational_error'])
-        if 'rotational_error' in serialized_representation:
-            kwargs['rotational_error'] = pickle.loads(serialized_representation['rotational_error'])
+        if 'trans_error' in serialized_representation:
+            kwargs['translational_error'] = pickle.loads(serialized_representation['trans_error'])
+        if 'rot_error' in serialized_representation:
+            kwargs['rotational_error'] = pickle.loads(serialized_representation['rot_error'])
         if 'settings' in serialized_representation:
             kwargs['rpe_settings'] = serialized_representation['settings']
         return super().deserialize(serialized_representation, **kwargs)

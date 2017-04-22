@@ -144,17 +144,30 @@ class BenchmarkRPE(core.benchmark.Benchmark):
         """
         ground_truth_traj = trial_result.get_ground_truth_camera_poses()
         result_traj = trial_result.get_computed_camera_poses()
-        # TODO: Fix the formats for ground truth traj and result traj
-        result = evaluate_trajectory(ground_truth_traj,
-                                     result_traj,
-                                     int(self.max_pairs),
-                                     self.fixed_delta,
-                                     float(self.delta),
-                                     self.delta_unit,
-                                     float(self.offset),
-                                     float(self.max_pairs))
-        trans_error = numpy.array(result)[:, 4]
-        rot_error = numpy.array(result)[:, 5]
+
+        ground_truth_traj = {stamp: pose.transform_matrix for stamp, pose in ground_truth_traj.items()}
+        result_traj = {stamp: pose.transform_matrix for stamp, pose in result_traj.items()}
+
+        result = evaluate_trajectory(traj_gt=ground_truth_traj,
+                                     traj_est=result_traj,
+                                     param_max_pairs=int(self.max_pairs),
+                                     param_fixed_delta=self.fixed_delta,
+                                     param_delta=float(self.delta),
+                                     param_delta_unit=self.delta_unit,
+                                     param_offset=float(self.offset),
+                                     param_scale=self.scale)
+        if result is None or len(result) < 2:
+            return core.benchmark.FailedBenchmark(benchmark_id=self.identifier,
+                                                  trial_result_id=trial_result.identifier,
+                                                  reason="Couldn't find matching timestamp pairs between"
+                                                         "groundtruth and estimated trajectory!")
+
+        result = numpy.array(result)
+        gt_post_timestamps = result[:, 3]
+        trans_error = result[:, 4]
+        rot_error = result[:, 5]
+        trans_error = dict(zip(gt_post_timestamps, trans_error))
+        rot_error = dict(zip(gt_post_timestamps, rot_error))
         return benchmarks.rpe.rpe_result.BenchmarkRPEResult(self.identifier, trial_result.identifier,
                                                             trans_error, rot_error, self.get_settings())
 
@@ -296,8 +309,7 @@ def evaluate_trajectory(traj_gt, traj_est, param_max_pairs=10000, param_fixed_de
         if t_est_return not in stamps_est_return:
             stamps_est_return.append(t_est_return)
     if len(stamps_est_return) < 2:
-        raise Exception(
-            "Number of overlap in the timestamps is too small. Did you run the evaluation on the right files?")
+        return None
 
     if param_delta_unit == "s":
         index_est = list(traj_est.keys())
@@ -351,8 +363,4 @@ def evaluate_trajectory(traj_gt, traj_est, param_max_pairs=10000, param_fixed_de
         rot = compute_angle(error44)
 
         result.append([stamp_est_0, stamp_est_1, stamp_gt_0, stamp_gt_1, trans, rot])
-
-    if len(result) < 2:
-        raise Exception("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory!")
-
     return result
