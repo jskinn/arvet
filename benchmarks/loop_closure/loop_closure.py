@@ -3,7 +3,7 @@ import core.benchmark
 import benchmarks.matching.matching_result as match_res
 
 
-class BenchmarkPrecisionRecallLoopClosure(core.benchmark.Benchmark):
+class BenchmarkLoopClosure(core.benchmark.Benchmark):
     """
     A tool for benchmarking loop closures as correct or not.
     """
@@ -63,10 +63,10 @@ class BenchmarkPrecisionRecallLoopClosure(core.benchmark.Benchmark):
         indexes = list(poses.keys())
         indexes.sort()
         # First, check all the produced matches to see if they were correct
-        for idx, closure_index in trial_result.get_loop_closures():
+        for idx, closure_index in trial_result.get_loop_closures().items():
             # TODO: Maybe need to resolve differences between closure indexes and pose indexes
-            image_location = poses[idx]
-            match_location = poses[closure_index]
+            image_location = poses[idx].location
+            match_location = poses[closure_index].location
             indexes.remove(idx)
 
             diff = match_location - image_location
@@ -84,11 +84,11 @@ class BenchmarkPrecisionRecallLoopClosure(core.benchmark.Benchmark):
 
         # Now go through all the remaining indexes to make sure there was not a match there
         for unmatched_idx in indexes:
-            unmatched_pose = poses[unmatched_idx]
+            unmatched_pose = poses[unmatched_idx].location
             found_closure = False
-            for index, pose in poses:
+            for index, pose in poses.items():
                 if index < unmatched_idx - self.trivial_closure_distance:
-                    diff = unmatched_pose - pose
+                    diff = unmatched_pose - pose.location
                     square_dist = np.dot(diff, diff)
 
                     if square_dist < threshold_distance_squared:
