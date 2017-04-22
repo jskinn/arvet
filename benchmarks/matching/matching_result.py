@@ -35,14 +35,14 @@ class MatchBenchmarkResult(core.benchmark.BenchmarkResult):
         self._false_positives = 0
         self._true_negatives = 0
         self._false_negatives = 0
-        for index, match_type in matches:
+        for index, match_type in matches.items():
             if match_type == MatchType.TRUE_POSITIVE:
                 self._true_positives += 1
             elif match_type == MatchType.FALSE_POSITIVE:
                 self._false_positives += 1
             elif match_type == MatchType.TRUE_NEGATIVE:
                 self._true_negatives += 1
-            elif match_type -- MatchType.FALSE_NEGATIVE:
+            elif match_type == MatchType.FALSE_NEGATIVE:
                 self._false_negatives += 1
 
     @property

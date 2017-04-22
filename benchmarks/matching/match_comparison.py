@@ -66,10 +66,10 @@ class BenchmarkMatchingComparison(core.benchmark_comparison.BenchmarkComparison)
             base_match_type = benchmark_result.matches[base_idx]
             ref_match_type = reference_benchmark_result.matches[ref_idx]
             base_indexes.remove(base_idx)
-            ref_indexes.remove(ref_indexes)
+            ref_indexes.remove(ref_idx)
             change = get_change_type(ref_match_type, base_match_type)
             if change is not None:
-                match_changes[base_idx] = change
+                match_changes[ref_idx] = change
 
         # Add additional transitions for missing indexes
         for base_idx in base_indexes:
@@ -83,7 +83,7 @@ class BenchmarkMatchingComparison(core.benchmark_comparison.BenchmarkComparison)
             elif base_match_type is match_res.MatchType.FALSE_NEGATIVE:
                 match_changes[base_idx] = match_comp_res.MatchChanges.LOST_TO_FALSE_NEGATIVE
         for ref_idx in ref_indexes:
-            ref_match_type = benchmark_result.matches[ref_idx]
+            ref_match_type = reference_benchmark_result.matches[ref_idx]
             if ref_match_type is match_res.MatchType.TRUE_POSITIVE:
                 match_changes[ref_idx] = match_comp_res.MatchChanges.TRUE_POSITIVE_TO_LOST
             elif ref_match_type is match_res.MatchType.FALSE_POSITIVE:
@@ -95,7 +95,7 @@ class BenchmarkMatchingComparison(core.benchmark_comparison.BenchmarkComparison)
 
         return match_comp_res.MatchingComparisonResult(benchmark_comparison_id=self.identifier,
                                                        benchmark_result=benchmark_result.identifier,
-                                                       reference_benchmark_result=reference_benchmark_result.identifer,
+                                                       reference_benchmark_result=reference_benchmark_result.identifier,
                                                        match_changes=match_changes,
                                                        settings=self.get_settings())
 

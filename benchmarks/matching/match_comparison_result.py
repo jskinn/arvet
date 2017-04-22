@@ -57,22 +57,26 @@ UNCHANGED = frozenset((
 NEW_TRUE_POSITIVES = frozenset((
     MatchChanges.FALSE_POSITIVE_TO_TRUE_POSITIVE,
     MatchChanges.TRUE_NEGATIVE_TO_TRUE_POSITIVE,
-    MatchChanges.FALSE_NEGATIVE_TO_TRUE_POSITIVE
+    MatchChanges.FALSE_NEGATIVE_TO_TRUE_POSITIVE,
+    MatchChanges.LOST_TO_TRUE_POSITIVE
 ))
 NEW_FALSE_POSITIVES = frozenset((
     MatchChanges.TRUE_POSITIVE_TO_FALSE_POSITIVE,
     MatchChanges.TRUE_NEGATIVE_TO_FALSE_POSITIVE,
-    MatchChanges.FALSE_NEGATIVE_TO_FALSE_POSITIVE
+    MatchChanges.FALSE_NEGATIVE_TO_FALSE_POSITIVE,
+    MatchChanges.LOST_TO_FALSE_POSITIVE
 ))
 NEW_TRUE_NEGATIVES = frozenset((
     MatchChanges.TRUE_POSITIVE_TO_TRUE_NEGATIVE,
     MatchChanges.FALSE_POSITIVE_TO_TRUE_NEGATIVE,
-    MatchChanges.FALSE_NEGATIVE_TO_TRUE_NEGATIVE
+    MatchChanges.FALSE_NEGATIVE_TO_TRUE_NEGATIVE,
+    MatchChanges.LOST_TO_TRUE_NEGATIVE
 ))
 NEW_FALSE_NEGATIVES = frozenset((
     MatchChanges.TRUE_POSITIVE_TO_FALSE_NEGATIVE,
     MatchChanges.FALSE_POSITIVE_TO_FALSE_NEGATIVE,
-    MatchChanges.TRUE_NEGATIVE_TO_FALSE_NEGATIVE
+    MatchChanges.TRUE_NEGATIVE_TO_FALSE_NEGATIVE,
+    MatchChanges.LOST_TO_FALSE_NEGATIVE
 ))
 STRANGE_TRANSITIONS = frozenset((
     MatchChanges.TRUE_POSITIVE_TO_FALSE_POSITIVE,
@@ -145,7 +149,7 @@ class MatchingComparisonResult(core.benchmark_comparison.BenchmarkComparisonResu
         return self.count_changes_of_types(STRANGE_TRANSITIONS)
 
     def count_changes_of_types(self, change_types):
-        return sum(change in change_types for idx, change in self.match_changes)
+        return sum(change in change_types for idx, change in self.match_changes.items())
 
     def serialize(self):
         output = super().serialize()
