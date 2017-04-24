@@ -69,19 +69,19 @@ class TestMatchBenchmarkResult(entity_test.EntityContract, unittest.TestCase):
     def test_true_positives_is_correct(self):
         subject = self.make_instance()
         self.assertEqual(list(subject.matches.values()).count(match_res.MatchType.TRUE_POSITIVE),
-                          subject.true_positives)
+                         subject.true_positives)
 
     def test_false_positives_is_correct(self):
         subject = self.make_instance()
         self.assertEqual(list(subject.matches.values()).count(match_res.MatchType.FALSE_POSITIVE),
-                          subject.false_positives)
+                         subject.false_positives)
 
     def test_true_negatives_is_correct(self):
         subject = self.make_instance()
         self.assertEqual(list(subject.matches.values()).count(match_res.MatchType.TRUE_NEGATIVE),
-                          subject.true_negatives)
+                         subject.true_negatives)
 
     def test_false_negatives_is_correct(self):
         subject = self.make_instance()
         self.assertEqual(list(subject.matches.values()).count(match_res.MatchType.FALSE_NEGATIVE),
-                          subject.false_negatives)
+                         subject.false_negatives)

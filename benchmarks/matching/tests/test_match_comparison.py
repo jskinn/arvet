@@ -1,6 +1,5 @@
 import numpy as np
 import unittest
-import util.dict_utils as du
 import core.benchmark_comparison
 import benchmarks.matching.matching_result as match_res
 import benchmarks.matching.match_comparison as match_comp

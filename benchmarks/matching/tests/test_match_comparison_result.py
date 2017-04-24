@@ -40,7 +40,7 @@ class TestMatchingComparisonResult(entity_test.EntityContract, unittest.TestCase
             'benchmark_result': np.random.randint(10, 20),
             'reference_benchmark_result': np.random.randint(20, 30),
             'match_changes': {np.random.uniform(0, 600): match_types[np.random.randint(0, len(match_types))]
-                        for _ in range(100)},
+                              for _ in range(100)},
             'settings': {}
         })
         return comp_res.MatchingComparisonResult(*args, **kwargs)

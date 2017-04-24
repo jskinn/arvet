@@ -70,7 +70,7 @@ class MockTrialResult:
         return self._comp_traj
 
 
-class TestBenchmarkATE(unittest.TestCase):
+class TestBenchmarkRPE(unittest.TestCase):
 
     def setUp(self):
         self.random = np.random.RandomState(1311)   # Use a random stream to make the results consistent
