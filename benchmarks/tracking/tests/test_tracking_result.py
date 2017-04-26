@@ -7,7 +7,7 @@ import benchmarks.tracking.tracking_result as track_res
 import benchmarks.tracking.tracking_benchmark as track_bench
 
 
-class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
+class TestTrackingBenchmarkResult(entity_test.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return track_res.TrackingBenchmarkResult
@@ -48,16 +48,16 @@ class TestBenchmarkRPEResult(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
         self.assertEqual(len(benchmark_result1.lost_intervals), len(benchmark_result2.lost_intervals))
         for idx in range(len(benchmark_result1.lost_intervals)):
-            self.assertEquals(benchmark_result1.lost_intervals[idx].start_time,
-                              benchmark_result2.lost_intervals[idx].start_time)
-            self.assertEquals(benchmark_result1.lost_intervals[idx].end_time,
-                              benchmark_result2.lost_intervals[idx].end_time)
-            self.assertEquals(benchmark_result1.lost_intervals[idx].duration,
-                              benchmark_result2.lost_intervals[idx].duration)
-            self.assertEquals(benchmark_result1.lost_intervals[idx].distance,
-                              benchmark_result2.lost_intervals[idx].distance)
-            self.assertEquals(benchmark_result1.lost_intervals[idx].frames,
-                              benchmark_result2.lost_intervals[idx].frames)
+            self.assertEqual(benchmark_result1.lost_intervals[idx].start_time,
+                             benchmark_result2.lost_intervals[idx].start_time)
+            self.assertEqual(benchmark_result1.lost_intervals[idx].end_time,
+                             benchmark_result2.lost_intervals[idx].end_time)
+            self.assertEqual(benchmark_result1.lost_intervals[idx].duration,
+                             benchmark_result2.lost_intervals[idx].duration)
+            self.assertEqual(benchmark_result1.lost_intervals[idx].distance,
+                             benchmark_result2.lost_intervals[idx].distance)
+            self.assertEqual(benchmark_result1.lost_intervals[idx].frames,
+                             benchmark_result2.lost_intervals[idx].frames)
         self.assertEqual(benchmark_result1.fraction_distance_lost, benchmark_result2.fraction_distance_lost)
         self.assertEqual(benchmark_result1.fraction_time_lost, benchmark_result2.fraction_time_lost)
         self.assertEqual(benchmark_result1.fraction_frames_lost, benchmark_result2.fraction_frames_lost)

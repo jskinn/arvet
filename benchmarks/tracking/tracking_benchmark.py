@@ -44,19 +44,25 @@ class TrackingBenchmark(core.benchmark.Benchmark):
     as well as a number of other statistics like max distance lost or median time lost.
     """
 
-    def __init__(self):
+    def __init__(self, initializing_is_lost=True):
         """
-        Create a Mean Time Lost benchmark.
-        No configuration at this stage, it is just counting tracking state changes.
+        Create a tracking benchmark
+        :param initializing_is_lost: Does the initializing state count as lost or not
         """
-        pass
+        self._initializing_is_lost = initializing_is_lost
 
     @property
     def identifier(self):
         return 'TrackingStatistics'
 
     def get_settings(self):
-        return {}
+        return {
+            'initializing_is_lost': self._initializing_is_lost
+        }
+
+    def is_lost(self, state):
+        return state is slam.tracking_state.TrackingState.LOST or (
+            self._initializing_is_lost and state is slam.tracking_state.TrackingState.NOT_INITIALIZED)
 
     def get_trial_requirements(self):
         return {'success': True, 'tracking_stats': {'$exists': True, '$ne': []}}
@@ -75,7 +81,7 @@ class TrackingBenchmark(core.benchmark.Benchmark):
         timestamps = list(ground_truth_traj.keys())
         timestamps.sort()
 
-        is_lost = False
+        currently_lost = False
         lost_start = 0
         lost_distance = 0
         prev_location = None
@@ -85,34 +91,34 @@ class TrackingBenchmark(core.benchmark.Benchmark):
 
         for timestamp in timestamps:
             pose = ground_truth_traj[timestamp]
-            distance = None
+            distance = 0
             if prev_location is not None:
                 distance = pose.location - prev_location
                 distance = np.sqrt(np.dot(distance, distance))
                 prev_location = pose.location
                 total_distance += distance
 
-            if states[timestamp] is slam.tracking_state.TrackingState.LOST:
-                if is_lost:
+            if self.is_lost(states[timestamp]):
+                if currently_lost:
                     if distance is not None:
                         lost_distance += distance
                     prev_location = pose.location
                     num_frames += 1
                 else:
-                    is_lost = True
+                    currently_lost = True
                     lost_start = timestamp
                     lost_distance = 0
                     num_frames = 1
                     prev_location = pose.location
-            elif is_lost:
-                is_lost = False
+            elif currently_lost:
+                currently_lost = False
                 lost_distance += distance
                 lost_intervals.append(LostInterval(start_time=lost_start,
                                                    end_time=timestamp,
                                                    distance=lost_distance,
                                                    num_frames=num_frames))
         # We're still lost at the end, add the final distance
-        if is_lost:
+        if currently_lost:
             lost_intervals.append(LostInterval(start_time=lost_start,
                                                end_time=timestamps[-1],
                                                distance=lost_distance,
