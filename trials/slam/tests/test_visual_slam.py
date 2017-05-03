@@ -1,52 +1,90 @@
-from unittest import TestCase
+import unittest
+import numpy as np
+import pickle
+import database.tests.test_entity
+import util.dict_utils as du
+import util.transform as tf
+import trials.slam.visual_slam as vs
+import trials.slam.tracking_state as ts
 
-from slam.visual_slam import SLAMTrialResult
 
+class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.TestCase):
 
-class TestSLAMTrialResult(TestCase):
+    def get_class(self):
+        return vs.SLAMTrialResult
 
-    def test_no_id(self):
-        SLAMTrialResult(1, 2, None, True, {})
+    def make_instance(self, *args, **kwargs):
+        states = [ts.TrackingState.NOT_INITIALIZED, ts.TrackingState.OK, ts.TrackingState.LOST]
+        kwargs = du.defaults(kwargs, {
+            'image_source_id': np.random.randint(0, 10),
+            'system_id': np.random.randint(10, 20),
+            'trajectory': {
+                np.random.uniform(0, 600): tf.Transform(location=np.random.uniform(-1000, 1000, 3),
+                                                        rotation=np.random.uniform(0, 1, 4))
+                for _ in range(100)
+            },
+            'ground_truth_trajectory': {
+                np.random.uniform(0, 600): tf.Transform(location=np.random.uniform(-1000, 1000, 3),
+                                                        rotation=np.random.uniform(0, 1, 4))
+                for _ in range(100)
+            },
+            'tracking_stats': {
+                np.random.uniform(0, 600): states[np.random.randint(0, len(states))]
+                for _ in range(100)
+            },
+            'system_settings': {
+                'a': np.random.randint(20, 30)
+            }
+        })
+        return vs.SLAMTrialResult(*args, **kwargs)
 
-    def test_identifier(self):
-        trial_result = SLAMTrialResult(1, 2, True, {}, id_=123, trajectory=None, tracking_stats=[], dataset_repeats=1)
-        self.assertEqual(trial_result.identifier, 123)
-
-    def test_padded_kwargs(self):
-        kwargs = {'id_': 1234, 'trajectory': [], 'tracking_stats': [], 'dataset_repeats': 1, 'a': 1, 'b': 2, 'c': 3}
-        trial_result = SLAMTrialResult(1, 2, True, {}, **kwargs)
-        self.assertEqual(trial_result.identifier, 1234)
-
-    def test_serialize_and_deserialize(self):
-        trial_result1 = SLAMTrialResult(1, 2, True, {}, id_=12345, trajectory=None, tracking_stats=[], dataset_repeats=1)
-        s_trial_result1 = trial_result1.serialize()
-
-        trial_result2 = SLAMTrialResult.deserialize(s_trial_result1)
-        s_trial_result2 = trial_result2.serialize()
-
-        self._assert_models_equal(trial_result1, trial_result2)
-        self.assertEqual(s_trial_result1, s_trial_result2)
-
-        for idx in range(0, 10):
-            # Test that repeated serialization and deserialization does not degrade the information
-            trial_result2 = SLAMTrialResult.deserialize(s_trial_result2)
-            s_trial_result2 = trial_result2.serialize()
-            self._assert_models_equal(trial_result1, trial_result2)
-            self.assertEqual(s_trial_result1, s_trial_result2)
-
-    def _assert_models_equal(self, trial_result1, trial_result2):
+    def assert_models_equal(self, trial_result1, trial_result2):
         """
         Helper to assert that two SLAM trial results models are equal
-        :param trial_result1: Dataset
-        :param trial_result2: Dataset
+        :param trial_result1: 
+        :param trial_result2: 
         :return:
         """
-        if not isinstance(trial_result1, SLAMTrialResult) or not isinstance(trial_result2, SLAMTrialResult):
+        if not isinstance(trial_result1, vs.SLAMTrialResult) or not isinstance(trial_result2, vs.SLAMTrialResult):
             self.fail('object was not a SLAMTrialResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
         self.assertEqual(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.success, trial_result2.success)
-        self.assertEqual(trial_result1.dataset_repeats, trial_result2.dataset_repeats)
-        self.assertEqual(len(trial_result1.trajectory), len(trial_result2.trajectory))
+        self._assertTrajectoryEqual(trial_result1.trajectory, trial_result2.trajectory)
+        self._assertTrajectoryEqual(trial_result1.ground_truth_trajectory, trial_result2.ground_truth_trajectory)
         self.assertEqual(trial_result1.tracking_stats, trial_result2.tracking_stats)
+
+    def assert_serialized_equal(self, s_model1, s_model2):
+        self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
+        for key in s_model1.keys():
+            if (key is not 'ground_truth_trajectory' and
+                    key is not 'trajectory' and
+                    key is not 'tracking_stats'):
+                self.assertEqual(s_model1[key], s_model2[key])
+
+        traj1 = pickle.loads(s_model1['trajectory'])
+        traj2 = pickle.loads(s_model2['trajectory'])
+        self._assertTrajectoryEqual(traj1, traj2)
+
+        traj1 = pickle.loads(s_model1['ground_truth_trajectory'])
+        traj2 = pickle.loads(s_model2['ground_truth_trajectory'])
+        self._assertTrajectoryEqual(traj1, traj2)
+
+        stats1 = pickle.loads(s_model1['tracking_stats'])
+        stats2 = pickle.loads(s_model2['tracking_stats'])
+        self.assertEqual(stats1, stats2)
+
+    def test_identifier(self):
+        trial_result = self.make_instance(id_=123)
+        self.assertEqual(trial_result.identifier, 123)
+
+    def _assertTrajectoryEqual(self, traj1, traj2):
+        self.assertEqual(list(traj1.keys()).sort(), list(traj2.keys()).sort())
+        for time in traj1.keys():
+            self.assertTrue(np.array_equal(traj1[time].location, traj2[time].location),
+                            "Locations are not equal")
+            self.assertTrue(np.array_equal(traj1[time].rotation_quat(w_first=True),
+                                           traj2[time].rotation_quat(w_first=True)),
+                            "Rotations {0} and {1} are not equal".format(tuple(traj1[time].rotation_quat(w_first=True)),
+                                                                         tuple(traj2[time].rotation_quat(w_first=True))))

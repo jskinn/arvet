@@ -3,7 +3,7 @@ import transforms3d as tf
 
 
 ######
-#TODO: We need to handle transforming between coordinate frames where the axies don't point in the same direction
+# TODO: We need to handle transforming between coordinate frames where the axies don't point in the same direction
 # for instance, Unreal's coordinates have X as forward, Y as up, and Z as right
 # but an algorithm might have Z as up and Y as left, or Z as forward and X as right
 # I need to establish what coordinate frame I'm using, and write code to convert everyone else's to mine.
@@ -184,3 +184,16 @@ class Transform:
             return tf.quaternions.rotate_vector(pose, (self._qw, self._qx, self._qy, self._qz)) + self.location
         else:
             raise TypeError('find_independent needs to transform a point or pose')
+
+
+def serialize_transform(transform):
+    return {
+        'location': tuple(transform.location),
+        'rotation': tuple(transform.rotation_quat(w_first=True))
+    }
+
+
+def deserialize_transform(s_transform):
+    return Transform(location=tuple(s_transform['location']),
+                     rotation=tuple(s_transform['rotation']),
+                     w_first=True)
