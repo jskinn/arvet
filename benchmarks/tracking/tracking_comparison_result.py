@@ -1,6 +1,6 @@
 import numpy as np
+import trials.slam.tracking_state
 import core.trial_comparison
-import slam.tracking_state
 
 
 class TrackingComparisonResult(core.trial_comparison.TrialComparisonResult):
@@ -50,8 +50,8 @@ class TrackingComparisonResult(core.trial_comparison.TrialComparisonResult):
         return self._settings
 
     def is_lost(self, state):
-        return state is slam.tracking_state.TrackingState.LOST or (
-            self.initializing_is_lost and state is slam.tracking_state.TrackingState.NOT_INITIALIZED)
+        return state is trials.slam.tracking_state.TrackingState.LOST or (
+            self.initializing_is_lost and state is trials.slam.tracking_state.TrackingState.NOT_INITIALIZED)
 
     def serialize(self):
         output = super().serialize()

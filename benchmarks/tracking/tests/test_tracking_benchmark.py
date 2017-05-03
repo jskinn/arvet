@@ -1,8 +1,9 @@
 import unittest
-import util.transform as tf
-import core.benchmark
-import slam.tracking_state
+
 import benchmarks.tracking.tracking_benchmark as tracking
+import core.benchmark
+import util.transform as tf
+import trials.slam.tracking_state
 
 
 class MockTrialResult:
@@ -55,17 +56,17 @@ class TestTrackingBenchmark(unittest.TestCase):
             4.6667: tf.Transform(location=(100, 0, 0), rotation=(0, 0, 0, 1))
         }
         self.tracking_states = {
-            1.3333: slam.tracking_state.TrackingState.NOT_INITIALIZED,
-            1.6667: slam.tracking_state.TrackingState.OK,
-            2: slam.tracking_state.TrackingState.OK,
-            2.3333: slam.tracking_state.TrackingState.LOST,
-            2.6667: slam.tracking_state.TrackingState.LOST,
-            3: slam.tracking_state.TrackingState.OK,
-            3.3333: slam.tracking_state.TrackingState.LOST,
-            3.6667: slam.tracking_state.TrackingState.LOST,
-            4: slam.tracking_state.TrackingState.LOST,
-            4.3333: slam.tracking_state.TrackingState.OK,
-            4.6667: slam.tracking_state.TrackingState.LOST
+            1.3333: trials.slam.tracking_state.TrackingState.NOT_INITIALIZED,
+            1.6667: trials.slam.tracking_state.TrackingState.OK,
+            2: trials.slam.tracking_state.TrackingState.OK,
+            2.3333: trials.slam.tracking_state.TrackingState.LOST,
+            2.6667: trials.slam.tracking_state.TrackingState.LOST,
+            3: trials.slam.tracking_state.TrackingState.OK,
+            3.3333: trials.slam.tracking_state.TrackingState.LOST,
+            3.6667: trials.slam.tracking_state.TrackingState.LOST,
+            4: trials.slam.tracking_state.TrackingState.LOST,
+            4.3333: trials.slam.tracking_state.TrackingState.OK,
+            4.6667: trials.slam.tracking_state.TrackingState.LOST
         }
         self.trial_result = MockTrialResult(gt_trajectory=self.trajectory, tracking_states=self.tracking_states)
 

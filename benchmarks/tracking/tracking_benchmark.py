@@ -1,6 +1,6 @@
 import numpy as np
 import core.benchmark
-import slam.tracking_state
+import trials.slam.tracking_state
 import benchmarks.tracking.tracking_result
 
 
@@ -61,8 +61,8 @@ class TrackingBenchmark(core.benchmark.Benchmark):
         }
 
     def is_lost(self, state):
-        return state is slam.tracking_state.TrackingState.LOST or (
-            self._initializing_is_lost and state is slam.tracking_state.TrackingState.NOT_INITIALIZED)
+        return state is trials.slam.tracking_state.TrackingState.LOST or (
+            self._initializing_is_lost and state is trials.slam.tracking_state.TrackingState.NOT_INITIALIZED)
 
     def get_trial_requirements(self):
         return {'success': True, 'tracking_stats': {'$exists': True, '$ne': []}}
@@ -74,7 +74,6 @@ class TrackingBenchmark(core.benchmark.Benchmark):
         :return:
         :rtype BenchmarkResult:
         """
-
         ground_truth_traj = trial_result.get_ground_truth_camera_poses()
         states = trial_result.get_tracking_states()
 
