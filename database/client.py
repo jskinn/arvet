@@ -42,6 +42,8 @@ class DatabaseClient:
             'connection_parameters': {},
             'database_name': 'benchmark_system',
             'collections': {
+                'system_collection': 'systems',
+                'image_source_collection': 'image_sources',
                 'dataset_collection': 'datasets',
                 'image_collection':  'images',
                 'trials_collection': 'trials',
@@ -52,6 +54,8 @@ class DatabaseClient:
 
         conn_kwargs = db_config['connection_parameters']
         db_name = db_config['database_name']
+        self._system_collection_name = db_config['collections']['system_collection']
+        self._image_source_collection_name = db_config['collections']['image_source_collection']
         self._dataset_collection_name = db_config['collections']['dataset_collection']
         self._image_collection_name = db_config['collections']['image_collection']
         self._trials_collection_name = db_config['collections']['trials_collection']
@@ -60,6 +64,14 @@ class DatabaseClient:
 
         self._mongo_client = pymongo.MongoClient(**conn_kwargs)
         self._database = self._mongo_client[db_name]
+
+    @property
+    def system_collection(self):
+        return self._database[self._system_collection_name]
+
+    @property
+    def image_source_collection(self):
+        return self._database[self._image_source_collection_name]
 
     @property
     def dataset_collection(self):
