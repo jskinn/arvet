@@ -103,11 +103,11 @@ class BenchmarkRPEResult(core.benchmark.BenchmarkResult):
         return output
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'trans_error' in serialized_representation:
             kwargs['translational_error'] = pickle.loads(serialized_representation['trans_error'])
         if 'rot_error' in serialized_representation:
             kwargs['rotational_error'] = pickle.loads(serialized_representation['rot_error'])
         if 'settings' in serialized_representation:
             kwargs['rpe_settings'] = serialized_representation['settings']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

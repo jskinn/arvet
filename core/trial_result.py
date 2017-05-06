@@ -47,6 +47,15 @@ class TrialResult(database.entity.Entity):
         """
         return self._success
 
+    @property
+    def settings(self):
+        """
+        The settings of the system when running to produce this trial result.
+        Stored for reference when comparing results
+        :return: A dict, containing the system settings
+        """
+        return self._settings
+
     def serialize(self):
         """
         Serialize the entity to a dict format, that can be saved to the database
@@ -56,14 +65,15 @@ class TrialResult(database.entity.Entity):
         serialized['image_source'] = self.image_source_id
         serialized['system'] = self.system_id
         serialized['success'] = self.success
-        serialized['settings'] = self._settings
+        serialized['settings'] = self.settings
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         """
         Deserialize a Trial Result
         :param serialized_representation:
+        :param db_client:
         :param kwargs:
         :return:
         """
@@ -76,8 +86,7 @@ class TrialResult(database.entity.Entity):
             kwargs['success'] = serialized_representation['success']
         if 'settings' in serialized_representation:
             kwargs['system_settings'] = serialized_representation['settings']
-
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
 class FailedTrial(TrialResult):
@@ -88,7 +97,9 @@ class FailedTrial(TrialResult):
     Think of this like an exception returned from a run system call.
     """
     def __init__(self, image_source_id, system_id, reason, system_settings, id_=None, **kwargs):
-        super().__init__(image_source_id, system_id, False, system_settings, id_=id_)
+        kwargs['success'] = False
+        super().__init__(image_source_id=image_source_id, system_id=system_id,
+                         system_settings=system_settings, id_=id_, **kwargs)
         self._reason = reason
 
     @property
@@ -110,14 +121,15 @@ class FailedTrial(TrialResult):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         """
         Deserialize a FailedTrial
-        :param serialized_representation:
+        :param serialized_representation: Serialized dict of this object
+        :param db_client: Database client, for joins
         :param kwargs: keyword arguments to the entity constructor. Are overridden by the serialized representation.
         :return: a FailedTrial object
         """
         # massage the compulsory arguments, so that the constructor works
         if 'reason' in serialized_representation:
             kwargs['reason'] = serialized_representation['reason']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

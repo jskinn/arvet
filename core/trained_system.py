@@ -140,7 +140,7 @@ class TrainedState(database.entity.Entity):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         # massage the compulsory arguments, so that the constructor works
         if 'datasets' in serialized_representation:
             kwargs['dataset_ids'] = serialized_representation['datasets']
@@ -148,5 +148,4 @@ class TrainedState(database.entity.Entity):
             kwargs['system_id'] = serialized_representation['system']
         if 'settings' in serialized_representation:
             kwargs['system_settings'] = serialized_representation['settings']
-
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

@@ -158,9 +158,9 @@ class MatchingComparisonResult(core.benchmark_comparison.BenchmarkComparisonResu
         return output
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'match_changes' in serialized_representation:
             kwargs['match_changes'] = pickle.loads(serialized_representation['match_changes'])
         if 'settings' in serialized_representation:
             kwargs['settings'] = serialized_representation['settings']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

@@ -67,7 +67,7 @@ class TrialComparisonResult(core.benchmark.BenchmarkResult):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'reference' in serialized_representation:
             kwargs['reference_id'] = serialized_representation['reference']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

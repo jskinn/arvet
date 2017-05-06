@@ -70,6 +70,9 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
 
     def test_initialized_is_lost_changes_new_tracking_count(self):
         subject = self.make_instance()
+        # make sure there is at least one different result
+        subject.changes[601.2] = (trials.slam.tracking_state.TrackingState.LOST,
+                                  trials.slam.tracking_state.TrackingState.NOT_INITIALIZED)
         initial_count = subject.new_tracking_count
 
         subject.initializing_is_lost = False    # Default is True

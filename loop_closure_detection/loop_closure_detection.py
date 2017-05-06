@@ -41,9 +41,9 @@ class LoopClosureTrialResult(core.trial_result.TrialResult):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'loop_closures' in serialized_representation:
             kwargs['loop_closures'] = serialized_representation['loop_closures']
         if 'dataset_repeats' in serialized_representation:
             kwargs['dataset_repeats'] = serialized_representation['dataset_repeats']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

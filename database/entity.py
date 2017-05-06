@@ -75,7 +75,7 @@ class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
             return {'_id': self._id, '_type': type(self).__name__}
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         """
         Deserialize an Entity as retrieved from the database
         Also accepts keyword arguments that are passed directly to the entity constructor,

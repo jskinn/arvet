@@ -92,7 +92,7 @@ class BenchmarkComparisonResult(database.entity.Entity):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'benchmark_result' in serialized_representation:
             kwargs['benchmark_result'] = serialized_representation['benchmark_result']
         if 'reference_benchmark_result' in serialized_representation:
@@ -101,4 +101,4 @@ class BenchmarkComparisonResult(database.entity.Entity):
             kwargs['benchmark_comparison_id'] = serialized_representation['benchmark_comparison']
         if 'success' in serialized_representation:
             kwargs['success'] = serialized_representation['success']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

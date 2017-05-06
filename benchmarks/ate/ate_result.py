@@ -72,9 +72,9 @@ class BenchmarkATEResult(core.benchmark.BenchmarkResult):
         return output
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'trans_error' in serialized_representation:
             kwargs['translational_error'] = pickle.loads(serialized_representation['trans_error'])
         if 'settings' in serialized_representation:
             kwargs['ate_settings'] = serialized_representation['settings']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

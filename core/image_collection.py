@@ -134,7 +134,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         # Note: These images should already be deserialized
         if 'images' in serialized_representation:
             kwargs['images'] = serialized_representation['images']
@@ -142,7 +142,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
             kwargs['type'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
             kwargs['type'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
 def load_image_collection(dbclient, id_):

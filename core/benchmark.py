@@ -70,14 +70,14 @@ class BenchmarkResult(database.entity.Entity):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'success' in serialized_representation:
             kwargs['success'] = serialized_representation['success']
         if 'benchmark' in serialized_representation:
             kwargs['benchmark_id'] = serialized_representation['benchmark']
         if 'trial_result' in serialized_representation:
             kwargs['trial_result_id'] = serialized_representation['trial_result']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
 class FailedBenchmark(BenchmarkResult):
@@ -107,7 +107,7 @@ class FailedBenchmark(BenchmarkResult):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'reason' in serialized_representation:
             kwargs['reason'] = serialized_representation['reason']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

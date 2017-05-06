@@ -60,9 +60,9 @@ class TrackingComparisonResult(core.trial_comparison.TrialComparisonResult):
         return output
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'changes' in serialized_representation:
             kwargs['changes'] = serialized_representation['changes']
         if 'settings' in serialized_representation:
             kwargs['settings'] = serialized_representation['settings']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

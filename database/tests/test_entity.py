@@ -1,6 +1,8 @@
 import unittest
+import unittest.mock as mock
 import abc
 import util.dict_utils as du
+import database.client
 import database.entity
 import database.entity_registry as reg
 
@@ -56,11 +58,12 @@ class EntityContract(metaclass=abc.ABCMeta):
         self.assertEqual(s_entity['_type'], EntityClass.__name__)
 
     def test_serialize_and_deserialize(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
         EntityClass = self.get_class()
         entity1 = self.make_instance(id_=12345)
         s_entity1 = entity1.serialize()
 
-        entity2 = EntityClass.deserialize(s_entity1)
+        entity2 = EntityClass.deserialize(s_entity1, mock_db_client)
         s_entity2 = entity2.serialize()
 
         self.assert_models_equal(entity1, entity2)
@@ -68,7 +71,7 @@ class EntityContract(metaclass=abc.ABCMeta):
 
         for idx in range(0, 10):
             # Test that repeated serialization and deserialization does not degrade the information
-            entity2 = EntityClass.deserialize(s_entity2)
+            entity2 = EntityClass.deserialize(s_entity2, mock_db_client)
             s_entity2 = entity2.serialize()
             self.assert_models_equal(entity1, entity2)
             self.assert_serialized_equal(s_entity1, s_entity2)

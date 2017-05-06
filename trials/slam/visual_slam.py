@@ -1,8 +1,6 @@
 import pickle
 import bson
 import core.trial_result
-import util.transform as tf
-import trials.slam.tracking_state as track_state
 
 
 class SLAMTrialResult(core.trial_result.TrialResult):
@@ -43,23 +41,17 @@ class SLAMTrialResult(core.trial_result.TrialResult):
 
     def serialize(self):
         serialized = super().serialize()
-        #serialized['ground_truth_trajectory'] = {timestamp: tf.serialize_transform(pose)
-        #                                         for timestamp, pose in self.ground_truth_trajectory.items()}
-        #serialized['trajectory'] = {timestamp: tf.serialize_transform(pose)
-        #                            for timestamp, pose in self.trajectory.items()}
-        #serialized['tracking_stats'] = {timestamp: str(tracking_state)
-        #                                for timestamp, tracking_state in self.tracking_stats.items()}
         serialized['ground_truth_trajectory'] = bson.Binary(pickle.dumps(self.ground_truth_trajectory, protocol=pickle.HIGHEST_PROTOCOL))
         serialized['trajectory'] = bson.Binary(pickle.dumps(self.trajectory, protocol=pickle.HIGHEST_PROTOCOL))
         serialized['tracking_stats'] = bson.Binary(pickle.dumps(self.tracking_stats, protocol=pickle.HIGHEST_PROTOCOL))
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'ground_truth_trajectory' in serialized_representation:
             kwargs['ground_truth_trajectory'] = pickle.loads(serialized_representation['ground_truth_trajectory'])
         if 'trajectory' in serialized_representation:
             kwargs['trajectory'] = pickle.loads(serialized_representation['trajectory'])
         if 'tracking_stats' in serialized_representation:
             kwargs['tracking_stats'] = pickle.loads(serialized_representation['tracking_stats'])
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

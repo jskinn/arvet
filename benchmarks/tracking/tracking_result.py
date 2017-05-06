@@ -140,7 +140,7 @@ class TrackingBenchmarkResult(core.benchmark.BenchmarkResult):
         return output
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'intervals' in serialized_representation:
             kwargs['lost_intervals'] = pickle.loads(serialized_representation['intervals'])
         if 'total_distance' in serialized_representation:
@@ -151,4 +151,4 @@ class TrackingBenchmarkResult(core.benchmark.BenchmarkResult):
             kwargs['total_frames'] = serialized_representation['total_frames']
         if 'settings' in serialized_representation:
             kwargs['settings'] = serialized_representation['settings']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)

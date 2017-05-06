@@ -46,7 +46,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'filename' in serialized_representation:
             kwargs['filename'] = serialized_representation['filename']
         if 'timestamp' in serialized_representation:
@@ -68,7 +68,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
             kwargs['labels_filename'] = serialized_representation['labels_filename']
         if 'world_normals_filename' in serialized_representation:
             kwargs['world_normals_filename'] = serialized_representation['world_normals_filename']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
     @classmethod
     def from_image(cls, image):
@@ -117,7 +117,7 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
 
         if 'left_filename' in serialized_representation:
             kwargs['left_filename'] = serialized_representation['left_filename']
@@ -154,4 +154,4 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
             kwargs['right_labels_filename'] = serialized_representation['right_labels_filename']
         if 'right_world_normals_filename' in serialized_representation:
             kwargs['right_world_normals_filename'] = serialized_representation['right_world_normals_filename']
-        return super().deserialize(serialized_representation, **kwargs)
+        return super().deserialize(serialized_representation, db_client, **kwargs)
