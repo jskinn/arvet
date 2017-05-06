@@ -1,4 +1,5 @@
 import abc
+import pymongo
 import database.entity
 import core.image
 import core.sequence_type
@@ -11,12 +12,12 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     This can be a sequential set of images like a video, or a random sampling of different pictures.
     """
 
-    def __init__(self, images, type, id_=None, **kwargs):
+    def __init__(self, images, type_, id_=None, **kwargs):
         super().__init__(id=id_, **kwargs)
 
         self._images = images
-        if isinstance(type, core.sequence_type.ImageSequenceType):
-            self._sequence_type = type
+        if isinstance(type_, core.sequence_type.ImageSequenceType):
+            self._sequence_type = type_
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         self._is_depth_available = all(hasattr(image, 'depth_filename') and
@@ -135,37 +136,24 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        # Note: These images should already be deserialized
+        """
+        Load any collection of images.
+        This handles the weird chicken-and-egg problem of deserializing
+        the image collection and the individual images.
+
+        :param serialized_representation: 
+        :param db_client: An instance of database.client, from which to load the image collection
+        :param kwargs: Additional arguments passed to the entity constructor.
+        These will be overridden by values in serialized representation
+        :return: A deserialized 
+        """
         if 'images' in serialized_representation:
-            kwargs['images'] = serialized_representation['images']
+            s_images = db_client.image_collection.find({
+                '_id': {'$in': serialized_representation['images']}
+            }).sort('timestamp', pymongo.ASCENDING)
+            kwargs['images'] = [db_client.deserialize_entity(s_image) for s_image in s_images]
         if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] is 'SEQ':
             kwargs['type'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
             kwargs['type'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         return super().deserialize(serialized_representation, db_client, **kwargs)
-
-
-def load_image_collection(dbclient, id_):
-    """
-    Load any collection of images.
-    This handles the weird chicken-and-egg problem of deserializing
-    the image collection and the individual images.
-
-    :param dbclient: An instance of database.client, from which to load the image collection 
-    :param id_: The ID of the image collection
-    :return: A deserialized 
-    """
-
-    # step 1: Get the serialized dataset
-    s_collection = dbclient.datasets.find_one({'_id': id_})
-
-    # step 2: load the images from the serialized ids
-    image_ids = s_collection['images']
-    s_images = dbclient.images.find({'_id': {'$in': image_ids}})
-    images = [dbclient.deserialize_entity(s_image) for s_image in s_images]
-
-    # step 3: replace the image ids with their deserialized versions
-    s_collection['images'] = images
-
-    # step 4: deserialize and return the dataset
-    return dbclient.deserialize_entity(s_collection)
