@@ -1,4 +1,5 @@
 import os
+import util.dict_utils as du
 
 
 class Image:
@@ -315,13 +316,12 @@ class StereoImage(Image):
         return cls(timestamp=left_image.timestamp,
                    left_filename=left_image.filename,
                    right_filename=right_image.filename,
-                   left_camera_location=left_image.camera_location,
-                   left_camera_orientation=left_image.camera_orientation,
-                   right_camera_location=right_image.camera_location,
-                   right_camera_orientation=right_image.camera_orientation,
+                   left_camera_pose=left_image.camera_pose,
+                   right_camera_pose=right_image.camera_pose,
                    left_depth_filename=left_image.depth_filename,
                    left_labels_filename=left_image.labels_filename,
                    left_world_normals_filename=left_image.world_normals_filename,
                    right_depth_filename=right_image.depth_filename,
                    right_labels_filename=right_image.labels_filename,
-                   right_world_normals_filename=right_image.world_normals_filename)
+                   right_world_normals_filename=right_image.world_normals_filename,
+                   additional_metadata=du.defaults(left_image.additional_metadata, right_image.additional_metadata))
