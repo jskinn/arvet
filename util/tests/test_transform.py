@@ -15,7 +15,7 @@ class TestTransform(unittest.TestCase):
 
     def test_constructor_clone(self):
         tf1 = trans.Transform(location=(1, 2, 3),
-                             rotation=(4, 5, 6, 7))
+                              rotation=(4, 5, 6, 7))
         tf2 = trans.Transform(tf1)
         self.assert_array(tf1.location, tf2.location)
         self.assert_array(tf1.rotation_quat(w_first=True), tf2.rotation_quat(w_first=True))
@@ -74,6 +74,43 @@ class TestTransform(unittest.TestCase):
         qrot = _make_quat((1, 0, 0), np.pi / 6)
         tf = trans.Transform(rotation=qrot, w_first=True)
         self.assert_array(tf.euler, np.array([0, 0, np.pi / 6]))
+
+    def test_equals(self):
+        tf1 = trans.Transform(location=(1,2,3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
+        self.assertTrue(tf1 == tf1)
+        self.assertTrue(tf1 == tf2)
+        self.assertTrue(tf2 == tf1)
+        self.assertEqual(tf1, tf2)
+        self.assertFalse(tf1 == tf3)
+        self.assertFalse(tf1 == tf4)
+        self.assertFalse(tf3 == tf4)
+
+    def test_not_equals(self):
+        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
+        self.assertFalse(tf1 != tf1)
+        self.assertFalse(tf1 != tf2)
+        self.assertFalse(tf2 != tf1)
+        self.assertTrue(tf1 != tf3)
+        self.assertTrue(tf1 != tf4)
+        self.assertTrue(tf3 != tf4)
+        self.assertNotEqual(tf1, tf3)
+
+    def test_hash(self):
+        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.1, 0.2, 0.3, 0.4))
+        self.assertEqual(hash(tf1), hash(tf1))
+        self.assertEqual(hash(tf1), hash(tf2))
+        self.assertNotEqual(hash(tf1), hash(tf3))
+        self.assertNotEqual(hash(tf1), hash(tf4))
+        self.assertEqual({tf1, tf1, tf1}, {tf1})    # Set literals
 
     def test_find_relative_point_moves_origin(self):
         point = (11, 12, 13)
@@ -157,6 +194,24 @@ class TestTransform(unittest.TestCase):
         point_prime = tf.find_independent(point_rel)
 
         self.assert_close(point, point_prime)
+
+    def test_serialize_and_deserialise(self):
+        entity1 = trans.Transform(location=np.random.uniform(-1000, 1000, 3),
+                                  rotation=np.random.uniform(0, 1, 4), w_first=True)
+        s_entity1 = entity1.serialize()
+
+        entity2 = trans.Transform.deserialize(s_entity1)
+        s_entity2 = entity2.serialize()
+
+        self.assertEqual(entity1, entity2)
+        self.assertEqual(s_entity1, s_entity2)
+
+        for idx in range(0, 10):
+            # Test that repeated serialization and deserialization does not degrade the information
+            entity2 = trans.Transform.deserialize(s_entity2)
+            s_entity2 = entity2.serialize()
+            self.assertEqual(entity1, entity2)
+            self.assertEqual(s_entity1, s_entity2)
 
     def assert_array(self, arr1, arr2, msg=None):
         a1 = np.asarray(arr1)

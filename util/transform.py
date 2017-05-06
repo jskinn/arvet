@@ -31,13 +31,8 @@ class Transform:
 
     def __init__(self, location=None, rotation=None, w_first=False):
         if isinstance(location, Transform):
-            self._x = location._x
-            self._y = location._y
-            self._z = location._z
-            self._qw = location._qw
-            self._qx = location._qx
-            self._qy = location._qy
-            self._qz = location._qz
+            self._x, self._y, self._z = location.location
+            self._qw, self._qx, self._qy, self._qz = location.rotation_quat(w_first=True)
         elif isinstance(location, np.ndarray) and location.shape == (4, 4):
             # first parameter is a homogenous transformation matrix, turn it back into
             # location and quaternion
@@ -63,6 +58,27 @@ class Transform:
             else:
                 self._qw = 1
                 self._qx = self._qy = self._qz = 0
+
+    def __eq__(self, other):
+        """
+        Overridden equals method, for comparing transforms
+        :param other: Another object, potentially a transform
+        :return: 
+        """
+        if isinstance(other, Transform):
+            ox, oy, oz = other.location
+            oqw, oqx, oqy, oqz = other.rotation_quat(w_first=True)
+            return (ox == self._x and oy == self._y and oz == self._z and
+                    oqw == self._qw and oqx == self._qx and oqy == self._qy and oqz == self._qz)
+        return NotImplemented
+
+    def __hash__(self):
+        """
+        Override the hash function, since we overrode equals as well.
+        This lets us safely use transforms with builtin sets and dicts.
+        :return: 
+        """
+        return hash((self._x, self._y, self._z, self._qw, self._qx, self._qy, self._qz))
 
     @property
     def location(self):
@@ -155,9 +171,9 @@ class Transform:
         # Remember, the pose matrix gives the position in world coordinates from a local position,
         # So to find the world position, we have to reverse it
         if isinstance(pose, Transform):
-            inv_rot = tf.quaternions.qinverse((self._qw, self._qx, self._qy, self._qz))
+            inv_rot = tf.quaternions.qinverse(self.rotation_quat(w_first=True))
             loc = tf.quaternions.rotate_vector(pose.location - self.location, inv_rot)
-            rot = tf.quaternions.qmult(inv_rot, (pose._qw, pose._qx, pose._qy, pose._qz))
+            rot = tf.quaternions.qmult(inv_rot, pose.rotation_quat(w_first=True))
             return Transform(location=loc, rotation=rot, w_first=True)
         elif len(pose) >= 3:
             return tf.quaternions.rotate_vector(pose - self.location,
@@ -177,23 +193,22 @@ class Transform:
         # REMEMBER: pre-multiplying by the transformation matrix gives the world pose from the local
         if isinstance(pose, Transform):
             loc = self.location + tf.quaternions.rotate_vector(pose.location, (self._qw, self._qx, self._qy, self._qz))
-            rot = tf.quaternions.qmult((self._qw, self._qx, self._qy, self._qz),
-                                       (pose._qw, pose._qx, pose._qy, pose._qz))
+            rot = tf.quaternions.qmult(self.rotation_quat(w_first=True),
+                                       pose.rotation_quat(w_first=True))
             return Transform(location=loc, rotation=rot, w_first=True)
         elif len(pose) >= 3:
             return tf.quaternions.rotate_vector(pose, (self._qw, self._qx, self._qy, self._qz)) + self.location
         else:
             raise TypeError('find_independent needs to transform a point or pose')
 
+    def serialize(self):
+        return {
+            'location': (self._x, self._y, self._z),
+            'rotation': (self._qw, self._qx, self._qy, self._qz)
+        }
 
-def serialize_transform(transform):
-    return {
-        'location': tuple(transform.location),
-        'rotation': tuple(transform.rotation_quat(w_first=True))
-    }
-
-
-def deserialize_transform(s_transform):
-    return Transform(location=tuple(s_transform['location']),
-                     rotation=tuple(s_transform['rotation']),
-                     w_first=True)
+    @classmethod
+    def deserialize(cls, s_transform):
+        return cls(location=s_transform['location'],
+                   rotation=s_transform['rotation'],
+                   w_first=True)
