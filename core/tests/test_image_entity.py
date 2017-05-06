@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 import util.dict_utils as du
 import util.transform as tf
 import database.tests.test_entity as entity_test
@@ -33,9 +32,9 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
 
     def assert_models_equal(self, image1, image2):
         """
-        Helper to assert that two dataset models are equal
-        :param image1: Dataset
-        :param image2: Dataset
+        Helper to assert that two image entities are equal
+        :param image1: ImageEntity
+        :param image2: ImageEntity
         :return:
         """
         if not isinstance(image1, ie.ImageEntity) or not isinstance(image2, ie.ImageEntity):
@@ -43,8 +42,7 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(image1.identifier, image2.identifier)
         self.assertEqual(image1.filename, image2.filename)
         self.assertEqual(image1.timestamp, image2.timestamp)
-        self.assertTrue(np.array_equal(image1.camera_location, image2.camera_location))
-        self.assertTrue(np.array_equal(image1.camera_orientation, image2.camera_orientation))
+        self.assertEqual(image1.camera_pose, image2.camera_pose)
         self.assertEqual(image1.depth_filename, image2.depth_filename)
         self.assertEqual(image1.labels_filename, image2.labels_filename)
         self.assertEqual(image1.world_normals_filename, image2.world_normals_filename)
@@ -84,21 +82,19 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
 
     def assert_models_equal(self, image1, image2):
         """
-        Helper to assert that two dataset models are equal
-        :param image1: Dataset
-        :param image2: Dataset
+        Helper to assert that two stereo image entities are equal
+        :param image1: StereoImageEntity
+        :param image2: StereoImageEntity
         :return:
         """
         if not isinstance(image1, ie.StereoImageEntity) or not isinstance(image2, ie.StereoImageEntity):
-            self.fail('object was not an Image')
+            self.fail('object was not an StereoImageEntity')
         self.assertEqual(image1.identifier, image2.identifier)
         self.assertEqual(image1.timestamp, image2.timestamp)
         self.assertEqual(image1.left_filename, image2.left_filename)
         self.assertEqual(image1.right_filename, image2.right_filename)
-        self.assertTrue(np.array_equal(image1.left_camera_location, image2.left_camera_location))
-        self.assertTrue(np.array_equal(image1.left_camera_orientation, image2.left_camera_orientation))
-        self.assertTrue(np.array_equal(image1.right_camera_location, image2.right_camera_location))
-        self.assertTrue(np.array_equal(image1.right_camera_orientation, image2.right_camera_orientation))
+        self.assertEqual(image1.left_camera_pose, image2.left_camera_pose)
+        self.assertEqual(image1.right_camera_pose, image2.right_camera_pose)
         self.assertEqual(image1.left_depth_filename, image2.left_depth_filename)
         self.assertEqual(image1.left_labels_filename, image2.left_labels_filename)
         self.assertEqual(image1.left_world_normals_filename, image2.left_world_normals_filename)

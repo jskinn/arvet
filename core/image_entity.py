@@ -2,7 +2,6 @@ import os
 import os.path
 import copy
 import database.entity
-import util.geometry as geom
 import util.transform as tf
 import core.image
 
@@ -35,10 +34,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         serialized = super().serialize()
         serialized['filename'] = self.filename
         serialized['timestamp'] = self.timestamp
-        serialized['camera_pose'] = {
-            'location': geom.numpy_vector_to_dict(self.camera_location),
-            'rotation': geom.numpy_quarternion_to_dict(self.camera_orientation)
-        }
+        serialized['camera_pose'] = self.camera_pose.serialize()
         serialized['additional_metadata'] = copy.deepcopy(self.additional_metadata)
         serialized['depth_filename'] = self.depth_filename
         serialized['labels_filename'] = self.labels_filename
@@ -52,14 +48,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         if 'timestamp' in serialized_representation:
             kwargs['timestamp'] = serialized_representation['timestamp']
         if 'camera_pose' in serialized_representation:
-            loc = None
-            rot = None
-            if 'location' in serialized_representation['camera_pose']:
-                loc = geom.dict_vector_to_np_array(serialized_representation['camera_pose']['location'])
-            if 'rotation' in serialized_representation['camera_pose']:
-                rot = geom.dict_quaternion_to_np_array(serialized_representation['camera_pose']['rotation'])
-            if loc is not None or rot is not None:
-                kwargs['camera_pose'] =  tf.Transform(location=loc, rotation=rot, w_first=False)
+            kwargs['camera_pose'] = tf.Transform.deserialize(serialized_representation['camera_pose'])
         if 'additional_metadata' in serialized_representation:
             kwargs['additional_metadata'] = serialized_representation['additional_metadata']
         if 'depth_filename' in serialized_representation:
@@ -107,10 +96,7 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
             del serialized[key]
 
         serialized['right_filename'] = self.right_filename
-        serialized['right_camera_pose'] = {
-            'location': geom.numpy_vector_to_dict(self.right_camera_location),
-            'rotation': geom.numpy_quarternion_to_dict(self.right_camera_orientation)
-        }
+        serialized['right_camera_pose'] = self.right_camera_pose.serialize()
         serialized['right_depth_filename'] = self.right_depth_filename
         serialized['right_labels_filename'] = self.right_labels_filename
         serialized['right_world_normals_filename'] = self.right_world_normals_filename
@@ -122,14 +108,7 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         if 'left_filename' in serialized_representation:
             kwargs['left_filename'] = serialized_representation['left_filename']
         if 'left_camera_pose' in serialized_representation:
-            loc = None
-            rot = None
-            if 'location' in serialized_representation['left_camera_pose']:
-                loc = geom.dict_vector_to_np_array(serialized_representation['left_camera_pose']['location'])
-            if 'rotation' in serialized_representation['left_camera_pose']:
-                rot = geom.dict_quaternion_to_np_array(serialized_representation['left_camera_pose']['rotation'])
-            if loc is not None or rot is not None:
-                kwargs['left_camera_pose'] =  tf.Transform(location=loc, rotation=rot, w_first=False)
+            kwargs['left_camera_pose'] = tf.Transform.deserialize(serialized_representation['left_camera_pose'])
         if 'left_depth_filename' in serialized_representation:
             kwargs['left_depth_filename'] = serialized_representation['left_depth_filename']
         if 'left_labels_filename' in serialized_representation:
@@ -140,14 +119,7 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         if 'right_filename' in serialized_representation:
             kwargs['right_filename'] = serialized_representation['right_filename']
         if 'right_camera_pose' in serialized_representation:
-            loc = None
-            rot = None
-            if 'location' in serialized_representation['right_camera_pose']:
-                loc = geom.dict_vector_to_np_array(serialized_representation['right_camera_pose']['location'])
-            if 'rotation' in serialized_representation['right_camera_pose']:
-                rot = geom.dict_quaternion_to_np_array(serialized_representation['right_camera_pose']['rotation'])
-            if loc is not None or rot is not None:
-                kwargs['right_camera_pose'] =  tf.Transform(location=loc, rotation=rot, w_first=False)
+            kwargs['right_camera_pose'] = tf.Transform.deserialize(serialized_representation['right_camera_pose'])
         if 'right_depth_filename' in serialized_representation:
             kwargs['right_depth_filename'] = serialized_representation['right_depth_filename']
         if 'right_labels_filename' in serialized_representation:
