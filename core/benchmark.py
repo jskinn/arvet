@@ -27,7 +27,6 @@ class Benchmark(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
         Benchmark the result of a particular trial.
         The trial result MUST include the ground truth along with the system estimates.
 
-        :param dataset_images: DatasetImageSet The dataset with loaded images that produced the trial result
         :param trial_result: TrialResult
         :return: A BenchmarkResult object containing either the results, or a FailedBenchmark explaining the error
         :rtype: BenchmarkResult
