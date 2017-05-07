@@ -51,10 +51,17 @@ class Transform:
                 # I'm using the tait-bryan order of operations, for consistency with Unreal
                 self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
             elif rotation is not None and len(rotation) >= 4:
+                rotation = np.asarray(rotation, dtype=np.dtype('f8'))
+                norm = np.linalg.norm(rotation)
+                loop_count = 0
+                while norm != 1 and loop_count < 100:
+                    rotation = rotation / norm
+                    norm = np.linalg.norm(rotation)
+                    loop_count += 1
                 if w_first:
-                    self._qw, self._qx, self._qy, self._qz = rotation / np.linalg.norm(rotation)
+                    self._qw, self._qx, self._qy, self._qz = rotation
                 else:
-                    self._qx, self._qy, self._qz, self._qw = rotation / np.linalg.norm(rotation)
+                    self._qx, self._qy, self._qz, self._qw = rotation
             else:
                 self._qw = 1
                 self._qx = self._qy = self._qz = 0
@@ -86,7 +93,7 @@ class Transform:
         Get the location represented by this pose.
         :return: A numpy
         """
-        return np.array([self._x, self._y, self._z])
+        return np.array((self._x, self._y, self._z), dtype=np.dtype('f8'))
 
     def rotation_quat(self, w_first=False):
         """
@@ -95,8 +102,8 @@ class Transform:
         :return: A 4-element numpy array that is the unit quaternion orientation
         """
         if w_first:
-            return np.array([self._qw, self._qx, self._qy, self._qz])
-        return np.array([self._qx, self._qy, self._qz, self._qw])
+            return np.array((self._qw, self._qx, self._qy, self._qz), dtype=np.dtype('f8'))
+        return np.array((self._qx, self._qy, self._qz, self._qw), dtype=np.dtype('f8'))
 
     @property
     def euler(self):

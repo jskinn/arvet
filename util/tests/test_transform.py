@@ -196,8 +196,9 @@ class TestTransform(unittest.TestCase):
         self.assert_close(point, point_prime)
 
     def test_serialize_and_deserialise(self):
-        entity1 = trans.Transform(location=np.random.uniform(-1000, 1000, 3),
-                                  rotation=np.random.uniform(0, 1, 4), w_first=True)
+        random = np.random.RandomState(seed=1251)
+        entity1 = trans.Transform(location=random.uniform(-1000, 1000, 3),
+                                  rotation=random.uniform(-100, 100, 4), w_first=True)
         s_entity1 = entity1.serialize()
 
         entity2 = trans.Transform.deserialize(s_entity1)
@@ -206,7 +207,7 @@ class TestTransform(unittest.TestCase):
         self.assertEqual(entity1, entity2)
         self.assertEqual(s_entity1, s_entity2)
 
-        for idx in range(0, 10):
+        for idx in range(100):
             # Test that repeated serialization and deserialization does not degrade the information
             entity2 = trans.Transform.deserialize(s_entity2)
             s_entity2 = entity2.serialize()
