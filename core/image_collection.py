@@ -13,21 +13,21 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     """
 
     def __init__(self, images, type_, id_=None, **kwargs):
-        super().__init__(id=id_, **kwargs)
+        super().__init__(id_=id_, **kwargs)
 
         self._images = images
         if isinstance(type_, core.sequence_type.ImageSequenceType):
             self._sequence_type = type_
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-        self._is_depth_available = all(hasattr(image, 'depth_filename') and
-                                       image.depth_filename is not None for image in images)
-        self._is_labels_available = all(hasattr(image, 'labels_filename') and
-                                        image.labels_filename is not None for image in images)
-        self._is_normals_available = all(hasattr(image, 'labels_filename') and
-                                         image.world_normals_filename is not None for image in images)
-        self._is_stereo_available = all(hasattr(image, 'left_filename') and
-                                        hasattr(image, 'right_filename') for image in images)
+        self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_filename') and
+                                                           image.depth_filename is not None for image in images)
+        self._is_labels_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
+                                                            image.labels_filename is not None for image in images)
+        self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
+                                                             image.world_normals_filename is not None for image in images)
+        self._is_stereo_available = len(images) > 0 and all(hasattr(image, 'left_filename') and
+                                                            hasattr(image, 'right_filename') for image in images)
         self._current_index = 0
 
     def __len__(self):
@@ -153,7 +153,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
             }).sort('timestamp', pymongo.ASCENDING)
             kwargs['images'] = [db_client.deserialize_entity(s_image) for s_image in s_images]
         if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] is 'SEQ':
-            kwargs['type'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
+            kwargs['type_'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
-            kwargs['type'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+            kwargs['type_'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         return super().deserialize(serialized_representation, db_client, **kwargs)

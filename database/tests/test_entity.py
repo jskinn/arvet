@@ -40,7 +40,25 @@ class EntityContract(metaclass=abc.ABCMeta):
         pass
 
     def assert_serialized_equal(self, s_model1, s_model2):
+        """
+        Assert that two serialized models are equal.
+        The default behaviour is sufficient for most cases,
+        but when the serialized form contains incomparable objects (like pickled BSON),
+        override this to provide better comparison.
+        :param s_model1: dict
+        :param s_model2: dict
+        :return: 
+        """
         self.assertEqual(s_model1, s_model2)
+
+    def create_mock_db_client(self):
+        """
+        Create the mock database client fed to deserialize.
+        The default behaviour here is sufficient if the client is not used,
+        override it to create specific return values
+        :return: 
+        """
+        return mock.create_autospec(database.client.DatabaseClient)
 
     def test_identifier(self):
         entity = self.make_instance(id_=123)
@@ -58,7 +76,7 @@ class EntityContract(metaclass=abc.ABCMeta):
         self.assertEqual(s_entity['_type'], EntityClass.__name__)
 
     def test_serialize_and_deserialize(self):
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = self.create_mock_db_client()
         EntityClass = self.get_class()
         entity1 = self.make_instance(id_=12345)
         s_entity1 = entity1.serialize()
