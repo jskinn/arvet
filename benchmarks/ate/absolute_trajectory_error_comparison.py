@@ -11,19 +11,16 @@ class ATEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
     Basically just the difference in translational error.
     """
 
-    def __init__(self, offset=0, max_difference=0.02):
+    def __init__(self, offset=0, max_difference=0.02, id_=None):
         """
         Make a Comparison Benchmark for ATE,
         parameters are for configuring the matches between the two compared benchmarks 
         :param offset: Offset between
         :param max_difference:
         """
+        super().__init__(id_=id_)
         self._offset = offset
         self._max_difference = max_difference
-
-    @property
-    def identifier(self):
-        return 'AbsoluteTrajectoryErrorComparison'
 
     @property
     def offset(self):
@@ -47,6 +44,20 @@ class ATEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
             'offset': self.offset,
             'max_difference': self.max_difference
         }
+
+    def serialize(self):
+        output = super().serialize()
+        output['offset'] = self.offset
+        output['max_difference'] = self.max_difference
+        return output
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'offset' in serialized_representation:
+            kwargs['offset'] = serialized_representation['offset']
+        if 'max_difference' in serialized_representation:
+            kwargs['max_difference'] = serialized_representation['max_difference']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
     def get_trial_requirements(self):
         """

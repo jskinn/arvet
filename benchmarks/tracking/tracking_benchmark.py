@@ -9,6 +9,7 @@ class LostInterval:
     An interval during which the system was lost.
     This is basically just a struct storing information about the interval
     """
+    __slots__ = ['_start_time', '_end_time', '_distance', '_num_frames']
 
     def __init__(self, start_time, end_time, distance, num_frames):
         self._start_time = start_time
@@ -44,21 +45,33 @@ class TrackingBenchmark(core.benchmark.Benchmark):
     as well as a number of other statistics like max distance lost or median time lost.
     """
 
-    def __init__(self, initializing_is_lost=True):
+    def __init__(self, initializing_is_lost=True, id_=None):
         """
         Create a tracking benchmark
         :param initializing_is_lost: Does the initializing state count as lost or not
         """
+        super().__init__(id_=id_)
         self._initializing_is_lost = initializing_is_lost
 
     @property
-    def identifier(self):
-        return 'TrackingStatistics'
+    def initializing_is_lost(self):
+        return self._initializing_is_lost
 
     def get_settings(self):
         return {
             'initializing_is_lost': self._initializing_is_lost
         }
+
+    def serialize(self):
+        output = super().serialize()
+        output['initializing_is_lost'] = self._initializing_is_lost
+        return output
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'initializing_is_lost' in serialized_representation:
+            kwargs['initializing_is_lost'] = serialized_representation['initializing_is_lost']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
     def is_lost(self, state):
         return state is trials.slam.tracking_state.TrackingState.LOST or (

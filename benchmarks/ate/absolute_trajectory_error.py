@@ -44,25 +44,22 @@ class BenchmarkATE(core.benchmark.Benchmark):
     See: https://vision.in.tum.de/data/datasets/rgbd-dataset/tools
     """
 
-    def __init__(self, offset=0, max_difference=0.02, scale=1.0):
+    def __init__(self, offset=0, max_difference=0.02, scale=1.0, id_=None):
         """
         Create a Absolute Trajectory Error benchmark.
 
         There are 3 configuration properties for calculating ATE, which can be set as parameters:
         - offset: A uniform offset to the timstamps of the calculated trajectory, relative to the ground truth
         - max_difference: The maximum difference between matched timestamps
-        - scale: A scaling factor between the test trajectory and the ground truth trajectory
+        - scale: A scaling factor between the test trajectory and the ground truth trajectory locations
         :param offset:
         :param max_difference:
         :param scale:
         """
+        super().__init__(id_=id_)
         self._offset = offset
         self._max_difference = max_difference
-        self._scale = scale
-
-    @property
-    def identifier(self):
-        return 'AbsoluteTrajectoryError'
+        self._scale = scale     # TODO:
 
     @property
     def offset(self):
@@ -95,6 +92,23 @@ class BenchmarkATE(core.benchmark.Benchmark):
             'scale': self.scale,
             'max_difference': self.max_difference
         }
+
+    def serialize(self):
+        output = super().serialize()
+        output['offset'] = self.offset
+        output['max_difference'] = self.max_difference
+        output['scale'] = self.scale
+        return output
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'offset' in serialized_representation:
+            kwargs['offset'] = serialized_representation['offset']
+        if 'max_difference' in serialized_representation:
+            kwargs['max_difference'] = serialized_representation['max_difference']
+        if 'scale' in serialized_representation:
+            kwargs['scale'] = serialized_representation['scale']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
     def get_trial_requirements(self):
         return {'success': True, 'trajectory': {'$exists': True, '$ne': []}}

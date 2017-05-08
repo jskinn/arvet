@@ -4,6 +4,7 @@ import copy
 import util.transform as tf
 import util.associate as ass
 import core.benchmark
+import database.tests.test_entity
 import benchmarks.ate.absolute_trajectory_error as ate
 
 
@@ -68,13 +69,34 @@ class MockTrialResult:
         return self._comp_traj
 
 
-class TestBenchmarkATE(unittest.TestCase):
+class TestBenchmarkATE(database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):
         self.random = np.random.RandomState(1311)   # Use a random stream to make the results consistent
         trajectory = create_random_trajectory(self.random)
         noisy_trajectory, self.noise = create_noise(trajectory, self.random)
         self.trial_result = MockTrialResult(gt_trajectory=trajectory, comp_trajectory=noisy_trajectory)
+
+    def get_class(self):
+        return ate.BenchmarkATE
+
+    def make_instance(self, *args, **kwargs):
+        return ate.BenchmarkATE(*args, **kwargs)
+
+    def assert_models_equal(self, benchmark1, benchmark2):
+        """
+        Helper to assert that two benchmarks are equal
+        :param benchmark1: BenchmarkATE
+        :param benchmark2: BenchmarkATE
+        :return:
+        """
+        if (not isinstance(benchmark1, ate.BenchmarkATE) or
+                not isinstance(benchmark2, ate.BenchmarkATE)):
+            self.fail('object was not a BenchmarkATE')
+        self.assertEqual(benchmark1.identifier, benchmark2.identifier)
+        self.assertEqual(benchmark1.offset, benchmark2.offset)
+        self.assertEqual(benchmark1.max_difference, benchmark2.max_difference)
+        self.assertEqual(benchmark1.scale, benchmark2.scale)
 
     def test_benchmark_results_returns_a_benchmark_result(self):
         benchmark = ate.BenchmarkATE()

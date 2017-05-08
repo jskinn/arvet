@@ -3,6 +3,7 @@ import numpy as np
 import copy
 import transforms3d as tf3d
 import util.transform as tf
+import database.tests.test_entity
 import core.benchmark
 import benchmarks.rpe.relative_pose_error as rpe
 
@@ -70,13 +71,37 @@ class MockTrialResult:
         return self._comp_traj
 
 
-class TestBenchmarkRPE(unittest.TestCase):
+class TestBenchmarkRPE(database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):
         self.random = np.random.RandomState(1311)   # Use a random stream to make the results consistent
         trajectory = create_random_trajectory(self.random)
         noisy_trajectory, self.noise = create_noise(trajectory, self.random)
         self.trial_result = MockTrialResult(gt_trajectory=trajectory, comp_trajectory=noisy_trajectory)
+
+    def get_class(self):
+        return rpe.BenchmarkRPE
+
+    def make_instance(self, *args, **kwargs):
+        return rpe.BenchmarkRPE(*args, **kwargs)
+
+    def assert_models_equal(self, benchmark1, benchmark2):
+        """
+        Helper to assert that two benchmarks are equal
+        :param benchmark1: BenchmarkRPE
+        :param benchmark2: BenchmarkRPE
+        :return:
+        """
+        if (not isinstance(benchmark1, rpe.BenchmarkRPE) or
+                not isinstance(benchmark2, rpe.BenchmarkRPE)):
+            self.fail('object was not a BenchmarkRPE')
+        self.assertEqual(benchmark1.identifier, benchmark2.identifier)
+        self.assertEqual(benchmark1.offset, benchmark2.offset)
+        self.assertEqual(benchmark1.scale, benchmark2.scale)
+        self.assertEqual(benchmark1.max_pairs, benchmark2.max_pairs)
+        self.assertEqual(benchmark1.fixed_delta, benchmark2.fixed_delta)
+        self.assertEqual(benchmark1.delta, benchmark2.delta)
+        self.assertEqual(benchmark1.delta_unit, benchmark2.delta_unit)
 
     def test_benchmark_results_returns_a_benchmark_result(self):
         benchmark = rpe.BenchmarkRPE()

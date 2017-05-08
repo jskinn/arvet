@@ -75,7 +75,27 @@ class TestRPEBenchmarkComparisonResult(entity_test.EntityContract, unittest.Test
             self.assertTrue(np.array_equal(rot_error1[key], rot_error2[key]))
 
 
-class TestRPEBenchmarkComparison(unittest.TestCase):
+class TestRPEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
+
+    def get_class(self):
+        return rpe_comp.RPEBenchmarkComparison
+
+    def make_instance(self, *args, **kwargs):
+        return rpe_comp.RPEBenchmarkComparison(*args, **kwargs)
+
+    def assert_models_equal(self, benchmark1, benchmark2):
+        """
+        Helper to assert that two benchmarks are equal
+        :param benchmark1: RPEBenchmarkComparison
+        :param benchmark2: RPEBenchmarkComparison
+        :return:
+        """
+        if (not isinstance(benchmark1, rpe_comp.RPEBenchmarkComparison) or
+                not isinstance(benchmark2, rpe_comp.RPEBenchmarkComparison)):
+            self.fail('object was not a RPEBenchmarkComparison')
+        self.assertEqual(benchmark1.identifier, benchmark2.identifier)
+        self.assertEqual(benchmark1.offset, benchmark2.offset)
+        self.assertEqual(benchmark1.max_difference, benchmark2.max_difference)
 
     def test_comparison_returns_comparison_benchmark_result(self):
         random = np.random.RandomState(6188)

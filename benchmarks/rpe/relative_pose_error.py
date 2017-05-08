@@ -47,7 +47,7 @@ import benchmarks.rpe.rpe_result
 
 class BenchmarkRPE(core.benchmark.Benchmark):
 
-    def __init__(self, max_pairs=10000, fixed_delta=False, delta=1.0, delta_unit='s', offset=0, scale_=1):
+    def __init__(self, max_pairs=10000, fixed_delta=False, delta=1.0, delta_unit='s', offset=0, scale_=1, id_=None):
         """
 
         :param max_pairs: maximum number of pose comparisons (default: 10000, set to zero to disable downsampling
@@ -59,6 +59,7 @@ class BenchmarkRPE(core.benchmark.Benchmark):
         :param offset: time offset between ground-truth and estimated trajectory (default: 0.0)
         :param scale_: scaling factor for the estimated trajectory (default: 1.0)
         """
+        super().__init__(id_=id_)
         self._max_pairs = int(max_pairs)
         self._fixed_delta = fixed_delta
         self._delta = delta
@@ -68,10 +69,6 @@ class BenchmarkRPE(core.benchmark.Benchmark):
             self._delta_unit = 's'
         self._offset = offset
         self._scale = scale_
-
-    @property
-    def identifier(self):
-        return 'RelativePoseError'
 
     @property
     def offset(self):
@@ -125,12 +122,38 @@ class BenchmarkRPE(core.benchmark.Benchmark):
     def get_settings(self):
         return {
             'offset': self.offset,
-            'scale': self.max_pairs,
+            'scale': self.scale,
             'max_pairs': self.max_pairs,
             'fixed_delta': self.fixed_delta,
             'delta': self.delta,
             'delta_unit': self.delta_unit
         }
+
+    def serialize(self):
+        output = super().serialize()
+        output['offset'] = self.offset
+        output['scale'] = self.scale
+        output['max_pairs'] = self.max_pairs
+        output['fixed_delta'] = self.fixed_delta
+        output['delta'] = self.delta
+        output['delta_unit'] = self.delta_unit
+        return output
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'offset' in serialized_representation:
+            kwargs['offset'] = serialized_representation['offset']
+        if 'scale' in serialized_representation:
+            kwargs['scale_'] = serialized_representation['scale']
+        if 'max_pairs' in serialized_representation:
+            kwargs['max_pairs'] = serialized_representation['max_pairs']
+        if 'fixed_delta' in serialized_representation:
+            kwargs['fixed_delta'] = serialized_representation['fixed_delta']
+        if 'delta' in serialized_representation:
+            kwargs['delta'] = serialized_representation['delta']
+        if 'delta_unit' in serialized_representation:
+            kwargs['delta_unit'] = serialized_representation['delta_unit']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
     def get_trial_requirements(self):
         return {}

@@ -1,5 +1,6 @@
 import numpy as np
 import unittest
+import database.tests.test_entity
 import core.benchmark_comparison
 import benchmarks.matching.matching_result as match_res
 import benchmarks.matching.match_comparison as match_comp
@@ -16,7 +17,27 @@ def create_matches(random_state, duration=600, length=100):
             for _ in range(length)}
 
 
-class TestMatchComparison(unittest.TestCase):
+class TestMatchComparison(database.tests.test_entity.EntityContract, unittest.TestCase):
+
+    def get_class(self):
+        return match_comp.BenchmarkMatchingComparison
+
+    def make_instance(self, *args, **kwargs):
+        return match_comp.BenchmarkMatchingComparison(*args, **kwargs)
+
+    def assert_models_equal(self, benchmark1, benchmark2):
+        """
+        Helper to assert that two benchmarks are equal
+        :param benchmark1: BenchmarkMatchingComparison
+        :param benchmark2: BenchmarkMatchingComparison
+        :return:
+        """
+        if (not isinstance(benchmark1, match_comp.BenchmarkMatchingComparison) or
+                not isinstance(benchmark2, match_comp.BenchmarkMatchingComparison)):
+            self.fail('object was not a BenchmarkMatchingComparison')
+        self.assertEqual(benchmark1.identifier, benchmark2.identifier)
+        self.assertEqual(benchmark1.offset, benchmark2.offset)
+        self.assertEqual(benchmark1.max_difference, benchmark2.max_difference)
 
     def test_comparison_returns_comparison_result(self):
         random = np.random.RandomState(1687)

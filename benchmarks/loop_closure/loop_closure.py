@@ -8,7 +8,7 @@ class BenchmarkLoopClosure(core.benchmark.Benchmark):
     A tool for benchmarking loop closures as correct or not.
     """
 
-    def __init__(self, distance_threshold, trivial_closure_index_distance=2):
+    def __init__(self, distance_threshold, trivial_closure_index_distance=2, id_=None):
         """
         Create an
 
@@ -24,26 +24,37 @@ class BenchmarkLoopClosure(core.benchmark.Benchmark):
         This will have different scales for datasets with indexes vs timestamps.
         Set to 0 to accept all trivial loop closures.
         """
+        super().__init__(id_=id_)
         self._threshold_distance = distance_threshold
         self._trivial_closure_distance = trivial_closure_index_distance
-
-    @property
-    def identifier(self):
-        return 'LoopClosurePrecisionRecall'
 
     @property
     def threshold_distance(self):
         return self._threshold_distance
 
     @property
-    def trivial_closure_distance(self):
+    def trivial_closure_index_distance(self):
         return self._trivial_closure_distance
 
     def get_settings(self):
         return {
             'threshold_distance': self.threshold_distance,
-            'trivial_closure_distance': self.trivial_closure_distance
+            'trivial_closure_distance': self.trivial_closure_index_distance
         }
+
+    def serialize(self):
+        output = super().serialize()
+        output['threshold_distance'] = self.threshold_distance
+        output['trivial_closure_index_distance'] = self.trivial_closure_index_distance
+        return output
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'threshold_distance' in serialized_representation:
+            kwargs['distance_threshold'] = serialized_representation['threshold_distance']
+        if 'trivial_closure_index_distance' in serialized_representation:
+            kwargs['trivial_closure_index_distance'] = serialized_representation['trivial_closure_index_distance']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
     def get_trial_requirements(self):
         return {'success': True, 'loop_closures': {'$exists': True, '$ne': []}}
@@ -57,7 +68,7 @@ class BenchmarkLoopClosure(core.benchmark.Benchmark):
         """
         matches = {}
         threshold_distance_squared = self.threshold_distance * self.threshold_distance
-        trivial_index_distance_squared = self.trivial_closure_distance * self.trivial_closure_distance
+        trivial_index_distance_squared = self.trivial_closure_index_distance * self.trivial_closure_index_distance
 
         poses = trial_result.get_ground_truth_camera_poses()
         indexes = list(poses.keys())
@@ -87,7 +98,7 @@ class BenchmarkLoopClosure(core.benchmark.Benchmark):
             unmatched_pose = poses[unmatched_idx].location
             found_closure = False
             for index, pose in poses.items():
-                if index < unmatched_idx - self.trivial_closure_distance:
+                if index < unmatched_idx - self.trivial_closure_index_distance:
                     diff = unmatched_pose - pose.location
                     square_dist = np.dot(diff, diff)
 

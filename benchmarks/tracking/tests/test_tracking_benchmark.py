@@ -1,9 +1,9 @@
 import unittest
-
-import benchmarks.tracking.tracking_benchmark as tracking
+import database.tests.test_entity
 import core.benchmark
 import util.transform as tf
 import trials.slam.tracking_state
+import benchmarks.tracking.tracking_benchmark as tracking
 
 
 class MockTrialResult:
@@ -39,11 +39,11 @@ class MockTrialResult:
         return self.tracking_states
 
 
-class TestTrackingBenchmark(unittest.TestCase):
+class TestTrackingBenchmark(database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):
         self.trajectory = {
-            1.3333: tf.Transform(location=(0, 0, 0), rotation=(0,0,0,1)),
+            1.3333: tf.Transform(location=(0, 0, 0), rotation=(0, 0, 0, 1)),
             1.6667: tf.Transform(location=(10, 0, 0), rotation=(0, 0, 0, 1)),
             2: tf.Transform(location=(20, 0, 0), rotation=(0, 0, 0, 1)),
             2.3333: tf.Transform(location=(30, 0, 0), rotation=(0, 0, 0, 1)),
@@ -69,6 +69,25 @@ class TestTrackingBenchmark(unittest.TestCase):
             4.6667: trials.slam.tracking_state.TrackingState.LOST
         }
         self.trial_result = MockTrialResult(gt_trajectory=self.trajectory, tracking_states=self.tracking_states)
+
+    def get_class(self):
+        return tracking.TrackingBenchmark
+
+    def make_instance(self, *args, **kwargs):
+        return tracking.TrackingBenchmark(*args, **kwargs)
+
+    def assert_models_equal(self, benchmark1, benchmark2):
+        """
+        Helper to assert that two benchmarks are equal
+        :param benchmark1: TrackingBenchmark
+        :param benchmark2: TrackingBenchmark
+        :return:
+        """
+        if (not isinstance(benchmark1, tracking.TrackingBenchmark) or
+                not isinstance(benchmark2, tracking.TrackingBenchmark)):
+            self.fail('object was not a TrackingBenchmarknchmark')
+        self.assertEqual(benchmark1.identifier, benchmark2.identifier)
+        self.assertEqual(benchmark1.initializing_is_lost, benchmark2.initializing_is_lost)
 
     def test_benchmark_results_returns_a_benchmark_result(self):
         benchmark = tracking.TrackingBenchmark()

@@ -1,6 +1,8 @@
 import numpy as np
 import unittest
+import util.dict_utils as du
 import util.transform as tf
+import database.tests.test_entity
 import core.benchmark
 import benchmarks.matching.matching_result as match_res
 import benchmarks.loop_closure.loop_closure as lc
@@ -39,7 +41,30 @@ class MockTrialResult:
         return self.loop_closures
 
 
-class TestBenchmarkLoopClosure(unittest.TestCase):
+class TestBenchmarkLoopClosure(database.tests.test_entity.EntityContract, unittest.TestCase):
+
+    def get_class(self):
+        return lc.BenchmarkLoopClosure
+
+    def make_instance(self, *args, **kwargs):
+        kwargs = du.defaults(kwargs, {
+            'distance_threshold': 100
+        })
+        return lc.BenchmarkLoopClosure(*args, **kwargs)
+
+    def assert_models_equal(self, benchmark1, benchmark2):
+        """
+        Helper to assert that two benchmarks are equal
+        :param benchmark1: BenchmarkLoopClosure
+        :param benchmark2: BenchmarkLoopClosure
+        :return:
+        """
+        if (not isinstance(benchmark1, lc.BenchmarkLoopClosure) or
+                not isinstance(benchmark2, lc.BenchmarkLoopClosure)):
+            self.fail('object was not a BenchmarkLoopClosure')
+        self.assertEqual(benchmark1.identifier, benchmark2.identifier)
+        self.assertEqual(benchmark1.threshold_distance, benchmark2.threshold_distance)
+        self.assertEqual(benchmark1.trivial_closure_index_distance, benchmark2.trivial_closure_index_distance)
 
     def test_benchmark_results_returns_a_benchmark_result(self):
         trial_result = MockTrialResult(gt_trajectory={
