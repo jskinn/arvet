@@ -3,71 +3,61 @@ import database.entity
 import core.system
 
 
-class TrainedVisionSystem(core.system.VisionSystem, metaclass=abc.ABCMeta):
-
-    @abc.abstractmethod
-    def set_trained_state(self, trained_state):
-        """
-        Set the trained state of the system, so that it can be run with a particular configuration.
-        Should do nothing if the given parameter is not an appropriate state for this system
-        :param: TrainedState
-        :return:
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def trained_state(self):
-        """
-        Get the id of the current trained state,
-        or None if untrained
-        :return:
-        """
-        pass
-
-    @classmethod
-    @abc.abstractmethod
-    def get_trainer_class(cls):
-        """
-        Get the class used for training a particular vision system.
-        :return: a subclass of VisionSystemTrainer
-        """
-        return NotImplemented
-
-
-class VisionSystemTrainer(metaclass=abc.ABCMeta):
+class VisionSystemTrainer(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
     """
     A separate class like a builder for training Vision Systems.
     This breaks some awkward dependencies with having the system class
     also be responsible for training.
+    
+    Like vision systems, all trainers must be entities so that the database can load them.
     """
 
     @abc.abstractmethod
-    def set_settings(self, settings):
+    def is_image_source_appropriate(self, image_source):
         """
-        Set the setting used when training the vision system.
-        The current value of the settings should be baked into
-        :param settings:
-        :return:
+        Is the dataset appropriate for training this vision system.
+        This allows more fine-grained filtering of which image sources are used for training particular systems,
+        because it can have access to the trainer settings, which may conditionally exclude some sources.
+
+        :param image_source: The source for images that this system will potentially be run with.
+        :return: True iff the particular dataset is appropriate for this vision system.
+        :rtype: bool
         """
         pass
 
     @abc.abstractmethod
-    def add_dataset(self, dataset_images):
+    def start_training(self, training_image_source_id):
         """
-        Add a particular dataset to be trained on.
-        This allows the system to be trained on images from multiple datasets.
-        :param dataset_images:
-        :return:
+        Start training the system.
+        After calling this, train_with_image should be called with images from the image source.
+        If we want to train on image data from multiple image sources, call start_training
+        for each image source, and only call finish_training when all image sources are complete
+        
+        :param training_image_source_id: ObjectId
+        :return: void
         """
         pass
 
     @abc.abstractmethod
-    def train_system(self):
+    def train_with_image(self, image):
         """
-        Train the system with the datasets we've already added
-        :return: The trial results
-        :rtype: TrainedState
+        Train the system with a particular image
+        :param image: 
+        :return: void
+        """
+        pass
+
+    @abc.abstractmethod
+    def finish_training(self):
+        """
+        Finish training, producing a new vision system instance,
+        which will be saved in the database as a new vision system to be tested.
+        
+        If the training method is not sequential, requiring all images to train,
+        then train_with_image should simply accumulate images, and this method
+        should actually perform the training.
+        
+        :return: TrainedVisionSystem  
         """
         pass
 
@@ -76,57 +66,41 @@ class VisionSystemTrainer(metaclass=abc.ABCMeta):
     def get_training_dataset_criteria(cls):
         """
         Get search criteria for finding datasets that can be used by this system for training.
-        :return: A set of criteria for finding datasets that match
+        The scheduling process with try and train vision systems using all image sources that match this criteria.
+
+        :return: A set of criteria for finding datasets that match, in mongodb query format
         :rtype: dict
         """
         return {}
 
 
-class TrainedState(database.entity.Entity):
+class TrainedVisionSystem(core.system.VisionSystem, metaclass=database.entity.AbstractEntityMetaclass):
     """
-    The result of training a particular system wit ha particular dataset
-    Contains all the relevant information from the run, and is passed to the benchmark to measure the performance.
-    Different subtypes of VisionSystem will have different subclasses of this.
-
-    All Trial results have a one to many relationship with a particular dataset and system.
+    A subclass of a vision system that are produced by training.
+    Instances of this class are returned by VisionSystemTrainers.
+    The only difference here is that they have references back to the image 
     """
 
-    def __init__(self, dataset_ids, system_id, system_settings, id_=None, **kwargs):
-        super().__init__(id_)
-        self._settings = system_settings
-
-        self._dataset_ids = dataset_ids
-        self._system_id = system_id
+    def __init__(self, vision_system_trainer, training_image_source_ids, id_=None, **kwargs):
+        super().__init__(id_=id_, **kwargs)
+        self._trainer = vision_system_trainer
+        self._training_image_sources = training_image_source_ids
 
     @property
-    def dataset_ids(self):
+    def vision_system_trainer(self):
         """
-        The ID of one or more the datasets used to create this result
-        :return:
+        A reference to the training object used to train this system
+        :return: 
         """
-        return self._dataset_ids
+        return self._trainer
 
     @property
-    def system_id(self):
+    def training_image_sources(self):
         """
-        The ID of the system which produced this result
-        :return:
+        A list of all the image sources used to train this system.
+        :return: 
         """
-        return self._system_id
-
-    @property
-    def settings(self):
-        return self._settings
-
-    def consolidate_files(self, new_directory):
-        """
-        Consolidate any files associated with the trained state into the given folder.
-        This is how I manage additional files outside the database.
-        Should do nothing if the trained state has no additional files.
-        :param new_directory:
-        :return:
-        """
-        pass
+        return self._training_image_sources
 
     def serialize(self):
         """
@@ -134,18 +108,14 @@ class TrainedState(database.entity.Entity):
         :return: a dictionary representation of the entity, that can be saved to MongoDB
         """
         serialized = super().serialize()
-        serialized['datasets'] = self.dataset_ids
-        serialized['system'] = self.system_id
-        serialized['settings'] = self._settings
+        serialized['vision_system_trainer'] = self.vision_system_trainer
+        serialized['training_image_sources'] = self.training_image_sources
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        # massage the compulsory arguments, so that the constructor works
-        if 'datasets' in serialized_representation:
-            kwargs['dataset_ids'] = serialized_representation['datasets']
-        if 'system' in serialized_representation:
-            kwargs['system_id'] = serialized_representation['system']
-        if 'settings' in serialized_representation:
-            kwargs['system_settings'] = serialized_representation['settings']
+        if 'vision_system_trainer' in serialized_representation:
+            kwargs['vision_system_trainer'] = serialized_representation['vision_system_trainer']
+        if 'training_image_sources' in serialized_representation:
+            kwargs['training_image_source_ids'] = serialized_representation['training_image_sources']
         return super().deserialize(serialized_representation, db_client, **kwargs)

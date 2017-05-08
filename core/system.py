@@ -1,11 +1,12 @@
 import abc
-import database.identifiable
+import database.entity
 
 
-class VisionSystem(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
+class VisionSystem(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
     """
     A Vision system, something that will be run, benchmarked, and analysed by this program.
     This is the standard interface that everything must implement to work with this system.
+    All systems must be entities and stored in the database, so that the framework can load them, and 
     """
 
     @property
