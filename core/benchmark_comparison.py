@@ -1,8 +1,8 @@
 import abc
-import database.identifiable, database.entity
+import database.entity
 
 
-class BenchmarkComparison(database.identifiable.Identifiable, metaclass=abc.ABCMeta):
+class BenchmarkComparison(database.entity.Entity, metaclass=abc.ABCMeta):
     """
     Some benchmarks and performance measures only make sense when comparing two different trial results,
     that is, by comparing two similar runs and measuring the difference in some way.
