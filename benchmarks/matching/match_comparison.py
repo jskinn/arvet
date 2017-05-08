@@ -11,7 +11,7 @@ class BenchmarkMatchingComparison(core.benchmark_comparison.BenchmarkComparison)
     such as image labelling, or loop closure detection
     """
 
-    def __init__(self, offset=0, max_difference=0.1, id_=None):
+    def __init__(self, offset=0, max_difference=0.02, id_=None):
         super().__init__(id_=id_)
         self._offset = offset
         self._max_difference = max_difference

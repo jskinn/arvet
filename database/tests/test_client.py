@@ -27,6 +27,25 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertIn(mock.call(database_name), mock_client_instance.__getitem__.call_args_list)
 
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
+    def test_can_configure_system_trainers_collection(self, mock_mongoclient):
+        mock_client_instance = mock.create_autospec(MongoClientProxy)
+        database_instance = mock.create_autospec(pymongo.database.Database)
+        mock_mongoclient.return_value = mock_client_instance
+        mock_client_instance.__getitem__.return_value = database_instance
+
+        collection_name = 'test_collection_name_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'collections': {
+                    'system_trainers_collection': collection_name
+                }
+            }
+        })
+        _ = db_client.system_trainers_collection  # Collection is retrieved lazily, so we actually have to ask for it
+        self.assertTrue(database_instance.__getitem__.called)
+        self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
+
+    @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
     def test_can_configure_systems_collection(self, mock_mongoclient):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
@@ -107,6 +126,26 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
+    def test_can_configure_benchmarks_collection(self, mock_mongoclient):
+        mock_client_instance = mock.create_autospec(MongoClientProxy)
+        database_instance = mock.create_autospec(pymongo.database.Database)
+        mock_mongoclient.return_value = mock_client_instance
+        mock_client_instance.__getitem__.return_value = database_instance
+
+
+        collection_name = 'test_collection_name_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'collections': {
+                    'benchmarks_collection': collection_name
+                }
+            }
+        })
+        _ = db_client.benchmarks_collection     # Collection is retrieved lazily, so we actually have to ask for it
+        self.assertTrue(database_instance.__getitem__.called)
+        self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
+
+    @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
     def test_can_configure_results_collection(self, mock_mongoclient):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
@@ -123,25 +162,5 @@ class TestDatabaseClient(unittest.TestCase):
             }
         })
         _ = db_client.results_collection     # Collection is retrieved lazily, so we actually have to ask for it
-        self.assertTrue(database_instance.__getitem__.called)
-        self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
-
-    @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_trained_state_collection(self, mock_mongoclient):
-        mock_client_instance = mock.create_autospec(MongoClientProxy)
-        database_instance = mock.create_autospec(pymongo.database.Database)
-        mock_mongoclient.return_value = mock_client_instance
-        mock_client_instance.__getitem__.return_value = database_instance
-
-
-        collection_name = 'test_collection_name_' + str(random.uniform(-10000, 10000))
-        db_client = database.client.DatabaseClient({
-            'database_config': {
-                'collections': {
-                    'trained_state_collection': collection_name
-                }
-            }
-        })
-        _ = db_client.trained_state_collection     # Collection is retrieved lazily, so we actually have to ask for it
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)

@@ -22,10 +22,13 @@ class DatabaseClient:
                 'connection_parameters': <kwargs passed to MongoClient>
                 'database_name': <database name>
                 'collections': {
-                    'dataset_collection': <collection name for datasets>
-                    'images_collection': <collection name for images>
+                    'system_trainers_collection': <collection name for system trainers>
+                    'system_collection': <collection name for systems>
+                    'image_source_collection': <collection name for image sources>
+                    'image_collection':  <collection name for images>
                     'trials_collection': <collection name for trial results>
-                    'results_collection': <collection name for results>
+                    'benchmarks_collection': <collection name for benchmarks>
+                    'results_collection': <collection name for benchmark results>
                 }
             }
         }
@@ -42,28 +45,32 @@ class DatabaseClient:
             'connection_parameters': {},
             'database_name': 'benchmark_system',
             'collections': {
+                'system_trainers_collection': 'system_trainers',
                 'system_collection': 'systems',
                 'image_source_collection': 'image_sources',
-                'dataset_collection': 'datasets',
                 'image_collection':  'images',
                 'trials_collection': 'trials',
-                'results_collection': 'results',
-                'trained_state_collection': 'trained_states'
+                'benchmarks_collection': 'benchmarks',
+                'results_collection': 'results'
             }
         })
 
         conn_kwargs = db_config['connection_parameters']
         db_name = db_config['database_name']
+        self._system_trainers_collection_name = db_config['collections']['system_trainers_collection']
         self._system_collection_name = db_config['collections']['system_collection']
         self._image_source_collection_name = db_config['collections']['image_source_collection']
-        self._dataset_collection_name = db_config['collections']['dataset_collection']
         self._image_collection_name = db_config['collections']['image_collection']
         self._trials_collection_name = db_config['collections']['trials_collection']
+        self._benchmarks_collection_name = db_config['collections']['benchmarks_collection']
         self._results_collection_name = db_config['collections']['results_collection']
-        self._trained_state_collection_name = db_config['collections']['trained_state_collection']
 
         self._mongo_client = pymongo.MongoClient(**conn_kwargs)
         self._database = self._mongo_client[db_name]
+
+    @property
+    def system_trainers_collection(self):
+        return self._database[self._system_trainers_collection_name]
 
     @property
     def system_collection(self):
@@ -74,10 +81,6 @@ class DatabaseClient:
         return self._database[self._image_source_collection_name]
 
     @property
-    def dataset_collection(self):
-        return self._database[self._dataset_collection_name]
-
-    @property
     def image_collection(self):
         return self._database[self._image_collection_name]
 
@@ -86,12 +89,12 @@ class DatabaseClient:
         return self._database[self._trials_collection_name]
 
     @property
-    def results_collection(self):
-        return self._database[self._results_collection_name]
+    def benchmarks_collection(self):
+        return self._database[self._benchmarks_collection_name]
 
     @property
-    def trained_state_collection(self):
-        return self._database[self._trained_state_collection_name]
+    def results_collection(self):
+        return self._database[self._results_collection_name]
 
     def deserialize_entity(self, s_entity):
         type_name = s_entity['_type']
