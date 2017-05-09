@@ -41,8 +41,12 @@ class TrackingComparisonBenchmark(core.trial_comparison.TrialComparison):
             'max_difference': self.max_difference
         }
 
-    def get_trial_requirements(self):
+    @classmethod
+    def get_trial_requirements(cls):
         return {'success': True, 'tracking_stats': {'$exists': True, '$ne': []}}
+
+    def is_trial_appropriate(self, trial_result):
+        return hasattr(trial_result, 'identifier') and hasattr(trial_result, 'get_tracking_states')
 
     def compare_trial_results(self, trial_result, reference_trial_result):
         """
