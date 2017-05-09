@@ -30,8 +30,9 @@ def main(*args):
         s_trial = db_client.trials_collection.find_one({'_id': ref_trial_id})
         ref_trial_result = db_client.deserialize_entity(s_trial)
 
-        comparison_result = benchmark.compare_trial_results(comp_trial_result, ref_trial_result)
-        db_client.results_collection.insert(comparison_result.serialize())
+        if benchmark.is_trial_appropriate(comp_trial_result) and benchmark.is_trial_appropriate(ref_trial_result):
+            comparison_result = benchmark.compare_trial_results(comp_trial_result, ref_trial_result)
+            db_client.results_collection.insert(comparison_result.serialize())
 
 
 if __name__ == '__main__':

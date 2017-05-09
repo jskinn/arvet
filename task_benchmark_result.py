@@ -25,8 +25,9 @@ def main(*args):
         s_benchmark = db_client.benchmarks_collection.find_one({'_id': benchmark_id})
         benchmark = db_client.deserialize_entity(s_benchmark)
 
-        benchmark_result = benchmark.benchmark_results(trial_result)
-        db_client.results_collection.insert(benchmark_result.serialize())
+        if benchmark.is_trial_appropriate(trial_result):
+            benchmark_result = benchmark.benchmark_results(trial_result)
+            db_client.results_collection.insert(benchmark_result.serialize())
 
 
 if __name__ == '__main__':
