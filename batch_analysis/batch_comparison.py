@@ -27,12 +27,12 @@ def compare_results(benchmark, database_client, config=None, trained_state_id=No
     reference_dataset_ids = [result['_id'] for result in reference_dataset_ids]
 
     # Get the reference trial results, as IDs so the cursor doesn't expire
-    reference_trial_ids_query = du.defaults(benchmark.get_trial_requirements(),
+    reference_trial_ids_query = du.defaults(benchmark.get_benchmark_requirements(),
                                             {'success': True, 'dataset': {'$in': reference_dataset_ids}})
     if trained_state_id is not None:
         reference_trial_ids_query['trained_state'] = trained_state_id
     reference_trial_ids = database_client.trials_collection.find(du.defaults(
-        benchmark.get_trial_requirements(),
+        benchmark.get_benchmark_requirements(),
         {'success': True, 'dataset': {'$in': reference_dataset_ids}}
     ), {'_id': True})
     reference_trial_ids = [result['_id'] for result in reference_trial_ids]
@@ -64,7 +64,7 @@ def compare_results(benchmark, database_client, config=None, trained_state_id=No
 
         # Find all trials on these comparison datasets by the same system as the reference trial
         s_comparison_trials = database_client.trials_collection.find(du.defaults(
-            benchmark.get_trial_requirements(),
+            benchmark.get_benchmark_requirements(),
             {
                 '_id': {'$ne': ref_trial_id, '$nin': existing_compared_trials},
                 'dataset': {'$in': comparison_dataset_ids},

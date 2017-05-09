@@ -22,8 +22,8 @@ def benchmark_results(benchmark, database_client, config=None, trained_state_id=
     existing_results = database_client.results_collection.find(existing_results_query,
                                                                {'_id': False, 'trial_result': True})
     existing_results = [result['trial_result'] for result in existing_results]
-    trial_results = database_client.trials_collection.find(du.defaults(benchmark.get_trial_requirements(),
-                                                                    {'_id': {'$nin': existing_results} }))
+    trial_results = database_client.trials_collection.find(du.defaults(benchmark.get_benchmark_requirements(),
+                                                                       {'_id': {'$nin': existing_results} }))
 
     for s_trial_result in trial_results:
         trial_result = database_client.deserialize_entity(s_trial_result)

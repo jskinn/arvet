@@ -59,13 +59,22 @@ class ATEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
             kwargs['max_difference'] = serialized_representation['max_difference']
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
-    def get_trial_requirements(self):
+    @classmethod
+    def get_benchmark_requirements(cls):
         """
         Get the requirements for benchmark results that can be compared by this BenchmarkComparison.
         Both benchmark results must be AbsoluteTrajectoryError results.
         :return: 
         """
         return {'benchmark': 'AbsoluteTrajectoryError'}
+
+    def is_result_appropriate(self, benchmark_result):
+        """
+        Can this particular benchmark result be used in the benchmark?
+        :param benchmark_result: 
+        :return: 
+        """
+        return hasattr(benchmark_result, 'identifier') and hasattr(benchmark_result, 'translational_error')
 
     def compare_results(self, benchmark_result, reference_benchmark_result):
         """

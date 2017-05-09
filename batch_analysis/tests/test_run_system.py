@@ -21,7 +21,7 @@ class TestRunSystem(unittest.TestCase):
         }]
 
         self.vision_system = self._mock_vision_system()
-        self.vision_system.get_trial_requirements = mock.Mock(return_value={})
+        self.vision_system.get_benchmark_requirements = mock.Mock(return_value={})
 
         self.db_client = self._mock_db_client()
         self.db_client.dataset_collection = mock.Mock()

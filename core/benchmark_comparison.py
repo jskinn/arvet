@@ -15,15 +15,27 @@ class BenchmarkComparison(database.entity.Entity, metaclass=abc.ABCMeta):
     to allow them to be called easily and in a structured way.
     """
 
+    @classmethod
     @abc.abstractmethod
-    def get_trial_requirements(self):
+    def get_benchmark_requirements(cls):
         """
         Get the requirements to determine which trial_results are relevant for this benchmark.
-        Should return a dict that is a mongodb query operator
+        These are gneral requirements, more specific filtering should be done with is_appropriate, below
+        Should return a dict that is a mongodb query operator.
         :return:
         :rtype: dict
         """
         pass
+
+    @abc.abstractmethod
+    def is_result_appropriate(self, benchmark_result):
+        """
+        Fine-grained filtering of which benchmarks results this comparison can be applied to.
+        Has access to the 
+        :param benchmark_result: 
+        :return: 
+        """
+        return True
 
     @abc.abstractmethod
     def compare_results(self, benchmark_result, reference_benchmark_result):
