@@ -26,7 +26,7 @@ class BenchmarkComparison(database.entity.Entity, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def compare_trial_results(self, benchmark_result, reference_benchmark_result):
+    def compare_results(self, benchmark_result, reference_benchmark_result):
         """
         Compare the benchmark of one trial with the benchmark of another trial.
         Should return a FailedBenchmark if there is a problem.

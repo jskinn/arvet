@@ -67,7 +67,7 @@ class RPEBenchmarkComparison(core.benchmark_comparison.BenchmarkComparison):
         """
         return {'benchmark': 'RelativePoseError'}
 
-    def compare_trial_results(self, benchmark_result, reference_benchmark_result):
+    def compare_results(self, benchmark_result, reference_benchmark_result):
         """
         Compare the first Relative Pose Error result with a reference benchmark result.
         :param benchmark_result: 

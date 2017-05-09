@@ -31,7 +31,7 @@ def main(*args):
         s_result = db_client.results_collection.find_one({'_id': ref_result_id})
         ref_result = db_client.deserialize_entity(s_result)
 
-        comparison_result = benchmark.compare_trial_results(comp_result, ref_result)
+        comparison_result = benchmark.compare_results(comp_result, ref_result)
         db_client.results_collection.insert(comparison_result.serialize())
 
 

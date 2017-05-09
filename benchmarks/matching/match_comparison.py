@@ -55,7 +55,7 @@ class BenchmarkMatchingComparison(core.benchmark_comparison.BenchmarkComparison)
     def get_trial_requirements(self):
         return {'success': True, 'match_changes': {'$exists': True, '$ne': []}}
 
-    def compare_trial_results(self, benchmark_result, reference_benchmark_result):
+    def compare_results(self, benchmark_result, reference_benchmark_result):
         """
         Compare two matching results, to detect any changes in achieved performance.
         This measures all the different kinds of changes

@@ -112,7 +112,7 @@ class TestRPEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
                                                            rotational_error=ref_rot_error,
                                                            rpe_settings={})
         comparison_benchmark = rpe_comp.RPEBenchmarkComparison()
-        comparison_result = comparison_benchmark.compare_trial_results(comp_benchmark_result, ref_benchmark_result)
+        comparison_result = comparison_benchmark.compare_results(comp_benchmark_result, ref_benchmark_result)
         self.assertIsInstance(comparison_result, core.benchmark_comparison.BenchmarkComparisonResult)
         self.assertEqual(comparison_benchmark.identifier, comparison_result.comparison_id)
         self.assertEqual(comp_benchmark_result.identifier, comparison_result.benchmark_result)
@@ -144,7 +144,7 @@ class TestRPEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
                                                               rotational_error=test_rot_error,
                                                               rpe_settings={})
         comparison_benchmark = rpe_comp.RPEBenchmarkComparison()
-        comparison_result = comparison_benchmark.compare_trial_results(subject_benchmark_result, ref_benchmark_result)
+        comparison_result = comparison_benchmark.compare_results(subject_benchmark_result, ref_benchmark_result)
 
         for time, error in added_trans_error.items():
             self.assertIn(time, comparison_result.translational_error_difference)

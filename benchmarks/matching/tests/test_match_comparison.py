@@ -50,7 +50,7 @@ class TestMatchComparison(database.tests.test_entity.EntityContract, unittest.Te
                                                               matches=create_matches(random),
                                                               settings={})
         comparison_benchmark = match_comp.BenchmarkMatchingComparison()
-        comparison_result = comparison_benchmark.compare_trial_results(test_benchmark_result, ref_benchmark_result)
+        comparison_result = comparison_benchmark.compare_results(test_benchmark_result, ref_benchmark_result)
         self.assertIsInstance(comparison_result, core.benchmark_comparison.BenchmarkComparisonResult)
         self.assertEqual(comparison_benchmark.identifier, comparison_result.comparison_id)
         self.assertEqual(test_benchmark_result.identifier, comparison_result.benchmark_result)
@@ -148,5 +148,5 @@ class TestMatchComparison(database.tests.test_entity.EntityContract, unittest.Te
                                                                matches=comp_matches,
                                                                settings={})
         comparison_benchmark = match_comp.BenchmarkMatchingComparison()
-        comparison_result = comparison_benchmark.compare_trial_results(comp_benchmark_result, ref_benchmark_result)
+        comparison_result = comparison_benchmark.compare_results(comp_benchmark_result, ref_benchmark_result)
         self.assertEqual(expected_changes, comparison_result.match_changes)

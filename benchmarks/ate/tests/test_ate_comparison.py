@@ -46,7 +46,7 @@ class TestATEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
                                                        ate_settings={})
 
         comparison_benchmark = ate_comp.ATEBenchmarkComparison()
-        comparison_result = comparison_benchmark.compare_trial_results(benchmark_result1, benchmark_result2)
+        comparison_result = comparison_benchmark.compare_results(benchmark_result1, benchmark_result2)
         self.assertIsInstance(comparison_result, core.benchmark_comparison.BenchmarkComparisonResult)
         self.assertEqual(comparison_benchmark.identifier, comparison_result.comparison_id)
         self.assertEqual(benchmark_result1.identifier, comparison_result.benchmark_result)
@@ -73,7 +73,7 @@ class TestATEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
                                                               ate_settings={})
 
         comparison_benchmark = ate_comp.ATEBenchmarkComparison()
-        comparison_result = comparison_benchmark.compare_trial_results(subject_benchmark_result, ref_benchmark_result)
+        comparison_result = comparison_benchmark.compare_results(subject_benchmark_result, ref_benchmark_result)
 
         for time, error in added_error.items():
             self.assertIn(time, comparison_result.translational_error_difference)
