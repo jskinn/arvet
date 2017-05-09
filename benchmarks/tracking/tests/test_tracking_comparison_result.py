@@ -3,7 +3,7 @@ import numpy as np
 import database.tests.test_entity as entity_test
 import util.dict_utils as du
 import benchmarks.tracking.tracking_comparison_result as track_comp_res
-import trials.slam.tracking_state
+import trials.slam.tracking_state as ts
 
 
 class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase):
@@ -20,9 +20,9 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
         })
         if 'changes' not in kwargs:
             tracking_types = [
-                trials.slam.tracking_state.TrackingState.NOT_INITIALIZED,
-                trials.slam.tracking_state.TrackingState.LOST,
-                trials.slam.tracking_state.TrackingState.OK
+                ts.TrackingState.NOT_INITIALIZED,
+                ts.TrackingState.LOST,
+                ts.TrackingState.OK
             ]
             kwargs['changes'] = {}
             for _ in range(100):
@@ -54,8 +54,8 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
         subject = self.make_instance()
         new_tracking = 0
         for ref_state, comp_state in subject.changes.values():
-            if (comp_state == trials.slam.tracking_state.TrackingState.OK and
-                    ref_state != trials.slam.tracking_state.TrackingState.OK):
+            if (comp_state == ts.TrackingState.OK and
+                    ref_state != ts.TrackingState.OK):
                 new_tracking += 1
         self.assertEquals(new_tracking, subject.new_tracking_count)
 
@@ -63,36 +63,57 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
         subject = self.make_instance()
         new_lost = 0
         for ref_state, comp_state in subject.changes.values():
-            if (comp_state != trials.slam.tracking_state.TrackingState.OK and
-                    ref_state == trials.slam.tracking_state.TrackingState.OK):
+            if (comp_state != ts.TrackingState.OK and
+                    ref_state == ts.TrackingState.OK):
                 new_lost += 1
         self.assertEquals(new_lost, subject.new_lost_count)
 
     def test_initialized_is_lost_changes_new_tracking_count(self):
-        subject = self.make_instance()
-        # make sure there is at least one different result
-        subject.changes[601.2] = (trials.slam.tracking_state.TrackingState.LOST,
-                                  trials.slam.tracking_state.TrackingState.NOT_INITIALIZED)
-        initial_count = subject.new_tracking_count
+        kwargs = {
+            'benchmark_id': np.random.randint(0, 10),
+            'trial_result_id': np.random.randint(10, 20),
+            'reference_id': np.random.randint(20, 30),
+            'settings': {}
+        }
+        changes = {
+            1.0: (ts.TrackingState.NOT_INITIALIZED, ts.TrackingState.OK),
+            2.0: (ts.TrackingState.LOST, ts.TrackingState.OK)
+        }
+        subject = track_comp_res.TrackingComparisonResult(changes=changes, **kwargs)
+        self.assertEqual(2, subject.new_tracking_count)
+        subject.initializing_is_lost = False  # Default is True
+        self.assertEqual(1, subject.new_tracking_count)
 
-        subject.initializing_is_lost = False    # Default is True
-        new_tracking = 0
-        for ref_state, comp_state in subject.changes.values():
-            if (comp_state != trials.slam.tracking_state.TrackingState.LOST and
-                    ref_state == trials.slam.tracking_state.TrackingState.LOST):
-                new_tracking += 1
-        self.assertNotEqual(initial_count, subject.new_tracking_count)
-        self.assertEqual(new_tracking, subject.new_tracking_count)
+        changes = {
+            1.0: (ts.TrackingState.LOST, ts.TrackingState.NOT_INITIALIZED),
+            2.0: (ts.TrackingState.LOST, ts.TrackingState.OK)
+        }
+        subject = track_comp_res.TrackingComparisonResult(changes=changes, **kwargs)
+        self.assertEqual(1, subject.new_tracking_count)
+        subject.initializing_is_lost = False  # Default is True
+        self.assertEqual(2, subject.new_tracking_count)
 
     def test_initialized_is_lost_changes_new_lost_count(self):
-        subject = self.make_instance()
-        initial_count = subject.new_lost_count
+        kwargs = {
+            'benchmark_id': np.random.randint(0, 10),
+            'trial_result_id': np.random.randint(10, 20),
+            'reference_id': np.random.randint(20, 30),
+            'settings': {}
+        }
+        changes = {
+            1.0: (ts.TrackingState.NOT_INITIALIZED, ts.TrackingState.LOST),
+            2.0: (ts.TrackingState.OK, ts.TrackingState.LOST)
+        }
+        subject = track_comp_res.TrackingComparisonResult(changes=changes, **kwargs)
+        self.assertEqual(1, subject.new_lost_count)
+        subject.initializing_is_lost = False  # Default is True
+        self.assertEqual(2, subject.new_lost_count)
 
-        subject.initializing_is_lost = False    # Default is True
-        new_lost = 0
-        for ref_state, comp_state in subject.changes.values():
-            if (comp_state == trials.slam.tracking_state.TrackingState.LOST and
-                    ref_state != trials.slam.tracking_state.TrackingState.LOST):
-                new_lost += 1
-        self.assertNotEqual(initial_count, subject.new_lost_count)
-        self.assertEqual(new_lost, subject.new_lost_count)
+        changes = {
+            1.0: (ts.TrackingState.OK, ts.TrackingState.NOT_INITIALIZED),
+            2.0: (ts.TrackingState.OK, ts.TrackingState.LOST)
+        }
+        subject = track_comp_res.TrackingComparisonResult(changes=changes, **kwargs)
+        self.assertEqual(2, subject.new_lost_count)
+        subject.initializing_is_lost = False  # Default is True
+        self.assertEqual(1, subject.new_lost_count)
