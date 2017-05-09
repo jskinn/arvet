@@ -110,8 +110,14 @@ class BenchmarkATE(core.benchmark.Benchmark):
             kwargs['scale'] = serialized_representation['scale']
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
-    def get_trial_requirements(self):
+    @classmethod
+    def get_trial_requirements(cls):
         return {'success': True, 'trajectory': {'$exists': True, '$ne': []}}
+
+    def is_trial_appropriate(self, trial_result):
+        return (hasattr(trial_result, 'identifier') and
+                hasattr(trial_result, 'get_ground_truth_camera_poses') and
+                hasattr(trial_result, 'get_computed_camera_poses'))
 
     def benchmark_results(self, trial_result):
         """

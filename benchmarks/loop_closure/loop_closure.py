@@ -56,8 +56,14 @@ class BenchmarkLoopClosure(core.benchmark.Benchmark):
             kwargs['trivial_closure_index_distance'] = serialized_representation['trivial_closure_index_distance']
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
-    def get_trial_requirements(self):
+    @classmethod
+    def get_trial_requirements(cls):
         return {'success': True, 'loop_closures': {'$exists': True, '$ne': []}}
+
+    def is_trial_appropriate(self, trial_result):
+        return (hasattr(trial_result, 'identifier') and
+                hasattr(trial_result, 'get_ground_truth_camera_poses') and
+                hasattr(trial_result, 'get_loop_closures'))
 
     def benchmark_results(self, trial_result):
         """

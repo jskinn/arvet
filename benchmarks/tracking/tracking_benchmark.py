@@ -77,8 +77,14 @@ class TrackingBenchmark(core.benchmark.Benchmark):
         return state is trials.slam.tracking_state.TrackingState.LOST or (
             self._initializing_is_lost and state is trials.slam.tracking_state.TrackingState.NOT_INITIALIZED)
 
-    def get_trial_requirements(self):
+    @classmethod
+    def get_trial_requirements(cls):
         return {'success': True, 'tracking_stats': {'$exists': True, '$ne': []}}
+
+    def is_trial_appropriate(self, trial_result):
+        return (hasattr(trial_result, 'identifier') and
+                hasattr(trial_result, 'get_ground_truth_camera_poses') and
+                hasattr(trial_result, 'get_tracking_states'))
 
     def benchmark_results(self, trial_result):
         """

@@ -10,13 +10,23 @@ class Benchmark(database.entity.Entity, metaclass=abc.ABCMeta):
     to allow them to be called easily and in a structured way.
     """
 
+    @classmethod
     @abc.abstractmethod
-    def get_trial_requirements(self):
+    def get_trial_requirements(cls):
         """
         Get the requirements to determine which trial_results are relevant for this benchmark.
         Should return a dict that is a mongodb query operator
         :return:
         :rtype: dict
+        """
+        pass
+
+    @abc.abstractmethod
+    def is_trial_appropriate(self, trial_result):
+        """
+        More fine-grained filtering for trial results,
+        to make sure this class can benchmark this trial result.
+        :return: 
         """
         pass
 
