@@ -69,6 +69,16 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertEqual(image_collection1.is_normals_available, image_collection2.is_normals_available)
         self.assertEqual(image_collection1.is_stereo_available, image_collection2.is_stereo_available)
         self.assertEqual(len(image_collection1), len(image_collection2))
+        for idx in range(len(image_collection1)):
+            self.assertEqual(image_collection1[idx].identifier, image_collection2[idx].identifier)
+            self.assertEqual(image_collection1[idx].timestamp, image_collection2[idx].timestamp)
+            self.assertTrue(np.array_equal(image_collection1[idx].data, image_collection2[idx].data))
+            self.assertEqual(image_collection1[idx].camera_pose, image_collection2[idx].camera_pose)
+            self.assertTrue(np.array_equal(image_collection1[idx].depth_data, image_collection2[idx].depth_data))
+            self.assertTrue(np.array_equal(image_collection1[idx].labels_data, image_collection2[idx].labels_data))
+            self.assertTrue(np.array_equal(image_collection1[idx].world_normals_data,
+                                           image_collection2[idx].world_normals_data))
+            self.assertEqual(image_collection1[idx].additional_metadata, image_collection2[idx].additional_metadata)
 
     def create_mock_db_client(self):
         self.db_client = super().create_mock_db_client()

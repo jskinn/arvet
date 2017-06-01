@@ -34,7 +34,29 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         return len(self._images)
 
     def __iter__(self):
+        """
+        Iterator for the image collection
+        :return:
+        """
         return iter(self._images)
+
+    def __getitem__(self, item):
+        """
+        Allow index-based access. Why not.
+        :param item:
+        :return:
+        """
+        return self.get(item)
+
+    def get(self, index):
+        """
+        A getter for random access, since we're storing a list
+        :param index:
+        :return:
+        """
+        if index >= 0 and index < len(self._images):
+            return self._images[index]
+        return None
 
     @property
     def sequence_type(self):
