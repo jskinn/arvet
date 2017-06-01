@@ -2,7 +2,6 @@ import unittest
 import unittest.mock as mock
 import database.tests.test_entity
 import numpy as np
-import pymongo.collection
 import bson.objectid
 import util.dict_utils as du
 import util.transform as tf
@@ -60,7 +59,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         :param image_collection2: ImageEntity
         :return:
         """
-        if not isinstance(image_collection1, ic.ImageCollection) or not isinstance(image_collection2, ic.ImageCollection):
+        if (not isinstance(image_collection1, ic.ImageCollection) or
+                not isinstance(image_collection2, ic.ImageCollection)):
             self.fail('object was not an Image Collection')
         self.assertEqual(image_collection1.identifier, image_collection2.identifier)
         self.assertEqual(image_collection1.sequence_type, image_collection2.sequence_type)
@@ -83,7 +83,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
     def create_mock_db_client(self):
         self.db_client = super().create_mock_db_client()
 
-        self.db_client.image_collection.find.return_value.sort.return_value = [image.serialize() for image in self.images_list]
+        self.db_client.image_collection.find.return_value.sort.return_value = [image.serialize()
+                                                                               for image in self.images_list]
         self.db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[str(s_image['_id'])]
 
         return self.db_client
@@ -102,3 +103,22 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
                       db_client.image_collection.find.call_args_list)
         for image in self.images_list:
             self.assertIn(mock.call(image.serialize()), db_client.deserialize_entity.call_args_list)
+
+    def test_create_serialized_makes_deserializeable_collection(self):
+        db_client = self.create_mock_db_client()
+
+        s_image_collection = ic.ImageCollection.create_serialized([image.identifier for image in self.images_list],
+                                                                  core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        collection = ic.ImageCollection.deserialize(s_image_collection, db_client)
+        self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, collection.sequence_type)
+        self.assertEqual(len(self.images_list), len(collection))
+        for idx in range(len(self.images_list)):
+            self.assertEqual(self.images_list[idx].identifier, collection[idx].identifier)
+            self.assertEqual(self.images_list[idx].timestamp, collection[idx].timestamp)
+            self.assertTrue(np.array_equal(self.images_list[idx].data, collection[idx].data))
+            self.assertEqual(self.images_list[idx].camera_pose, collection[idx].camera_pose)
+            self.assertTrue(np.array_equal(self.images_list[idx].depth_data, collection[idx].depth_data))
+            self.assertTrue(np.array_equal(self.images_list[idx].labels_data, collection[idx].labels_data))
+            self.assertTrue(np.array_equal(self.images_list[idx].world_normals_data,
+                                           self.images_list[idx].world_normals_data))
+            self.assertEqual(self.images_list[idx].additional_metadata, collection[idx].additional_metadata)

@@ -54,7 +54,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :param index:
         :return:
         """
-        if index >= 0 and index < len(self._images):
+        if 0 <= index < len(self._images):
             return self._images[index]
         return None
 
@@ -179,3 +179,20 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         else:
             kwargs['type_'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+    @classmethod
+    def create_serialized(cls, image_ids, sequence_type):
+        """
+        Make an already serialized image collection.
+        Since, sometimes we have the image ids, but we don't want to have to load the objects to make the collection.
+        WARNING: This can create invalid serialized image collections, since it can't check the validity of the ids.
+
+        :param image_ids: A list of bson.objectid.ObjectId that refer to image objects in the database
+        :param sequence_type: core.sequence_type.ImageSequenceType
+        :return:
+        """
+        return {
+            '_type': cls.__name__,
+            'images': image_ids,
+            'sequence_type': 'SEQ' if sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
+        }
