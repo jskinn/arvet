@@ -1,4 +1,5 @@
 import unrealcv
+import cv2
 import util.dict_utils as du
 import core.image as im
 import simulation.simulator
@@ -169,54 +170,59 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
 
         }
 
+    def _request_image(self, viewmode):
+        filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
+        data = cv2.imread(filename)
+        return data[:, :, ::-1]
+
     def _get_image(self):
         if self._client is not None:
-            image_filename = self._client.request('vget /camera/0/lit')
-            depth_filename = None
-            labels_filename = None
-            world_normals_filename = None
+            image_data = self._request_image('lit')
+            depth_data = None
+            labels_data = None
+            world_normals_data = None
 
             if self.is_depth_available:
-                depth_filename = self._client.request('vget /camera/0/depth')
+                depth_data = self._request_image('depth')
             if self.is_labels_available:
-                labels_filename = self._client.request('vget /camera/0/object_mask')
+                labels_data = self._request_image('object_mask')
             if self.is_normals_available:
-                world_normals_filename = self._client.request('vget /camera/0/normal')
+                world_normals_data = self._request_image('normal')
 
             if self.is_stereo_available:
                 cached_pose = self.current_pose
                 right_pose = self.current_pose.find_independent((0, 0, self._stereo_offset))
                 self.set_camera_pose(right_pose)
 
-                right_image_filename = self._client.request('vget /camera/0/lit')
-                right_depth_filename = None
-                right_labels_filename = None
-                right_world_normals_filename = None
+                right_image_data = self._request_image('lit')
+                right_depth = None
+                right_labels = None
+                right_world_normals = None
 
                 if self.is_depth_available:
-                    right_depth_filename = self._client.request('vget /camera/0/depth')
+                    right_depth = self._request_image('depth')
                 if self.is_labels_available:
-                    right_labels_filename = self._client.request('vget /camera/0/object_mask')
+                    right_labels = self._request_image('object_mask')
                 if self.is_normals_available:
-                    right_world_normals_filename = self._client.request('vget /camera/0/normal')
+                    right_world_normals = self._request_image('normal')
 
                 return im.StereoImage(timestamp=self._timestamp,
-                                      left_data=image_filename,
-                                      right_data=right_image_filename,
+                                      left_data=image_data,
+                                      right_data=right_image_data,
                                       left_camera_pose=cached_pose,
                                       right_camera_pose=right_pose,
                                       additional_metadata=self._get_additional_metadata(),
-                                      left_depth_data=depth_filename,
-                                      left_labels_data=labels_filename,
-                                      left_world_normals_data=world_normals_filename,
-                                      right_depth_data=right_depth_filename,
-                                      right_labels_data=right_labels_filename,
-                                      right_world_normals_data=right_world_normals_filename)
+                                      left_depth_data=depth_data,
+                                      left_labels_data=labels_data,
+                                      left_world_normals_data=world_normals_data,
+                                      right_depth_data=right_depth,
+                                      right_labels_data=right_labels,
+                                      right_world_normals_data=right_world_normals)
             return im.Image(timestamp=self._timestamp,
-                            data=image_filename,
+                            data=image_data,
                             camera_pose=self.current_pose,
                             additional_metadata=self._get_additional_metadata(),
-                            depth_data=depth_filename,
-                            labels_data=labels_filename,
-                            world_normals_data=world_normals_filename)
+                            depth_data=depth_data,
+                            labels_data=labels_data,
+                            world_normals_data=world_normals_data)
         return None
