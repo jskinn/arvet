@@ -1,4 +1,5 @@
 import pymongo
+import gridfs
 import database.entity
 import database.entity_registry
 import util.dict_utils as du
@@ -44,6 +45,7 @@ class DatabaseClient:
         db_config = du.defaults(db_config, {
             'connection_parameters': {},
             'database_name': 'benchmark_system',
+            'gridfs_bucket': 'fs',
             'collections': {
                 'system_trainers_collection': 'system_trainers',
                 'system_collection': 'systems',
@@ -67,6 +69,7 @@ class DatabaseClient:
 
         self._mongo_client = pymongo.MongoClient(**conn_kwargs)
         self._database = self._mongo_client[db_name]
+        self._gridfs = gridfs.GridFS(self._database, collection=db_config['gridfs_bucket'])
 
     @property
     def system_trainers_collection(self):
@@ -95,6 +98,10 @@ class DatabaseClient:
     @property
     def results_collection(self):
         return self._database[self._results_collection_name]
+
+    @property
+    def grid_fs(self):
+        return self._gridfs
 
     def deserialize_entity(self, s_entity):
         type_name = s_entity['_type']

@@ -4,27 +4,27 @@ import util.dict_utils as du
 
 class Image:
 
-    def __init__(self, timestamp, filename, camera_pose, additional_metadata=None,
-                 depth_filename=None, labels_filename=None, world_normals_filename=None, **kwargs):
+    def __init__(self, timestamp, data, camera_pose, additional_metadata=None,
+                 depth_data=None, labels_data=None, world_normals_data=None, **kwargs):
         super().__init__(**kwargs)  # The warning here is false, this passes arguments to other constructors for MI
         self._timestamp = timestamp
-        self._filename = filename
+        self._data = data
         self._camera_pose = camera_pose
-        self._depth_filename = depth_filename
-        self._labels_filename = labels_filename
-        self._world_normals_filename = world_normals_filename
+        self._depth_data = depth_data
+        self._labels_data = labels_data
+        self._world_normals_data = world_normals_data
         if additional_metadata is None:
             self._additional_metadata = {}
         else:
             self._additional_metadata = additional_metadata
 
     @property
-    def filename(self):
+    def data(self):
         """
-        Get the filename for this image.
-        :return:
+        Get the data for this image, as a numpy array.
+        :return: A numpy array containing the image data.
         """
-        return self._filename
+        return self._data
 
     @property
     def timestamp(self):
@@ -65,7 +65,7 @@ class Image:
         """
         Get the underlying Transform object representing the pose of the camera.
         This is useful to do things like convert points or poses to camera-relative
-        :return: A 4x4 numpy array
+        :return: A Transform object
         """
         return self._camera_pose
 
@@ -79,50 +79,29 @@ class Image:
         return self._additional_metadata
 
     @property
-    def depth_filename(self):
+    def depth_data(self):
         """
-        Get the filename for the scene depth image for this image.
+        Get the scene depth for this image, if available.
         Return None if no depth data is available.
-        :return: Image path as a string, or None if no depth image is available
+        :return: A numpy array, or None if no depth image is available
         """
-        return self._depth_filename
+        return self._depth_data
 
     @property
-    def labels_filename(self):
+    def labels_data(self):
         """
-        Get the filename for the image labels
-        :return: Image path as a string, or None if no labels are available
+        Get the image labels
+        :return: A numpy array, or None if no labels are available
         """
-        return self._labels_filename
+        return self._labels_data
 
     @property
-    def world_normals_filename(self):
+    def world_normals_data(self):
         """
-        Get the filename for the world normals image
-        :return: The image path as a string, or None if no world normals are available
+        Get the world normals image
+        :return: A numpy array, or None if no world normals are available
         """
-        return self._world_normals_filename
-
-    def remove(self):
-        """
-        Remove the image and associated files, for cleanup.
-        This may throw exceptions for any of the files, if they are in use.
-        :return: void
-        """
-        if self.depth_filename is not None:
-            if os.path.isfile(self.depth_filename):
-                os.remove(self.depth_filename)
-            self._depth_filename = None
-        if self.labels_filename is not None:
-            if os.path.isfile(self.labels_filename):
-                os.remove(self.labels_filename)
-            self._labels_filename = None
-        if self.world_normals_filename is not None:
-            if os.path.isfile(self.world_normals_filename):
-                os.remove(self.world_normals_filename)
-            self._world_normals_filename = None
-        if os.path.isfile(self.filename):
-            os.remove(self.filename)
+        return self._world_normals_data
 
 
 class StereoImage(Image):
@@ -132,43 +111,43 @@ class StereoImage(Image):
     to be accessed specifically, using the properties prefixed with 'right_'
     """
 
-    def __init__(self, timestamp, left_filename, right_filename,
+    def __init__(self, timestamp, left_data, right_data,
                  left_camera_pose, right_camera_pose,
                  additional_metadata=None,
-                 left_depth_filename=None, left_labels_filename=None, left_world_normals_filename=None,
-                 right_depth_filename=None, right_labels_filename=None, right_world_normals_filename=None, **kwargs):
+                 left_depth_data=None, left_labels_data=None, left_world_normals_data=None,
+                 right_depth_data=None, right_labels_data=None, right_world_normals_data=None, **kwargs):
         # Fiddle the arguments to go to the parents, those not listed here will be passed straight through.
         super().__init__(
             timestamp=timestamp,
-            filename=left_filename,
+            data=left_data,
             camera_pose=left_camera_pose,
             additional_metadata=additional_metadata,
-            depth_filename=left_depth_filename,
-            labels_filename=left_labels_filename,
-            world_normals_filename=left_world_normals_filename,
+            depth_data=left_depth_data,
+            labels_data=left_labels_data,
+            world_normals_data=left_world_normals_data,
             **kwargs)
-        self._right_filename = right_filename
+        self._right_data = right_data
         self._right_camera_pose = right_camera_pose
-        self._right_depth_filename = right_depth_filename
-        self._right_labels_filename = right_labels_filename
-        self._right_world_normals_filename = right_world_normals_filename
+        self._right_depth_data = right_depth_data
+        self._right_labels_data = right_labels_data
+        self._right_world_normals_data = right_world_normals_data
 
     @property
-    def left_filename(self):
+    def left_data(self):
         """
-        The filename of the left image in the stereo pair.
-        This is the same as the filename property
-        :return: This image filename as a string
+        The left image in the stereo pair.
+        This is the same as the data property
+        :return: The left image data, as a numpy array
         """
-        return self.filename
+        return self.data
 
     @property
-    def right_filename(self):
+    def right_data(self):
         """
-        The filename of hte right image in the stereo pair.
-        :return: The image filename as a string
+        The right image in the stereo pair.
+        :return: The right image data, as a numpy array
         """
-        return self._right_filename
+        return self._right_data
 
     @property
     def left_camera_location(self):
@@ -203,7 +182,7 @@ class StereoImage(Image):
         Get the underlying Transform object representing the pose of the left camera.
         This is useful to do things like convert points or poses to camera-relative.
         This is the same as 'camera_pose'
-        :return: A 4x4 numpy array
+        :return: A Transform object
         """
         return self.camera_pose
 
@@ -240,88 +219,67 @@ class StereoImage(Image):
         return self._right_camera_pose
 
     @property
-    def left_depth_filename(self):
+    def left_depth_data(self):
         """
-        The filename of the left depth image.
-        This is the same as depth_filename.
-        :return: The filename as a string, or None if no depth data is available.
+        The left depth image.
+        This is the same as depth_data.
+        :return: A numpy array, or None if no depth data is available.
         """
-        return self.depth_filename
+        return self.depth_data
 
     @property
-    def right_depth_filename(self):
+    def right_depth_data(self):
         """
-        The filename of the right depth image.
-        :return: The filename as a string, or None if no depth data is available.
+        The right depth image.
+        :return: A numpy array, or None if no depth data is available.
         """
-        return self._right_depth_filename
+        return self._right_depth_data
 
     @property
-    def left_labels_filename(self):
+    def left_labels_data(self):
         """
-        Get the filename for the image labels on the left image.
-        This is the same as the labels_filename.
-        :return: Image path as a string, or None if no labels are available.
+        The image labels for the left image.
+        This is the same as the labels_data.
+        :return: A numpy array, or None if no labels are available.
         """
-        return self.labels_filename
+        return self.labels_data
 
     @property
-    def right_labels_filename(self):
+    def right_labels_data(self):
         """
-        Get the filename for the image labels on the right image.
-        :return: Image path as a string, or None if no labels are available.
+        The image labels for the right image.
+        :return: A numpy array, or None if no labels are available.
         """
-        return self._right_labels_filename
+        return self._right_labels_data
 
     @property
-    def left_world_normals_filename(self):
+    def left_world_normals_data(self):
         """
         Get the world normals for the left camera viewpoint.
-        This is the same as the world_normals_filename
-        :return: The image path as a string, or None if no world normals are available.
+        This is the same as the world_normals_data
+        :return: A numpy array, or None if no world normals are available.
         """
-        return self.world_normals_filename
+        return self.world_normals_data
 
     @property
-    def right_world_normals_filename(self):
+    def right_world_normals_data(self):
         """
         Get the world normals filename for the right camera viewpoint.
-        :return: The filename as a string, or None if no world normals are available.
+        :return: A numpy array, or None if no world normals are available.
         """
-        return self._right_world_normals_filename
-
-    def remove(self):
-        """
-        Remove the image and associated files, for cleanup.
-        This may throw exceptions for any of the files, if they are in use.
-        :return: void
-        """
-        if self.right_depth_filename is not None:
-            if os.path.isfile(self.right_depth_filename):
-                os.remove(self.right_depth_filename)
-            self._right_depth_filename = None
-        if self.right_labels_filename is not None:
-            if os.path.isfile(self.right_labels_filename):
-                os.remove(self.right_labels_filename)
-            self._right_labels_filename = None
-        if self.right_world_normals_filename is not None:
-            if os.path.isfile(self.right_world_normals_filename):
-                os.remove(self.right_world_normals_filename)
-            self._right_world_normals_filename = None
-        if os.path.isfile(self.right_filename):
-            os.remove(self.right_filename)
+        return self._right_world_normals_data
 
     @classmethod
     def make_from_images(cls, left_image, right_image):
         return cls(timestamp=left_image.timestamp,
-                   left_filename=left_image.filename,
-                   right_filename=right_image.filename,
+                   left_data=left_image.data,
+                   right_data=right_image.data,
                    left_camera_pose=left_image.camera_pose,
                    right_camera_pose=right_image.camera_pose,
-                   left_depth_filename=left_image.depth_filename,
-                   left_labels_filename=left_image.labels_filename,
-                   left_world_normals_filename=left_image.world_normals_filename,
-                   right_depth_filename=right_image.depth_filename,
-                   right_labels_filename=right_image.labels_filename,
-                   right_world_normals_filename=right_image.world_normals_filename,
+                   left_depth_data=left_image.depth_data,
+                   left_labels_data=left_image.labels_data,
+                   left_world_normals_data=left_image.world_normals_data,
+                   right_depth_data=right_image.depth_data,
+                   right_labels_data=right_image.labels_data,
+                   right_world_normals_data=right_image.world_normals_data,
                    additional_metadata=du.defaults(left_image.additional_metadata, right_image.additional_metadata))

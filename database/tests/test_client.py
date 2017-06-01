@@ -3,6 +3,7 @@ import unittest
 import unittest.mock as mock
 import pymongo
 import pymongo.database
+import gridfs
 import database.client
 
 
@@ -12,8 +13,9 @@ MongoClientProxy = pymongo.MongoClient
 
 class TestDatabaseClient(unittest.TestCase):
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_database_name(self, mock_mongoclient):
+    def test_can_configure_database_name(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         mock_mongoclient.return_value = mock_client_instance
 
@@ -26,8 +28,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(mock_client_instance.__getitem__.called)
         self.assertIn(mock.call(database_name), mock_client_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_system_trainers_collection(self, mock_mongoclient):
+    def test_can_configure_system_trainers_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance
@@ -45,8 +48,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_systems_collection(self, mock_mongoclient):
+    def test_can_configure_systems_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance
@@ -65,8 +69,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_image_source_collection(self, mock_mongoclient):
+    def test_can_configure_image_source_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance
@@ -85,8 +90,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_image_collection(self, mock_mongoclient):
+    def test_can_configure_image_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance
@@ -105,8 +111,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_trials_collection(self, mock_mongoclient):
+    def test_can_configure_trials_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance
@@ -125,8 +132,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_benchmarks_collection(self, mock_mongoclient):
+    def test_can_configure_benchmarks_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance
@@ -145,8 +153,9 @@ class TestDatabaseClient(unittest.TestCase):
         self.assertTrue(database_instance.__getitem__.called)
         self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
 
+    @mock.patch('gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_can_configure_results_collection(self, mock_mongoclient):
+    def test_can_configure_results_collection(self, mock_mongoclient, mock_gridfs):
         mock_client_instance = mock.create_autospec(MongoClientProxy)
         database_instance = mock.create_autospec(pymongo.database.Database)
         mock_mongoclient.return_value = mock_client_instance

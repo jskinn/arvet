@@ -1,11 +1,35 @@
 import unittest
+import unittest.mock as mock
+import numpy as np
+import gridfs
+import pickle
 import util.dict_utils as du
 import util.transform as tf
 import database.tests.test_entity as entity_test
 import core.image_entity as ie
 
 
+class MockReadable:
+    """
+    A helper for mock gridfs.get to return, that has a 'read' method as expected.
+    """
+    def __init__(self, thing):
+        self._thing_bytes = pickle.dumps(thing, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def read(self):
+        return self._thing_bytes
+
+
 class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.data_map = [
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
+        ]
 
     def get_class(self):
         return ie.ImageEntity
@@ -13,7 +37,8 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'timestamp': 13 / 30,
-            'filename': '/home/user/test.png',
+            'data': self.data_map[0],
+            'data_id': 0,
             'camera_pose': tf.Transform(location=(1, 2, 3),
                                         rotation=(4, 5, 6, 7)),
             'additional_metadata': {
@@ -24,11 +49,22 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
                     'RoughnessQuality': True
                 }
             },
-            'depth_filename': '/home/user/test_depth.png',
-            'labels_filename': '/home/user/test_labels.png',
-            'world_normals_filename': '/home/user/test_normals.png'
+            'depth_data': self.data_map[1],
+            'depth_id': 1,
+            'labels_data': self.data_map[2],
+            'labels_id': 2,
+            'world_normals_data': self.data_map[3],
+            'world_normals_id': 3
         })
         return ie.ImageEntity(*args, **kwargs)
+
+    def create_mock_db_client(self):
+        self.db_client = super().create_mock_db_client()
+
+        self.db_client.grid_fs = unittest.mock.create_autospec(gridfs.GridFS)
+        self.db_client.grid_fs.get.side_effect = lambda id_: MockReadable(self.data_map[id_])
+
+        return self.db_client
 
     def assert_models_equal(self, image1, image2):
         """
@@ -40,16 +76,88 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         if not isinstance(image1, ie.ImageEntity) or not isinstance(image2, ie.ImageEntity):
             self.fail('object was not an Image')
         self.assertEqual(image1.identifier, image2.identifier)
-        self.assertEqual(image1.filename, image2.filename)
+        self.assertTrue(np.array_equal(image1.data, image2.data))
         self.assertEqual(image1.timestamp, image2.timestamp)
         self.assertEqual(image1.camera_pose, image2.camera_pose)
-        self.assertEqual(image1.depth_filename, image2.depth_filename)
-        self.assertEqual(image1.labels_filename, image2.labels_filename)
-        self.assertEqual(image1.world_normals_filename, image2.world_normals_filename)
+        self.assertTrue(np.array_equal(image1.depth_data, image2.depth_data))
+        self.assertTrue(np.array_equal(image1.labels_data, image2.labels_data))
+        self.assertTrue(np.array_equal(image1.world_normals_data, image2.world_normals_data))
         self.assertEqual(image1.additional_metadata, image2.additional_metadata)
+
+    def test_deserialise_calls_gridfs(self):
+        mock_db_client = self.create_mock_db_client()
+        EntityClass = self.get_class()
+        entity = self.make_instance(id_=12345)
+        s_entity = entity.serialize()
+
+        self.assertFalse(mock_db_client.grid_fs.get.called)
+        EntityClass.deserialize(s_entity, mock_db_client)
+        self.assertTrue(mock_db_client.grid_fs.get.called)
+        self.assertEqual(4, mock_db_client.grid_fs.get.call_count)
+        self.assertIn(mock.call(s_entity['data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['depth_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['labels_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['world_normals_data']), mock_db_client.grid_fs.get.call_args_list)
+
+    def test_does_not_deserialize_from_null_id(self):
+        mock_db_client = self.create_mock_db_client()
+        EntityClass = self.get_class()
+        entity = self.make_instance(id_=12345)
+        s_entity = entity.serialize()
+        s_entity['depth_data'] = None
+        s_entity['labels_data'] = None
+        s_entity['world_normals_data'] = None
+
+        self.assertFalse(mock_db_client.grid_fs.get.called)
+        EntityClass.deserialize(s_entity, mock_db_client)
+        self.assertEqual(1, mock_db_client.grid_fs.get.call_count)
+
+    def test_save_image_data_stores_in_gridfs(self):
+        mock_db_client = self.create_mock_db_client()
+        entity = self.make_instance(data_id=None,
+                                    depth_id=None,
+                                    labels_id=None,
+                                    world_normals_id=None)
+        entity.save_image_data(mock_db_client)
+        self.assertTrue(mock_db_client.grid_fs.put.called)
+        self.assertEqual(4, mock_db_client.grid_fs.put.call_count)
+
+    def test_save_image_data_does_not_store_data_if_already_stored(self):
+        mock_db_client = self.create_mock_db_client()
+        entity = self.make_instance()
+        entity.save_image_data(mock_db_client, force_update=False)
+        self.assertFalse(mock_db_client.grid_fs.put.called)
+
+    def test_save_image_data_updates_ids(self):
+        mock_db_client = self.create_mock_db_client()
+        entity = self.make_instance(data_id=None,
+                                    depth_id=None,
+                                    labels_id=None,
+                                    world_normals_id=None)
+        ids = [i for i in range(400, 800, 100)]
+        mock_db_client.grid_fs.put.side_effect = ids
+        entity.save_image_data(mock_db_client)
+        s_entity = entity.serialize()
+        self.assertIn(s_entity['data'], ids)
+        self.assertIn(s_entity['depth_data'], ids)
+        self.assertIn(s_entity['labels_data'], ids)
+        self.assertIn(s_entity['world_normals_data'], ids)
 
 
 class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.data_map = [
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
+            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
+        ]
 
     def get_class(self):
         return ie.StereoImageEntity
@@ -57,18 +165,26 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'timestamp': 13 / 30,
-            'left_filename': '/home/user/left.png',
+            'left_data': self.data_map[0],
+            'left_data_id': 0,
             'left_camera_pose': tf.Transform(location=(1, 2, 3),
                                              rotation=(4, 5, 6, 7)),
-            'left_depth_filename': '/home/user/left_depth.png',
-            'left_labels_filename': '/home/user/left_labels.png',
-            'left_world_normals_filename': '/home/user/left_normals.png',
-            'right_filename': '/home/user/right.png',
+            'left_depth_data': self.data_map[1],
+            'left_depth_id': 1,
+            'left_labels_data': self.data_map[2],
+            'left_labels_id': 2,
+            'left_world_normals_data': self.data_map[3],
+            'left_world_normals_id': 3,
+            'right_data': self.data_map[4],
+            'right_data_id': 4,
             'right_camera_pose': tf.Transform(location=(8, 9, 10),
                                               rotation=(11, 12, 13, 14)),
-            'right_depth_filename': '/home/user/right_depth.png',
-            'right_labels_filename': '/home/user/right_labels.png',
-            'right_world_normals_filename': '/home/user/right_normals.png',
+            'right_depth_data': self.data_map[5],
+            'right_depth_id': 5,
+            'right_labels_data': self.data_map[6],
+            'right_labels_id': 6,
+            'right_world_normals_data': self.data_map[7],
+            'right_world_normals_id': 7,
             'additional_metadata': {
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -79,6 +195,14 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
             }
         })
         return ie.StereoImageEntity(*args, **kwargs)
+
+    def create_mock_db_client(self):
+        self.db_client = super().create_mock_db_client()
+
+        self.db_client.grid_fs = unittest.mock.create_autospec(gridfs.GridFS)
+        self.db_client.grid_fs.get.side_effect = lambda id_: MockReadable(self.data_map[id_])
+
+        return self.db_client
 
     def assert_models_equal(self, image1, image2):
         """
@@ -91,14 +215,93 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
             self.fail('object was not an StereoImageEntity')
         self.assertEqual(image1.identifier, image2.identifier)
         self.assertEqual(image1.timestamp, image2.timestamp)
-        self.assertEqual(image1.left_filename, image2.left_filename)
-        self.assertEqual(image1.right_filename, image2.right_filename)
+        self.assertTrue(np.array_equal(image1.left_data, image2.left_data))
+        self.assertTrue(np.array_equal(image1.right_data, image2.right_data))
         self.assertEqual(image1.left_camera_pose, image2.left_camera_pose)
         self.assertEqual(image1.right_camera_pose, image2.right_camera_pose)
-        self.assertEqual(image1.left_depth_filename, image2.left_depth_filename)
-        self.assertEqual(image1.left_labels_filename, image2.left_labels_filename)
-        self.assertEqual(image1.left_world_normals_filename, image2.left_world_normals_filename)
-        self.assertEqual(image1.right_depth_filename, image2.right_depth_filename)
-        self.assertEqual(image1.right_labels_filename, image2.right_labels_filename)
-        self.assertEqual(image1.right_world_normals_filename, image2.right_world_normals_filename)
+        self.assertTrue(np.array_equal(image1.left_depth_data, image2.left_depth_data))
+        self.assertTrue(np.array_equal(image1.left_labels_data, image2.left_labels_data))
+        self.assertTrue(np.array_equal(image1.left_world_normals_data, image2.left_world_normals_data))
+        self.assertTrue(np.array_equal(image1.right_depth_data, image2.right_depth_data))
+        self.assertTrue(np.array_equal(image1.right_labels_data, image2.right_labels_data))
+        self.assertTrue(np.array_equal(image1.right_world_normals_data, image2.right_world_normals_data))
         self.assertEqual(image1.additional_metadata, image2.additional_metadata)
+
+    def test_deserialise_calls_gridfs(self):
+        mock_db_client = self.create_mock_db_client()
+        EntityClass = self.get_class()
+        entity = self.make_instance(id_=12345)
+        s_entity = entity.serialize()
+
+        self.assertFalse(mock_db_client.grid_fs.get.called)
+        EntityClass.deserialize(s_entity, mock_db_client)
+        self.assertTrue(mock_db_client.grid_fs.get.called)
+        self.assertEqual(8, mock_db_client.grid_fs.get.call_count)
+        self.assertIn(mock.call(s_entity['left_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['left_depth_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['left_labels_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['left_world_normals_data']), mock_db_client.grid_fs.get.call_args_list)
+
+        self.assertIn(mock.call(s_entity['right_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['right_depth_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['right_labels_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['right_world_normals_data']), mock_db_client.grid_fs.get.call_args_list)
+
+    def test_does_not_deserialize_from_null_id(self):
+        mock_db_client = self.create_mock_db_client()
+        EntityClass = self.get_class()
+        entity = self.make_instance(id_=12345)
+        s_entity = entity.serialize()
+        s_entity['left_depth_data'] = None
+        s_entity['left_labels_data'] = None
+        s_entity['left_world_normals_data'] = None
+        s_entity['right_depth_data'] = None
+        s_entity['right_labels_data'] = None
+        s_entity['right_world_normals_data'] = None
+
+        self.assertFalse(mock_db_client.grid_fs.get.called)
+        EntityClass.deserialize(s_entity, mock_db_client)
+        self.assertEqual(2, mock_db_client.grid_fs.get.call_count)
+
+    def test_save_image_data_stores_in_gridfs(self):
+        mock_db_client = self.create_mock_db_client()
+        entity = self.make_instance(left_data_id=None,
+                                    left_depth_id=None,
+                                    left_labels_id=None,
+                                    left_world_normals_id=None,
+                                    right_data_id=None,
+                                    right_depth_id=None,
+                                    right_labels_id=None,
+                                    right_world_normals_id=None)
+        entity.save_image_data(mock_db_client)
+        self.assertTrue(mock_db_client.grid_fs.put.called)
+        self.assertEqual(8, mock_db_client.grid_fs.put.call_count)
+
+    def test_save_image_data_does_not_store_data_if_already_stored(self):
+        mock_db_client = self.create_mock_db_client()
+        entity = self.make_instance()
+        entity.save_image_data(mock_db_client, force_update=False)
+        self.assertFalse(mock_db_client.grid_fs.put.called)
+
+    def test_save_image_data_updates_ids(self):
+        mock_db_client = self.create_mock_db_client()
+        entity = self.make_instance(left_data_id=None,
+                                    left_depth_id=None,
+                                    left_labels_id=None,
+                                    left_world_normals_id=None,
+                                    right_data_id=None,
+                                    right_depth_id=None,
+                                    right_labels_id=None,
+                                    right_world_normals_id=None)
+        ids = [i for i in range(100, 900, 100)] # the above ids are 0-3, these are definitely different
+        mock_db_client.grid_fs.put.side_effect = ids
+        entity.save_image_data(mock_db_client)
+        s_entity = entity.serialize()
+        self.assertIn(s_entity['left_data'], ids)
+        self.assertIn(s_entity['left_depth_data'], ids)
+        self.assertIn(s_entity['left_labels_data'], ids)
+        self.assertIn(s_entity['left_world_normals_data'], ids)
+        self.assertIn(s_entity['right_data'], ids)
+        self.assertIn(s_entity['right_depth_data'], ids)
+        self.assertIn(s_entity['right_labels_data'], ids)
+        self.assertIn(s_entity['right_world_normals_data'], ids)

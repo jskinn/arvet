@@ -21,11 +21,11 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_filename') and
-                                                           image.depth_filename is not None for image in images)
+                                                           image.depth_data is not None for image in images)
         self._is_labels_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
-                                                            image.labels_filename is not None for image in images)
+                                                            image.labels_data is not None for image in images)
         self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
-                                                             image.world_normals_filename is not None for image in images)
+                                                             image.world_normals_data is not None for image in images)
         self._is_stereo_available = len(images) > 0 and all(hasattr(image, 'left_filename') and
                                                             hasattr(image, 'right_filename') for image in images)
         self._current_index = 0

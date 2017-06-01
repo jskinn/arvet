@@ -201,22 +201,22 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                     right_world_normals_filename = self._client.request('vget /camera/0/normal')
 
                 return im.StereoImage(timestamp=self._timestamp,
-                                      left_filename=image_filename,
-                                      right_filename=right_image_filename,
+                                      left_data=image_filename,
+                                      right_data=right_image_filename,
                                       left_camera_pose=cached_pose,
                                       right_camera_pose=right_pose,
                                       additional_metadata=self._get_additional_metadata(),
-                                      left_depth_filename=depth_filename,
-                                      left_labels_filename=labels_filename,
-                                      left_world_normals_filename=world_normals_filename,
-                                      right_depth_filename=right_depth_filename,
-                                      right_labels_filename=right_labels_filename,
-                                      right_world_normals_filename=right_world_normals_filename)
+                                      left_depth_data=depth_filename,
+                                      left_labels_data=labels_filename,
+                                      left_world_normals_data=world_normals_filename,
+                                      right_depth_data=right_depth_filename,
+                                      right_labels_data=right_labels_filename,
+                                      right_world_normals_data=right_world_normals_filename)
             return im.Image(timestamp=self._timestamp,
-                            filename=image_filename,
+                            data=image_filename,
                             camera_pose=self.current_pose,
                             additional_metadata=self._get_additional_metadata(),
-                            depth_filename=depth_filename,
-                            labels_filename=labels_filename,
-                            world_normals_filename=world_normals_filename)
+                            depth_data=depth_filename,
+                            labels_data=labels_filename,
+                            world_normals_data=world_normals_filename)
         return None

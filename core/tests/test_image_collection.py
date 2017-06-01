@@ -15,7 +15,7 @@ def make_image(index=1, **kwargs):
     kwargs = du.defaults(kwargs, {
         'id_': bson.objectid.ObjectId(),
         'timestamp': 127 / 31 * index + np.random.uniform(-0.1, 0.1),
-        'filename': '/home/user/test{0}.png'.format(index),
+        'data': np.random.uniform(0, 255, (32, 32, 3)),
         'camera_pose': tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
                                     rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
         'additional_metadata': {
@@ -26,9 +26,9 @@ def make_image(index=1, **kwargs):
                 'RoughnessQuality': True
             }
         },
-        'depth_filename': '/home/user/test{0}_depth.png'.format(index),
-        'labels_filename': '/home/user/test{0}_labels.png'.format(index),
-        'world_normals_filename': '/home/user/test{0}_normals.png'.format(index)
+        'depth_data': np.random.uniform(0, 1, (32, 32)),
+        'labels_data': np.random.uniform(0, 1, (32, 32, 3)),
+        'world_normals_data': np.random.uniform(0, 1, (32, 32, 3))
     })
     return ie.ImageEntity(**kwargs)
 
