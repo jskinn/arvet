@@ -1,4 +1,3 @@
-import os
 import util.dict_utils as du
 
 
@@ -53,7 +52,7 @@ class Image:
         return self.camera_pose.rotation_quat(False)
 
     @property
-    def camera_transform(self):
+    def camera_transform_matrix(self):
         """
         Get the 4x4 transform of the camera when the image was taken.
         :return: A 4x4 numpy array describing the camera pose
@@ -168,13 +167,13 @@ class StereoImage(Image):
         return self.camera_orientation
 
     @property
-    def left_camera_transform(self):
+    def left_camera_transform_matrix(self):
         """
         Get the 4x4 transform of the left camera when the image was taken.
         This is the same as 'camera_transform'
         :return: A 4x4 numpy array describing the camera pose
         """
-        return self.camera_transform
+        return self.camera_transform_matrix
 
     @property
     def left_camera_pose(self):
@@ -203,7 +202,7 @@ class StereoImage(Image):
         return self.right_camera_pose.rotation_quat(False)
 
     @property
-    def right_camera_transform(self):
+    def right_camera_transform_matrix(self):
         """
         The 4x4 homogenous matrix describing the pose of the right camera
         :return: A 4x4 numpy array
