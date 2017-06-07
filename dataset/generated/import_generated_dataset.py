@@ -80,14 +80,31 @@ def make_additional_metadata(dataset_metadata, image_metadata, right_image_metad
     result = {}
     if right_image_metadata is not None:
         result = right_image_metadata
-    result = du.defaults(image_metadata, dataset_metadata, result)
+    result = du.defaults(image_metadata, result, dataset_metadata)
     for ignored_key in {'Version', 'Camera Location', 'Camera Orientation'}:
-        del result[ignored_key]
+        if ignored_key in result:
+            del result[ignored_key]
     return result
 
 
-def import_image_object(db_client, base_path, index, filename_format, mappings, index_padding,
-                        extension, timestamp, dataset_metadata):
+def load_image_set(base_path, filename_format, mappings, index_padding, index, extension, stereo_pass):
+    path_kwargs = {
+        'base_path': base_path,
+        'filename_format': filename_format,
+        'mappings': mappings,
+        'index_padding': index_padding,
+        'index': index,
+        'extension': extension,
+        'stereo_pass': stereo_pass
+    }
+    image_data = read_image_file(generate_image_filename(**path_kwargs))
+    depth_data = read_image_file(generate_image_filename(render_pass='SceneDepthWorldUnits', **path_kwargs))
+    labels_data = read_image_file(generate_image_filename(render_pass='ObjectMask', **path_kwargs))
+    world_normals_data = read_image_file(generate_image_filename(render_pass='WorldNormals', **path_kwargs))
+    return image_data, depth_data, labels_data, world_normals_data
+
+def import_image_object(db_client, base_path, filename_format, mappings, index_padding,
+                        index, extension, timestamp, dataset_metadata):
     """
     Save an image to the database.
     First, assemble the ImageEntity from multiple image files, and a metadata file.
@@ -173,7 +190,7 @@ def import_image_object(db_client, base_path, index, filename_format, mappings, 
             timestamp=timestamp,
             additional_metadata=make_additional_metadata(dataset_metadata, metadata, right_metadata),
             left_camera_pose=camera_pose,
-            left_data=image_filename,
+            left_data=image_data,
             left_depth_data=depth_data,
             left_labels_data=labels_data,
             left_world_normals_data=world_normals_data,
@@ -184,18 +201,19 @@ def import_image_object(db_client, base_path, index, filename_format, mappings, 
             right_world_normals_data=right_world_normals_data
         )
 
-    # Finally, serialize the newly created image.
-    s_image = image.serialize()
     # Check it doesn't already exist
-    query = util.database_helpers.query_to_dot_notation(copy.deepcopy(s_image))
-    if '_id' in query:
-        del query['_id']
+    query = util.database_helpers.query_to_dot_notation({
+        'camera_pose': image.camera_pose.serialize(),
+        'additional_metadata': copy.deepcopy(image.additional_metadata)
+    })
     existing = db_client.image_collection.find_one(query, {'_id': True})
     if existing is not None:
+        # The image already exists, return it's id
         return existing['_id']
     else:
-        # This is a new image, store it.
-        return db_client.image_collection.insert(s_image)
+        # This is a new image, store it and return the new id
+        image.save_image_data(db_client)
+        return db_client.image_collection.insert(image.serialize())
 
 
 def parse_sequence_type(type_string):

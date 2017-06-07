@@ -4,6 +4,7 @@ I'm missing some keys I now realize I need, both at the dataset level and the
 """
 import math
 import packaging.version as vs
+import simulation.unrealcv.unreal_transform as ue_tf
 
 
 def update_dataset_metadata(metadata):
@@ -60,24 +61,8 @@ def _dataset_to_0_1_2(metadata):
 def _image_to_0_1_0(metadata):
     metadata['Version'] = '0.1.0'
     if 'W' not in metadata['Camera Orientation']:
-        x, y, z, w = euler_to_quarternion(
+        w, x, y, z, w = ue_tf.euler2quat(
             metadata['Camera Orientation']['X'],
             metadata['Camera Orientation']['Y'],
             metadata['Camera Orientation']['Z'])
         metadata['Camera Orientation'] = {'X': x, 'Y': y, 'Z': z, 'W': w}
-
-
-def euler_to_quarternion(x, y, z):
-    # I got this math from here:
-    # http://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/
-    # np array order is x y z w, which I'm trying to be consistent as the format for quarternions
-    c1 = math.cos(y / 2)
-    c2 = math.cos(z / 2)
-    c3 = math.cos(x / 2)
-    s1 = math.sin(y / 2)
-    s2 = math.sin(z / 2)
-    s3 = math.sin(x / 2)
-    return (s1 * s2 * c3 + c1 * c2 * s3,
-            s1 * c2 * c3 + c1 * s2 * s3,
-            c1 * s2 * c3 - s1 * c2 * s3,
-            c1 * c2 * c3 - s1 * s2 * s3)
