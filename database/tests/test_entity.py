@@ -60,6 +60,20 @@ class EntityContract(metaclass=abc.ABCMeta):
         """
         return mock.create_autospec(database.client.DatabaseClient)
 
+    def assert_keys_valid(self, dictionary):
+        """
+        Recursively assert that all keys in this dictionary and any sub-dictionaries are valid mongodb keys.
+        That is, they must be strings, and not contain the characters '.' and '$'
+        :param dictionary:
+        :return:
+        """
+        for key in dictionary.keys():
+            self.assertIsInstance(key, str)
+            self.assertNotIn('.', key)
+            self.assertNotIn('$', key)
+            if isinstance(dictionary[key], dict):
+                self.assert_keys_valid(dictionary[key])
+
     def test_identifier(self):
         entity = self.make_instance(id_=123)
         self.assertEqual(entity.identifier, 123)
@@ -74,6 +88,11 @@ class EntityContract(metaclass=abc.ABCMeta):
         entity = self.make_instance(id_=123)
         s_entity = entity.serialize()
         self.assertEqual(s_entity['_type'], EntityClass.__name__)
+
+    def test_serialize_produces_valid_keys(self):
+        entity = self.make_instance(id_=6224)
+        s_entity = entity.serialize()
+        self.assert_keys_valid(s_entity)
 
     def test_serialize_and_deserialize(self):
         mock_db_client = self.create_mock_db_client()

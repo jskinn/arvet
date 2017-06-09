@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import pickle
 import database.tests.test_entity as entity_test
 import util.dict_utils as du
 import benchmarks.tracking.tracking_comparison_result as track_comp_res
@@ -50,6 +51,23 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
         self.assertEqual(benchmark_result1.new_lost_count, benchmark_result2.new_lost_count)
         self.assertEqual(benchmark_result1.settings, benchmark_result2.settings)
 
+    def assert_serialized_equal(self, s_model1, s_model2):
+        """
+        Override assert for serialized models equal to measure the bson more directly.
+        :param s_model1:
+        :param s_model2:
+        :return:
+        """
+        self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
+        for key in s_model1.keys():
+            if key is not 'changes':
+                self.assertEqual(s_model1[key], s_model2[key])
+
+        # Special case for BSON
+        changes1 = pickle.loads(s_model1['changes'])
+        changes2 = pickle.loads(s_model2['changes'])
+        self.assertEqual(changes1, changes2)
+
     def test_new_tracking_count_correct(self):
         subject = self.make_instance()
         new_tracking = 0
@@ -57,7 +75,7 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
             if (comp_state == ts.TrackingState.OK and
                     ref_state != ts.TrackingState.OK):
                 new_tracking += 1
-        self.assertEquals(new_tracking, subject.new_tracking_count)
+        self.assertEqual(new_tracking, subject.new_tracking_count)
 
     def test_new_lost_count_correct(self):
         subject = self.make_instance()
@@ -66,7 +84,7 @@ class TestTrackingComparisonResult(entity_test.EntityContract, unittest.TestCase
             if (comp_state != ts.TrackingState.OK and
                     ref_state == ts.TrackingState.OK):
                 new_lost += 1
-        self.assertEquals(new_lost, subject.new_lost_count)
+        self.assertEqual(new_lost, subject.new_lost_count)
 
     def test_initialized_is_lost_changes_new_tracking_count(self):
         kwargs = {
