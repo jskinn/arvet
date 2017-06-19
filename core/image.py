@@ -1,14 +1,17 @@
 import util.dict_utils as du
+import metadata.image_metadata as imeta
 
 
 class Image:
 
-    def __init__(self, timestamp, data, camera_pose, additional_metadata=None,
+    def __init__(self, timestamp, data, camera_pose, metadata, additional_metadata=None,
                  depth_data=None, labels_data=None, world_normals_data=None, **kwargs):
         super().__init__(**kwargs)  # The warning here is false, this passes arguments to other constructors for MI
         self._timestamp = timestamp
         self._data = data
         self._camera_pose = camera_pose
+        self._metadata = (metadata if isinstance(metadata, imeta.ImageMetadata)
+                          else imeta.ImageMetadata.deserialize(metadata))
         self._depth_data = depth_data
         self._labels_data = labels_data
         self._world_normals_data = world_normals_data
@@ -69,10 +72,20 @@ class Image:
         return self._camera_pose
 
     @property
+    def metadata(self):
+        """
+        An ImageMetadata object containing the metadata we're explicitly interested in for every image
+        :return: The ImageMetadata associated with this object
+        :rtype: metadata.image_metadata.ImageMetadata
+        """
+        return self._metadata
+
+    @property
     def additional_metadata(self):
         """
         Get the additional metadata associated with this image.
         This is where the information about how the image was generated goes.
+        These keys are not analysed, stored only for archival and reproduction purposes.
         :return: A dictionary of additional information about this image.
         """
         return self._additional_metadata
@@ -112,7 +125,7 @@ class StereoImage(Image):
 
     def __init__(self, timestamp, left_data, right_data,
                  left_camera_pose, right_camera_pose,
-                 additional_metadata=None,
+                 metadata, additional_metadata=None,
                  left_depth_data=None, left_labels_data=None, left_world_normals_data=None,
                  right_depth_data=None, right_labels_data=None, right_world_normals_data=None, **kwargs):
         # Fiddle the arguments to go to the parents, those not listed here will be passed straight through.
@@ -120,6 +133,7 @@ class StereoImage(Image):
             timestamp=timestamp,
             data=left_data,
             camera_pose=left_camera_pose,
+            metadata=metadata,
             additional_metadata=additional_metadata,
             depth_data=left_depth_data,
             labels_data=left_labels_data,
@@ -270,6 +284,14 @@ class StereoImage(Image):
 
     @classmethod
     def make_from_images(cls, left_image, right_image):
+        """
+        Convert two image objects into a stereo image.
+        Relatively self-explanatory, note that it prefers metadata
+        from the left image over the right image (right image metadata is lost)
+        :param left_image: an Image object
+        :param right_image: another Image object
+        :return: an instance of StereoImage
+        """
         return cls(timestamp=left_image.timestamp,
                    left_data=left_image.data,
                    right_data=right_image.data,
@@ -281,4 +303,5 @@ class StereoImage(Image):
                    right_depth_data=right_image.depth_data,
                    right_labels_data=right_image.labels_data,
                    right_world_normals_data=right_image.world_normals_data,
+                   metadata=left_image.metadata,
                    additional_metadata=du.defaults(left_image.additional_metadata, right_image.additional_metadata))

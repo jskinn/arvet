@@ -8,6 +8,7 @@ import core.image_entity
 import core.sequence_type
 import util.dict_utils as du
 import util.database_helpers
+import metadata.image_metadata as imeta
 import simulation.unrealcv.unreal_transform as ue_tf
 import dataset.generated.metadata_patch as metadata_patch
 
@@ -87,6 +88,31 @@ def make_additional_metadata(dataset_metadata, image_metadata, right_image_metad
     return result
 
 
+def build_image_metadata(dataset_metadat, image_metadata, right_image_metadata=None):
+    raise NotImplemented("TODO: Need to implement import of metadata as well")
+    return imeta.ImageMetadata(
+        source_type=imeta.ImageSourceType.SYNTHETIC,
+        environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+        light_level=imeta.LightingLevel.WELL_LIT,
+        time_of_day=imeta.TimeOfDay.DAY,
+        height=600,
+        width=800,
+        fov=90,
+        focal_length=5,
+        aperture=22,
+        simulation_world='TestSimulationWorld',
+        lighting_model=imeta.LightingModel.LIT,
+        texture_mipmap_bias=1,
+        normal_mipmap_bias=2,
+        roughness_enabled=True,
+        geometry_decimation=0.8,
+        procedural_generation_seed=16234,
+        label_classes=['cup', 'car', 'cow'],
+        label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+        distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+        average_scene_depth=90.12),
+
+
 def load_image_set(base_path, filename_format, mappings, index_padding, index, extension, stereo_pass):
     path_kwargs = {
         'base_path': base_path,
@@ -162,6 +188,7 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
             timestamp=timestamp,
             data=image_data,
             camera_pose=camera_pose,
+            metadata=build_image_metadata(dataset_metadata, metadata),
             additional_metadata=make_additional_metadata(dataset_metadata, metadata),
             depth_data=depth_data,
             labels_data=labels_data,
@@ -188,6 +215,7 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
 
         image = core.image_entity.StereoImageEntity(
             timestamp=timestamp,
+            metadata=build_image_metadata(dataset_metadata, metadata),
             additional_metadata=make_additional_metadata(dataset_metadata, metadata, right_metadata),
             left_camera_pose=camera_pose,
             left_data=image_data,

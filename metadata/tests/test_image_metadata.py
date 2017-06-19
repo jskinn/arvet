@@ -9,7 +9,6 @@ class TestImageMetadata(unittest.TestCase):
 
     def make_metadata(self, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'pose': tf.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, -0.5, 0.5)),
             'source_type': imeta.ImageSourceType.SYNTHETIC,
             'environment_type': imeta.EnvironmentType.INDOOR_CLOSE,
             'light_level': imeta.LightingLevel.WELL_LIT,
@@ -39,26 +38,6 @@ class TestImageMetadata(unittest.TestCase):
         })
         return imeta.ImageMetadata(**kwargs)
 
-    def test_pose(self):
-
-        subject = self.make_metadata(pose=tf.Transform(location=(14, 15, 22),
-                                                       rotation=(0.97026934,  0.06468462,  0.12936925,  0.19405387)))
-        pose = subject.pose
-        self.assertTrue(np.array_equal((14, 15, 22), pose.location),
-                        "{0} is not equal to {1}".format((14, 15, 22), pose.location))
-        self.assertTrue(np.all(np.isclose((0.97026934,  0.06468462,  0.12936925,  0.19405387), pose.rotation_quat())),
-                        "{0} is not equal to {1}".format((0.97026934,  0.06468462,  0.12936925,  0.19405387), pose.rotation_quat()))
-
-        subject = self.make_metadata(pose=np.array([[1.0, 0.0, 0.0, 9.0],
-                                                    [0.0, 1.0, 0.0, 15.0],
-                                                    [0.0, 0.0, 1.0, -6.0],
-                                                    [0.0, 0.0, 0.0, 1.0]]))
-        pose = subject.pose
-        self.assertTrue(np.array_equal((9, 15, -6), pose.location),
-                        "{0} is not equal to {1}".format((9, 15, -6), pose.location))
-        self.assertTrue(np.array_equal((0, 0, 0, 1), pose.rotation_quat()),
-                        "{0} is not equal to {1}".format((0, 0, 0, 1), pose.rotation_quat()))
-
     def test_serialize_and_deserialise(self):
         entity1 = self.make_metadata()
         s_entity1 = entity1.serialize()
@@ -81,7 +60,6 @@ class TestImageMetadata(unittest.TestCase):
             self.fail("metadata 1 is not an image metadata")
         if not isinstance(metadata2, imeta.ImageMetadata):
             self.fail("metadata 1 is not an image metadata")
-        self.assertEqual(metadata1.pose, metadata2.pose)
         self.assertEqual(metadata1.source_type, metadata2.source_type)
         self.assertEqual(metadata1.environment_type, metadata2.environment_type)
         self.assertEqual(metadata1.light_level, metadata2.light_level)

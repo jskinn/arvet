@@ -45,15 +45,11 @@ class ImageMetadata:
     Instances of this class are associated with Image objects
     """
 
-    def __init__(self, pose, source_type, environment_type, light_level, time_of_day, height, width, fov, focal_length,
+    def __init__(self, source_type, environment_type, light_level, time_of_day, height, width, fov, focal_length,
                  aperture, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
                  normal_mipmap_bias=None, roughness_enabled=None, geometry_decimation=None,
                  procedural_generation_seed=None, label_classes=None, label_bounding_boxes=None,
                  distances_to_labelled_objects=None, average_scene_depth=None):
-        if isinstance(pose, tf.Transform):
-            self._pose = pose
-        else:
-            self._pose = tf.Transform(pose)
         self._source_type = ImageSourceType(source_type)
         self._environment_type = EnvironmentType(environment_type)
         self._light_level = LightingLevel(light_level)
@@ -84,10 +80,6 @@ class ImageMetadata:
 
         # Depth information
         self._average_scene_depth = float(average_scene_depth)
-
-    @property
-    def pose(self):
-        return self._pose
 
     @property
     def source_type(self):
@@ -177,7 +169,6 @@ class ImageMetadata:
 
     def serialize(self):
         return {
-            'pose': self.pose.serialize(),
             'source_type': self.source_type.value,
             'environment_type': self.environment_type.value,
             'light_level': self.light_level.value,
@@ -208,8 +199,6 @@ class ImageMetadata:
     @classmethod
     def deserialize(cls, serialized):
         kwargs = {}
-        if 'pose' in serialized:
-            kwargs['pose'] = tf.Transform.deserialize(serialized['pose'])
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width', 'fov',
                             'focal_length', 'aperture', 'simulation_world', 'lighting_model', 'texture_mipmap_bias',
                             'normal_mipmap_bias', 'roughness_enabled', 'geometry_decimation',

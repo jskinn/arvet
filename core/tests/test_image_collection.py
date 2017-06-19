@@ -5,6 +5,7 @@ import numpy as np
 import bson.objectid
 import util.dict_utils as du
 import util.transform as tf
+import metadata.image_metadata as imeta
 import core.image_entity as ie
 import core.image_collection as ic
 import core.sequence_type
@@ -17,6 +18,27 @@ def make_image(index=1, **kwargs):
         'data': np.random.uniform(0, 255, (32, 32, 3)),
         'camera_pose': tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
                                     rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+        'metadata': imeta.ImageMetadata(
+            source_type=imeta.ImageSourceType.SYNTHETIC,
+            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+            light_level=imeta.LightingLevel.WELL_LIT,
+            time_of_day=imeta.TimeOfDay.DAY,
+            height=600,
+            width=800,
+            fov=90,
+            focal_length=5,
+            aperture=22,
+            simulation_world='TestSimulationWorld',
+            lighting_model=imeta.LightingModel.LIT,
+            texture_mipmap_bias=1,
+            normal_mipmap_bias=2,
+            roughness_enabled=True,
+            geometry_decimation=0.8,
+            procedural_generation_seed=16234,
+            label_classes=['cup', 'car', 'cow'],
+            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            average_scene_depth=90.12),
         'additional_metadata': {
             'Source': 'Generated',
             'Resolution': {'width': 1280, 'height': 720},

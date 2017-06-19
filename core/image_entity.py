@@ -4,6 +4,7 @@ import copy
 import pickle
 import database.entity
 import util.transform as tf
+import metadata.image_metadata as imeta
 import core.image
 
 
@@ -50,6 +51,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         serialized['data'] = self._data_id
         serialized['timestamp'] = self.timestamp
         serialized['camera_pose'] = self.camera_pose.serialize()
+        serialized['metadata'] = self.metadata.serialize()
         serialized['additional_metadata'] = copy.deepcopy(self.additional_metadata)
         serialized['depth_data'] = self._depth_id
         serialized['labels_data'] = self._labels_id
@@ -62,6 +64,8 @@ class ImageEntity(core.image.Image, database.entity.Entity):
             kwargs['timestamp'] = serialized_representation['timestamp']
         if 'camera_pose' in serialized_representation:
             kwargs['camera_pose'] = tf.Transform.deserialize(serialized_representation['camera_pose'])
+        if 'metadata' in serialized_representation:
+            kwargs['metadata'] = imeta.ImageMetadata.deserialize(serialized_representation['metadata'])
         if 'additional_metadata' in serialized_representation:
             kwargs['additional_metadata'] = serialized_representation['additional_metadata']
 

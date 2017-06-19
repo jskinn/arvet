@@ -5,6 +5,7 @@ import gridfs
 import pickle
 import util.dict_utils as du
 import util.transform as tf
+import metadata.image_metadata as imeta
 import database.tests.test_entity as entity_test
 import core.image_entity as ie
 
@@ -41,6 +42,27 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
             'data_id': 0,
             'camera_pose': tf.Transform(location=(1, 2, 3),
                                         rotation=(4, 5, 6, 7)),
+            'metadata': imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                light_level=imeta.LightingLevel.WELL_LIT,
+                time_of_day=imeta.TimeOfDay.DAY,
+                height=600,
+                width=800,
+                fov=90,
+                focal_length=5,
+                aperture=22,
+                simulation_world='TestSimulationWorld',
+                lighting_model=imeta.LightingModel.LIT,
+                texture_mipmap_bias=1,
+                normal_mipmap_bias=2,
+                roughness_enabled=True,
+                geometry_decimation=0.8,
+                procedural_generation_seed=16234,
+                label_classes=['cup', 'car', 'cow'],
+                label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+                distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+                average_scene_depth=90.12),
             'additional_metadata': {
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -185,6 +207,27 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
             'right_labels_id': 6,
             'right_world_normals_data': self.data_map[7],
             'right_world_normals_id': 7,
+            'metadata': imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                light_level=imeta.LightingLevel.WELL_LIT,
+                time_of_day=imeta.TimeOfDay.DAY,
+                height=600,
+                width=800,
+                fov=90,
+                focal_length=5,
+                aperture=22,
+                simulation_world='TestSimulationWorld',
+                lighting_model=imeta.LightingModel.LIT,
+                texture_mipmap_bias=1,
+                normal_mipmap_bias=2,
+                roughness_enabled=True,
+                geometry_decimation=0.8,
+                procedural_generation_seed=16234,
+                label_classes=['cup', 'car', 'cow'],
+                label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+                distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+                average_scene_depth=90.12),
             'additional_metadata': {
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},

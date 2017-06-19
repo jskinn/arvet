@@ -2,18 +2,42 @@ import unittest
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
+import metadata.image_metadata as imeta
 import core.image as im
 
 
 class TestImage(unittest.TestCase):
 
     def setUp(self):
+        metadata = imeta.ImageMetadata(
+            source_type=imeta.ImageSourceType.SYNTHETIC,
+            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+            light_level=imeta.LightingLevel.WELL_LIT,
+            time_of_day=imeta.TimeOfDay.DAY,
+            height=600,
+            width=800,
+            fov=90,
+            focal_length=5,
+            aperture=22,
+            simulation_world='TestSimulationWorld',
+            lighting_model=imeta.LightingModel.LIT,
+            texture_mipmap_bias=1,
+            normal_mipmap_bias=2,
+            roughness_enabled=True,
+            geometry_decimation=0.8,
+            procedural_generation_seed=16234,
+            label_classes=['cup', 'car', 'cow'],
+            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            average_scene_depth=90.12)
+
         trans = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         self.image_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.image = im.Image(
             timestamp=13/30,
             data=self.image_data,
-            camera_pose=trans)
+            camera_pose=trans,
+            metadata=metadata)
 
         trans = tf.Transform((4, 5, 6), (0.5, -0.5, 0.5, -0.5))
         self.full_image_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
@@ -27,6 +51,7 @@ class TestImage(unittest.TestCase):
             depth_data=self.full_image_depth,
             labels_data=self.full_image_labels,
             world_normals_data=self.full_image_normals,
+            metadata=metadata,
             additional_metadata={
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -85,6 +110,28 @@ class TestImage(unittest.TestCase):
 class TestStereoImage(unittest.TestCase):
 
     def setUp(self):
+        metadata = imeta.ImageMetadata(
+            source_type=imeta.ImageSourceType.SYNTHETIC,
+            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+            light_level=imeta.LightingLevel.WELL_LIT,
+            time_of_day=imeta.TimeOfDay.DAY,
+            height=600,
+            width=800,
+            fov=90,
+            focal_length=5,
+            aperture=22,
+            simulation_world='TestSimulationWorld',
+            lighting_model=imeta.LightingModel.LIT,
+            texture_mipmap_bias=1,
+            normal_mipmap_bias=2,
+            roughness_enabled=True,
+            geometry_decimation=0.8,
+            procedural_generation_seed=16234,
+            label_classes=['cup', 'car', 'cow'],
+            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            average_scene_depth=90.12)
+
         self.left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         self.right_pose = tf.Transform(location=self.left_pose.find_independent((0, 0, 15)),
                                        rotation=self.left_pose.rotation_quat(w_first=False),
@@ -95,7 +142,8 @@ class TestStereoImage(unittest.TestCase):
                                     left_data=self.left_data,
                                     left_camera_pose=self.left_pose,
                                     right_data=self.right_data,
-                                    right_camera_pose=self.right_pose)
+                                    right_camera_pose=self.right_pose,
+                                    metadata=metadata)
 
         self.full_left_pose = tf.Transform((4, 5, 6), (-0.5, 0.5, -0.5, 0.5))
         self.full_right_pose = tf.Transform(location=self.left_pose.find_independent((0, 0, 15)),
@@ -121,6 +169,7 @@ class TestStereoImage(unittest.TestCase):
             right_labels_data=self.right_labels,
             left_world_normals_data=self.left_normals,
             right_world_normals_data=self.right_normals,
+            metadata=metadata,
             additional_metadata={
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -215,6 +264,28 @@ class TestStereoImage(unittest.TestCase):
         self.assertNPEqual(self.full_image.world_normals_data, self.full_image.left_world_normals_data)
 
     def test_make_from_images(self):
+        metadata = imeta.ImageMetadata(
+            source_type=imeta.ImageSourceType.SYNTHETIC,
+            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+            light_level=imeta.LightingLevel.WELL_LIT,
+            time_of_day=imeta.TimeOfDay.DAY,
+            height=600,
+            width=800,
+            fov=90,
+            focal_length=5,
+            aperture=22,
+            simulation_world='TestSimulationWorld',
+            lighting_model=imeta.LightingModel.LIT,
+            texture_mipmap_bias=1,
+            normal_mipmap_bias=2,
+            roughness_enabled=True,
+            geometry_decimation=0.8,
+            procedural_generation_seed=16234,
+            label_classes=['cup', 'car', 'cow'],
+            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
+            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            average_scene_depth=90.12)
+
         left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         left_image = im.Image(
             timestamp=14/31,
@@ -223,6 +294,7 @@ class TestStereoImage(unittest.TestCase):
             depth_data=self.left_depth,
             labels_data=self.left_labels,
             world_normals_data=self.left_normals,
+            metadata=metadata,
             additional_metadata={
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -243,6 +315,7 @@ class TestStereoImage(unittest.TestCase):
             depth_data=self.right_depth,
             labels_data=self.right_labels,
             world_normals_data=self.right_normals,
+            metadata=metadata,
             additional_metadata={
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
