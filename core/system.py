@@ -44,11 +44,12 @@ class VisionSystem(database.entity.Entity, metaclass=database.entity.AbstractEnt
         pass
 
     @abc.abstractmethod
-    def process_image(self, image):
+    def process_image(self, image, timestamp):
         """
         Process an image as part of the current run.
         Should automatically start a new trial if none is currently started.
-        :param image:
+        :param image: The image object for this frame
+        :param timestamp: A timestamp or index associated with this image. Sometimes None.
         :return: void
         """
         pass

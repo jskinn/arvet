@@ -21,7 +21,7 @@ class MockTrainedSystem(core.trained_system.TrainedVisionSystem):
     def start_trial(self):
         pass
 
-    def process_image(self, image):
+    def process_image(self, image, timestamp):
         pass
 
     def finish_trial(self):

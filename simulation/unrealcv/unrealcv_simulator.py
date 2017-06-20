@@ -80,6 +80,15 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         return self._stereo_offset > 0
 
     @property
+    def is_stored_in_database(self):
+        """
+        Simulators do not produce image stored in the database,
+        which is why this method exists.
+        :return:
+        """
+        return False
+
+    @property
     def sequence_type(self):
         """
         Get the type of image sequence produced by this image source.

@@ -13,7 +13,7 @@ def run_system_with_source(system, image_source):
         system.start_trial()
         image_source.begin()
         while not image_source.is_complete():
-            image, timstamp = image_source.get_next_image()
-            system.process_image(image)
+            image, timestamp = image_source.get_next_image()
+            system.process_image(image, timestamp)
         return system.finish_trial()
     return None
