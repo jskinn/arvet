@@ -14,7 +14,6 @@ import core.sequence_type
 def make_image(index=1, **kwargs):
     kwargs = du.defaults(kwargs, {
         'id_': bson.objectid.ObjectId(),
-        'timestamp': 127 / 31 * index + np.random.uniform(-0.1, 0.1),
         'data': np.random.uniform(0, 255, (32, 32, 3)),
         'camera_pose': tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
                                     rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
@@ -93,7 +92,6 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertEqual(len(image_collection1), len(image_collection2))
         for idx in range(len(image_collection1)):
             self.assertEqual(image_collection1[idx].identifier, image_collection2[idx].identifier)
-            self.assertEqual(image_collection1[idx].timestamp, image_collection2[idx].timestamp)
             self.assertTrue(np.array_equal(image_collection1[idx].data, image_collection2[idx].data))
             self.assertEqual(image_collection1[idx].camera_pose, image_collection2[idx].camera_pose)
             self.assertTrue(np.array_equal(image_collection1[idx].depth_data, image_collection2[idx].depth_data))
@@ -108,8 +106,41 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.db_client.image_collection.find.return_value.sort.return_value = [image.serialize()
                                                                                for image in self.images_list]
         self.db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[str(s_image['_id'])]
-
         return self.db_client
+
+    def test_get_next_image_returns_images_in_order(self):
+        subject = self.make_instance()
+        for idx in range(len(self.images_list)):
+            image, timestamp = subject.get_next_image()
+            self.assertEqual(self.images_list[idx].identifier, image.identifier)
+            self.assertTrue(np.array_equal(self.images_list[idx].data, image.data))
+        self.assertTrue(subject.is_complete())
+        self.assertEqual((None, None), subject.get_next_image())
+
+
+    def test_framerate_changes_timestamps(self):
+        subject = self.make_instance()
+        subject.framerate = 30
+        for idx in range(len(self.images_list)):
+            image, timestamp = subject.get_next_image()
+            self.assertEqual(self.images_list[idx].identifier, image.identifier)
+            self.assertEqual(timestamp, idx / 30)
+        self.assertEqual((None, None), subject.get_next_image())
+
+    def test_begin_restarts(self):
+        subject = self.make_instance()
+        subject.get_next_image()
+        subject.get_next_image()
+        subject.get_next_image()
+
+        subject.begin()
+        for idx in range(len(self.images_list)):
+            image, timestamp = subject.get_next_image()
+            self.assertEqual(self.images_list[idx].identifier, image.identifier)
+            self.assertTrue(np.array_equal(self.images_list[idx].data, image.data))
+        self.assertTrue(subject.is_complete())
+        self.assertEqual((None, None), subject.get_next_image())
+
 
     def test_deserializes_images(self):
         s_image_collection = {
@@ -136,7 +167,6 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertEqual(len(self.images_list), len(collection))
         for idx in range(len(self.images_list)):
             self.assertEqual(self.images_list[idx].identifier, collection[idx].identifier)
-            self.assertEqual(self.images_list[idx].timestamp, collection[idx].timestamp)
             self.assertTrue(np.array_equal(self.images_list[idx].data, collection[idx].data))
             self.assertEqual(self.images_list[idx].camera_pose, collection[idx].camera_pose)
             self.assertTrue(np.array_equal(self.images_list[idx].depth_data, collection[idx].depth_data))

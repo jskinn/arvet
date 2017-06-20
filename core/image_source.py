@@ -50,6 +50,18 @@ class ImageSource(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def is_stored_in_database(self):
+        """
+        Do this images from this source come from the database.
+        If they are, we can associate results with individual images.
+        On the other hand, sources that produce transient images like simulators
+        cannot make permanent associations between results and images.
+        :return:
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
     def sequence_type(self):
         """
         Get the type of image sequence produced by this image source.
@@ -77,11 +89,12 @@ class ImageSource(metaclass=abc.ABCMeta):
         """
         Blocking get the next image from this source.
         Parallel versions of this may add a timeout parameter.
-        Returning None indicates that this image source will produce no more images
+        Returning None indicates that this image source will produce no more images.
+        The second return value must always be
 
-        :return: An Image object (see core.image) or None
+        :return: An Image object (see core.image) or None, and an index (or None)
         """
-        return None
+        return None, None
 
     @abc.abstractmethod
     def is_complete(self):

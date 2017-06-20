@@ -12,14 +12,16 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     This can be a sequential set of images like a video, or a random sampling of different pictures.
     """
 
-    def __init__(self, images, type_, id_=None, **kwargs):
+    def __init__(self, images, type_, framerate=None, id_=None, **kwargs):
         super().__init__(id_=id_, **kwargs)
 
         self._images = images
+        self._framerate = float(framerate) if framerate is not None and framerate > 0 else None
         if isinstance(type_, core.sequence_type.ImageSequenceType):
             self._sequence_type = type_
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+
         self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_filename') and
                                                            image.depth_data is not None for image in images)
         self._is_labels_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
@@ -69,6 +71,19 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         """
         return self._sequence_type
 
+    @property
+    def framerate(self):
+        """
+        The framerate of the collection when being iterated over.
+        This is adjustable, higher framerates mean smaller intervals between frames.
+        :return:
+        """
+        return self._framerate
+
+    @framerate.setter
+    def framerate(self, framerate):
+        self._framerate = float(framerate) if framerate is not None and framerate > 0 else None
+
     def begin(self):
         """
         Start producing images.
@@ -84,13 +99,16 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         Parallel versions of this may add a timeout parameter.
         Returning None indicates that this image source will produce no more images
 
-        :return: An Image object (see core.image) or None
+        :return: An Image object (see core.image) or None, and a timestamp or None
         """
         if not self.is_complete():
             result = self._images[self._current_index]
+            timestamp = self._current_index
+            if self.framerate is not None and self.framerate > 0:
+                timestamp = self._current_index / self.framerate
             self._current_index += 1
-            return result
-        return None
+            return result, timestamp
+        return None, None
 
     def is_complete(self):
         """
@@ -133,6 +151,15 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return:
         """
         return self._is_stereo_available
+
+    @property
+    def is_stored_in_database(self):
+        """
+        Do this images from this source come from the database.
+        Image collections are always stored in the database
+        :return:
+        """
+        return True
 
     def validate(self):
         """
