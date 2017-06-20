@@ -15,7 +15,6 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'image_source_id': np.random.randint(0, 10),
             'system_id': np.random.randint(10, 20),
             'keypoints': {
                 bson.objectid.ObjectId(): [
@@ -48,7 +47,6 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
                 not isinstance(trial_result2, feature_result.FeatureDetectorResult)):
             self.fail('object was not a FeatureDetectorResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.success, trial_result2.success)
         # Automatic comparison of this dict is extraordinarily slow, we have to unpack it

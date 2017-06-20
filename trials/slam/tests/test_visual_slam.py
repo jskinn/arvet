@@ -48,7 +48,6 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
         if not isinstance(trial_result1, vs.SLAMTrialResult) or not isinstance(trial_result2, vs.SLAMTrialResult):
             self.fail('object was not a SLAMTrialResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.success, trial_result2.success)
         self._assertTrajectoryEqual(trial_result1.trajectory, trial_result2.trajectory)

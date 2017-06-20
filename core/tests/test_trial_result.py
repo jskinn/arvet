@@ -30,7 +30,6 @@ class TestTrialResult(database.tests.test_entity.EntityContract, unittest.TestCa
                 not isinstance(trial_result2, core.trial_result.TrialResult)):
             self.fail('object was not a TrialResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.settings, trial_result2.settings)
         self.assertEqual(trial_result1.success, trial_result2.success)
@@ -61,7 +60,6 @@ class TestFailedTrialResult(database.tests.test_entity.EntityContract, unittest.
                 not isinstance(trial_result2, core.trial_result.FailedTrial)):
             self.fail('object was not a TrialResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1.image_source_id, trial_result2.image_source_id)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.settings, trial_result2.settings)
         self.assertEqual(trial_result1.success, trial_result2.success)

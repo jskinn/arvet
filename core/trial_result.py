@@ -11,21 +11,11 @@ class TrialResult(database.entity.Entity):
     All Trial results have a one to many relationship with a particular dataset and system.
     """
 
-    def __init__(self, image_source_id, system_id, success, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, success, system_settings, id_=None, **kwargs):
         super().__init__(id_, **kwargs)
         self._success = bool(success)
         self._settings = system_settings
-
-        self._image_source_id = image_source_id
         self._system_id = system_id
-
-    @property
-    def image_source_id(self):
-        """
-        The ID of the image source used when performing this trial
-        :return:
-        """
-        return self._image_source_id
 
     @property
     def system_id(self):
