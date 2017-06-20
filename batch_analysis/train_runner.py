@@ -13,5 +13,6 @@ def train_system_with_sources(system_trainer, image_sources):
             system_trainer.start_training(image_source)
             image_source.begin()
             while not image_source.is_complete():
-                system_trainer.train_with_image(image_source.get_next_image())
+                image, timestamp = image_source.get_next_image()
+                system_trainer.train_with_image(image)
     return system_trainer.finish_training()

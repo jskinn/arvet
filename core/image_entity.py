@@ -49,7 +49,6 @@ class ImageEntity(core.image.Image, database.entity.Entity):
     def serialize(self):
         serialized = super().serialize()
         serialized['data'] = self._data_id
-        serialized['timestamp'] = self.timestamp
         serialized['camera_pose'] = self.camera_pose.serialize()
         serialized['metadata'] = self.metadata.serialize()
         serialized['additional_metadata'] = copy.deepcopy(self.additional_metadata)
@@ -60,8 +59,6 @@ class ImageEntity(core.image.Image, database.entity.Entity):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        if 'timestamp' in serialized_representation:
-            kwargs['timestamp'] = serialized_representation['timestamp']
         if 'camera_pose' in serialized_representation:
             kwargs['camera_pose'] = tf.Transform.deserialize(serialized_representation['camera_pose'])
         if 'metadata' in serialized_representation:
@@ -89,8 +86,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
 
     @classmethod
     def from_image(cls, image):
-        return cls(timestamp=image.timestamp,
-                   data=image.data,
+        return cls(data=image.data,
                    camera_location=image.camera_location,
                    camera_orientation=image.camera_orientation,
                    additional_metadata=image.additional_metadata,

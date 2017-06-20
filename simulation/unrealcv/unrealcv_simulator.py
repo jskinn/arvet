@@ -206,8 +206,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                 if self.is_normals_available:
                     right_world_normals = self._request_image('normal')
 
-                return im.StereoImage(timestamp=self._timestamp,
-                                      left_data=image_data,
+                return im.StereoImage(left_data=image_data,
                                       right_data=right_image_data,
                                       left_camera_pose=cached_pose,
                                       right_camera_pose=right_pose,
@@ -218,8 +217,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                                       right_depth_data=right_depth,
                                       right_labels_data=right_labels,
                                       right_world_normals_data=right_world_normals)
-            return im.Image(timestamp=self._timestamp,
-                            data=image_data,
+            return im.Image(data=image_data,
                             camera_pose=self.current_pose,
                             additional_metadata=self._get_additional_metadata(),
                             depth_data=depth_data,

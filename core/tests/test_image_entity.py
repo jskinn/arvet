@@ -37,7 +37,6 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'timestamp': 13 / 30,
             'data': self.data_map[0],
             'data_id': 0,
             'camera_pose': tf.Transform(location=(1, 2, 3),
@@ -99,7 +98,6 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
             self.fail('object was not an Image')
         self.assertEqual(image1.identifier, image2.identifier)
         self.assertTrue(np.array_equal(image1.data, image2.data))
-        self.assertEqual(image1.timestamp, image2.timestamp)
         self.assertEqual(image1.camera_pose, image2.camera_pose)
         self.assertTrue(np.array_equal(image1.depth_data, image2.depth_data))
         self.assertTrue(np.array_equal(image1.labels_data, image2.labels_data))
@@ -186,7 +184,6 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'timestamp': 13 / 30,
             'left_data': self.data_map[0],
             'left_data_id': 0,
             'left_camera_pose': tf.Transform(location=(1, 2, 3),
@@ -257,7 +254,6 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         if not isinstance(image1, ie.StereoImageEntity) or not isinstance(image2, ie.StereoImageEntity):
             self.fail('object was not an StereoImageEntity')
         self.assertEqual(image1.identifier, image2.identifier)
-        self.assertEqual(image1.timestamp, image2.timestamp)
         self.assertTrue(np.array_equal(image1.left_data, image2.left_data))
         self.assertTrue(np.array_equal(image1.right_data, image2.right_data))
         self.assertEqual(image1.left_camera_pose, image2.left_camera_pose)

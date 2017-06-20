@@ -4,10 +4,9 @@ import metadata.image_metadata as imeta
 
 class Image:
 
-    def __init__(self, timestamp, data, camera_pose, metadata, additional_metadata=None,
+    def __init__(self, data, camera_pose, metadata, additional_metadata=None,
                  depth_data=None, labels_data=None, world_normals_data=None, **kwargs):
         super().__init__(**kwargs)  # The warning here is false, this passes arguments to other constructors for MI
-        self._timestamp = timestamp
         self._data = data
         self._camera_pose = camera_pose
         self._metadata = (metadata if isinstance(metadata, imeta.ImageMetadata)
@@ -27,14 +26,6 @@ class Image:
         :return: A numpy array containing the image data.
         """
         return self._data
-
-    @property
-    def timestamp(self):
-        """
-        Get the timestamp for when this image was taken
-        :return:
-        """
-        return self._timestamp
 
     @property
     def camera_location(self):
@@ -123,14 +114,13 @@ class StereoImage(Image):
     to be accessed specifically, using the properties prefixed with 'right_'
     """
 
-    def __init__(self, timestamp, left_data, right_data,
+    def __init__(self, left_data, right_data,
                  left_camera_pose, right_camera_pose,
                  metadata, additional_metadata=None,
                  left_depth_data=None, left_labels_data=None, left_world_normals_data=None,
                  right_depth_data=None, right_labels_data=None, right_world_normals_data=None, **kwargs):
         # Fiddle the arguments to go to the parents, those not listed here will be passed straight through.
         super().__init__(
-            timestamp=timestamp,
             data=left_data,
             camera_pose=left_camera_pose,
             metadata=metadata,
@@ -292,8 +282,7 @@ class StereoImage(Image):
         :param right_image: another Image object
         :return: an instance of StereoImage
         """
-        return cls(timestamp=left_image.timestamp,
-                   left_data=left_image.data,
+        return cls(left_data=left_image.data,
                    right_data=right_image.data,
                    left_camera_pose=left_image.camera_pose,
                    right_camera_pose=right_image.camera_pose,

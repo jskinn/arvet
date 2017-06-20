@@ -34,7 +34,6 @@ class TestImage(unittest.TestCase):
         trans = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         self.image_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.image = im.Image(
-            timestamp=13/30,
             data=self.image_data,
             camera_pose=trans,
             metadata=metadata)
@@ -45,7 +44,6 @@ class TestImage(unittest.TestCase):
         self.full_image_labels = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_image_normals = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_image = im.Image(
-            timestamp=14/31,
             data=self.full_image_data,
             camera_pose=trans,
             depth_data=self.full_image_depth,
@@ -65,10 +63,6 @@ class TestImage(unittest.TestCase):
     def test_data(self):
         self.assertTrue(np.array_equal(self.image.data, self.image_data))
         self.assertTrue(np.array_equal(self.full_image.data, self.full_image_data))
-
-    def test_timestamp(self):
-        self.assertEqual(self.image.timestamp, 13/30)
-        self.assertEqual(self.full_image.timestamp, 14/31)
 
     def test_camera_location(self):
         self.assertTrue(np.array_equal(self.image.camera_location, np.array([1, 2, 3])))
@@ -138,8 +132,7 @@ class TestStereoImage(unittest.TestCase):
                                        w_first=False)
         self.left_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.right_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
-        self.image = im.StereoImage(timestamp=13/30,
-                                    left_data=self.left_data,
+        self.image = im.StereoImage(left_data=self.left_data,
                                     left_camera_pose=self.left_pose,
                                     right_data=self.right_data,
                                     right_camera_pose=self.right_pose,
@@ -158,7 +151,6 @@ class TestStereoImage(unittest.TestCase):
         self.left_normals = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.right_normals = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_image = im.StereoImage(
-            timestamp=31 / 67,
             left_data=self.full_left_data,
             right_data=self.full_right_data,
             left_camera_pose=self.full_left_pose,
@@ -185,10 +177,6 @@ class TestStereoImage(unittest.TestCase):
         self.assertNPEqual(self.image.right_data, self.right_data)
         self.assertNPEqual(self.full_image.left_data, self.full_left_data)
         self.assertNPEqual(self.full_image.right_data, self.full_right_data)
-
-    def test_timestamp(self):
-        self.assertEqual(self.image.timestamp, 13/30)
-        self.assertEqual(self.full_image.timestamp, 31/67)
 
     def test_camera_location(self):
         self.assertNPEqual(self.image.left_camera_location, np.array([1, 2, 3]))
@@ -233,7 +221,6 @@ class TestStereoImage(unittest.TestCase):
 
     def test_padded_kwargs(self):
         kwargs = {
-            'timestamp': 13 / 30,
             'left_filename': '/home/user/left.png',
             'left_camera_location': np.array([1, 2, 3]),
             'left_camera_orientation': np.array([4, 5, 6, 7]),
@@ -288,7 +275,6 @@ class TestStereoImage(unittest.TestCase):
 
         left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         left_image = im.Image(
-            timestamp=14/31,
             data=self.left_data,
             camera_pose=left_pose,
             depth_data=self.left_depth,
@@ -309,7 +295,6 @@ class TestStereoImage(unittest.TestCase):
                                   rotation=left_pose.rotation_quat(w_first=False),
                                   w_first=False)
         right_image = im.Image(
-            timestamp=13/31,
             data=self.right_data,
             camera_pose=right_pose,
             depth_data=self.right_depth,
@@ -328,7 +313,6 @@ class TestStereoImage(unittest.TestCase):
         )
 
         stereo_image = im.StereoImage.make_from_images(left_image, right_image)
-        self.assertEqual(stereo_image.timestamp, left_image.timestamp)
         self.assertEqual(stereo_image.additional_metadata,
                          du.defaults(left_image.additional_metadata, right_image.additional_metadata))
         self.assertNPEqual(stereo_image.left_camera_location, left_image.camera_location)
