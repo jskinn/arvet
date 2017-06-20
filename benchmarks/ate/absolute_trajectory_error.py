@@ -159,13 +159,6 @@ class BenchmarkATE(core.benchmark.Benchmark):
                                                             mapped_error, self.get_settings())
 
 
-def trajectory_to_dict(trajectory):
-    return {point.timestamp: [
-        point.location[0], point.location[1], point.location[2],
-        point.orientation[0], point.orientation[1], point.orientation[2], point.orientation[3]
-    ] for point in trajectory}
-
-
 def align(model, data):
     """Align two trajectories using the method of Horn (closed-form).
 
