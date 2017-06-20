@@ -52,7 +52,6 @@ class TrialResult(database.entity.Entity):
         :return: a dictionary representation of the entity, that can be saved to MongoDB
         """
         serialized = super().serialize()
-        serialized['image_source'] = self.image_source_id
         serialized['system'] = self.system_id
         serialized['success'] = self.success
         serialized['settings'] = self.settings
@@ -68,8 +67,6 @@ class TrialResult(database.entity.Entity):
         :return:
         """
         # massage the compulsory arguments, so that the constructor works
-        if 'image_source' in serialized_representation:
-            kwargs['image_source_id'] = serialized_representation['image_source']
         if 'system' in serialized_representation:
             kwargs['system_id'] = serialized_representation['system']
         if 'success' in serialized_representation:
