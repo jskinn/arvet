@@ -10,7 +10,7 @@ class SiftDetector(systems.feature.feature_detector.FeatureDetector):
     """
 
     def __init__(self, config=None, id_=None, **kwargs):
-        super().__init__(id_=id_)
+        super().__init__(id_=id_, **kwargs)
         if config is None:
             config = {}
         config = du.defaults(config, kwargs, {

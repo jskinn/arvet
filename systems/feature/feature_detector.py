@@ -8,7 +8,8 @@ import systems.feature.feature_detector_result as detector_result
 
 class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
     """
-    A Vision system, for a sift feature detector.
+    A Feature Detector as a vision system, as a generalization of the OpenCV standard detector interface.
+    Has subclasses that hold configuration and create individual detectors.
     """
 
     def __init__(self, id_=None):
