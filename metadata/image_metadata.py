@@ -1,5 +1,4 @@
 import enum
-import util.transform as tf
 
 
 class ImageSourceType(enum.Enum):
@@ -74,12 +73,13 @@ class ImageMetadata:
                                             if procedural_generation_seed is not None else None)
 
         # Labelling information
-        self._label_classes = list(label_classes)
-        self._label_bounding_boxes = list(label_bounding_boxes)
-        self._distances_to_labelled_objects = dict(distances_to_labelled_objects)
+        self._label_classes = list(label_classes) if label_classes is not None else []
+        self._label_bounding_boxes = list(label_bounding_boxes) if label_bounding_boxes is not None else []
+        self._distances_to_labelled_objects = (dict(distances_to_labelled_objects)
+                                               if distances_to_labelled_objects is not None else {})
 
         # Depth information
-        self._average_scene_depth = float(average_scene_depth)
+        self._average_scene_depth = float(average_scene_depth) if average_scene_depth is not None else None
 
     @property
     def source_type(self):

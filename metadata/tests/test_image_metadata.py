@@ -1,7 +1,5 @@
 import unittest
-import numpy as np
 import util.dict_utils as du
-import util.transform as tf
 import metadata.image_metadata as imeta
 
 
@@ -37,6 +35,17 @@ class TestImageMetadata(unittest.TestCase):
             'average_scene_depth': 90.12
         })
         return imeta.ImageMetadata(**kwargs)
+
+    def test_constructor_works_with_minimal_parameters(self):
+        imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
+                            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                            light_level=imeta.LightingLevel.WELL_LIT,
+                            time_of_day=imeta.TimeOfDay.DAY,
+                            height=600,
+                            width=800,
+                            fov=90,
+                            focal_length=100,
+                            aperture=22)
 
     def test_serialize_and_deserialise(self):
         entity1 = self.make_metadata()
