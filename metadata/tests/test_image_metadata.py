@@ -83,6 +83,30 @@ class TestBoundingBox(unittest.TestCase):
         self.assertIn(b, subject_set)
         self.assertNotIn(c, subject_set)
 
+    def test_serialize_and_deserialize(self):
+        bbox1 = imeta.BoundingBox(
+            class_name='class_' + str(np.random.randint(255)),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        s_bbox1 = bbox1.serialize()
+
+        bbox2 = imeta.BoundingBox.deserialize(s_bbox1)
+        s_bbox2 = bbox2.serialize()
+
+        self.assertEqual(bbox1, bbox2)
+        self.assertEqual(s_bbox1, s_bbox2)
+
+        for idx in range(100):
+            # Test that repeated serialization and deserialization does not degrade the information
+            bbox2 = imeta.BoundingBox.deserialize(s_bbox2)
+            s_bbox2 = bbox2.serialize()
+            self.assertEqual(bbox1, bbox2)
+            self.assertEqual(s_bbox1, s_bbox2)
+
 
 class TestImageMetadata(unittest.TestCase):
 
