@@ -10,7 +10,7 @@ import trials.feature_detection.feature_detector_result as feature_result
 import util.dict_utils as du
 
 
-class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return feature_result.FeatureDetectorResult
