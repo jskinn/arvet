@@ -140,7 +140,7 @@ class ImageMetadata:
 
         # Labelling information
         self._label_classes = list(label_classes) if label_classes is not None else []
-        self._label_bounding_boxes = list(label_bounding_boxes) if label_bounding_boxes is not None else []
+        self._label_bounding_boxes = set(label_bounding_boxes) if label_bounding_boxes is not None else []
         self._distances_to_labelled_objects = (dict(distances_to_labelled_objects)
                                                if distances_to_labelled_objects is not None else {})
 
@@ -274,6 +274,6 @@ class ImageMetadata:
             if key in serialized:
                 kwargs[key] = serialized[key]
         if 'label_bounding_boxes' in serialized:
-            kwargs['label_bounding_boxes'] =  [BoundingBox.deserialize(s_bbox)
-                                               for s_bbox in serialized['label_bounding_boxes']]
+            kwargs['label_bounding_boxes'] =  {BoundingBox.deserialize(s_bbox)
+                                               for s_bbox in serialized['label_bounding_boxes']}
         return cls(**kwargs)
