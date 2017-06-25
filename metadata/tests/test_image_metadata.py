@@ -1,6 +1,87 @@
 import unittest
+import numpy as np
 import util.dict_utils as du
 import metadata.image_metadata as imeta
+
+
+class TestBoundingBox(unittest.TestCase):
+
+    def test_equals(self):
+        kwargs = {
+            'class_name': 'class_' + str(np.random.randint(255)),
+            'confidence': np.random.uniform(0, 1),
+            'x': np.random.randint(800),
+            'y': np.random.randint(600),
+            'width': np.random.randint(128),
+            'height': np.random.randint(128)
+        }
+        a = imeta.BoundingBox(**kwargs)
+        b = imeta.BoundingBox(**kwargs)
+        c = imeta.BoundingBox(
+            class_name='class_' + str(np.random.randint(255)),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(b, c)
+
+    def test_hash(self):
+        kwargs = {
+            'class_name': 'class_' + str(np.random.randint(255)),
+            'confidence': np.random.uniform(0, 1),
+            'x': np.random.randint(800),
+            'y': np.random.randint(600),
+            'width': np.random.randint(128),
+            'height': np.random.randint(128)
+        }
+        a = imeta.BoundingBox(**kwargs)
+        b = imeta.BoundingBox(**kwargs)
+        c = imeta.BoundingBox(
+            class_name='class_' + str(np.random.randint(255)),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        self.assertEqual(hash(a), hash(b))
+        self.assertNotEqual(hash(a), hash(c))
+        self.assertNotEqual(hash(b), hash(c))
+
+    def test_set(self):
+        a = imeta.BoundingBox(
+            class_name='class_' + str(np.random.randint(255)),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        b = imeta.BoundingBox(
+            class_name='class_' + str(np.random.randint(255)),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        c = imeta.BoundingBox(
+            class_name='class_' + str(np.random.randint(255)),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        subject_set = {a, a, a, b}
+        self.assertEqual(2, len(subject_set))
+        self.assertIn(a, subject_set)
+        self.assertIn(b, subject_set)
+        self.assertNotIn(c, subject_set)
 
 
 class TestImageMetadata(unittest.TestCase):

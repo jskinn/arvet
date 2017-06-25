@@ -54,6 +54,11 @@ class BoundingBox:
         self.width = int(width)
 
     def __eq__(self, other):
+        """
+        Override equals. Bounding boxes are equal if the have the same class, confidence, and shape
+        :param other:
+        :return:
+        """
         return (hasattr(other, 'class_name') and
                 hasattr(other, 'confidence') and
                 hasattr(other, 'x') and
@@ -66,6 +71,13 @@ class BoundingBox:
                 self.y == other.y and
                 self.height == other.height and
                 self.width == other.width)
+
+    def __hash__(self):
+        """
+        Hash this object, so it can be in sets
+        :return:
+        """
+        return hash((self.class_name, self.confidence, self.x, self.y, self.height, self.width))
 
     def serialize(self):
         return {
