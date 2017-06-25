@@ -1,11 +1,13 @@
-import unittest
-import numpy as np
-import cv2
-import bson.objectid
 import operator
+import unittest
+
+import bson.objectid
+import cv2
+import numpy as np
+
 import database.tests.test_entity
+import trials.feature_detection.feature_detector_result as feature_result
 import util.dict_utils as du
-import systems.feature.feature_detector_result as feature_result
 
 
 class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.TestCase):

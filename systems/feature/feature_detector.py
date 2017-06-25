@@ -1,9 +1,10 @@
-import operator
 import abc
+import operator
+
 import cv2
-import cv2.xfeatures2d
+
 import core.system
-import systems.feature.feature_detector_result as detector_result
+import trials.feature_detection.feature_detector_result as detector_result
 
 
 class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
@@ -94,7 +95,10 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         :return:
         :rtype TrialResult:
         """
+        result = None
         if self._key_points is not None and len(self._key_points) > 0:
-            return detector_result.FeatureDetectorResult(system_id=self.identifier, keypoints=self._key_points,
-                                                         system_settings=self.get_system_settings())
-        return None
+            result = detector_result.FeatureDetectorResult(system_id=self.identifier, keypoints=self._key_points,
+                                                           system_settings=self.get_system_settings())
+        self._key_points = None
+        self._detector = None
+        return result

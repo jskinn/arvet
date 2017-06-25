@@ -1,14 +1,16 @@
-import unittest
 import abc
-import numpy as np
-import cv2
+import unittest
+
 import bson.objectid
-import util.transform as tf
-import metadata.image_metadata as imeta
+import cv2
+import numpy as np
+
 import core.image_entity
 import core.trial_result
-import systems.feature.feature_detector_result
+import metadata.image_metadata as imeta
 import systems.feature.feature_detector
+import trials.feature_detection.feature_detector_result
+import util.transform as tf
 
 
 def create_mock_image(width=128, height=128):
@@ -82,6 +84,7 @@ class FeatureDetectorContract(metaclass=abc.ABCMeta):
         result = subject.finish_trial()
         self.assertIsInstance(result, core.trial_result.TrialResult)
         self.assertTrue(result.success)
+        self.assertFalse(subject.is_trial_running())
 
     def test_detects_features_and_stores_in_result(self):
         subject = self.make_instance()
@@ -92,7 +95,7 @@ class FeatureDetectorContract(metaclass=abc.ABCMeta):
             object_ids.append(image.identifier)
             subject.process_image(image, idx)
         result = subject.finish_trial()
-        self.assertIsInstance(result, systems.feature.feature_detector_result.FeatureDetectorResult)
+        self.assertIsInstance(result, trials.feature_detection.feature_detector_result.FeatureDetectorResult)
         for object_id in object_ids:
             self.assertIn(object_id, result.keypoints)
             self.assertGreater(len(result.keypoints[object_id]), 0)
