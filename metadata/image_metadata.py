@@ -1,4 +1,5 @@
 import enum
+import util.dict_utils as du
 
 
 class ImageSourceType(enum.Enum):
@@ -34,6 +35,59 @@ class TimeOfDay(enum.Enum):
     DAY = 3
     AFTERNOON = 4
     TWILIGHT = 5
+
+
+class BoundingBox:
+    """
+    A bounding box.
+    x and y are column-row of the top left corner, height and width extending down and right from there.
+    Origin is top left corner of the image.
+    Bounding boxes should be mapped to a particular image,
+    and image coordinates are relative to the base resolution of that image.
+    """
+    def __init__(self, class_name, confidence, x, y, height, width):
+        self.class_name = class_name
+        self.confidence = float(confidence)
+        self.x = int(x)
+        self.y = int(y)
+        self.height = int(height)
+        self.width = int(width)
+
+    def __eq__(self, other):
+        return (hasattr(other, 'class_name') and
+                hasattr(other, 'confidence') and
+                hasattr(other, 'x') and
+                hasattr(other, 'y') and
+                hasattr(other, 'height') and
+                hasattr(other, 'width') and
+                self.class_name == other.class_name and
+                self.confidence == other.confidence and
+                self.x == other.x and
+                self.y == other.y and
+                self.height == other.height and
+                self.width == other.width)
+
+    def serialize(self):
+        return {
+            'class_name': self.class_name,
+            'confidence': self.confidence,
+            'x': self.x,
+            'y': self.y,
+            'height': self.height,
+            'width': self.width
+        }
+
+    @classmethod
+    def deserialize(cls, serialized):
+        du.defaults(serialized, {
+            'class_name': 'bg',
+            'confidence': 0,
+            'x': 0,
+            'y': 0,
+            'height': 0,
+            'width': 0
+        }, modify_base=True)
+        return cls(**serialized)
 
 
 class ImageMetadata:
@@ -190,7 +244,7 @@ class ImageMetadata:
             'procedural_generation_seed': self.procedural_generation_seed,
 
             'label_classes': self.label_classes,
-            'label_bounding_boxes': self.label_bounding_boxes,
+            'label_bounding_boxes': [bbox.serialize() for bbox in self.label_bounding_boxes],
             'distances_to_labelled_objects': self._distances_to_labelled_objects,
 
             'average_scene_depth': self.average_scene_depth
@@ -202,10 +256,12 @@ class ImageMetadata:
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width', 'fov',
                             'focal_length', 'aperture', 'simulation_world', 'lighting_model', 'texture_mipmap_bias',
                             'normal_mipmap_bias', 'roughness_enabled', 'geometry_decimation',
-                            'procedural_generation_seed', 'label_classes', 'label_bounding_boxes',
+                            'procedural_generation_seed', 'label_classes',
                             'distances_to_labelled_objects', 'average_scene_depth']
         for key in direct_copy_keys:
             if key in serialized:
                 kwargs[key] = serialized[key]
-
+        if 'label_bounding_boxes' in serialized:
+            kwargs['label_bounding_boxes'] =  [BoundingBox.deserialize(s_bbox)
+                                               for s_bbox in serialized['label_bounding_boxes']]
         return cls(**kwargs)

@@ -28,7 +28,11 @@ class TestImageMetadata(unittest.TestCase):
             'procedural_generation_seed': 16234,
 
             'label_classes': ['cup', 'car', 'cow'],
-            'label_bounding_boxes': {'cup': (), 'car': (), 'cow': ()},
+            'label_bounding_boxes': [
+                imeta.BoundingBox('cup', 0.883, 142, 280, 54, 78),
+                imeta.BoundingBox('car', 0.912, 542, 83, 63, 123),
+                imeta.BoundingBox('cow', 0.6778, 349, 672, 124, 208)
+            ],
             'distances_to_labelled_objects': {'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
 
             # Depth information
