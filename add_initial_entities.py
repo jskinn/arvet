@@ -9,6 +9,7 @@ import benchmarks.rpe.relative_pose_error as bench_rpe
 import benchmarks.rpe.relative_pose_error_comparison as bench_rpe_comp
 import benchmarks.tracking.tracking_benchmark as bench_track
 import benchmarks.tracking.tracking_comparison_benchmark as bench_track_comp
+import benchmarks.bounding_box_overlap.bounding_box_overlap as bench_bbox_overlap
 
 
 def add_unique(collection, entity):
@@ -48,6 +49,7 @@ def main():
     add_unique(c, bench_rpe_comp.RPEBenchmarkComparison(offset=0, max_difference=0.02))
     add_unique(c, bench_track.TrackingBenchmark(initializing_is_lost=True))
     add_unique(c, bench_track_comp.TrackingComparisonBenchmark(offset=0, max_difference=0.02))
+    add_unique(c, bench_bbox_overlap.BoundingBoxOverlapBenchmark())
 
 
 if __name__ == '__main__':

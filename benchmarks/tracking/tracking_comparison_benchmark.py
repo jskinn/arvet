@@ -10,7 +10,8 @@ class TrackingComparisonBenchmark(core.trial_comparison.TrialComparison):
     Identifies places where one was lost and the other was not
     """
 
-    def __init__(self, offset=0, max_difference=0.02):
+    def __init__(self, offset=0, max_difference=0.02, id_=None):
+        super().__init__(id_=id_)
         self._offset = offset
         self._max_difference = max_difference
 

@@ -55,7 +55,7 @@ class DatabaseClient:
                 'benchmarks_collection': 'benchmarks',
                 'results_collection': 'results'
             }
-        })
+        }, modify_base=False)
 
         conn_kwargs = db_config['connection_parameters']
         db_name = db_config['database_name']
