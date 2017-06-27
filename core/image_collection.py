@@ -26,6 +26,11 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
                                                            image.depth_data is not None for image in images)
         self._is_labels_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
                                                             image.labels_data is not None for image in images)
+        self._is_bboxes_available = len(images) > 0 and all(
+            hasattr(image, 'metadata') and hasattr(image.metadata, 'label_bounding_boxes') and
+            len(image.metadata.label_bounding_boxes) > 0
+            for image in images
+        )
         self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
                                                              image.world_normals_data is not None for image in images)
         self._is_stereo_available = len(images) > 0 and all(hasattr(image, 'left_filename') and
@@ -134,6 +139,14 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return: True if this image source can produce object labels for each image
         """
         return self._is_labels_available
+
+    @property
+    def is_bounding_boxes_available(self):
+        """
+        Do images from this source include object bounding boxes in their metadata.
+        :return: True iff the image metadata includes bounding boxes
+        """
+        return self._is_bboxes_available
 
     @property
     def is_normals_available(self):

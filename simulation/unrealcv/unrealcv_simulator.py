@@ -63,6 +63,15 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         return self._provide_labels
 
     @property
+    def is_labels_available(self):
+        """
+        Can this simulator produce object labels.
+        :return: True if the simulator is configured to produce labels for each frame
+        """
+        # TODO: Allow the generation of bounding boxes from the simulator
+        return False
+
+    @property
     def is_normals_available(self):
         """
         Can this simulator produce object labels.

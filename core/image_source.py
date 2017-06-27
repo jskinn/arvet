@@ -24,8 +24,17 @@ class ImageSource(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def is_labels_available(self):
         """
-        Do images from this image source include object lables
+        Do images from this image source include object labels
         :return: True if this image source can produce object labels for each image
+        """
+        return False
+
+    @property
+    @abc.abstractmethod
+    def is_bounding_boxes_available(self):
+        """
+        Do images from this source include object bounding boxes in their metadata.
+        :return: True iff the image metadata includes bounding boxes
         """
         return False
 
