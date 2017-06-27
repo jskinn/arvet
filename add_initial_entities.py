@@ -1,6 +1,12 @@
+import os.path
+import glob
+import pickle
+import copy
+
 import config.global_configuration as global_conf
 import database.client
 import util.database_helpers as db_help
+
 import benchmarks.ate.absolute_trajectory_error as bench_ate
 import benchmarks.ate.absolute_trajectory_error_comparison as bench_ate_comp
 import benchmarks.loop_closure.loop_closure as bench_closure
@@ -10,6 +16,8 @@ import benchmarks.rpe.relative_pose_error_comparison as bench_rpe_comp
 import benchmarks.tracking.tracking_benchmark as bench_track
 import benchmarks.tracking.tracking_comparison_benchmark as bench_track_comp
 import benchmarks.bounding_box_overlap.bounding_box_overlap as bench_bbox_overlap
+
+import systems.deep_learning.keras_frcnn as sys_frcnn
 
 
 def add_unique(collection, entity):
@@ -21,7 +29,8 @@ def add_unique(collection, entity):
     :return: 
     """
     s_object = entity.serialize()
-    if collection.find_one(db_help.query_to_dot_notation(s_object)) is None:
+    query = db_help.query_to_dot_notation(copy.deepcopy(s_object))
+    if collection.find_one(query) is None:
         collection.insert(s_object)
 
 
@@ -37,7 +46,7 @@ def main():
     db_client = database.client.DatabaseClient(config=config)
 
     ############
-    #  Add benchmarks
+    # Add benchmarks
     ###########
     c = db_client.benchmarks_collection
     add_unique(c, bench_ate.BenchmarkATE(offset=0, max_difference=0.02, scale=1))
@@ -50,6 +59,19 @@ def main():
     add_unique(c, bench_track.TrackingBenchmark(initializing_is_lost=True))
     add_unique(c, bench_track_comp.TrackingComparisonBenchmark(offset=0, max_difference=0.02))
     add_unique(c, bench_bbox_overlap.BoundingBoxOverlapBenchmark())
+
+    ###########
+    # Add keras frcnns
+    ###########
+    c = db_client.system_collection
+    model_dir = os.path.expanduser('~/keras-models')
+    for config_pickle_path in glob.iglob(os.path.join(model_dir, '*.pickle')):
+        model_hdf5_path = os.path.splitext(config_pickle_path)[0] + '.hdf5'
+        if os.path.isfile(model_hdf5_path):
+            with open(config_pickle_path, 'rb') as config_file:
+                frcnn_config = pickle.load(config_file)
+            frcnn_config.model_path = model_hdf5_path        # Update the path to the model file
+            add_unique(c, sys_frcnn.KerasFRCNN(frcnn_config))
 
 
 if __name__ == '__main__':
