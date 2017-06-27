@@ -2,9 +2,9 @@
 Fix the metadata for my first iteration of data generation
 I'm missing some keys I now realize I need, both at the dataset level and the
 """
-import math
 import packaging.version as vs
-import simulation.unrealcv.unreal_transform as ue_tf
+
+import util.unreal_transform as ue_tf
 
 
 def update_dataset_metadata(metadata):
