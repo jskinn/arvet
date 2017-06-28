@@ -110,21 +110,21 @@ class ImageMetadata:
     Instances of this class are associated with Image objects
     """
 
-    def __init__(self, source_type, environment_type, light_level, time_of_day, height, width, fov, focal_length,
-                 aperture, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
+    def __init__(self, source_type, height, width, environment_type=None, light_level=None, time_of_day=None, fov=None,
+                 focal_length=None, aperture=None, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
                  normal_mipmap_bias=None, roughness_enabled=None, geometry_decimation=None,
                  procedural_generation_seed=None, label_classes=None, label_bounding_boxes=None,
                  distances_to_labelled_objects=None, average_scene_depth=None):
         self._source_type = ImageSourceType(source_type)
-        self._environment_type = EnvironmentType(environment_type)
-        self._light_level = LightingLevel(light_level)
-        self._time_of_day = TimeOfDay(time_of_day)
+        self._environment_type = EnvironmentType(environment_type) if environment_type is not None else None
+        self._light_level = LightingLevel(light_level) if light_level is not None else None
+        self._time_of_day = TimeOfDay(time_of_day) if time_of_day is not None else None
 
         self._height = int(height)
         self._width = int(width)
-        self._fov = float(fov)
-        self._focal_length = float(focal_length)
-        self._aperture = float(aperture)
+        self._fov = float(fov) if fov is not None else None
+        self._focal_length = float(focal_length) if focal_length is not None else None
+        self._aperture = float(aperture) if aperture is not None else None
 
         # Computer graphics settings, for measuring image quality
         self._simulation_world = str(simulation_world) if simulation_world is not None else None
@@ -140,7 +140,7 @@ class ImageMetadata:
 
         # Labelling information
         self._label_classes = list(label_classes) if label_classes is not None else []
-        self._label_bounding_boxes = set(label_bounding_boxes) if label_bounding_boxes is not None else []
+        self._label_bounding_boxes = set(label_bounding_boxes) if label_bounding_boxes is not None else set()
         self._distances_to_labelled_objects = (dict(distances_to_labelled_objects)
                                                if distances_to_labelled_objects is not None else {})
 
@@ -236,9 +236,9 @@ class ImageMetadata:
     def serialize(self):
         return {
             'source_type': self.source_type.value,
-            'environment_type': self.environment_type.value,
-            'light_level': self.light_level.value,
-            'time_of_day': self.time_of_day.value,
+            'environment_type': self.environment_type.value if self.environment_type is not None else None,
+            'light_level': self.light_level.value if self.light_level is not None else None,
+            'time_of_day': self.time_of_day.value if self.time_of_day is not None else None,
 
             'height': self.height,
             'width': self.width,
@@ -247,7 +247,7 @@ class ImageMetadata:
             'aperture': self.aperture,
 
             'simulation_world': self.simulation_world,
-            'lighting_model': self.lighting_model.value,
+            'lighting_model': self.lighting_model.value if self.lighting_model is not None else None,
             'texture_mipmap_bias': self.texture_mipmap_bias,
             'normal_mipmap_bias': self.normal_mipmap_bias,
             'roughness_enabled': self.roughness_enabled,

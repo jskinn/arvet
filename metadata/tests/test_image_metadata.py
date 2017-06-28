@@ -146,18 +146,27 @@ class TestImageMetadata(unittest.TestCase):
         return imeta.ImageMetadata(**kwargs)
 
     def test_constructor_works_with_minimal_parameters(self):
-        imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
-                            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                            light_level=imeta.LightingLevel.WELL_LIT,
-                            time_of_day=imeta.TimeOfDay.DAY,
-                            height=600,
-                            width=800,
-                            fov=90,
-                            focal_length=100,
-                            aperture=22)
+        imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800)
 
     def test_serialize_and_deserialise(self):
         entity1 = self.make_metadata()
+        s_entity1 = entity1.serialize()
+
+        entity2 = imeta.ImageMetadata.deserialize(s_entity1)
+        s_entity2 = entity2.serialize()
+
+        self.assert_metadata_equal(entity1, entity2)
+        self.assertEqual(s_entity1, s_entity2)
+
+        for idx in range(100):
+            # Test that repeated serialization and deserialization does not degrade the information
+            entity2 = imeta.ImageMetadata.deserialize(s_entity2)
+            s_entity2 = entity2.serialize()
+            self.assert_metadata_equal(entity1, entity2)
+            self.assertEqual(s_entity1, s_entity2)
+
+    def test_serialize_and_deserialize_works_with_minimal_parameters(self):
+        entity1 = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800)
         s_entity1 = entity1.serialize()
 
         entity2 = imeta.ImageMetadata.deserialize(s_entity1)
