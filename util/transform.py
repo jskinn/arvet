@@ -48,7 +48,7 @@ class Transform:
             # rotation
             if rotation is not None and len(rotation) == 3:
                 # Rotation is euler angles, convert to quaternion
-                # I'm using the tait-bryan order of operations, for consistency with Unreal
+                # I'm using the roll, pitch, yaw order of input, for consistency with Unreal
                 self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
             elif rotation is not None and len(rotation) >= 4:
                 rotation = np.asarray(rotation, dtype=np.dtype('f8'))
@@ -108,11 +108,11 @@ class Transform:
     @property
     def euler(self):
         """
-        Get the Tait-Bryan angles for the rotation of this transform.
-        Expressed as a numpy vector (pitch, yaw, roll),
+        Get the Euler angles for the rotation of this transform.
+        Expressed as a numpy vector (roll, pitch, yaw),
         :return: A numpy array containing the euler angles
         """
-        return tf.taitbryan.quat2euler((self._qw, self._qx, self._qy, self._qz))
+        return tf.taitbryan.quat2euler((self._qw, self._qx, self._qy, self._qz))[::-1]
 
     @property
     def transform_matrix(self):

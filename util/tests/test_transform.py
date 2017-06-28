@@ -6,8 +6,8 @@ import util.transform as trans
 def _make_quat(axis, theta):
     ax = np.asarray(axis)
     q = np.zeros(4)
-    q[0] = np.cos(theta / 2)
-    q[1:] = np.sin(theta / 2) * (ax / np.linalg.norm(ax))
+    q[0] = np.cos(float(theta) / 2)
+    q[1:] = np.sin(float(theta) / 2) * (ax / np.linalg.norm(ax))
     return q
 
 
@@ -29,7 +29,7 @@ class TestTransform(unittest.TestCase):
         tf = trans.Transform()
         self.assert_array(np.zeros(3), tf.location)
 
-    def test_location_from_homogeneous(self):
+    def test_constructor_location_from_homogeneous(self):
         hom = np.array([[0.80473785, -0.31061722, 0.50587936, 1],
                         [0.50587936, 0.80473785, -0.31061722, 2],
                         [-0.31061722, 0.50587936, 0.80473785, 3],
@@ -37,7 +37,7 @@ class TestTransform(unittest.TestCase):
         tf = trans.Transform(hom)
         self.assert_array((1, 2, 3), tf.location)
 
-    def test_rotation_basic(self):
+    def test_constructor_rotation_basic(self):
         # The rotation here is for 45 degrees around axis 1,2,3
         tf = trans.Transform(location=(1, 2, 3), rotation=(0.92387953, 0.10227645, 0.2045529, 0.30682935), w_first=True)
         self.assert_close(tf.rotation_quat(w_first=True),
@@ -45,15 +45,20 @@ class TestTransform(unittest.TestCase):
         self.assert_close(tf.rotation_quat(w_first=False),
                           np.array([0.10227645, 0.2045529, 0.30682935, 0.92387953]))
 
-    def test_rotation_handles_non_unit(self):
+    def test_constructor_rotation_handles_non_unit(self):
         tf = trans.Transform(rotation=(10, 1, 2, 3), w_first=True)
         self.assert_close(tf.rotation_quat(w_first=True), (0.93658581, 0.09365858, 0.18731716, 0.28097574))
 
-    def test_rotation_default(self):
+    def test_constructor_rotation_default(self):
         tf = trans.Transform()
         self.assert_array(tf.rotation_quat(True), (1, 0, 0, 0))
 
-    def test_rotation_from_homogeneous(self):
+    def test_constructor_euler_rotation(self):
+        tf = trans.Transform(rotation=(np.pi / 6, np.pi / 4, np.pi / 3), w_first=True)
+        self.assert_close(tf.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
+        self.assert_close(tf.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
+
+    def test_constructor_rotation_from_homogeneous(self):
         hom = np.array([[0.80473785, -0.31061722, 0.50587936, 1],
                         [0.50587936, 0.80473785, -0.31061722, 2],
                         [-0.31061722, 0.50587936, 0.80473785, 3],
@@ -65,7 +70,7 @@ class TestTransform(unittest.TestCase):
         # Yaw
         qrot = _make_quat((0, 0, 1), np.pi / 6)
         tf = trans.Transform(rotation=qrot, w_first=True)
-        self.assert_array(tf.euler, np.array([np.pi / 6, 0, 0]))
+        self.assert_array(tf.euler, np.array([0, 0, np.pi / 6]))
         # Pitch
         qrot = _make_quat((0, 1, 0), np.pi / 6)
         tf = trans.Transform(rotation=qrot, w_first=True)
@@ -73,10 +78,10 @@ class TestTransform(unittest.TestCase):
         # Roll
         qrot = _make_quat((1, 0, 0), np.pi / 6)
         tf = trans.Transform(rotation=qrot, w_first=True)
-        self.assert_array(tf.euler, np.array([0, 0, np.pi / 6]))
+        self.assert_array(tf.euler, np.array([np.pi / 6, 0, 0]))
 
     def test_equals(self):
-        tf1 = trans.Transform(location=(1,2,3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
         tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
         tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
         tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
@@ -140,7 +145,7 @@ class TestTransform(unittest.TestCase):
         pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose_rel = tf.find_relative(pose)
-        self.assert_close(pose_rel.euler, (-np.pi / 2, -np.pi / 4, 0))
+        self.assert_close(pose_rel.euler, (0, -np.pi / 4, -np.pi / 2))
 
     def test_find_independent_point_moves_origin(self):
         point = (1, 3, 5)
@@ -158,7 +163,7 @@ class TestTransform(unittest.TestCase):
         pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose_rel = tf.find_independent(pose)
-        self.assert_close(pose_rel.euler, (np.pi / 2, np.pi / 4, 0))
+        self.assert_close(pose_rel.euler, (0, np.pi / 4, np.pi / 2))
 
     def test_find_relative_undoes_point(self):
         loc = (-13, 27, -127)
