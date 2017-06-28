@@ -101,6 +101,35 @@ class BoundingBox:
         }, modify_base=True)
         return cls(**serialized)
 
+class LabelledObject:
+    """
+    Metadata for a labelled object in an image.
+    TODO: Handle labelled objects better, using this class
+    """
+
+    def __init__(self, class_name, bounding_box, label_color=None, relative_pose=None):
+        self._class_name = str(class_name)
+        self._bounding_box = bounding_box
+        self._label_color = label_color
+        self.__relative_pose = relative_pose
+
+    @property
+    def class_name(self):
+        return self._class_name
+
+    @property
+    def bounding_box(self):
+        return self._bounding_box
+
+    def serialize(self):
+        return {
+            'class_name': self.class_name
+        }
+
+    @classmethod
+    def deserialize(cls, serialized):
+        return cls(**serialized)
+
 
 class ImageMetadata:
     """

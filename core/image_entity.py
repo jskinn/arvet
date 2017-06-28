@@ -23,6 +23,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         You need to call this before serializing the image.
 
         :param db_client: The database client. We need this for access to GridFS.
+        :param force_update: Store the data even if it already exists.
         :return: void
         """
         if force_update or self._data_id is None:
@@ -84,16 +85,6 @@ class ImageEntity(core.image.Image, database.entity.Entity):
                 kwargs['world_normals_data'] = pickle.loads(db_client.grid_fs.get(kwargs['world_normals_id']).read())
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
-    @classmethod
-    def from_image(cls, image):
-        return cls(data=image.data,
-                   camera_location=image.camera_location,
-                   camera_orientation=image.camera_orientation,
-                   additional_metadata=image.additional_metadata,
-                   depth_data=image.depth_data,
-                   labels_data=image.labels_data,
-                   world_normals_data=image.world_normals_data)
-
 
 class StereoImageEntity(core.image.StereoImage, ImageEntity):
 
@@ -117,6 +108,7 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         Overridden to save the right hand image as well
 
         :param db_client: The database client. We need this for access to GridFS.
+        :param force_update: Save data to the database even if it already exists. Default False.
         :return: void
         """
         super().save_image_data(db_client, force_update)
@@ -205,3 +197,31 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
                 kwargs['right_world_normals_data'] = pickle.loads(db_client.grid_fs.get(
                     kwargs['right_world_normals_id']).read())
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+
+def image_to_entity(image):
+    if isinstance(image, ImageEntity):
+        return image
+    elif isinstance(image, core.image.StereoImage):
+        return StereoImageEntity(left_data=image.left_data,
+                                 right_data=image.right_data,
+                                 left_camera_pose=image.left_camera_pose,
+                                 right_camera_pose=image.right_camera_pose,
+                                 metadata=image.metadata,
+                                 additional_metadata=image.additional_metadata,
+                                 left_depth_data=image.left_depth_data,
+                                 left_labels_data=image.left_labels_data,
+                                 left_world_normals_data=image.left_world_normals_data,
+                                 right_depth_data=image.right_depth_data,
+                                 right_labels_data=image.right_labels_data,
+                                 right_world_normals_data=image.right_world_normals_data)
+    elif isinstance(image, core.image.Image):
+        return ImageEntity(data=image.data,
+                           camera_pose=image.camera_pose,
+                           metadata=image.metadata,
+                           additional_metadata=image.additional_metadata,
+                           depth_data=image.depth_data,
+                           labels_data=image.labels_data,
+                           world_normals_data=image.world_normals_data)
+    else:
+        return image
