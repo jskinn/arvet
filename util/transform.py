@@ -54,7 +54,7 @@ class Transform:
                 rotation = np.asarray(rotation, dtype=np.dtype('f8'))
                 norm = np.linalg.norm(rotation)
                 loop_count = 0
-                while norm != 1 and loop_count < 100:
+                while not np.isclose(norm, (1.0,), 1e-16, 1e-16) and loop_count < 10:
                     rotation = rotation / norm
                     norm = np.linalg.norm(rotation)
                     loop_count += 1

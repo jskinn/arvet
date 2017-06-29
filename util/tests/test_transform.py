@@ -202,22 +202,22 @@ class TestTransform(unittest.TestCase):
 
     def test_serialize_and_deserialise(self):
         random = np.random.RandomState(seed=1251)
-        entity1 = trans.Transform(location=random.uniform(-1000, 1000, 3),
-                                  rotation=random.uniform(-100, 100, 4), w_first=True)
-        s_entity1 = entity1.serialize()
+        for _ in range(200):
+            entity1 = trans.Transform(location=random.uniform(-1000, 1000, 3),
+                                      rotation=random.uniform(-1, 1, 4), w_first=True)
+            s_entity1 = entity1.serialize()
 
-        entity2 = trans.Transform.deserialize(s_entity1)
-        s_entity2 = entity2.serialize()
-
-        self.assertEqual(entity1, entity2)
-        self.assertEqual(s_entity1, s_entity2)
-
-        for idx in range(100):
-            # Test that repeated serialization and deserialization does not degrade the information
-            entity2 = trans.Transform.deserialize(s_entity2)
+            entity2 = trans.Transform.deserialize(s_entity1)
             s_entity2 = entity2.serialize()
             self.assertEqual(entity1, entity2)
             self.assertEqual(s_entity1, s_entity2)
+
+            for idx in range(10):
+                # Test that repeated serialization and deserialization does not degrade the information
+                entity2 = trans.Transform.deserialize(s_entity2)
+                s_entity2 = entity2.serialize()
+                self.assertEqual(entity1, entity2)
+                self.assertEqual(s_entity1, s_entity2)
 
     def assert_array(self, arr1, arr2, msg=None):
         a1 = np.asarray(arr1)
