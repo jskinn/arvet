@@ -26,9 +26,13 @@ class TestImage(unittest.TestCase):
             roughness_enabled=True,
             geometry_decimation=0.8,
             procedural_generation_seed=16234,
-            label_classes=['cup', 'car', 'cow'],
-            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
-            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            labelled_objects=(
+                imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
+                                     relative_pose=tf.Transform((12,3,4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
+                imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
+                                     relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
+                                     object_id='cat-090')
+            ),
             average_scene_depth=90.12)
 
         trans = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
@@ -121,9 +125,13 @@ class TestStereoImage(unittest.TestCase):
             roughness_enabled=True,
             geometry_decimation=0.8,
             procedural_generation_seed=16234,
-            label_classes=['cup', 'car', 'cow'],
-            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
-            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            labelled_objects=(
+                imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
+                                     relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
+                imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
+                                     relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
+                                     object_id='cat-090')
+            ),
             average_scene_depth=90.12)
 
         self.left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
@@ -268,9 +276,13 @@ class TestStereoImage(unittest.TestCase):
             roughness_enabled=True,
             geometry_decimation=0.8,
             procedural_generation_seed=16234,
-            label_classes=['cup', 'car', 'cow'],
-            label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
-            distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
+            labelled_objects=(
+                imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
+                                     relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
+                imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
+                                     relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
+                                     object_id='cat-090')
+            ),
             average_scene_depth=90.12)
 
         left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))

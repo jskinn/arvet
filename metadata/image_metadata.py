@@ -1,5 +1,6 @@
 import enum
 import util.dict_utils as du
+import util.transform as tf
 
 
 class ImageSourceType(enum.Enum):
@@ -44,6 +45,7 @@ class BoundingBox:
     Origin is top left corner of the image.
     Bounding boxes should be mapped to a particular image,
     and image coordinates are relative to the base resolution of that image.
+    DEPRECATED
     """
     def __init__(self, class_name, confidence, x, y, height, width):
         self.class_name = class_name
@@ -101,34 +103,87 @@ class BoundingBox:
         }, modify_base=True)
         return cls(**serialized)
 
+
 class LabelledObject:
     """
     Metadata for a labelled object in an image.
-    TODO: Handle labelled objects better, using this class
     """
-
-    def __init__(self, class_name, bounding_box, label_color=None, relative_pose=None):
-        self._class_name = str(class_name)
-        self._bounding_box = bounding_box
+    def __init__(self, class_names, bounding_box, label_color=None, relative_pose=None, object_id=None):
+        self._class_names = tuple(class_names)
+        self._bounding_box = (int(bounding_box[0]), int(bounding_box[1]), int(bounding_box[2]), int(bounding_box[3]))
         self._label_color = label_color
-        self.__relative_pose = relative_pose
+        self._relative_pose = relative_pose
+        self._object_id = object_id
 
     @property
-    def class_name(self):
-        return self._class_name
+    def class_names(self):
+        return self._class_names
 
     @property
     def bounding_box(self):
         return self._bounding_box
 
+    @property
+    def label_color(self):
+        return self._label_color
+
+    @property
+    def relative_pose(self):
+        return self._relative_pose
+
+    @property
+    def object_id(self):
+        return self._object_id
+
+    def __eq__(self, other):
+        """
+        Override equals. Labelled objects
+        :param other:
+        :return:
+        """
+        return (hasattr(other, 'class_names') and
+                hasattr(other, 'bounding_box') and
+                hasattr(other, 'label_color') and
+                hasattr(other, 'relative_pose') and
+                hasattr(other, 'object_id') and
+                self.class_names == other.class_names and
+                self.bounding_box == other.bounding_box and
+                self.label_color == other.label_color and
+                self.relative_pose == other.relative_pose and
+                self.object_id == other.object_id)
+
+    def __hash__(self):
+        """
+        Hash this object, so it can be in sets
+        :return:
+        """
+        return hash((self.class_names, self.bounding_box, self.label_color, self.relative_pose, self.object_id))
+
     def serialize(self):
         return {
-            'class_name': self.class_name
+            'class_names': list(self.class_names),
+            'bounding_box': self.bounding_box,
+            'label_color': self.label_color,
+            'relative_pose': self.relative_pose.serialize() if self.relative_pose is not None else None,
+            'object_id': self.object_id
         }
 
     @classmethod
     def deserialize(cls, serialized):
-        return cls(**serialized)
+        kwargs = {}
+        if 'class_names' in serialized:
+            kwargs['class_names'] = tuple(serialized['class_names'])
+        if 'bounding_box' in serialized:
+            kwargs['bounding_box'] = (tuple(serialized['bounding_box'])
+                                      if serialized['bounding_box'] is not None else None)
+        if 'label_color' in serialized:
+            kwargs['label_color'] = tuple(serialized['label_color']) if serialized['label_color'] is not None else None
+        if 'relative_pose' in serialized:
+            kwargs['relative_pose'] = (tf.Transform.deserialize(serialized['relative_pose'])
+                                       if serialized['relative_pose'] is not None else None)
+        if 'object_id' in serialized:
+            kwargs['object_id'] = serialized['object_id']
+        return cls(**kwargs)
 
 
 class ImageMetadata:
@@ -142,8 +197,7 @@ class ImageMetadata:
     def __init__(self, source_type, height, width, environment_type=None, light_level=None, time_of_day=None, fov=None,
                  focal_length=None, aperture=None, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
                  normal_mipmap_bias=None, roughness_enabled=None, geometry_decimation=None,
-                 procedural_generation_seed=None, label_classes=None, label_bounding_boxes=None,
-                 distances_to_labelled_objects=None, average_scene_depth=None):
+                 procedural_generation_seed=None, labelled_objects=None, average_scene_depth=None):
         self._source_type = ImageSourceType(source_type)
         self._environment_type = EnvironmentType(environment_type) if environment_type is not None else None
         self._light_level = LightingLevel(light_level) if light_level is not None else None
@@ -168,10 +222,7 @@ class ImageMetadata:
                                             if procedural_generation_seed is not None else None)
 
         # Labelling information
-        self._label_classes = list(label_classes) if label_classes is not None else []
-        self._label_bounding_boxes = set(label_bounding_boxes) if label_bounding_boxes is not None else set()
-        self._distances_to_labelled_objects = (dict(distances_to_labelled_objects)
-                                               if distances_to_labelled_objects is not None else {})
+        self._labelled_objects = tuple(labelled_objects) if labelled_objects is not None else ()
 
         # Depth information
         self._average_scene_depth = float(average_scene_depth) if average_scene_depth is not None else None
@@ -241,16 +292,8 @@ class ImageMetadata:
         return self._procedural_generation_seed
 
     @property
-    def label_classes(self):
-        return self._label_classes
-
-    @property
-    def label_bounding_boxes(self):
-        return self._label_bounding_boxes
-
-    @property
-    def distances_to_labelled_objects(self):
-        return self._distances_to_labelled_objects
+    def labelled_objects(self):
+        return self._labelled_objects
 
     @property
     def average_scene_depth(self):
@@ -284,9 +327,7 @@ class ImageMetadata:
 
             'procedural_generation_seed': self.procedural_generation_seed,
 
-            'label_classes': self.label_classes,
-            'label_bounding_boxes': [bbox.serialize() for bbox in self.label_bounding_boxes],
-            'distances_to_labelled_objects': self._distances_to_labelled_objects,
+            'labelled_objects': [obj.serialize() for obj in self.labelled_objects],
 
             'average_scene_depth': self.average_scene_depth
         }
@@ -297,12 +338,11 @@ class ImageMetadata:
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width', 'fov',
                             'focal_length', 'aperture', 'simulation_world', 'lighting_model', 'texture_mipmap_bias',
                             'normal_mipmap_bias', 'roughness_enabled', 'geometry_decimation',
-                            'procedural_generation_seed', 'label_classes',
-                            'distances_to_labelled_objects', 'average_scene_depth']
+                            'procedural_generation_seed', 'average_scene_depth']
         for key in direct_copy_keys:
             if key in serialized:
                 kwargs[key] = serialized[key]
-        if 'label_bounding_boxes' in serialized:
-            kwargs['label_bounding_boxes'] =  {BoundingBox.deserialize(s_bbox)
-                                               for s_bbox in serialized['label_bounding_boxes']}
+        if 'labelled_objects' in serialized:
+            kwargs['labelled_objects'] = (LabelledObject.deserialize(s_obj)
+                                          for s_obj in serialized['labelled_objects'])
         return cls(**kwargs)
