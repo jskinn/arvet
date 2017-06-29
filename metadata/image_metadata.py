@@ -1,5 +1,4 @@
 import enum
-import util.dict_utils as du
 import util.transform as tf
 
 
@@ -36,72 +35,6 @@ class TimeOfDay(enum.Enum):
     DAY = 3
     AFTERNOON = 4
     TWILIGHT = 5
-
-
-class BoundingBox:
-    """
-    A bounding box.
-    x and y are column-row of the top left corner, height and width extending down and right from there.
-    Origin is top left corner of the image.
-    Bounding boxes should be mapped to a particular image,
-    and image coordinates are relative to the base resolution of that image.
-    DEPRECATED
-    """
-    def __init__(self, class_name, confidence, x, y, height, width):
-        self.class_name = class_name
-        self.confidence = float(confidence)
-        self.x = int(x)
-        self.y = int(y)
-        self.height = int(height)
-        self.width = int(width)
-
-    def __eq__(self, other):
-        """
-        Override equals. Bounding boxes are equal if the have the same class, confidence, and shape
-        :param other:
-        :return:
-        """
-        return (hasattr(other, 'class_name') and
-                hasattr(other, 'confidence') and
-                hasattr(other, 'x') and
-                hasattr(other, 'y') and
-                hasattr(other, 'height') and
-                hasattr(other, 'width') and
-                self.class_name == other.class_name and
-                self.confidence == other.confidence and
-                self.x == other.x and
-                self.y == other.y and
-                self.height == other.height and
-                self.width == other.width)
-
-    def __hash__(self):
-        """
-        Hash this object, so it can be in sets
-        :return:
-        """
-        return hash((self.class_name, self.confidence, self.x, self.y, self.height, self.width))
-
-    def serialize(self):
-        return {
-            'class_name': self.class_name,
-            'confidence': self.confidence,
-            'x': self.x,
-            'y': self.y,
-            'height': self.height,
-            'width': self.width
-        }
-
-    @classmethod
-    def deserialize(cls, serialized):
-        du.defaults(serialized, {
-            'class_name': 'bg',
-            'confidence': 0,
-            'x': 0,
-            'y': 0,
-            'height': 0,
-            'width': 0
-        }, modify_base=True)
-        return cls(**serialized)
 
 
 class LabelledObject:
@@ -343,6 +276,6 @@ class ImageMetadata:
             if key in serialized:
                 kwargs[key] = serialized[key]
         if 'labelled_objects' in serialized:
-            kwargs['labelled_objects'] = (LabelledObject.deserialize(s_obj)
+            kwargs['labelled_objects'] = tuple(LabelledObject.deserialize(s_obj)
                                           for s_obj in serialized['labelled_objects'])
         return cls(**kwargs)

@@ -212,7 +212,6 @@ import keras_frcnn.roi_helpers as roi_helpers
 import keras_frcnn.config
 import keras_frcnn.resnet as network
 import core.system
-import metadata.image_metadata as imeta
 import trials.object_detection.bounding_box_result as bbox_result
 
 
@@ -277,7 +276,7 @@ class KerasFRCNN(core.system.VisionSystem):
         :return: True iff the particular dataset is appropriate for this vision system.
         :rtype: bool
         """
-        return image_source.is_stored_in_database() and image_source.is_labels_available()
+        return image_source.is_stored_in_database and image_source.is_per_pixel_labels_available
 
     def start_trial(self):
         """
@@ -397,8 +396,8 @@ class KerasFRCNN(core.system.VisionSystem):
                     pass
 
                 # TODO: Why does it multiply by 16?
-                bounding_boxes.add(imeta.BoundingBox(
-                    class_name=cls_name,
+                bounding_boxes.add(bbox_result.BoundingBox(
+                    class_names=(cls_name,),
                     confidence=np.max(prob_class[0, ii, :]),
                     x=16*x,
                     y=16*y,
@@ -407,7 +406,15 @@ class KerasFRCNN(core.system.VisionSystem):
                 ))
 
         self._bounding_boxes[image.identifier] = bounding_boxes
-        self._gt_bounding_boxes[image.identifier] = set(image.metadata.label_bounding_boxes)
+        self._gt_bounding_boxes[image.identifier] = (
+            bbox_result.BoundingBox(class_names=obj.class_names,
+                                    confidence=1,
+                                    x=obj.bounding_box[0],
+                                    y=obj.bounding_box[1],
+                                    width=obj.bounding_box[2],
+                                    height=obj.bounding_box[3])
+            for obj in image.metadata.labelled_objects
+        )
 
     def finish_trial(self):
         """

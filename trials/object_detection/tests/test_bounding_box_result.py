@@ -1,13 +1,119 @@
-import operator
 import unittest
-
 import bson.objectid
 import numpy as np
 
 import database.tests.test_entity
-import metadata.image_metadata as imeta
 import trials.object_detection.bounding_box_result as bbox_result
 import util.dict_utils as du
+
+
+class TestBoundingBox(unittest.TestCase):
+
+    def test_equals(self):
+        kwargs = {
+            'class_names': ('class_' + str(np.random.randint(255)),),
+            'confidence': np.random.uniform(0, 0.8),
+            'x': np.random.randint(800),
+            'y': np.random.randint(600),
+            'width': np.random.randint(128),
+            'height': np.random.randint(128)
+        }
+        a = bbox_result.BoundingBox(**kwargs)
+        b = bbox_result.BoundingBox(**kwargs)
+        self.assertEqual(a, b)
+        b = bbox_result.BoundingBox(**du.defaults({'class_names': 'class_413'}, kwargs))
+        self.assertNotEqual(a, b)
+        b = bbox_result.BoundingBox(**du.defaults({'confidence': 0.9}, kwargs))
+        self.assertNotEqual(a, b)
+        b = bbox_result.BoundingBox(**du.defaults({'x': 1600}, kwargs))
+        self.assertNotEqual(a, b)
+        b = bbox_result.BoundingBox(**du.defaults({'y': 900}, kwargs))
+        self.assertNotEqual(a, b)
+        b = bbox_result.BoundingBox(**du.defaults({'width': 137}, kwargs))
+        self.assertNotEqual(a, b)
+        b = bbox_result.BoundingBox(**du.defaults({'height': 137}, kwargs))
+        self.assertNotEqual(a, b)
+
+    def test_hash(self):
+        kwargs = {
+            'class_names': ('class_' + str(np.random.randint(255)),),
+            'confidence': np.random.uniform(0, 0.8),
+            'x': np.random.randint(800),
+            'y': np.random.randint(600),
+            'width': np.random.randint(128),
+            'height': np.random.randint(128)
+        }
+        a = bbox_result.BoundingBox(**kwargs)
+        b = bbox_result.BoundingBox(**kwargs)
+        self.assertEqual(hash(a), hash(b))
+        b = bbox_result.BoundingBox(**du.defaults({'class_names': 'class_413'}, kwargs))
+        self.assertNotEqual(hash(a), hash(b))
+        b = bbox_result.BoundingBox(**du.defaults({'confidence': 0.9}, kwargs))
+        self.assertNotEqual(hash(a), hash(b))
+        b = bbox_result.BoundingBox(**du.defaults({'x': 1600}, kwargs))
+        self.assertNotEqual(hash(a), hash(b))
+        b = bbox_result.BoundingBox(**du.defaults({'y': 900}, kwargs))
+        self.assertNotEqual(hash(a), hash(b))
+        b = bbox_result.BoundingBox(**du.defaults({'width': 137}, kwargs))
+        self.assertNotEqual(hash(a), hash(b))
+        b = bbox_result.BoundingBox(**du.defaults({'height': 137}, kwargs))
+        self.assertNotEqual(hash(a), hash(b))
+
+    def test_set(self):
+        a = bbox_result.BoundingBox(
+            class_names=('class_' + str(np.random.randint(255)),),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        b = bbox_result.BoundingBox(
+            class_names=('class_' + str(np.random.randint(255)),),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        c = bbox_result.BoundingBox(
+            class_names=('class_' + str(np.random.randint(255)),),
+            confidence=np.random.uniform(0, 1),
+            x=np.random.randint(800),
+            y=np.random.randint(600),
+            width=np.random.randint(128),
+            height=np.random.randint(128)
+        )
+        subject_set = {a, a, a, b}
+        self.assertEqual(2, len(subject_set))
+        self.assertIn(a, subject_set)
+        self.assertIn(b, subject_set)
+        self.assertNotIn(c, subject_set)
+
+    def test_serialize_and_deserialize(self):
+        for _ in range(10):
+            bbox1 = bbox_result.BoundingBox(
+                class_names=('class_' + str(np.random.randint(255)),),
+                confidence=np.random.uniform(0, 1),
+                x=np.random.randint(800),
+                y=np.random.randint(600),
+                width=np.random.randint(128),
+                height=np.random.randint(128)
+            )
+            s_bbox1 = bbox1.serialize()
+
+            bbox2 = bbox_result.BoundingBox.deserialize(s_bbox1)
+            s_bbox2 = bbox2.serialize()
+
+            self.assertEqual(bbox1, bbox2)
+            self.assertEqual(s_bbox1, s_bbox2)
+
+            for idx in range(10):
+                # Test that repeated serialization and deserialization does not degrade the information
+                bbox2 = bbox_result.BoundingBox.deserialize(s_bbox2)
+                s_bbox2 = bbox2.serialize()
+                self.assertEqual(bbox1, bbox2)
+                self.assertEqual(s_bbox1, s_bbox2)
 
 
 class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.TestCase):
@@ -19,29 +125,29 @@ class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.
         kwargs = du.defaults(kwargs, {
             'system_id': np.random.randint(10, 20),
             'bounding_boxes': {
-                bson.objectid.ObjectId(): {
-                    imeta.BoundingBox(
-                        class_name='class_' + str(np.random.randint(255)),
+                bson.objectid.ObjectId(): tuple(
+                    bbox_result.BoundingBox(
+                        class_names=('class_' + str(np.random.randint(255)),),
                         confidence=np.random.uniform(0, 1),
                         x=np.random.randint(800),
                         y=np.random.randint(600),
                         width=np.random.randint(128),
                         height=np.random.randint(128)
                     )
-                    for _ in range(np.random.randint(50))}
+                    for _ in range(np.random.randint(50)))
                 for _ in range(100)
             },
             'ground_truth_bounding_boxes': {
-                bson.objectid.ObjectId(): {
-                    imeta.BoundingBox(
-                        class_name='class_' + str(np.random.randint(255)),
+                bson.objectid.ObjectId(): tuple(
+                    bbox_result.BoundingBox(
+                        class_names=('class_' + str(np.random.randint(255)),),
                         confidence=np.random.uniform(0, 1),
                         x=np.random.randint(800),
                         y=np.random.randint(600),
                         width=np.random.randint(128),
                         height=np.random.randint(128)
                     )
-                    for _ in range(np.random.randint(50))}
+                    for _ in range(np.random.randint(50)))
                 for _ in range(100)
             },
             'system_settings': {
@@ -79,8 +185,8 @@ class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.
         for bbox_key in ('bounding_boxes', 'gt_bounding_boxes'):
             self.assertEqual(set(s_model1[bbox_key].keys()), set(s_model2[bbox_key].keys()))
             for key in s_model1[bbox_key].keys():
-                bboxes1 = {imeta.BoundingBox.deserialize(s_bbox) for s_bbox in s_model1[bbox_key][key]}
-                bboxes2 = {imeta.BoundingBox.deserialize(s_bbox) for s_bbox in s_model2[bbox_key][key]}
+                bboxes1 = {bbox_result.BoundingBox.deserialize(s_bbox) for s_bbox in s_model1[bbox_key][key]}
+                bboxes2 = {bbox_result.BoundingBox.deserialize(s_bbox) for s_bbox in s_model2[bbox_key][key]}
                 self.assertEqual(bboxes1, bboxes2)
 
     def _assert_bboxes_equal(self, bboxes1, bboxes2):
