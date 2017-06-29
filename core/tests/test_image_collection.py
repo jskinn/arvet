@@ -86,7 +86,7 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertEqual(image_collection1.identifier, image_collection2.identifier)
         self.assertEqual(image_collection1.sequence_type, image_collection2.sequence_type)
         self.assertEqual(image_collection1.is_depth_available, image_collection2.is_depth_available)
-        self.assertEqual(image_collection1.is_labels_available, image_collection2.is_labels_available)
+        self.assertEqual(image_collection1.is_per_pixel_labels_available, image_collection2.is_per_pixel_labels_available)
         self.assertEqual(image_collection1.is_normals_available, image_collection2.is_normals_available)
         self.assertEqual(image_collection1.is_stereo_available, image_collection2.is_stereo_available)
         self.assertEqual(len(image_collection1), len(image_collection2))

@@ -22,7 +22,7 @@ class ImageSource(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def is_labels_available(self):
+    def is_per_pixel_labels_available(self):
         """
         Do images from this image source include object labels
         :return: True if this image source can produce object labels for each image
@@ -31,9 +31,9 @@ class ImageSource(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def is_bounding_boxes_available(self):
+    def is_labels_available(self):
         """
-        Do images from this source include object bounding boxes in their metadata.
+        Do images from this source include object bounding boxes and simple labels in their metadata.
         :return: True iff the image metadata includes bounding boxes
         """
         return False

@@ -24,13 +24,11 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
 
         self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_filename') and
                                                            image.depth_data is not None for image in images)
-        self._is_labels_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
-                                                            image.labels_data is not None for image in images)
+        self._is_labels_image_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
+                                                                  image.labels_data is not None for image in images)
         self._is_bboxes_available = len(images) > 0 and all(
-            hasattr(image, 'metadata') and hasattr(image.metadata, 'label_bounding_boxes') and
-            len(image.metadata.label_bounding_boxes) > 0
-            for image in images
-        )
+            hasattr(image, 'metadata') and hasattr(image.metadata, 'labelled_objects') and
+            len(image.metadata.labelled_objects) > 0 for image in images)
         self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
                                                              image.world_normals_data is not None for image in images)
         self._is_stereo_available = len(images) > 0 and all(hasattr(image, 'left_filename') and
@@ -133,15 +131,15 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         return self._is_depth_available
 
     @property
-    def is_labels_available(self):
+    def is_per_pixel_labels_available(self):
         """
         Do images from this image source include object lables
         :return: True if this image source can produce object labels for each image
         """
-        return self._is_labels_available
+        return self._is_labels_image_available
 
     @property
-    def is_bounding_boxes_available(self):
+    def is_labels_available(self):
         """
         Do images from this source include object bounding boxes in their metadata.
         :return: True iff the image metadata includes bounding boxes
