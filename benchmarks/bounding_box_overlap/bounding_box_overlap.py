@@ -47,31 +47,50 @@ class BoundingBoxOverlapBenchmark(core.benchmark.Benchmark):
         ground_truth_bboxes = trial_result.get_ground_truth_bounding_boxes()
         detected_bboxes = trial_result.get_bounding_boxes()
 
-        class_scores = {}
+        results = {}
         for image_id in detected_bboxes.keys():
-            if image_id in ground_truth_bboxes:
-                for bbox in detected_bboxes[image_id]:
-                    best_score = 0
-                    for gt_bbox in ground_truth_bboxes[image_id]:
-                        if bbox.class_name == gt_bbox.class_name:
-                            overlap_x = max((bbox.x, gt_bbox.x))
-                            overlap_y = max((bbox.y, gt_bbox.y))
-                            overlap_upper_x = min((bbox.x + bbox.width, gt_bbox.x + gt_bbox.width))
-                            overlap_upper_y = min((bbox.y + bbox.height, gt_bbox.y + gt_bbox.height))
-                            if overlap_upper_x > overlap_x and overlap_upper_y > overlap_y:
-                                overlap_area = (overlap_upper_x - overlap_x) * (overlap_upper_y - overlap_y)
-                                gt_area = gt_bbox.width * gt_bbox.height
-                                bbox_area = bbox.width * bbox.height
+            results[image_id] = [{
+                'overlap': 0,
+                'bounding_box_area': bbox.height * bbox.width,
+                'ground_truth_area': 0,
+                'confidence': bbox.confidence,
+                'bounding_box_classes': bbox.class_names,
+                'ground_truth_classes': tuple()
+            } for bbox in detected_bboxes[image_id]]
 
-                                precision = overlap_area / bbox_area
-                                recall = overlap_area / gt_area
-                                score = 2 * bbox.confidence * (precision * recall / (precision +  recall))
-                                if score > best_score:
-                                    best_score = score
-                    if bbox.class_name not in class_scores:
-                        class_scores[bbox.class_name] = []
-                    class_scores[bbox.class_name].append(best_score)
+            if image_id in ground_truth_bboxes:
+
+                potential_matches = [(compute_overlap(bbox, gt_bbox), idx, gt_idx)
+                                     for gt_idx, gt_bbox in enumerate(ground_truth_bboxes[image_id])
+                                     for idx, bbox in enumerate(detected_bboxes[image_id])]
+                potential_matches.sort(reverse=True)
+
+                gt_indexes = set(i for i in range(len(ground_truth_bboxes[image_id])))
+                bbox_indexes = set(i for i in range(len(detected_bboxes[image_id])))
+                for overlap, idx, gt_idx in potential_matches:
+                    if overlap <= 0:
+                        break
+                    if idx in bbox_indexes and gt_idx in gt_indexes:
+                        bbox_indexes.remove(idx)
+                        gt_indexes.remove(gt_idx)
+
+                        gt_bbox = ground_truth_bboxes[image_id][gt_idx]
+
+                        results[image_id][idx]['overlap'] = overlap
+                        results[image_id][idx]['ground_truth_area'] = gt_bbox.width * gt_bbox.height
+                        results[image_id][idx]['ground_truth_classes'] = gt_bbox.class_names
+
         return bbox_result.BoundingBoxOverlapBenchmarkResult(benchmark_id=self.identifier,
                                                              trial_result_id=trial_result.identifier,
-                                                             class_bbox_scores=class_scores,
+                                                             overlaps=results,
                                                              settings={})
+
+
+def compute_overlap(bbox1, bbox2):
+    if set(bbox1.class_names).isdisjoint(bbox2.class_names):
+        return 0
+    overlap_x = max((bbox1.x, bbox2.x))
+    overlap_y = max((bbox1.y, bbox2.y))
+    overlap_upper_x = min((bbox1.x + bbox1.width, bbox2.x + bbox2.width))
+    overlap_upper_y = min((bbox1.y + bbox1.height, bbox2.y + bbox2.height))
+    return max(0, (overlap_upper_x - overlap_x)*(overlap_upper_y - overlap_y))
