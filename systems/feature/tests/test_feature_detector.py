@@ -116,7 +116,7 @@ class VoidDetector:
     This is the minimal API we expect for feature detectors returned by make_detector
     """
     def detect(self, image_mat, mask):
-        width, height = image_mat.shape
+        height, width = image_mat.shape
         return [cv2.KeyPoint(x=np.random.uniform(width),
                              y=np.random.uniform(height),
                              _angle=np.random.uniform(360),
