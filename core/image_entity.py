@@ -4,6 +4,7 @@ import copy
 import pickle
 import database.entity
 import util.transform as tf
+import util.database_helpers as db_help
 import metadata.image_metadata as imeta
 import core.image
 
@@ -200,6 +201,14 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
 
 
 def image_to_entity(image):
+    """
+    Convert an image object to an image entity.
+    Handles parameter renames and the diamond inheritance between stereo images and normal images
+    to create the correct kind of image entity.
+    Does nothing if the argument is already and image entity
+    :param image: An image object
+    :return:
+    """
     if isinstance(image, ImageEntity):
         return image
     elif isinstance(image, core.image.StereoImage):
@@ -225,3 +234,40 @@ def image_to_entity(image):
                            world_normals_data=image.world_normals_data)
     else:
         return image
+
+
+def save_image(db_client, image):
+    """
+    Save an image to the database.
+    First checks if the image already exists,
+    and does not insert if it does.
+    :param db_client: A database client object to use to save the image.
+    :param image: An image entity or image object to be saved to the database
+    :return: the id of the image in the database
+    """
+    if not isinstance(image, ImageEntity):
+        if isinstance(image, core.image.Image):
+            image = image_to_entity(image)
+        else:
+            return None
+    existing_query = image.serialize()
+
+    # Don't look at the GridFS links when determining if the image exists, only use metadata.
+    delete_keys = ['data', 'depth_data', 'labels_data', 'world_normals_data']
+    for key in delete_keys:
+        if key in existing_query:
+            del existing_query[key]
+        if 'left_' + key in existing_query:
+            del existing_query['left_' + key]
+        if 'right_' + key in existing_query:
+            del existing_query['right_' + key]
+    existing_query = db_help.query_to_dot_notation(existing_query)
+
+    existing = db_client.image_collection.find_one(existing_query, {'_id': True})
+    if existing is None:
+        image.save_image_data(db_client)
+        # Need to serialize again so we can store the newly created data ids.
+        return db_client.image_collection.insert(image.serialize())
+    else:
+        # An identical image already exists, use that.
+        return existing['_id']

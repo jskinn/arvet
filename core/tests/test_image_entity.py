@@ -1,11 +1,14 @@
 import unittest
 import unittest.mock as mock
+import pymongo.collection
 import numpy as np
 import gridfs
 import pickle
+import bson.objectid
 import util.dict_utils as du
 import util.transform as tf
 import metadata.image_metadata as imeta
+import database.client
 import database.tests.test_entity as entity_test
 import core.image
 import core.image_entity as ie
@@ -61,7 +64,7 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
                 procedural_generation_seed=16234,
                 labelled_objects={imeta.LabelledObject(class_names={'cup'},
                                                        bounding_box=(10, 65, 97, 24),
-                                                       relative_pose=tf.Transform((1,2,3), (0.1, 0.2, 0.3)))},
+                                                       relative_pose=tf.Transform((1, 2, 3), (0.1, 0.2, 0.3)))},
                 average_scene_depth=90.12),
             'additional_metadata': {
                 'Source': 'Generated',
@@ -455,3 +458,123 @@ class TestImageToEntity(unittest.TestCase):
         self.assertTrue(np.array_equal(entity.right_data, image.right_data), "Right image data are not equal")
         self.assertEqual(image.left_camera_pose, entity.left_camera_pose)
         self.assertEqual(image.right_camera_pose, entity.right_camera_pose)
+
+
+class TestSaveImage(unittest.TestCase):
+
+    def setUp(self):
+        self.mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        self.mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        self.mock_db_client.image_collection.find_one.return_value = None
+        self.mock_db_client.image_collection.insert.return_value = bson.objectid.ObjectId()
+        self.mock_db_client.grid_fs = mock.create_autospec(gridfs.GridFS)
+
+    def test_save_image_does_nothing_for_not_an_image(self):
+        result = ie.save_image(self.mock_db_client, 10)
+        self.assertIsNone(result)
+        self.assertFalse(self.mock_db_client.image_collection.find_one.called)
+        self.assertFalse(self.mock_db_client.image_collection.insert.called)
+
+    def test_save_image_does_not_use_data_keys_to_check_for_existing_image(self):
+        self.mock_db_client.image_collection.find_one.return_value = {'_id': bson.objectid.ObjectId()}
+        image = core.image_entity.ImageEntity(
+            data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            data_id=0,
+            camera_pose=tf.Transform(),
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                height=600,
+                width=800))
+        ie.save_image(self.mock_db_client, image)
+
+        existing_query = self.mock_db_client.image_collection.find_one.mock_calls[0][1][0]
+        self.assertNotIn('_id', existing_query)
+        self.assertNotIn('data', existing_query)
+        self.assertNotIn('depth_data', existing_query)
+        self.assertNotIn('labels_data', existing_query)
+        self.assertNotIn('world_normals_data', existing_query)
+
+    def test_save_image_does_not_use_data_keys_to_check_for_existing_stereo_image(self):
+        self.mock_db_client.image_collection.find_one.return_value = {'_id': bson.objectid.ObjectId()}
+        image = core.image_entity.StereoImageEntity(
+            left_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            left_data_id=0,
+            right_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            right_data_id=1,
+            left_camera_pose=tf.Transform(),
+            right_camera_pose=tf.Transform(),
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                height=600,
+                width=800))
+        ie.save_image(self.mock_db_client, image)
+
+        existing_query = self.mock_db_client.image_collection.find_one.mock_calls[0][1][0]
+        self.assertNotIn('_id', existing_query)
+        self.assertNotIn('left_data', existing_query)
+        self.assertNotIn('left_depth_data', existing_query)
+        self.assertNotIn('left_labels_data', existing_query)
+        self.assertNotIn('left_world_normals_data', existing_query)
+        self.assertNotIn('right_data', existing_query)
+        self.assertNotIn('right_depth_data', existing_query)
+        self.assertNotIn('right_labels_data', existing_query)
+        self.assertNotIn('right_world_normals_data', existing_query)
+
+    def test_save_image_does_not_insert_if_already_exists(self):
+        existing_id = bson.objectid.ObjectId()
+        self.mock_db_client.image_collection.find_one.return_value = {'_id': existing_id}
+        image = core.image_entity.ImageEntity(
+            data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            data_id=0,
+            camera_pose=tf.Transform(),
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                height=600,
+                width=800))
+        result = ie.save_image(self.mock_db_client, image)
+        self.assertEqual(existing_id, result)
+        self.assertTrue(self.mock_db_client.image_collection.find_one.called)
+        self.assertFalse(self.mock_db_client.image_collection.insert.called)
+
+    def test_save_image_stores_data_in_gridfs(self):
+        image = core.image_entity.ImageEntity(
+            data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            data_id=None,
+            camera_pose=tf.Transform(),
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                height=600,
+                width=800))
+        ie.save_image(self.mock_db_client, image)
+        self.assertTrue(self.mock_db_client.grid_fs.put.called)
+
+    def test_save_image_stores_image_in_database_and_returns_id(self):
+        new_id = bson.objectid.ObjectId()
+        self.mock_db_client.image_collection.insert.return_value = new_id
+        image = core.image_entity.ImageEntity(
+            data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            data_id=0,
+            camera_pose=tf.Transform(),
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                height=600,
+                width=800))
+        result = ie.save_image(self.mock_db_client, image)
+        self.assertEqual(new_id, result)
+        self.assertTrue(self.mock_db_client.image_collection.find_one.called)
+        self.assertTrue(self.mock_db_client.image_collection.insert.called)
+
+    def test_save_image_stores_updated_data_ids(self):
+        new_id = bson.objectid.ObjectId()
+        self.mock_db_client.grid_fs.put.return_value = new_id
+        image = core.image_entity.ImageEntity(
+            data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            data_id=None,
+            camera_pose=tf.Transform(),
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                height=600,
+                width=800))
+        ie.save_image(self.mock_db_client, image)
+        s_image = self.mock_db_client.image_collection.insert.mock_calls[0][1][0]
+        self.assertEqual(new_id, s_image['data'])
