@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock as mock
 
+import numpy as np
 import cv2
 import unrealcv
 
@@ -63,7 +64,10 @@ class TestUnrealCVSimulator(unittest.TestCase):
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_returns_none_if_unstarted(self, *_):
         subject = uecvsim.UnrealCVSimulator(None, None)
-        self.assertIsNone(subject.get_next_image())
+        result = subject.get_next_image()
+        self.assertEqual(2, len(result))
+        self.assertIsNone(result[0])
+        self.assertIsNone(result[1])
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
@@ -163,10 +167,84 @@ class TestUnrealCVSimulator(unittest.TestCase):
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_returns_images(self, *_):
+    def test_get_next_image_returns_image_and_timestamp(self, *_):
         controller = mock.Mock(spec=simulation.controller.Controller)
         controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
-        image = subject.get_next_image()
-        self.assertIsInstance(image, core.image.Image)
+        result = subject.get_next_image()
+        self.assertEqual(2, len(result))
+        self.assertIsInstance(result[0], core.image.Image)
+        self.assertEqual(1/30, result[1])
+
+    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('unrealcv.Client', autospec=ClientPatch)
+    def test_set_camera_pose_handles_frame_conversion(self, mock_client, _):
+        mock_client_instance = mock.create_autospec(ClientPatch)
+        mock_client.return_value = mock_client_instance
+        controller = mock.Mock(spec=simulation.controller.Controller)
+        subject = uecvsim.UnrealCVSimulator(controller, None)
+        subject.begin()
+
+        pose = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        ue_pose = uetf.transform_to_unreal(pose)
+        subject.set_camera_pose(pose)
+        self.assertEqual(subject.current_pose, pose)
+        self.assertIn(mock.call(("vset /camera/0/location {0} {1} {2}".format(ue_pose.location[0],
+                                                                              ue_pose.location[1],
+                                                                              ue_pose.location[2]))),
+                      mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(ue_pose.pitch,
+                                                                              ue_pose.yaw,
+                                                                              ue_pose.roll))),
+                      mock_client_instance.request.call_args_list)
+
+        pose = tf.Transform((-175, 29, -870), (0.3, -0.2, -0.8, 0.6))
+        ue_pose = uetf.transform_to_unreal(pose)
+        subject.set_camera_pose(ue_pose)
+        self.assertTrue(np.array_equal(subject.current_pose.location, pose.location))
+        self.assertTrue(np.all(np.isclose(subject.current_pose.rotation_quat(True), pose.rotation_quat(True))))
+        self.assertIn(mock.call(("vset /camera/0/location {0} {1} {2}".format(ue_pose.location[0],
+                                                                              ue_pose.location[1],
+                                                                              ue_pose.location[2]))),
+                      mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(ue_pose.pitch,
+                                                                              ue_pose.yaw,
+                                                                              ue_pose.roll))),
+                      mock_client_instance.request.call_args_list)
+
+    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('unrealcv.Client', autospec=ClientPatch)
+    def test_set_field_of_view(self, mock_client, _):
+        mock_client_instance = mock.create_autospec(ClientPatch)
+        mock_client.return_value = mock_client_instance
+        controller = mock.Mock(spec=simulation.controller.Controller)
+        subject = uecvsim.UnrealCVSimulator(controller, None)
+        subject.begin()
+
+        subject.set_field_of_view(30.23)
+        self.assertIn(mock.call("vset /camera/0/fov 30.23"), mock_client_instance.request.call_args_list)
+
+    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('unrealcv.Client', autospec=ClientPatch)
+    def test_set_focus_distance(self, mock_client, _):
+        mock_client_instance = mock.create_autospec(ClientPatch)
+        mock_client.return_value = mock_client_instance
+        controller = mock.Mock(spec=simulation.controller.Controller)
+        subject = uecvsim.UnrealCVSimulator(controller, None)
+        subject.begin()
+
+        subject.set_focus_distance(190.43)
+        self.assertIn(mock.call("vset /camera/0/focus-distance 190.43"), mock_client_instance.request.call_args_list)
+
+    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('unrealcv.Client', autospec=ClientPatch)
+    def test_set_fstop(self, mock_client, _):
+        mock_client_instance = mock.create_autospec(ClientPatch)
+        mock_client.return_value = mock_client_instance
+        controller = mock.Mock(spec=simulation.controller.Controller)
+        subject = uecvsim.UnrealCVSimulator(controller, None)
+        subject.begin()
+
+        subject.set_fstop(22.23)
+        self.assertIn(mock.call("vset /camera/0/fstop 22.23"), mock_client_instance.request.call_args_list)
