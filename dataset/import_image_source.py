@@ -19,7 +19,7 @@ def import_dataset_from_image_source(db_client, image_source, filter_function=No
     image_ids = []
     image_source.begin()
     while not image_source.is_complete():
-        image = image_source.get_next_image()
+        image, _ = image_source.get_next_image()
         if not callable(filter_function) or filter_function(image):
             if hasattr(image, 'identifier') and image.identifier is not None:
                 # Image is already in the database, just store it's id
@@ -27,12 +27,12 @@ def import_dataset_from_image_source(db_client, image_source, filter_function=No
             else:
                 # Image is not in the database, convert it to an entity and store it.
                 image_entity = core.image_entity.image_to_entity(image)
-                s_image = image_entity.serialize()
-                query = db_help.query_to_dot_notation(copy.deepcopy(s_image))
+                query = db_help.query_to_dot_notation(image_entity.serialize())
                 existing = db_client.image_collection.find_one(query, {'_id': True})
                 if existing is None:
                     image_entity.save_image_data(db_client)
-                    image_ids.append(db_client.image_collection.insert(s_image))
+                    # Need to serialize again so we can store the newly created data ids.
+                    image_ids.append(db_client.image_collection.insert(image_entity.serialize()))
                 else:
                     # An identical image already exists, use that.
                     image_ids.append(existing['_id'])
