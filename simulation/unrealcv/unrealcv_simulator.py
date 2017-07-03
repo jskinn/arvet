@@ -244,9 +244,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :return: An Image object (see core.image) or None
         """
         if self._client is not None:
-            # Send the camera pose to the simulator
-            pose = self.controller.get_next_pose()
-            self.set_camera_pose(pose)
+            # Use the controller to update the simulation state
+            self.controller.update_state(1/self._framerate, self)
 
             # move forward in time
             self._timestamp += 1/self._framerate

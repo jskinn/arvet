@@ -39,3 +39,39 @@ class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
         :return:
         """
         self._controller = controller
+
+    @abc.abstractmethod
+    def set_camera_pose(self, pose):
+        """
+        Set the camera pose for the simulator
+        :param pose:
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def set_field_of_view(self, fov):
+        """
+        If possible, set the field of view of the simulated camera
+        :param fov:
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def set_focus_distance(self, focus_distance):
+        """
+        If possible, set the focus distance of the simulated camera
+        :param focus_distance:
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def set_fstop(self, fstop):
+        """
+        IF possible, set the aperture fstop of the simulated camera
+        :param fstop:
+        :return:
+        """
+        pass

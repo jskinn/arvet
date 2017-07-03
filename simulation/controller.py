@@ -23,12 +23,11 @@ class Controller(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_next_pose(self):
+    def update_state(self, delta_time, simulator):
         """
-        Get the next camera pose to use.
-        This needs to be a 6-dof transform, look at using a library like transformation3d
-        TODO: Need a way of providing more input to the simulator, beyond just the camera pose.
-        :return:
+        Step the controller a time amount,
+        and push changes to the simulator, such as the camera pose
+        :return: void
         """
         pass
 

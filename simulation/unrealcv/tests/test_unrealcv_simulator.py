@@ -71,39 +71,14 @@ class TestUnrealCVSimulator(unittest.TestCase):
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_gets_pose_from_controller(self, *_):
+    def test_get_next_image_updates_state_from_controller(self, *_):
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
-        self.assertFalse(controller.get_next_pose.called)
+        self.assertFalse(controller.update_state.called)
         subject.get_next_image()
-        self.assertTrue(controller.get_next_pose.called)
-
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_sets_camera_pose(self, mock_client, _):
-        pose = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
-        unreal_pose = uetf.transform_to_unreal(pose)
-
-        mock_client_instance = mock.create_autospec(ClientPatch)
-        mock_client.return_value = mock_client_instance
-        controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = pose
-        subject = uecvsim.UnrealCVSimulator(controller, None)
-        subject.begin()
-
-        self.assertFalse(mock_client_instance.request.called)
-        subject.get_next_image()
-        self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call(("vset /camera/0/location {0} {1} {2}".format(unreal_pose.location[0],
-                                                                              unreal_pose.location[1],
-                                                                              unreal_pose.location[2]))),
-                      mock_client_instance.request.call_args_list)
-        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(unreal_pose.pitch,
-                                                                              unreal_pose.yaw,
-                                                                              unreal_pose.roll))),
-                      mock_client_instance.request.call_args_list)
+        self.assertTrue(controller.update_state.called)
+        self.assertIn(mock.call(1/30, subject), controller.update_state.call_args_list)
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
@@ -111,8 +86,6 @@ class TestUnrealCVSimulator(unittest.TestCase):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
-
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
 
@@ -126,8 +99,6 @@ class TestUnrealCVSimulator(unittest.TestCase):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
-
         subject = uecvsim.UnrealCVSimulator(controller, {'provide_depth': True})
         subject.begin()
 
@@ -141,8 +112,6 @@ class TestUnrealCVSimulator(unittest.TestCase):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
-
         subject = uecvsim.UnrealCVSimulator(controller, {'provide_labels': True})
         subject.begin()
 
@@ -156,8 +125,6 @@ class TestUnrealCVSimulator(unittest.TestCase):
         mock_client_instance = mock.create_autospec(ClientPatch)
         mock_client.return_value = mock_client_instance
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
-
         subject = uecvsim.UnrealCVSimulator(controller, {'provide_world_normals': True})
         subject.begin()
 
@@ -169,7 +136,6 @@ class TestUnrealCVSimulator(unittest.TestCase):
     @mock.patch('unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_returns_image_and_timestamp(self, *_):
         controller = mock.Mock(spec=simulation.controller.Controller)
-        controller.get_next_pose.return_value = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
         subject = uecvsim.UnrealCVSimulator(controller, None)
         subject.begin()
         result = subject.get_next_image()
