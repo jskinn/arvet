@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import cv2
 import unrealcv
@@ -267,6 +268,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
     def _request_image(self, viewmode):
         filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
         data = cv2.imread(filename)
+        os.remove(filename)     # Clean up after ourselves, now that we have the image data
         return data[:, :, ::-1]
 
     def _get_image(self):

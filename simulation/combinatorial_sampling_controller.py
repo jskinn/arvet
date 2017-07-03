@@ -42,7 +42,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Those that do not simply always return false here.
         :return:
         """
-        return self._next_settings is not None
+        return self._next_settings is None
 
     def update_state(self, delta_time, simulator):
         """
