@@ -130,6 +130,4 @@ class CombinatorialSampleController(simulation.controller.Controller):
         # cos_theta = loc.x / |loc|
         angle = abs(np.arccos(relative_subject_pose.location[0] / distance))
         angle = angle * 180 / np.pi     # Convert to degrees, because the field of view is in degrees
-        if angle < fov/2:
-            print("Can see image, angle: {0}".format(angle))
         return angle < fov/2

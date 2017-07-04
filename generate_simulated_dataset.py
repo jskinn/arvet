@@ -1,5 +1,8 @@
+import numpy as np
+
 import config.global_configuration as global_conf
 import database.client
+import util.transform as tf
 
 import simulation.combinatorial_sampling_controller as sample_controller
 import simulation.unrealcv.unrealcv_simulator as ue_sim
@@ -25,14 +28,15 @@ def main():
     db_client = database.client.DatabaseClient(config=config)
 
     controller = sample_controller.CombinatorialSampleController(
-        x_samples=range(20, 271, 50),
-        y_samples=range(-40, -221, -36),
-        z_samples=range(80, 181, 20),
-        roll_samples=range(-180, 181, 120),
-        pitch_samples=range(-60, 61, 60),
-        yaw_samples=range(-180, 181, 90),
-        fov_samples=range(30, 91, 30),
-        aperture_samples=(2.2, 22, 120)
+        x_samples=range(20, 271, 50),   # 5 samples
+        y_samples=range(40, 221, 36),   # 5 samples
+        z_samples=range(80, 181, 20),   # 5 samples
+        roll_samples=(-np.pi/2, -np.pi/4, -np.pi/6, 0, np.pi/6, np.pi/4, np.pi/2),  # 6 samples
+        pitch_samples=np.linspace(-np.pi/2, np.pi/2, 7),    # 7 samples
+        yaw_samples=np.linspace(-np.pi, np.pi, 7),          # 7 samples
+        fov_samples=(30, 60, 90),
+        aperture_samples=(2.2, 22, 120),
+        subject_pose=tf.Transform(location=(130.00, 140.00, 70.37))
     )
     simulator = ue_sim.UnrealCVSimulator(controller, config={
         'provide_rgb': True,
