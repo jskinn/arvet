@@ -34,7 +34,6 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
 
             # Simulation metadata
             'metadata': {
-                'lit': True,
                 'environment_type': imeta.EnvironmentType.INDOOR,
                 'light_level': imeta.LightingLevel.EVENLY_LIT,
                 'time_of_day': imeta.TimeOfDay.DAY,
@@ -43,7 +42,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         })
 
         self._framerate = float(config['framerate'])
-        if self._framerate <= 0: self._framerate = 1
+        if self._framerate <= 0:
+            self._framerate = 1
 
         self._stereo_offset = float(config['stereo_offset'])
         self._provide_depth = bool(config['provide_depth'])
