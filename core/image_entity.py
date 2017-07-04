@@ -261,7 +261,7 @@ def save_image(db_client, image):
             del existing_query['left_' + key]
         if 'right_' + key in existing_query:
             del existing_query['right_' + key]
-    existing_query = db_help.query_to_dot_notation(existing_query)
+    db_help.query_to_dot_notation(existing_query, flatten_arrays=True)
 
     existing = db_client.image_collection.find_one(existing_query, {'_id': True})
     if existing is None:
