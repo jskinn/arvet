@@ -26,5 +26,7 @@ def query_to_dot_notation(query, flatten_arrays=False):
                     query_to_dot_notation(elem, flatten_arrays=flatten_arrays)
                     for inner_key, inner_value in elem.items():
                         query[key+'.'+str(idx)+'.'+inner_key] = inner_value
+                else:
+                    query[key+'.'+str(idx)] = elem
             del query[key]
     return query

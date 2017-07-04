@@ -134,3 +134,40 @@ class TestDatabaseHelpers(unittest.TestCase):
             'a.1.a': 1.21,
             'a.1.d': 1.22
         })
+
+    def test_flatten_array_does_not_flatten_arrays_that_are_not_arrays_of_dicts(self):
+        result = dh.query_to_dot_notation({
+            'a': (11, 12, 13),
+            'b': [{
+                'b': 1.12,
+                'd': [{
+                    'a': 1.1411,
+                    'b': (1.14121, 1.14122)
+                },{
+                    'b': 1.1422
+                },{
+                    'a': (1.14311,),
+                    'b': 1.1432
+                },{
+                    'c': 1.1443
+                }]
+            },{
+                'a': 1.21,
+                'd': 1.22
+            }]
+        }, flatten_arrays=True)
+        self.assertEqual({
+            'a.0': 11,
+            'a.1': 12,
+            'a.2': 13,
+            'b.0.b': 1.12,
+            'b.0.d.0.a': 1.1411,
+            'b.0.d.0.b.0': 1.14121,
+            'b.0.d.0.b.1': 1.14122,
+            'b.0.d.1.b': 1.1422,
+            'b.0.d.2.a.0': 1.14311,
+            'b.0.d.2.b': 1.1432,
+            'b.0.d.3.c': 1.1443,
+            'b.1.a': 1.21,
+            'b.1.d': 1.22
+        }, result)
