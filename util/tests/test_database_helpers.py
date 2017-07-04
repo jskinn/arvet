@@ -89,3 +89,48 @@ class TestDatabaseHelpers(unittest.TestCase):
             'f.a': 6.1,
             'f.b.a': 6.21
         })
+
+    def test_flatten_array(self):
+        result = dh.query_to_dot_notation({
+            'a': [{
+                'b': 1.12
+            },{
+                'a': 1.21,
+                'b': 1.22
+            },{
+                'c': 1.33
+            }]
+        }, flatten_arrays=True)
+        self.assertEqual(result, {'a.0.b': 1.12, 'a.1.a': 1.21, 'a.1.b': 1.22, 'a.2.c': 1.33})
+
+    def test_flatten_array_recursive(self):
+        result = dh.query_to_dot_notation({
+            'a': [{
+                'b': 1.12,
+                'd': [{
+                    'a': 1.1411,
+                    'b': 1.1412,
+                },{
+                    'b': 1.1422
+                },{
+                    'a': 1.1431,
+                    'b': 1.1432
+                },{
+                    'c': 1.1443
+                }]
+            },{
+                'a': 1.21,
+                'd': 1.22
+            }]
+        }, flatten_arrays=True)
+        self.assertEqual(result, {
+            'a.0.b': 1.12,
+            'a.0.d.0.a': 1.1411,
+            'a.0.d.0.b': 1.1412,
+            'a.0.d.1.b': 1.1422,
+            'a.0.d.2.a': 1.1431,
+            'a.0.d.2.b': 1.1432,
+            'a.0.d.3.c': 1.1443,
+            'a.1.a': 1.21,
+            'a.1.d': 1.22
+        })
