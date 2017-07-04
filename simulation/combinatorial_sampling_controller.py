@@ -27,6 +27,8 @@ class CombinatorialSampleController(simulation.controller.Controller):
         self._change_fov = True
         self._change_aperture = True
 
+        self._sample_filter = None
+
     @property
     def motion_type(self):
         """
@@ -52,21 +54,25 @@ class CombinatorialSampleController(simulation.controller.Controller):
         if self.is_complete():
             return
 
-        fov, aperture, x, y, z, roll, pitch, yaw = self._next_settings
+        can_see_objects = False
+        while not self.is_complete() and not can_see_objects:
+            fov, aperture, x, y, z, roll, pitch, yaw = self._next_settings
 
-        if self._change_fov:
-            simulator.set_field_of_view(fov)
-        if self._change_aperture:
-            simulator.set_fstop(aperture)
-        simulator.set_camera_pose(tf.Transform(location=(x, y, z),
-                                               rotation=(roll, pitch, yaw)))
-        try:
-            self._next_settings = next(self._settings_iterator)
-        except StopIteration:
-            self._settings_iterator = None
-            self._next_settings = None
-        self._change_fov = bool(self._next_settings is not None and fov != self._next_settings[0])
-        self._change_aperture = bool(self._next_settings is not None and aperture != self._next_settings[1])
+            if self._change_fov:
+                simulator.set_field_of_view(fov)
+            if self._change_aperture:
+                simulator.set_fstop(aperture)
+            simulator.set_camera_pose(tf.Transform(location=(x, y, z),
+                                                   rotation=(roll, pitch, yaw)))
+            try:
+                self._next_settings = next(self._settings_iterator)
+            except StopIteration:
+                self._settings_iterator = None
+                self._next_settings = None
+            self._change_fov = bool(self._next_settings is not None and fov != self._next_settings[0])
+            self._change_aperture = bool(self._next_settings is not None and aperture != self._next_settings[1])
+
+            can_see_objects = bool(simulator.num_visible_objects() <= 0)
 
     def reset(self):
         """
