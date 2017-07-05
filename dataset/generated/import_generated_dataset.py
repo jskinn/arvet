@@ -3,6 +3,7 @@ import glob
 import json
 import os.path
 
+import numpy as np
 import cv2
 
 import core.image_collection as im_coll
@@ -72,47 +73,49 @@ def parse_transform(location, rotation):
     return ue_tf.transform_from_unreal(ue_camera_pose)
 
 
-def make_additional_metadata(dataset_metadata, image_metadata, right_image_metadata=None):
+def sanitize_additional_metadata(metadata):
     """
-    Assemble the additional metadata from the contents of all the files.
-    :param dataset_metadata: metadata object held at the dataset level. contains most of the settings.
-    :param image_metadata: Metadata specific to this image.
-    :param right_image_metadata: Metadata specific to the right image, if there is one.
+    A simple sanitization of some keys from the additional metadata.
+    :param metadata:
     :return:
     """
-    result = {}
-    if right_image_metadata is not None:
-        result = right_image_metadata
-    result = du.defaults(image_metadata, result, dataset_metadata)
     for ignored_key in {'Version', 'Camera Location', 'Camera Orientation'}:
-        if ignored_key in result:
-            del result[ignored_key]
-    return result
+        if ignored_key in metadata:
+            del metadata[ignored_key]
+    return metadata
 
 
-def build_image_metadata(dataset_metadat, image_metadata, right_image_metadata=None):
-    raise NotImplemented("TODO: Need to implement import of metadata as well")
-    return imeta.ImageMetadata(
-        source_type=imeta.ImageSourceType.SYNTHETIC,
-        environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-        light_level=imeta.LightingLevel.WELL_LIT,
+def build_image_metadata(im_shape, depth_data, metadata):
+    """
+    Construct an image metadata object from the reference images and a metadata dict.
+    Should delete the keys it uses from the metadata, so that the remaining values are  'additional metadata'
+    :param im_shape: The shape of the base RGB image, stored as height and width
+    :param depth_data: Ground-truth depth, if available.
+    :param metadata: The metadata dict
+    :return:
+    """
+    image_metadata = imeta.ImageMetadata(
+        source_type=imeta.ImageSourceType.SYNTHETIC, height=im_shape[0],
+        width=im_shape[1],
+        environment_type=imeta.EnvironmentType.INDOOR,
+        light_level=imeta.LightingLevel.EVENLY_LIT,
         time_of_day=imeta.TimeOfDay.DAY,
-        height=600,
-        width=800,
         fov=90,
-        focal_length=5,
-        aperture=22,
-        simulation_world='TestSimulationWorld',
+        focal_length=None,
+        aperture=None,
+        simulation_world=metadata['World Name'],
         lighting_model=imeta.LightingModel.LIT,
-        texture_mipmap_bias=1,
-        normal_mipmap_bias=2,
-        roughness_enabled=True,
-        geometry_decimation=0.8,
-        procedural_generation_seed=16234,
-        label_classes=['cup', 'car', 'cow'],
-        label_bounding_boxes={'cup': (), 'car': (), 'cow': ()},
-        distances_to_labelled_objects={'cup': 1.223, 'car': 15.9887, 'cow': 102.63},
-        average_scene_depth=90.12),
+        texture_mipmap_bias=int(metadata['Material Properties']['BaseMipMapBias']),
+        normal_maps_enabled=int(metadata['Material Properties']['NormalQuality']) != 0,
+        roughness_enabled=int(metadata['Material Properties']['RoughnessQuality']) != 0,
+        geometry_decimation=int(metadata['Geometry Detail']['Forced LOD level']),
+        procedural_generation_seed=int(metadata['World Information']['Camera Path']['Path Generation']['Random Seed']),
+        labelled_objects=[],
+        average_scene_depth=np.mean(depth_data) if depth_data is not None else None
+    )
+    for key in {'World Name', 'Material Properties', 'Geometry Detail'}:
+        del metadata[key]
+    return image_metadata
 
 
 def load_image_set(base_path, filename_format, mappings, index_padding, index, extension, stereo_pass):
@@ -130,6 +133,7 @@ def load_image_set(base_path, filename_format, mappings, index_padding, index, e
     labels_data = read_image_file(generate_image_filename(render_pass='ObjectMask', **path_kwargs))
     world_normals_data = read_image_file(generate_image_filename(render_pass='WorldNormals', **path_kwargs))
     return image_data, depth_data, labels_data, world_normals_data
+
 
 def import_image_object(db_client, base_path, filename_format, mappings, index_padding,
                         index, extension, timestamp, dataset_metadata):
@@ -186,12 +190,13 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
     right_image_filename = generate_image_filename(stereo_pass=1, **path_kwargs)
     if not os.path.isfile(right_image_filename):
         # No right image, this is a monocular image, make the entity
+        du.defaults(metadata, dataset_metadata)
+
         image = core.image_entity.ImageEntity(
-            timestamp=timestamp,
             data=image_data,
             camera_pose=camera_pose,
-            metadata=build_image_metadata(dataset_metadata, metadata),
-            additional_metadata=make_additional_metadata(dataset_metadata, metadata),
+            metadata=build_image_metadata(image_data.shape, depth_data, metadata),
+            additional_metadata=sanitize_additional_metadata(metadata),
             depth_data=depth_data,
             labels_data=labels_data,
             world_normals_data=world_normals_data
@@ -215,10 +220,10 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
         right_world_normals_data = read_image_file(generate_image_filename(stereo_pass=1, render_pass='WorldNormals',
                                                                            **path_kwargs))
 
+        du.defaults(metadata, right_metadata, dataset_metadata)
         image = core.image_entity.StereoImageEntity(
-            timestamp=timestamp,
-            metadata=build_image_metadata(dataset_metadata, metadata),
-            additional_metadata=make_additional_metadata(dataset_metadata, metadata, right_metadata),
+            metadata=build_image_metadata(image_data.shape, depth_data, metadata),
+            additional_metadata=sanitize_additional_metadata(metadata),
             left_camera_pose=camera_pose,
             left_data=image_data,
             left_depth_data=depth_data,

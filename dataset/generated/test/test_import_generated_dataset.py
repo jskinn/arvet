@@ -11,6 +11,7 @@ import transforms3d as tf3d
 import unittest.mock as mock
 import util.transform
 import util.dict_utils as du
+import metadata.image_metadata as imeta
 import database.client
 import dataset.generated.import_generated_dataset as import_gen
 
@@ -63,39 +64,12 @@ class TestImportGeneratedDataset(unittest.TestCase):
                            transform.rotation_quat(w_first=True),
                            approx=0.0000000000000001)
 
-    def test_make_additional_metadata_combines_dicts(self):
-        metadata = import_gen.make_additional_metadata({
-            'Aye': 10,
-            'Bee': '/test/util/geom',
-            'Cee': 'python importlib.py --do-import --prepare --remodel',
-            'Dee': 12.4
-        }, {
-            'Aye': 'Test',
-            'Nay': util.transform.Transform(location=(100, 10, -30), rotation=(-4, 152, 15, -2)),
-            'Abstain': 'Whoops'
-        }, {
-            'Abstain': 'NEVER!',
-            'Cee': 18.02,
-            'Foo': 842
-        })
-        self.assertEqual(metadata, {
-            'Aye': 'Test',
-            'Bee': '/test/util/geom',
-            'Cee': 18.02,
-            'Dee': 12.4,
-            'Foo': 842,
-            'Abstain': 'Whoops',
-            'Nay': util.transform.Transform(location=(100, 10, -30), rotation=(-4, 152, 15, -2))
-        })
-
-    def test_make_additional_metadata_ignores_keys(self):
-        metadata = import_gen.make_additional_metadata({
+    def test_sanitize_additional_metadata_removes_keys(self):
+        metadata = import_gen.sanitize_additional_metadata({
             'Version': '1.2.3.45.6',
-            'A': 10
-        }, {
+            'A': 10,
             'Camera Location': util.transform.Transform(location=(100, 10, -30), rotation=(-4, 152, 15, -2)),
-            'B': 11
-        }, {
+            'B': 11,
             'Camera Orientation': {'W': 12, 'X': 15, 'Y': -22, 'Z': 999},
             'C': 12
         })
@@ -104,6 +78,78 @@ class TestImportGeneratedDataset(unittest.TestCase):
             'B': 11,
             'C': 12
         })
+
+    def test_build_image_metadata_constructs_image_metadata_from_metadata(self):
+        metadata = import_gen.build_image_metadata((600, 800), None, {
+            "Version": "0.1.2",
+            "Material Properties": {
+                "RoughnessQuality": 0,
+                "BaseMipMapBias": 0,
+                "NormalQuality": 1
+            },
+            "Geometry Detail": {
+                "Forced LOD level": 0
+            },
+            "World Name": "AIUE_V01_001",
+            "Framerate": 30,
+            "Index Padding": 4,
+            "Capture Resolution": {
+                "Width": 1280,
+                "Height": 720
+            },
+            "Image Filename Format": "{world}{material}.{frame}.{stereopass}",
+            "File Extension": ".png",
+            "Image Filename Format Mappings": {
+                "stereopass": "1",
+                "material": "base-colour",
+                "world": "AIUE_V01_001",
+                "height": "720",
+                "width": "1280",
+                "fps": "30"
+            },
+            "Available Frame Metadata": [
+                "Camera Location",
+                "Camera Orientation"
+            ],
+            "World Information": {
+                "Camera Path": {
+                    "Path Length": 4720.88818359375,
+                    "Path Generation": {
+                        "Generation Type": "Automatic",
+                        "Generator": "ACameraPathGenerator",
+                        "Min Path Length": 2000,
+                        "Path Height": 50,
+                        "Circuits": 0,
+                        "Smoothing Iterations": 10,
+                        "Smoothing Learning Rate": 0.05000000074505806,
+                        "Turning Circle": 50,
+                        "Random Seed": 0,
+                        "Bounds Min": {
+                            "X": 1000,
+                            "Y": 1000,
+                            "Z": 150
+                        },
+                        "Negligible Distance": 10,
+                        "Agent Properties": {
+                            "Agent Height": -1,
+                            "Agent Radius": -1,
+                            "Agent Step Height": -1,
+                            "Nav Walinkg Search Height Scale": 0.5
+                        }
+                    }
+                }
+            }
+        })
+        self.assertEqual(600, metadata.height)
+        self.assertEqual(800, metadata.width)
+        self.assertEqual(imeta.ImageSourceType.SYNTHETIC, metadata.source_type)
+        self.assertEqual("AIUE_V01_001", metadata.simulation_world)
+        self.assertFalse(metadata.roughness_enabled)
+        self.assertTrue(metadata.normal_maps_enabled)
+        self.assertEqual(0, metadata.texture_mipmap_bias)
+        self.assertEqual(0, metadata.geometry_decimation)
+        self.assertEqual(90, metadata.fov)
+        self.assertEqual(0, metadata.procedural_generation_seed)
 
     @mock.patch('dataset.generated.import_generated_dataset.cv2', autospec=cv2)
     @mock.patch('dataset.generated.import_generated_dataset.open', mock.mock_open(), create=True)
@@ -139,7 +185,24 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                                 index=13,
                                                 extension='.png',
                                                 timestamp=10,
-                                                dataset_metadata={})
+                                                dataset_metadata={
+                                                    "Material Properties": {
+                                                        "RoughnessQuality": 0,
+                                                        "BaseMipMapBias": 0,
+                                                        "NormalQuality": 1
+                                                    },
+                                                    "Geometry Detail": {
+                                                        "Forced LOD level": 0
+                                                    },
+                                                    "World Name": "AIUE_V01_001",
+                                                    "World Information": {
+                                                        "Camera Path": {
+                                                            "Path Generation": {
+                                                                "Random Seed": 0,
+                                                            }
+                                                        }
+                                                    }
+                                                })
         self.assertIn(mock.call(expected_filename), mock_isfile.call_args_list)
         self.assertIsNone(result)
 
@@ -165,7 +228,26 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                                 index=13,
                                                 extension='.png',
                                                 timestamp=10,
-                                                dataset_metadata={'world': 'mock', 'quality': 'maximum'})
+                                                dataset_metadata={
+                                                    'world': 'mock',
+                                                    'quality': 'maximum',
+                                                    "Material Properties": {
+                                                        "RoughnessQuality": 0,
+                                                        "BaseMipMapBias": 0,
+                                                        "NormalQuality": 1
+                                                    },
+                                                    "Geometry Detail": {
+                                                        "Forced LOD level": 0
+                                                    },
+                                                    "World Name": "AIUE_V01_001",
+                                                    "World Information": {
+                                                        "Camera Path": {
+                                                            "Path Generation": {
+                                                                "Random Seed": 0,
+                                                            }
+                                                        }
+                                                    }
+                                                })
         self.assertEqual(existing_id, result)
         self.assertFalse(mock_db_client.grid_fs.put.called)
         self.assertFalse(mock_db_client.image_collection.insert.called)
@@ -199,7 +281,26 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                        index=13,
                                        extension='.png',
                                        timestamp=10,
-                                       dataset_metadata={'world': 'nope', 'quality': 'overpowered'})
+                                       dataset_metadata={
+                                           'world': 'nope',
+                                           'quality': 'overpowered',
+                                           "Material Properties": {
+                                               "RoughnessQuality": 0,
+                                               "BaseMipMapBias": 0,
+                                               "NormalQuality": 1
+                                           },
+                                           "Geometry Detail": {
+                                               "Forced LOD level": 0
+                                           },
+                                           "World Name": "AIUE_V01_001",
+                                           "World Information": {
+                                               "Camera Path": {
+                                                   "Path Generation": {
+                                                       "Random Seed": 0,
+                                                   }
+                                               }
+                                           }
+                                       })
 
         self.assertCalled(mock_db_client.grid_fs.put)
         found_im = False
@@ -223,10 +324,19 @@ class TestImportGeneratedDataset(unittest.TestCase):
         self.assertCalled(mock_db_client.image_collection.insert)
         s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
         self.assertEqual('ImageEntity', s_result_image['_type'])
-        self.assertEqual(10, s_result_image['timestamp'])
         self.assertNPEqual((1, -1, 1), s_result_image['camera_pose']['location'])
         self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['camera_pose']['rotation'], approx=0.000000000000001)
-        self.assertEqual({'world': 'nope', 'quality': 'overpowered'}, s_result_image['additional_metadata'])
+        self.assertEqual({
+            'world': 'nope',
+            'quality': 'overpowered',
+            "World Information": {
+                "Camera Path": {
+                    "Path Generation": {
+                        "Random Seed": 0,
+                    }
+                }
+            }
+        }, s_result_image['additional_metadata'])
         self.assertEqual(im_id, s_result_image['data'])
         self.assertEqual(depth_id, s_result_image['depth_data'])
         self.assertEqual(labels_id, s_result_image['labels_data'])
@@ -252,7 +362,26 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                        index=13,
                                        extension='.png',
                                        timestamp=10,
-                                       dataset_metadata={'world': 'nope', 'quality': 'overpowered'})
+                                       dataset_metadata={
+                                           'world': 'nope',
+                                           'quality': 'overpowered',
+                                           "Material Properties": {
+                                               "RoughnessQuality": 0,
+                                               "BaseMipMapBias": 0,
+                                               "NormalQuality": 1
+                                           },
+                                           "Geometry Detail": {
+                                               "Forced LOD level": 0
+                                           },
+                                           "World Name": "AIUE_V01_001",
+                                           "World Information": {
+                                               "Camera Path": {
+                                                   "Path Generation": {
+                                                       "Random Seed": 0,
+                                                   }
+                                               }
+                                           }
+                                       })
 
         self.assertCalled(mock_db_client.grid_fs.put)
         found_im = False
@@ -296,14 +425,23 @@ class TestImportGeneratedDataset(unittest.TestCase):
         self.assertCalled(mock_db_client.image_collection.insert)
         s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
         self.assertEqual('StereoImageEntity', s_result_image['_type'])
-        self.assertEqual(10, s_result_image['timestamp'])
         self.assertNPEqual((1, -1, 1), s_result_image['left_camera_pose']['location'])
         self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['left_camera_pose']['rotation'],
                            approx=0.000000000000001)
         self.assertNPEqual((1, -1, 1), s_result_image['right_camera_pose']['location'])
         self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['right_camera_pose']['rotation'],
                            approx=0.000000000000001)
-        self.assertEqual({'world': 'nope', 'quality': 'overpowered'}, s_result_image['additional_metadata'])
+        self.assertEqual({
+            'world': 'nope',
+            'quality': 'overpowered',
+            "World Information": {
+                "Camera Path": {
+                    "Path Generation": {
+                        "Random Seed": 0,
+                    }
+                }
+            }
+        }, s_result_image['additional_metadata'])
         self.assertEqual(im_id, s_result_image['left_data'])
         self.assertEqual(depth_id, s_result_image['left_depth_data'])
         self.assertEqual(labels_id, s_result_image['left_labels_data'])
