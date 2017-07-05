@@ -45,7 +45,8 @@ class LabelledObject:
         self._class_names = tuple(class_names)
         # Order is (upper left x, upper left y, width, height)
         self._bounding_box = (int(bounding_box[0]), int(bounding_box[1]), int(bounding_box[2]), int(bounding_box[3]))
-        self._label_color = (int(label_color[0]), int(label_color[1]), int(label_color[2]))
+        self._label_color = ((int(label_color[0]), int(label_color[1]), int(label_color[2]))
+                             if label_color is not None else None)
         self._relative_pose = relative_pose
         self._object_id = object_id
 

@@ -1,19 +1,18 @@
 import os.path
 import re
 import cv2
-import copy
 
 import util.transform as tf
-import util.database_helpers as db_help
-import util.unreal_transform as uetf
 import metadata.image_metadata as imeta
 import core.image_entity
 import core.image_collection
 import core.sequence_type
+import dataset.image_collection_builder
 
 
 def import_rw_dataset(labels_path, db_client):
-    image_ids = []
+    builder = dataset.image_collection_builder.ImageCollectionBuilder(db_client)
+    builder.set_non_sequential()
     with open(labels_path, 'r') as labels_file:
         base_dir = os.path.dirname(labels_path)
         for line in labels_file:
@@ -28,35 +27,19 @@ def import_rw_dataset(labels_path, db_client):
             labelled_object = imeta.LabelledObject(
                 class_names=(label.lower(),),
                 bounding_box=(int(x1), int(y2), int(x2) - int(x1), int(y2) - int(y1)),
-                object_id='starbucks-cup-001'           # This is so I can refer to it later.
+                object_id='StarbucksCup_170'           # This is so I can refer to it later, matches Unreal name
             )
             image_entity = core.image_entity.ImageEntity(
                 data=im,
                 camera_pose=tf.Transform(),
                 metadata=imeta.ImageMetadata(
                     source_type=imeta.ImageSourceType.REAL_WORLD,
-                    environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                    light_level=imeta.LightingLevel.EVENLY_LIT,
-                    time_of_day=imeta.TimeOfDay.DAY,
                     height=im.shape[0],
                     width=im.shape[1],
-                    fov=40,
-                    focal_length=-1,
-                    aperture=-1,
-                    labelled_objects={labelled_object}
-                ),
+                    environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                    light_level=imeta.LightingLevel.EVENLY_LIT,
+                    labelled_objects=(labelled_object,)),
                 additional_metadata=None
             )
-            s_image = image_entity.serialize()
-            query = db_help.query_to_dot_notation(copy.deepcopy(s_image))
-            existing = db_client.image_collection.find_one(query, {'_id': True})
-            if existing is None:
-                image_entity.save_image_data(db_client)
-                im_id = db_client.image_collection.insert(s_image)
-            else:
-                im_id = existing['_id']
-            image_ids.append(im_id)
-    s_collection = core.image_collection.ImageCollection.create_serialized(image_ids=image_ids, sequence_type=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
-    query = db_help.query_to_dot_notation(copy.deepcopy(s_collection))
-    if db_client.image_source_collection.find_one(query, {'_id': True}) is None:
-        return db_client.image_source_collection.insert(s_collection)
+            builder.add_image(image_entity)
+    builder.save()
