@@ -2,6 +2,9 @@ import sys
 import bson.objectid
 import config.global_configuration as global_conf
 import database.client
+import core.image_collection
+import core.image_entity
+import systems.deep_learning.keras_frcnn
 import batch_analysis.trial_runner as trial_runner
 
 
@@ -21,14 +24,22 @@ def main(*args):
         config = global_conf.load_global_config('config.yml')
         db_client = database.client.DatabaseClient(config=config)
 
+        system = None
         s_system = db_client.system_collection.find_one({'_id': system_id})
-        system = db_client.deserialize_entity(s_system)
+        if s_system is not None:
+            system = db_client.deserialize_entity(s_system)
+        del s_system
 
+        image_source = None
         s_image_source = db_client.image_source_collection.find_one({'_id': image_source_id})
-        image_source = db_client.deserialize_entity(s_image_source)
+        if s_image_source is not None:
+            image_source = db_client.deserialize_entity(s_image_source)
+        del s_image_source
 
-        trial_result = trial_runner.run_system_with_source(system, image_source)
-        db_client.trials_collection.insert(trial_result.serialize())
+        if system is not None and image_source is not None:
+            trial_result = trial_runner.run_system_with_source(system, image_source)
+            if trial_result is not None:
+                db_client.trials_collection.insert(trial_result.serialize())
 
 
 if __name__ == '__main__':
