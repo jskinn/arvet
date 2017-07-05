@@ -29,15 +29,10 @@ def create_mock_image(width=128, height=128):
         im[max(0, position[1]):min(height, position[1] + shape[1]),
            max(0, position[0]):min(width, position[0] + shape[0]), :] += colour
 
-    metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
+    metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=height, width=width,
                                    environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                   light_level=imeta.LightingLevel.WELL_LIT,
-                                   time_of_day=imeta.TimeOfDay.DAY,
-                                   height=height,
-                                   width=width,
-                                   fov=90,
-                                   focal_length=100,
-                                   aperture=22)
+                                   light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY, fov=90,
+                                   focal_length=100, aperture=22)
     return core.image_entity.ImageEntity(data=im,
                                          metadata=metadata,
                                          camera_pose=tf.Transform(),

@@ -210,7 +210,7 @@ class TestImageMetadata(unittest.TestCase):
         self.assertEqual(metadata1.simulation_world, metadata2.simulation_world)
         self.assertEqual(metadata1.lighting_model, metadata2.lighting_model)
         self.assertEqual(metadata1.texture_mipmap_bias, metadata2.texture_mipmap_bias)
-        self.assertEqual(metadata1.normal_mipmap_bias, metadata2.normal_mipmap_bias)
+        self.assertEqual(metadata1.normal_maps_enabled, metadata2.normal_maps_enabled)
         self.assertEqual(metadata1.roughness_enabled, metadata2.roughness_enabled)
         self.assertEqual(metadata1.geometry_decimation, metadata2.geometry_decimation)
         self.assertEqual(metadata1.procedural_generation_seed, metadata2.procedural_generation_seed)

@@ -130,7 +130,7 @@ class ImageMetadata:
 
     def __init__(self, source_type, height, width, environment_type=None, light_level=None, time_of_day=None, fov=None,
                  focal_length=None, aperture=None, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
-                 normal_mipmap_bias=None, roughness_enabled=None, geometry_decimation=None,
+                 normal_maps_enabled=True, roughness_enabled=None, geometry_decimation=None,
                  procedural_generation_seed=None, labelled_objects=None, average_scene_depth=None):
         self._source_type = ImageSourceType(source_type)
         self._environment_type = EnvironmentType(environment_type) if environment_type is not None else None
@@ -147,7 +147,7 @@ class ImageMetadata:
         self._simulation_world = str(simulation_world) if simulation_world is not None else None
         self._lighting_model = LightingModel(lighting_model) if lighting_model is not None else None
         self._texture_mipmap_bias = int(texture_mipmap_bias) if texture_mipmap_bias is not None else None
-        self._normal_mipmap_bias = int(normal_mipmap_bias) if normal_mipmap_bias is not None else None
+        self._normal_maps_enabled = bool(normal_maps_enabled) if normal_maps_enabled is not None else None
         self._roughness_enabled = bool(roughness_enabled) if roughness_enabled is not None else None
         self._geometry_decimation = int(geometry_decimation) if geometry_decimation is not None else None
 
@@ -210,8 +210,8 @@ class ImageMetadata:
         return self._texture_mipmap_bias
 
     @property
-    def normal_mipmap_bias(self):
-        return self._normal_mipmap_bias
+    def normal_maps_enabled(self):
+        return self._normal_maps_enabled
 
     @property
     def roughness_enabled(self):
@@ -255,7 +255,7 @@ class ImageMetadata:
             'simulation_world': self.simulation_world,
             'lighting_model': self.lighting_model.value if self.lighting_model is not None else None,
             'texture_mipmap_bias': self.texture_mipmap_bias,
-            'normal_mipmap_bias': self.normal_mipmap_bias,
+            'normal_maps_enabled': self.normal_maps_enabled,
             'roughness_enabled': self.roughness_enabled,
             'geometry_decimation': self._geometry_decimation,
 
@@ -271,12 +271,12 @@ class ImageMetadata:
         kwargs = {}
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width', 'fov',
                             'focal_length', 'aperture', 'simulation_world', 'lighting_model', 'texture_mipmap_bias',
-                            'normal_mipmap_bias', 'roughness_enabled', 'geometry_decimation',
+                            'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth']
         for key in direct_copy_keys:
             if key in serialized:
                 kwargs[key] = serialized[key]
         if 'labelled_objects' in serialized:
             kwargs['labelled_objects'] = tuple(LabelledObject.deserialize(s_obj)
-                                          for s_obj in serialized['labelled_objects'])
+                                               for s_obj in serialized['labelled_objects'])
         return cls(**kwargs)

@@ -367,21 +367,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                         object_id=name
                     ))
 
-        return imeta.ImageMetadata(
-            source_type=imeta.ImageSourceType.SYNTHETIC,
-            height=im_shape[0], width=im_shape[1],
-            environment_type=self._metadata['environment_type'],
-            light_level=self._metadata['light_level'],
-            time_of_day=self._metadata['time_of_day'],
-            fov=fov, focal_length=focus_length, aperture=aperture,
-            simulation_world=self._metadata['simulation_world'],
-            lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
-            # TODO: Control the image quality
-            texture_mipmap_bias=None,
-            normal_mipmap_bias=None,
-            roughness_enabled=None,
-            geometry_decimation=None,
-            procedural_generation_seed=None,
-            labelled_objects=labelled_objects,
-            average_scene_depth=np.mean(depth_data) if depth_data is not None else None
-        )
+        return imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=im_shape[0], width=im_shape[1],
+                                   environment_type=self._metadata['environment_type'],
+                                   light_level=self._metadata['light_level'], time_of_day=self._metadata['time_of_day'],
+                                   fov=fov, focal_length=focus_length, aperture=aperture,
+                                   simulation_world=self._metadata['simulation_world'],
+                                   lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
+                                   texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,
+                                   geometry_decimation=None, procedural_generation_seed=None,
+                                   labelled_objects=labelled_objects,
+                                   average_scene_depth=np.mean(depth_data) if depth_data is not None else None)

@@ -38,10 +38,7 @@ def make_image(*args, **kwargs):
         'data': np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
         'data_id': 0,
         'camera_pose': tf.Transform(),
-        'metadata': imeta.ImageMetadata(
-            source_type=imeta.ImageSourceType.SYNTHETIC,
-            height=600,
-            width=800)
+        'metadata': imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800)
     })
     return core.image_entity.ImageEntity(*args, **kwargs)
 

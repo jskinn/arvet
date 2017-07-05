@@ -9,31 +9,19 @@ import core.image as im
 class TestImage(unittest.TestCase):
 
     def setUp(self):
-        metadata = imeta.ImageMetadata(
-            source_type=imeta.ImageSourceType.SYNTHETIC,
-            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-            light_level=imeta.LightingLevel.WELL_LIT,
-            time_of_day=imeta.TimeOfDay.DAY,
-            height=600,
-            width=800,
-            fov=90,
-            focal_length=5,
-            aperture=22,
-            simulation_world='TestSimulationWorld',
-            lighting_model=imeta.LightingModel.LIT,
-            texture_mipmap_bias=1,
-            normal_mipmap_bias=2,
-            roughness_enabled=True,
-            geometry_decimation=0.8,
-            procedural_generation_seed=16234,
-            labelled_objects=(
+        metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                                       environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                       light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                                       fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                                       lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+                                       normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+                                       procedural_generation_seed=16234, labelled_objects=(
                 imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
-                                     relative_pose=tf.Transform((12,3,4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
+                                     relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
                 imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
                                      relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
                                      object_id='cat-090')
-            ),
-            average_scene_depth=90.12)
+            ), average_scene_depth=90.12)
 
         trans = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         self.image_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
@@ -108,31 +96,19 @@ class TestImage(unittest.TestCase):
 class TestStereoImage(unittest.TestCase):
 
     def setUp(self):
-        metadata = imeta.ImageMetadata(
-            source_type=imeta.ImageSourceType.SYNTHETIC,
-            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-            light_level=imeta.LightingLevel.WELL_LIT,
-            time_of_day=imeta.TimeOfDay.DAY,
-            height=600,
-            width=800,
-            fov=90,
-            focal_length=5,
-            aperture=22,
-            simulation_world='TestSimulationWorld',
-            lighting_model=imeta.LightingModel.LIT,
-            texture_mipmap_bias=1,
-            normal_mipmap_bias=2,
-            roughness_enabled=True,
-            geometry_decimation=0.8,
-            procedural_generation_seed=16234,
-            labelled_objects=(
+        metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                                       environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                       light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                                       fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                                       lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+                                       normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+                                       procedural_generation_seed=16234, labelled_objects=(
                 imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
                                      relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
                 imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
                                      relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
                                      object_id='cat-090')
-            ),
-            average_scene_depth=90.12)
+            ), average_scene_depth=90.12)
 
         self.left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         self.right_pose = tf.Transform(location=self.left_pose.find_independent((0, 0, 15)),
@@ -259,31 +235,19 @@ class TestStereoImage(unittest.TestCase):
         self.assertNPEqual(self.full_image.world_normals_data, self.full_image.left_world_normals_data)
 
     def test_make_from_images(self):
-        metadata = imeta.ImageMetadata(
-            source_type=imeta.ImageSourceType.SYNTHETIC,
-            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-            light_level=imeta.LightingLevel.WELL_LIT,
-            time_of_day=imeta.TimeOfDay.DAY,
-            height=600,
-            width=800,
-            fov=90,
-            focal_length=5,
-            aperture=22,
-            simulation_world='TestSimulationWorld',
-            lighting_model=imeta.LightingModel.LIT,
-            texture_mipmap_bias=1,
-            normal_mipmap_bias=2,
-            roughness_enabled=True,
-            geometry_decimation=0.8,
-            procedural_generation_seed=16234,
-            labelled_objects=(
+        metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                                       environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                       light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                                       fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                                       lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+                                       normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+                                       procedural_generation_seed=16234, labelled_objects=(
                 imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
                                      relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
                 imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
                                      relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
                                      object_id='cat-090')
-            ),
-            average_scene_depth=90.12)
+            ), average_scene_depth=90.12)
 
         left_pose = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
         left_image = im.Image(
