@@ -107,5 +107,5 @@ class DatabaseClient:
         type_name = s_entity['_type']
         entity_type = database.entity_registry.get_entity_type(type_name)
         if entity_type:
-            return entity_type.deserialize(s_entity)
-        return None
+            return entity_type.deserialize(s_entity, self)
+        raise ValueError("Could not deserialize entity type: {0}, make sure it's imported".format(type_name))
