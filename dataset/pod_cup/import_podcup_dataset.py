@@ -26,7 +26,7 @@ def import_rw_dataset(labels_path, db_client):
 
             labelled_object = imeta.LabelledObject(
                 class_names=(label.lower(),),
-                bounding_box=(int(x1), int(y2), int(x2) - int(x1), int(y2) - int(y1)),
+                bounding_box=(int(x1), int(y1), int(x2) - int(x1), int(y2) - int(y1)),
                 object_id='StarbucksCup_170'           # This is so I can refer to it later, matches Unreal name
             )
             image_entity = core.image_entity.ImageEntity(
