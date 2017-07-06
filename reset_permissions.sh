@@ -9,3 +9,6 @@ chmod +x task_run_system.py
 chmod +x task_benchmark_result.py
 chmod +x task_compare_trials.py
 chmod +x task_compare_benchmark_results.py
+chmod +x generate_simulated_dataset.py
+chmod +x recalculate_bounding_boxes.py
+chmod +x verify_bounding_boxes_manually.py

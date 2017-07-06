@@ -353,9 +353,6 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                     class_names = self._client.request("vget /object/{0}/labels".format(name))
                     class_names = set(class_names.lower().split(','))
 
-                    #label_points = np.asarray([[j, i] for i in range(label_data.shape[0])
-                    #                           for j in range(label_data.shape[1])
-                    #                           if np.array_equal(label_data[i, j, :], color)])
                     label_points = cv2.findNonZero(np.asarray(np.all(label_data == color, axis=2), dtype='uint8'))
                     # TODO: Other ground-truth bounding boxes could be useful, and are trivial to calculate here
                     # E.g.: Oriented bounding boxes, or fit ellipses. see:
