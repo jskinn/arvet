@@ -1,0 +1,12 @@
+database_config:
+  connection_parameters: {}
+  database_name: benchmark_system_test
+  gridfs_bucket: fs
+  collections:
+    system_trainers_collection: system_trainers
+    system_collection: systems
+    image_source_collection: image_sources
+    image_collection:  images
+    trials_collection: trials
+    benchmarks_collection: benchmarks
+    results_collection: results
