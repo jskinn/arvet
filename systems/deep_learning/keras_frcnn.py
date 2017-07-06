@@ -234,6 +234,14 @@ class KerasFRCNN(core.system.VisionSystem):
         self._config.num_rois = int(num_rois)
         self._bbox_threshold = 0.8      # Configurable, perhaps?
 
+        # No data augmentation when testing
+        self._use_horizontal_flips = self._config.use_horizontal_flips
+        self._use_vertical_flips = self._config.use_vertical_flips
+        self._rot_90 = self._config.rot_90
+        self._config.use_horizontal_flips = False
+        self._config.use_vertical_flips = False
+        self._config.rot_90 = False
+
         # Trial state
         self._gt_bounding_boxes = None
         self._bounding_boxes = None
@@ -317,11 +325,16 @@ class KerasFRCNN(core.system.VisionSystem):
         classifier = network.classifier(feature_map_input, roi_input, self._config.num_rois,
                                         nb_classes=len(class_mapping), trainable=True)
 
+        self._model_rpn = Model(img_input, rpn_layers)
         self._model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
-        self._model_rpn = Model(img_input, rpn_layers)
+        model_classifier = Model([feature_map_input, roi_input], classifier)
+
         self._model_rpn.load_weights(self._config.model_path, by_name=True)
+        model_classifier.load_weights(self._config.model_path, by_name=True)
+
         self._model_rpn.compile(optimizer='sgd', loss='mse')
+        model_classifier.compile(optimizer='sgd', loss='mse')
 
         # Record the results
         self._bounding_boxes = {}
@@ -338,7 +351,7 @@ class KerasFRCNN(core.system.VisionSystem):
             self.start_trial()
 
         # Convert the input image to be fed into the network
-        formatted_image = format_img(image.data, self._config)
+        formatted_image, aspect_ratio = format_img(image.data[:, :, ::-1], self._config)
         if keras_backend.image_dim_ordering() == 'tf':
             formatted_image = np.transpose(formatted_image, (0, 2, 3, 1))
 
@@ -354,8 +367,8 @@ class KerasFRCNN(core.system.VisionSystem):
         result[:, 3] -= result[:, 1]
 
         # apply the spatial pyramid pooling to the proposed regions
-        bounding_boxes = set()
-
+        bboxes = {}
+        probs = {}
         for jk in range(result.shape[0] // self._config.num_rois + 1):  # // indicates integer division
             regions_of_interest = np.expand_dims(result[self._config.num_rois * jk:
                                                         self._config.num_rois * (jk + 1), :], axis=0)
@@ -381,6 +394,9 @@ class KerasFRCNN(core.system.VisionSystem):
                     continue
 
                 cls_name = self._class_mapping[np.argmax(prob_class[0, ii, :])]
+                if cls_name not in bboxes:
+                    bboxes[cls_name] = []
+                    probs[cls_name] = []
 
                 (x, y, w, h) = regions_of_interest[0, ii, :]
 
@@ -394,18 +410,29 @@ class KerasFRCNN(core.system.VisionSystem):
                     x, y, w, h = roi_helpers.apply_regr(x, y, w, h, tx, ty, tw, th)
                 except:
                     pass
+                bboxes[cls_name].append([self._config.rpn_stride * x, self._config.rpn_stride * y,
+                                         self._config.rpn_stride * (x + w), self._config.rpn_stride * (y + h)])
+                probs[cls_name].append(np.max(prob_class[0, ii, :]))
 
-                # TODO: Why does it multiply by 16?
-                bounding_boxes.add(bbox_result.BoundingBox(
-                    class_names=(cls_name,),
-                    confidence=np.max(prob_class[0, ii, :]),
-                    x=16*x,
-                    y=16*y,
-                    width=16*w,
-                    height=16*h
+        # Aggregate the detected bounding boxes into results for this image
+        detected_bboxes = []
+        for key in bboxes.keys():
+            bbox = np.array(bboxes[key])
+
+            new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
+            for jk in range(new_boxes.shape[0]):
+                x1, y1, x2, y2 = new_boxes[jk, :]
+                real_x1, real_y1, real_x2, real_y2 = get_real_coordinates(aspect_ratio, x1, y1, x2, y2)
+                detected_bboxes.append(bbox_result.BoundingBox(
+                    class_names=(key,),
+                    confidence=new_probs[jk],
+                    x=real_x1,
+                    y=real_y1,
+                    width=real_x2 - real_x1,
+                    height=real_y2 - real_y1
                 ))
 
-        self._bounding_boxes[image.identifier] = bounding_boxes
+        self._bounding_boxes[image.identifier] = detected_bboxes
         self._gt_bounding_boxes[image.identifier] = (
             bbox_result.BoundingBox(class_names=obj.class_names,
                                     confidence=1,
@@ -452,7 +479,14 @@ class KerasFRCNN(core.system.VisionSystem):
         :return: a dictionary representation of the entity, that can be saved to MongoDB
         """
         serialized = super().serialize()
+        # restore original settings for serialization
+        self._config.use_horizontal_flips = self._use_horizontal_flips
+        self._config.use_vertical_flips = self._use_vertical_flips
+        self._config.rot_90 = self._rot_90
         serialized['config'] = serialize_config(self._config)
+        self._config.use_horizontal_flips = False
+        self._config.use_vertical_flips = False
+        self._config.rot_90 = False
         return serialized
 
     @classmethod
@@ -470,34 +504,58 @@ class KerasFRCNN(core.system.VisionSystem):
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
-def format_img(img_data, config):
-    """
-    Reshape and convert and image for input into the network, based on the configuration
-    :param img_data:
-    :param config:
-    :return:
-    """
+def format_img_size(img, config):
+    """ formats the image size based on config """
     img_min_side = float(config.im_size)
-    (height, width, _) = img_data.shape
+    (height, width, _) = img.shape
 
     if width <= height:
-        f = img_min_side / width
-        new_height = int(f * height)
+        ratio = img_min_side / width
+        new_height = int(ratio * height)
         new_width = int(img_min_side)
     else:
-        f = img_min_side / height
-        new_width = int(f * width)
+        ratio = img_min_side / height
+        new_width = int(ratio * width)
         new_height = int(img_min_side)
-    img_data = cv2.resize(img_data, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-    img_data = img_data[:, :, (2, 1, 0)]
-    img_data = img_data.astype(np.float32)
-    img_data[:, :, 0] -= config.img_channel_mean[0]
-    img_data[:, :, 1] -= config.img_channel_mean[1]
-    img_data[:, :, 2] -= config.img_channel_mean[2]
-    img_data /= config.img_scaling_factor
-    img_data = np.transpose(img_data, (2, 0, 1))
-    img_data = np.expand_dims(img_data, axis=0)
-    return img_data
+    img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+    return img, ratio
+
+
+def format_img_channels(img, config):
+    """ formats the image channels based on config """
+    img = img[:, :, (2, 1, 0)]
+    img = img.astype(np.float32)
+    img[:, :, 0] -= config.img_channel_mean[0]
+    img[:, :, 1] -= config.img_channel_mean[1]
+    img[:, :, 2] -= config.img_channel_mean[2]
+    img /= config.img_scaling_factor
+    img = np.transpose(img, (2, 0, 1))
+    img = np.expand_dims(img, axis=0)
+    return img
+
+
+def format_img(img, config):
+    """ formats an image for model prediction based on config """
+    img, ratio = format_img_size(img, config)
+    img = format_img_channels(img, config)
+    return img, ratio
+
+
+def get_real_coordinates(ratio, x1, y1, x2, y2):
+    """
+    Method to transform the coordinates of the bounding box to its original size
+    :param ratio:
+    :param x1:
+    :param y1:
+    :param x2:
+    :param y2:
+    :return:
+    """
+    real_x1 = int(round(x1 // ratio))
+    real_y1 = int(round(y1 // ratio))
+    real_x2 = int(round(x2 // ratio))
+    real_y2 = int(round(y2 // ratio))
+    return real_x1, real_y1, real_x2, real_y2
 
 
 def serialize_config(config):
