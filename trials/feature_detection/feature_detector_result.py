@@ -9,29 +9,39 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
     Contains the list of key points produced by that detector
     """
 
-    def __init__(self, system_id, keypoints, sequence_type, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, keypoints, timestamps, sequence_type, system_settings, id_=None, **kwargs):
         """
-
-        :param image_source_id:
-        :param system_id:
-        :param keypoints:
-        :param sequence_type:
-        :param system_settings:
-        :param id_:
-        :param kwargs:
+        :param system_id: The identifier of the system producing this result
+        :param keypoints: A dictionary of image ids to detected keypoints
+        :param timestamps: A map of image timestamps to image identifiers
+        :param sequence_type: The type of image sequence used to produce this result
+        :param system_settings: The settings of the system producing these results
+        :param id_: The database id of the object, if it exists
+        :param kwargs: Additional keyword arguments
         """
         kwargs['success'] = True
         super().__init__(system_id=system_id, sequence_type=sequence_type, system_settings=system_settings,
                          id_=id_, **kwargs)
         self._keypoints = keypoints
+        self._timestamps = timestamps
 
     @property
     def keypoints(self):
         """
         The keypoints identified by the detector.
-        :return:
+        This is a map from image id to lists of key points for that image.
+        :return: dict
         """
         return self._keypoints
+
+    @property
+    def timestamps(self):
+        """
+        A map of processing timestamps or indexes to image ids,
+        as was provided to the system when it was running.
+        :return:
+        """
+        return self._timestamps
 
     def get_keypoints(self):
         """
@@ -40,10 +50,18 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
         """
         return self.keypoints
 
+    def get_features_by_timestamp(self):
+        """
+        Get the detected feature points by timestamp rather than image id.
+        :return: A dict mapping timestamps to detected feature results
+        """
+        return {time: self.keypoints[id_] for time, id_ in self.timestamps.items()}
+
     def serialize(self):
         serialized = super().serialize()
         serialized['keypoints'] = {str(identifier): [serialize_keypoint(keypoint) for keypoint in keypoints]
                                    for identifier, keypoints in self.keypoints.items()}
+        serialized['timestamps'] = [(stamp, str(identifier)) for stamp, identifier in self.timestamps.items()]
         return serialized
 
     @classmethod
@@ -52,6 +70,9 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
             kwargs['keypoints'] = {oid.ObjectId(identifier): [deserialize_keypoint(s_keypoint)
                                                               for s_keypoint in s_keypoints]
                                    for identifier, s_keypoints in serialized_representation['keypoints'].items()}
+        if 'timestamps' in serialized_representation:
+            kwargs['timestamps'] = {stamp: oid.ObjectId(identifier)
+                                    for stamp, identifier in serialized_representation['timestamps']}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 

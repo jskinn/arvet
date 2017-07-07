@@ -20,6 +20,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         # variables for trial state
         self._detector = None
         self._key_points = None
+        self._timestamps = None
 
     def is_trial_running(self):
         """
@@ -74,6 +75,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         """
         self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
         self._key_points = {}
+        self._timestamps = {}
         self._detector = self.make_detector()
 
     def process_image(self, image, timestamp):
@@ -90,6 +92,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
             key_points = self._detector.detect(grey_image, None)    # No mask, detect over the whole image
             key_points.sort(key=operator.attrgetter('response'))
             self._key_points[image.identifier] = key_points
+            self._timestamps[timestamp] = image.identifier
 
     def finish_trial(self):
         """
@@ -100,9 +103,12 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         """
         result = None
         if self._key_points is not None and len(self._key_points) > 0:
-            result = detector_result.FeatureDetectorResult(system_id=self.identifier, keypoints=self._key_points,
+            result = detector_result.FeatureDetectorResult(system_id=self.identifier,
+                                                           keypoints=self._key_points,
+                                                           timestamps=self._timestamps,
                                                            sequence_type=self._sequence_type,
                                                            system_settings=self.get_system_settings())
         self._key_points = None
+        self._timestamps = None
         self._detector = None
         return result

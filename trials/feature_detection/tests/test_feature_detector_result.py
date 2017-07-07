@@ -24,11 +24,11 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
                     cv2.KeyPoint(
                         x=np.random.uniform(0, 128),
                         y=np.random.uniform(0, 128),
-                        _angle = np.random.uniform(360),
-                        _class_id = np.random.randint(10),
-                         _octave = np.random.randint(100000000),
-                         _response = np.random.uniform(0, 1),
-                         _size = np.random.uniform(10)
+                        _angle=np.random.uniform(360),
+                        _class_id=np.random.randint(10),
+                        _octave=np.random.randint(100000000),
+                        _response=np.random.uniform(0, 1),
+                        _size=np.random.uniform(10)
                     )
                     for _ in range(np.random.randint(50))]
                 for _ in range(100)
@@ -38,6 +38,9 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
                 'a': np.random.randint(20, 30)
             }
         })
+        if 'timestamps' not in kwargs:
+            kwargs['timestamps'] = {idx + np.random.uniform(0, 1): identifier
+                                    for idx, identifier in enumerate(kwargs['keypoints'].keys())}
         return feature_result.FeatureDetectorResult(*args, **kwargs)
 
     def assert_models_equal(self, trial_result1, trial_result2):
@@ -69,6 +72,9 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
                 self.assertEqual(points1[idx].octave, points2[idx].octave)
                 self.assertEqual(points1[idx].response, points2[idx].response)
                 self.assertEqual(points1[idx].size, points2[idx].size)
+        self.assertEqual(set(trial_result1.timestamps.keys()), set(trial_result2.timestamps.keys()))
+        for key in trial_result1.timestamps.keys():
+            self.assertEqual(trial_result1.timestamps[key], trial_result2.timestamps[key])
         self.assertEqual(trial_result1.settings, trial_result2.settings)
 
     def test_identifier(self):
