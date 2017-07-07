@@ -1,4 +1,5 @@
 import database.entity
+import core.sequence_type
 
 
 class TrialResult(database.entity.Entity):
@@ -11,9 +12,10 @@ class TrialResult(database.entity.Entity):
     All Trial results have a one to many relationship with a particular dataset and system.
     """
 
-    def __init__(self, system_id, success, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, success, sequence_type, system_settings, id_=None, **kwargs):
         super().__init__(id_, **kwargs)
         self._success = bool(success)
+        self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
         self._settings = system_settings
         self._system_id = system_id
 
@@ -38,6 +40,15 @@ class TrialResult(database.entity.Entity):
         return self._success
 
     @property
+    def sequence_type(self):
+        """
+        Get the type of image sequence used to produce this trial result.
+        Some benchmarks and metrics are only relevant when we can compare between successive frames.
+        :return: A core.sequence_type.ImageSequenceType
+        """
+        return self._sequence_type
+
+    @property
     def settings(self):
         """
         The settings of the system when running to produce this trial result.
@@ -54,6 +65,10 @@ class TrialResult(database.entity.Entity):
         serialized = super().serialize()
         serialized['system'] = self.system_id
         serialized['success'] = self.success
+        if self.sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL:
+            serialized['sequence_type'] = 'SEQ'
+        else:
+            serialized['sequence_type'] = 'NON'
         serialized['settings'] = self.settings
         return serialized
 
@@ -71,6 +86,10 @@ class TrialResult(database.entity.Entity):
             kwargs['system_id'] = serialized_representation['system']
         if 'success' in serialized_representation:
             kwargs['success'] = serialized_representation['success']
+        if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] is 'SEQ':
+            kwargs['sequence_type'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
+        else:
+            kwargs['sequence_type'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         if 'settings' in serialized_representation:
             kwargs['system_settings'] = serialized_representation['settings']
         return super().deserialize(serialized_representation, db_client, **kwargs)
@@ -83,9 +102,9 @@ class FailedTrial(TrialResult):
     this class or a subclass of this class.
     Think of this like an exception returned from a run system call.
     """
-    def __init__(self, image_source_id, system_id, reason, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, reason, sequence_type, system_settings, id_=None, **kwargs):
         kwargs['success'] = False
-        super().__init__(image_source_id=image_source_id, system_id=system_id,
+        super().__init__(system_id=system_id, sequence_type=sequence_type,
                          system_settings=system_settings, id_=id_, **kwargs)
         self._reason = reason
 

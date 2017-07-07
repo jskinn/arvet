@@ -121,7 +121,7 @@ class TestImageMetadata(unittest.TestCase):
             'simulation_world': 'TestSimulationWorld',
             'lighting_model': imeta.LightingModel.LIT,
             'texture_mipmap_bias': 1,
-            'normal_mipmap_bias': 2,
+            'normal_maps_enabled': True,
             'roughness_enabled': True,
             'geometry_decimation': 0.8,
 

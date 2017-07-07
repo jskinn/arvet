@@ -9,10 +9,10 @@ class SLAMTrialResult(core.trial_result.TrialResult):
     Has the ground truth and computed trajectories,
     and the tracking statistics.
     """
-    def __init__(self, image_source_id, system_id, trajectory, ground_truth_trajectory, tracking_stats,
-                 system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, trajectory, ground_truth_trajectory, tracking_stats,
+                 sequence_type, system_settings, id_=None, **kwargs):
         kwargs['success'] = True
-        super().__init__(image_source_id=image_source_id, system_id=system_id,
+        super().__init__(system_id=system_id, sequence_type=sequence_type,
                          system_settings=system_settings, id_=id_, **kwargs)
         self._trajectory = trajectory
         self._ground_truth_trajectory = ground_truth_trajectory

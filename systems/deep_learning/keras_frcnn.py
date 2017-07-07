@@ -211,6 +211,7 @@ from keras.models import Model
 import keras_frcnn.roi_helpers as roi_helpers
 import keras_frcnn.config
 import keras_frcnn.resnet as network
+import core.sequence_type
 import core.system
 import trials.object_detection.bounding_box_result as bbox_result
 
@@ -286,7 +287,7 @@ class KerasFRCNN(core.system.VisionSystem):
         """
         return image_source.is_stored_in_database and image_source.is_labels_available
 
-    def start_trial(self):
+    def start_trial(self, sequence_type):
         """
         Start a trial for a feature detector
         :return: void
@@ -337,6 +338,7 @@ class KerasFRCNN(core.system.VisionSystem):
         model_classifier.compile(optimizer='sgd', loss='mse')
 
         # Record the results
+        self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
         self._bounding_boxes = {}
         self._gt_bounding_boxes = {}
 
@@ -348,7 +350,7 @@ class KerasFRCNN(core.system.VisionSystem):
         :return: void
         """
         if not self.is_trial_running():
-            self.start_trial()
+            self.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
 
         # Convert the input image to be fed into the network
         formatted_image, aspect_ratio = format_img(image.data[:, :, ::-1], self._config)
@@ -459,6 +461,7 @@ class KerasFRCNN(core.system.VisionSystem):
             system_id=self.identifier,
             bounding_boxes=self._bounding_boxes,
             ground_truth_bounding_boxes=self._gt_bounding_boxes,
+            sequence_type=self._sequence_type,
             system_settings=serialize_config(self._config)
         )
         self._bounding_boxes = None

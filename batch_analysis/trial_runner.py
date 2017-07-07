@@ -10,7 +10,7 @@ def run_system_with_source(system, image_source):
     :return: The TrialResult storing the results of the run. Save it to the database, or None if there's a problem.
     """
     if system.is_image_source_appropriate(image_source):
-        system.start_trial()
+        system.start_trial(image_source.sequence_type)
         image_source.begin()
         while not image_source.is_complete():
             image, timestamp = image_source.get_next_image()

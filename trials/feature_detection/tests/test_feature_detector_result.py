@@ -5,6 +5,7 @@ import bson.objectid
 import cv2
 import numpy as np
 
+import core.sequence_type
 import database.tests.test_entity
 import trials.feature_detection.feature_detector_result as feature_result
 import util.dict_utils as du
@@ -32,6 +33,7 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
                     for _ in range(np.random.randint(50))]
                 for _ in range(100)
             },
+            'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
             }
@@ -51,6 +53,7 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.success, trial_result2.success)
+        self.assertEqual(trial_result1.sequence_type, trial_result2.sequence_type)
         # Automatic comparison of this dict is extraordinarily slow, we have to unpack it
         self.assertEqual(len(trial_result1.keypoints), len(trial_result2.keypoints))
         self.assertEqual(set(trial_result1.keypoints.keys()), set(trial_result2.keypoints.keys()))

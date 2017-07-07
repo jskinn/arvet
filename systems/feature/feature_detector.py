@@ -4,6 +4,7 @@ import operator
 import cv2
 
 import core.system
+import core.sequence_type
 import trials.feature_detection.feature_detector_result as detector_result
 
 
@@ -65,11 +66,13 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         """
         return image_source.is_stored_in_database()
 
-    def start_trial(self):
+    def start_trial(self, sequence_type):
         """
         Start a trial for a feature detector
+        :param sequence_type: The type of image sequence that will be provided for this trial
         :return: void
         """
+        self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
         self._key_points = {}
         self._detector = self.make_detector()
 
@@ -81,7 +84,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         :return: void
         """
         if not self.is_trial_running():
-            self.start_trial()
+            self.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
         if hasattr(image, 'identifier'):
             grey_image = cv2.cvtColor(image.data, cv2.COLOR_RGB2GRAY)
             key_points = self._detector.detect(grey_image, None)    # No mask, detect over the whole image
@@ -98,6 +101,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         result = None
         if self._key_points is not None and len(self._key_points) > 0:
             result = detector_result.FeatureDetectorResult(system_id=self.identifier, keypoints=self._key_points,
+                                                           sequence_type=self._sequence_type,
                                                            system_settings=self.get_system_settings())
         self._key_points = None
         self._detector = None

@@ -1,6 +1,5 @@
 import bson.objectid as oid
 import core.trial_result
-import util.dict_utils as du
 
 
 class BoundingBox:
@@ -79,7 +78,8 @@ class BoundingBoxResult(core.trial_result.TrialResult):
     Contains the list of bounding boxes with class names and confidence; and ground-truth bounding boxes.
     """
 
-    def __init__(self, system_id, bounding_boxes, ground_truth_bounding_boxes, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, bounding_boxes, ground_truth_bounding_boxes, sequence_type,
+                 system_settings, id_=None, **kwargs):
         """
         :param system_id: The id of the system producing the result
         :param bounding_boxes: Map of image id to list of detected bounding boxes
@@ -89,7 +89,8 @@ class BoundingBoxResult(core.trial_result.TrialResult):
         :param kwargs: Additional arguments, excluding 'success', which will be set to 'True'
         """
         kwargs['success'] = True
-        super().__init__(system_id=system_id, system_settings=system_settings, id_=id_, **kwargs)
+        super().__init__(system_id=system_id, sequence_type=sequence_type,
+                         system_settings=system_settings, id_=id_, **kwargs)
         self._bounding_boxes = bounding_boxes
         self._ground_truth_bounding_boxes = ground_truth_bounding_boxes
 

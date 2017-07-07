@@ -20,7 +20,7 @@ class TestTrialRunner(unittest.TestCase):
 
         def get_next_image(self_=self._image_source):
             self_._image_count += 1
-            return self_._image
+            return self_._image, self_._image_count
 
         def is_complete(self_=self._image_source):
             return self_._image_count >= 10

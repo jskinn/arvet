@@ -7,8 +7,8 @@ class LoopClosureTrialResult(core.trial_result.TrialResult):
     The results of running a place recognition system.
     That is, a confusion matrix of place identification probabilities (I think)
     """
-    def __init__(self, image_source_id, system_id, trained_state_id, success, system_settings, id_=None,
-                 loop_closures=None, dataset_repeats=0, **kwargs):
+    def __init__(self, image_source_id, system_id, trained_state_id, success, sequence_type,
+                 system_settings, id_=None, loop_closures=None, dataset_repeats=0, **kwargs):
         if isinstance(dataset_repeats, int):
             self._dataset_repeats = dataset_repeats
         else:
@@ -18,7 +18,7 @@ class LoopClosureTrialResult(core.trial_result.TrialResult):
         else:
             self._loop_closures = None
             success = False
-        super().__init__(image_source_id, system_id, trained_state_id, success, system_settings, id_=id_)
+        super().__init__(system_id, success, sequence_type, system_settings, id_=id_)
 
     @property
     def dataset_repeats(self):

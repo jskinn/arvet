@@ -3,6 +3,7 @@ import bson.objectid
 import numpy as np
 
 import database.tests.test_entity
+import core.sequence_type
 import trials.object_detection.bounding_box_result as bbox_result
 import util.dict_utils as du
 
@@ -150,6 +151,7 @@ class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.
                     for _ in range(np.random.randint(50)))
                 for _ in range(100)
             },
+            'sequence_type': core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
             }
@@ -169,6 +171,7 @@ class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
         self.assertEqual(trial_result1.success, trial_result2.success)
+        self.assertEqual(trial_result1.sequence_type, trial_result2.sequence_type)
         # Automatic comparison of this dict is extraordinarily slow, we have to unpack it
         self._assert_bboxes_equal(trial_result1.bounding_boxes, trial_result2.bounding_boxes)
         self._assert_bboxes_equal(trial_result1.ground_truth_bounding_boxes, trial_result2.ground_truth_bounding_boxes)

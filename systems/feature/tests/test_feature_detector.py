@@ -5,6 +5,7 @@ import bson.objectid
 import cv2
 import numpy as np
 
+import core.sequence_type
 import core.image_entity
 import core.trial_result
 import metadata.image_metadata as imeta
@@ -62,7 +63,7 @@ class FeatureDetectorContract(metaclass=abc.ABCMeta):
         subject = self.make_instance()
         candidate_values = [None, 10, 0, 0.1, [], {}]
         initial_settings = subject.get_system_settings()
-        subject.start_trial()
+        subject.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
         for attr in self.get_config_attributes():
             if hasattr(subject, attr):
                 for value in candidate_values:
@@ -72,7 +73,7 @@ class FeatureDetectorContract(metaclass=abc.ABCMeta):
 
     def test_finish_trial_produces_trial_result(self):
         subject = self.make_instance()
-        subject.start_trial()
+        subject.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
         for idx in range(10):
             image = create_mock_image()
             subject.process_image(image, idx)
@@ -83,7 +84,7 @@ class FeatureDetectorContract(metaclass=abc.ABCMeta):
 
     def test_detects_features_and_stores_in_result(self):
         subject = self.make_instance()
-        subject.start_trial()
+        subject.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
         object_ids = []
         for idx in range(10):
             image = create_mock_image()
@@ -98,12 +99,25 @@ class FeatureDetectorContract(metaclass=abc.ABCMeta):
     def test_stores_settings_in_results(self):
         subject = self.make_instance()
         initial_settings = subject.get_system_settings()
-        subject.start_trial()
+        subject.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
         for idx in range(10):
             image = create_mock_image()
             subject.process_image(image, idx)
         result = subject.finish_trial()
         self.assertEqual(initial_settings, result.settings)
+
+    def test_passes_image_sequence_type_through_to_result(self):
+        subject = self.make_instance()
+        for seq_type in {core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
+                         core.sequence_type.ImageSequenceType.SEQUENTIAL}:
+            subject.start_trial(seq_type)
+            object_ids = []
+            for idx in range(10):
+                image = create_mock_image()
+                object_ids.append(image.identifier)
+                subject.process_image(image, idx)
+            result = subject.finish_trial()
+            self.assertEqual(seq_type, result.sequence_type)
 
 
 class VoidDetector:

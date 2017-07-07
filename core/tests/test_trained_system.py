@@ -18,7 +18,7 @@ class MockTrainedSystem(core.trained_system.TrainedVisionSystem):
     def is_image_source_appropriate(self, image_source):
         return True
 
-    def start_trial(self):
+    def start_trial(self, sequence_type):
         pass
 
     def process_image(self, image, timestamp):

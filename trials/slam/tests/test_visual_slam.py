@@ -4,6 +4,7 @@ import pickle
 import database.tests.test_entity
 import util.dict_utils as du
 import util.transform as tf
+import core.sequence_type
 import trials.slam.visual_slam as vs
 import trials.slam.tracking_state as ts
 
@@ -16,7 +17,6 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
     def make_instance(self, *args, **kwargs):
         states = [ts.TrackingState.NOT_INITIALIZED, ts.TrackingState.OK, ts.TrackingState.LOST]
         kwargs = du.defaults(kwargs, {
-            'image_source_id': np.random.randint(0, 10),
             'system_id': np.random.randint(10, 20),
             'trajectory': {
                 np.random.uniform(0, 600): tf.Transform(location=np.random.uniform(-1000, 1000, 3),
@@ -32,6 +32,7 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
                 np.random.uniform(0, 600): states[np.random.randint(0, len(states))]
                 for _ in range(100)
             },
+            'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
             }

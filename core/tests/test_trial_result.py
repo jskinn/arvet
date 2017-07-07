@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import database.tests.test_entity
 import util.dict_utils as du
+import core.sequence_type
 import core.trial_result
 
 
@@ -12,9 +13,9 @@ class TestTrialResult(database.tests.test_entity.EntityContract, unittest.TestCa
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'image_source_id': np.random.randint(0, 10),
             'system_id': np.random.randint(10, 20),
             'success': bool(np.random.randint(0, 1)),
+            'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {'a': np.random.randint(30, 40)}
         })
         return core.trial_result.TrialResult(*args, **kwargs)
@@ -31,6 +32,7 @@ class TestTrialResult(database.tests.test_entity.EntityContract, unittest.TestCa
             self.fail('object was not a TrialResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
+        self.assertEqual(trial_result1.sequence_type, trial_result2.sequence_type)
         self.assertEqual(trial_result1.settings, trial_result2.settings)
         self.assertEqual(trial_result1.success, trial_result2.success)
 
@@ -41,9 +43,9 @@ class TestFailedTrialResult(database.tests.test_entity.EntityContract, unittest.
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'image_source_id': np.random.randint(0, 10),
             'system_id': np.random.randint(10, 20),
             'success': bool(np.random.randint(0, 1)),
+            'sequence_type': core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
             'system_settings': {'a': np.random.randint(30, 40)},
             'reason': str(np.random.uniform(-10000, 10000))
         })
@@ -61,6 +63,7 @@ class TestFailedTrialResult(database.tests.test_entity.EntityContract, unittest.
             self.fail('object was not a TrialResult')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
         self.assertEqual(trial_result1.system_id, trial_result2.system_id)
+        self.assertEqual(trial_result1.sequence_type, trial_result2.sequence_type)
         self.assertEqual(trial_result1.settings, trial_result2.settings)
         self.assertEqual(trial_result1.success, trial_result2.success)
         self.assertEqual(trial_result1.reason, trial_result2.reason)

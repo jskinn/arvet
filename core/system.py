@@ -34,11 +34,12 @@ class VisionSystem(database.entity.Entity, metaclass=database.entity.AbstractEnt
         pass
 
     @abc.abstractmethod
-    def start_trial(self):
+    def start_trial(self, sequence_type):
         """
         Start a trial with this system.
         After calling this, we can feed images to the system.
         When the trial is complete, call finish_trial to get the result.
+        :param sequence_type: Are the provided images part of a sequence, or just unassociated pictures.
         :return: void
         """
         pass

@@ -9,18 +9,20 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
     Contains the list of key points produced by that detector
     """
 
-    def __init__(self, system_id, keypoints, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, keypoints, sequence_type, system_settings, id_=None, **kwargs):
         """
 
         :param image_source_id:
         :param system_id:
         :param keypoints:
+        :param sequence_type:
         :param system_settings:
         :param id_:
         :param kwargs:
         """
         kwargs['success'] = True
-        super().__init__(system_id=system_id, system_settings=system_settings, id_=id_, **kwargs)
+        super().__init__(system_id=system_id, sequence_type=sequence_type, system_settings=system_settings,
+                         id_=id_, **kwargs)
         self._keypoints = keypoints
 
     @property
