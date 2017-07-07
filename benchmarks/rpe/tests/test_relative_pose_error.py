@@ -8,7 +8,7 @@ import core.benchmark
 import benchmarks.rpe.relative_pose_error as rpe
 
 
-def create_random_trajectory(random_state, duration=600, length=100):
+def create_random_trajectory(random_state, duration=600, length=10):
     return {random_state.uniform(0, duration):
             tf.Transform(location=random_state.uniform(-1000, 1000, 3), rotation=random_state.uniform(0, 1, 4))
             for _ in range(length)}
