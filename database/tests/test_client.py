@@ -151,6 +151,24 @@ class TestDatabaseClient(unittest.TestCase):
 
     @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
+    def test_can_configure_experiments_collection(self, mock_mongoclient, _):
+        database_instance = mock.create_autospec(pymongo.database.Database)
+        mock_mongoclient.return_value.__getitem__.return_value = database_instance
+
+        collection_name = 'test_collection_name_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'collections': {
+                    'experiments_collection': collection_name
+                }
+            }
+        })
+        _ = db_client.experiments_collection     # Collection is retrieved lazily, so we actually have to ask for it
+        self.assertTrue(database_instance.__getitem__.called)
+        self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
+
+    @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
+    @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
     def test_deserialize_entity_raises_exception_for_unrecognized_entity_class(self, mock_mongoclient, _):
         database_name = 'test_database_name_' + str(random.uniform(-10000, 10000))
         db_client = database.client.DatabaseClient({
