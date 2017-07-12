@@ -1,8 +1,10 @@
 import sys
+
 import bson.objectid
+
 import config.global_configuration as global_conf
 import database.client
-import batch_analysis.train_runner as train_runner
+import runners.train_runner as train_runner
 
 
 def main(*args):

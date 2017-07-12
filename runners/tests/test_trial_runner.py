@@ -1,8 +1,9 @@
 import unittest
 import unittest.mock
+
 import core.image_source
 import core.system
-import batch_analysis.trial_runner as runner
+import runners.trial_runner as runner
 
 
 class TestTrialRunner(unittest.TestCase):

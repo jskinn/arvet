@@ -1,11 +1,10 @@
 import sys
+
 import bson.objectid
+
 import config.global_configuration as global_conf
 import database.client
-import core.image_collection
-import core.image_entity
-import systems.deep_learning.keras_frcnn
-import batch_analysis.trial_runner as trial_runner
+import runners.trial_runner as trial_runner
 
 
 def main(*args):
