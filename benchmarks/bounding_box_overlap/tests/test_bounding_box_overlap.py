@@ -57,7 +57,7 @@ class TestBoundingBoxOverlapBenchmark(database.tests.test_entity.EntityContract,
         self.assertEqual(benchmark.identifier, result.benchmark)
         self.assertEqual(trial_result.identifier, result.trial_result)
 
-    def test_benchmark_measures_score_per_bounding_box(self):
+    def test_benchmark_measures_score_per_gt_bounding_box(self):
         id1 = oid.ObjectId()
         id2 = oid.ObjectId()
         id3 = oid.ObjectId()
@@ -120,7 +120,7 @@ class TestBoundingBoxOverlapBenchmark(database.tests.test_entity.EntityContract,
             'ground_truth_classes': ('cat',)
         }, result.overlaps[id4][0])
 
-    def test_benchmark_selects_highest_overlap_gt_box(self):
+    def test_benchmark_selects_highest_overlap_bounding_box(self):
         id1 = oid.ObjectId()
         trial_result = MockTrialResult(
             gt_bboxes={
@@ -136,7 +136,7 @@ class TestBoundingBoxOverlapBenchmark(database.tests.test_entity.EntityContract,
         result = benchmark.benchmark_results(trial_result)
 
         self.assertIn(id1, result.overlaps)
-        self.assertEqual(1, len(result.overlaps[id1]))
+        self.assertEqual(3, len(result.overlaps[id1]))
         self.assertEqual({
             'overlap': 10000,
             'bounding_box_area': 30625,
@@ -145,6 +145,22 @@ class TestBoundingBoxOverlapBenchmark(database.tests.test_entity.EntityContract,
             'bounding_box_classes': ('cup',),
             'ground_truth_classes': ('cup',)
         }, result.overlaps[id1][0])
+        self.assertEqual({
+            'overlap': 0,
+            'bounding_box_area': 0,
+            'ground_truth_area': 2500,
+            'confidence': 0,
+            'bounding_box_classes': tuple(),
+            'ground_truth_classes': ('cup',)
+        }, result.overlaps[id1][1])
+        self.assertEqual({
+            'overlap': 0,
+            'bounding_box_area': 0,
+            'ground_truth_area': 625,
+            'confidence': 0,
+            'bounding_box_classes': tuple(),
+            'ground_truth_classes': ('cup',)
+        }, result.overlaps[id1][2])
 
     def test_benchmark_matches_each_gt_box_only_once(self):
         id1 = oid.ObjectId()
@@ -162,7 +178,7 @@ class TestBoundingBoxOverlapBenchmark(database.tests.test_entity.EntityContract,
         result = benchmark.benchmark_results(trial_result)
 
         self.assertIn(id1, result.overlaps)
-        self.assertEqual(3, len(result.overlaps[id1]))
+        self.assertEqual(1, len(result.overlaps[id1]))
         self.assertEqual({
             'overlap': 10000,
             'bounding_box_area': 10000,
@@ -171,19 +187,52 @@ class TestBoundingBoxOverlapBenchmark(database.tests.test_entity.EntityContract,
             'bounding_box_classes': ('cup',),
             'ground_truth_classes': ('cup',)
         }, result.overlaps[id1][0])
-        self.assertEqual({
-            'overlap': 0,
-            'bounding_box_area': 2500,
-            'ground_truth_area': 0,
-            'confidence': 1.0,
-            'bounding_box_classes': ('cup',),
-            'ground_truth_classes': tuple()
-        }, result.overlaps[id1][1])
-        self.assertEqual({
-            'overlap': 0,
-            'bounding_box_area': 625,
-            'ground_truth_area': 0,
-            'confidence': 1.0,
-            'bounding_box_classes': ('cup',),
-            'ground_truth_classes': tuple()
-        }, result.overlaps[id1][2])
+
+    def test_overlap_computes_bbox_overlap(self):
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        self.assertEqual(30625, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 25, 32, 175, 175)
+        self.assertEqual(27225, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 5, 12, 175, 175)
+        self.assertEqual(27225, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 25, 32, 100, 100)
+        self.assertEqual(10000, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 190, 22, 175, 175)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 15, 197, 175, 175)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 190, 197, 175, 175)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 190, 22, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 197, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 190, 197, 175, 175)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 175, 175)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 190, 197, 10, 10)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 10, 10)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))
+
+        bbox1 = bbox_trial.BoundingBox({'cup'}, 1, 15, 22, 10, 10)
+        bbox2 = bbox_trial.BoundingBox({'cup'}, 1, 190, 197, 10, 10)
+        self.assertEqual(0, bbox_overlap.compute_overlap(bbox1, bbox2))

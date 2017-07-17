@@ -21,9 +21,9 @@ class BoundingBoxOverlapBenchmarkResult(core.benchmark.BenchmarkResult):
         Overlaps is a map of image ids to lists of results for each bounding box detected on that image.
         i.e.: {
            bson.ObjectId(): [{
-                'overlap': 0,
-                'bounding_box_area': bbox.height * bbox.width,
-                'ground_truth_area': 0,
+                'overlap': 57,
+                'bounding_box_area': 122,
+                'ground_truth_area': 100,
                 'confidence': bbox.confidence,
                 'bounding_box_classes': bbox.class_names,
                 'ground_truth_classes': ()
@@ -36,9 +36,8 @@ class BoundingBoxOverlapBenchmarkResult(core.benchmark.BenchmarkResult):
                 'ground_truth_classes': ()
             }]
         }
-
-        We can match back to a particular bounding box in the result using the image id and index in the list.
-
+        We can match back to a particular ground truth bounding box in the result
+        using the image id and index in the list.
         :return:
         """
         return self._overlaps
@@ -126,7 +125,7 @@ def precision(bbox_result):
     :param bbox_result: A dict bounding box result, from BoundingBoxOverlapBenchmarkResult
     :return: The precision score, a float
     """
-    return bbox_result['overlap'] / bbox_result['bounding_box_area']
+    return bbox_result['overlap'] / bbox_result['bounding_box_area'] if bbox_result['bounding_box_area'] > 0 else 0
 
 
 def recall(bbox_result):
@@ -136,7 +135,7 @@ def recall(bbox_result):
     :param bbox_result: A dict bounding box result, from BoundingBoxOverlapBenchmarkResult
     :return: The recall, a float
     """
-    return bbox_result['overlap'] / bbox_result['ground_truth_area']
+    return bbox_result['overlap'] / bbox_result['ground_truth_area'] if bbox_result['ground_truth_area'] > 0 else 0
 
 
 def f1_score(bbox_result):
@@ -147,7 +146,7 @@ def f1_score(bbox_result):
     """
     p = precision(bbox_result)
     r = recall(bbox_result)
-    return 2 * p * r / (p + r)
+    return 2 * p * r / (p + r) if p > 0 and r > 0 else 0
 
 
 def get_f_measure(beta=1):
@@ -159,4 +158,4 @@ def get_f_measure(beta=1):
     :return: A callable function that produces the F_B measure of bounding boxes
     """
     return lambda bbox: ((1 + beta * beta) * precision(bbox) * recall(bbox) /
-                         (beta * beta * precision(bbox) + recall(bbox)))
+                         (beta * beta * precision(bbox) + recall(bbox))) if beta > 0 else 0

@@ -48,37 +48,38 @@ class BoundingBoxOverlapBenchmark(core.benchmark.Benchmark):
         detected_bboxes = trial_result.get_bounding_boxes()
 
         results = {}
-        for image_id in detected_bboxes.keys():
+        for image_id in ground_truth_bboxes.keys():
             results[image_id] = [{
                 'overlap': 0,
-                'bounding_box_area': bbox.height * bbox.width,
-                'ground_truth_area': 0,
-                'confidence': bbox.confidence,
-                'bounding_box_classes': bbox.class_names,
-                'ground_truth_classes': tuple()
-            } for bbox in detected_bboxes[image_id]]
+                'bounding_box_area': 0,
+                'ground_truth_area': gt_bbox.height * gt_bbox.width,
+                'confidence': 0,
+                'bounding_box_classes': tuple(),
+                'ground_truth_classes': gt_bbox.class_names
+            } for gt_bbox in ground_truth_bboxes[image_id]]
 
-            if image_id in ground_truth_bboxes:
+            if image_id in detected_bboxes:
 
-                potential_matches = [(compute_overlap(bbox, gt_bbox), idx, gt_idx)
+                potential_matches = [(compute_overlap(gt_bbox, bbox), gt_idx, idx)
                                      for gt_idx, gt_bbox in enumerate(ground_truth_bboxes[image_id])
                                      for idx, bbox in enumerate(detected_bboxes[image_id])]
                 potential_matches.sort(reverse=True)
 
-                gt_indexes = set(i for i in range(len(ground_truth_bboxes[image_id])))
-                bbox_indexes = set(i for i in range(len(detected_bboxes[image_id])))
-                for overlap, idx, gt_idx in potential_matches:
+                gt_indexes = set(range(len(ground_truth_bboxes[image_id])))
+                bbox_indexes = set(range(len(detected_bboxes[image_id])))
+                for overlap, gt_idx, idx in potential_matches:
                     if overlap <= 0:
                         break
                     if idx in bbox_indexes and gt_idx in gt_indexes:
-                        bbox_indexes.remove(idx)
                         gt_indexes.remove(gt_idx)
+                        bbox_indexes.remove(idx)
 
-                        gt_bbox = ground_truth_bboxes[image_id][gt_idx]
+                        bbox = detected_bboxes[image_id][idx]
 
-                        results[image_id][idx]['overlap'] = overlap
-                        results[image_id][idx]['ground_truth_area'] = gt_bbox.width * gt_bbox.height
-                        results[image_id][idx]['ground_truth_classes'] = gt_bbox.class_names
+                        results[image_id][gt_idx]['overlap'] = overlap
+                        results[image_id][gt_idx]['confidence'] = bbox.confidence
+                        results[image_id][gt_idx]['bounding_box_area'] = bbox.width * bbox.height
+                        results[image_id][gt_idx]['bounding_box_classes'] = bbox.class_names
 
         return bbox_result.BoundingBoxOverlapBenchmarkResult(benchmark_id=self.identifier,
                                                              trial_result_id=trial_result.identifier,
@@ -93,4 +94,5 @@ def compute_overlap(bbox1, bbox2):
     overlap_y = max((bbox1.y, bbox2.y))
     overlap_upper_x = min((bbox1.x + bbox1.width, bbox2.x + bbox2.width))
     overlap_upper_y = min((bbox1.y + bbox1.height, bbox2.y + bbox2.height))
-    return max(0, (overlap_upper_x - overlap_x)*(overlap_upper_y - overlap_y))
+    return ((overlap_upper_x - overlap_x)*(overlap_upper_y - overlap_y)
+            if overlap_upper_x > overlap_x and overlap_upper_y > overlap_y else 0)
