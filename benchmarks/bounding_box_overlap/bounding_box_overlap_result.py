@@ -36,8 +36,9 @@ class BoundingBoxOverlapBenchmarkResult(core.benchmark.BenchmarkResult):
                 'ground_truth_classes': ()
             }]
         }
-        We can match back to a particular ground truth bounding box in the result
-        using the image id and index in the list.
+        We can't really match back to the gt bounding boxes, with n ground-truth bounding boxes,
+        the first n results are for those bounding boxes, followed by additional results for
+        detected bounding boxes that don't match a ground truth box.
         :return:
         """
         return self._overlaps

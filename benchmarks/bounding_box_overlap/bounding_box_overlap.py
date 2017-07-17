@@ -81,6 +81,18 @@ class BoundingBoxOverlapBenchmark(core.benchmark.Benchmark):
                         results[image_id][gt_idx]['bounding_box_area'] = bbox.width * bbox.height
                         results[image_id][gt_idx]['bounding_box_classes'] = bbox.class_names
 
+                # Record results for additionally detected bboxes
+                for bbox_index in bbox_indexes:
+                    bbox = detected_bboxes[image_id][bbox_index]
+                    results[image_id].append({
+                        'overlap': 0,
+                        'bounding_box_area': bbox.height * bbox.width,
+                        'ground_truth_area': 0,
+                        'confidence': bbox.confidence,
+                        'bounding_box_classes': bbox.class_names,
+                        'ground_truth_classes': tuple()
+                    })
+
         return bbox_result.BoundingBoxOverlapBenchmarkResult(benchmark_id=self.identifier,
                                                              trial_result_id=trial_result.identifier,
                                                              overlaps=results,
