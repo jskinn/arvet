@@ -1,7 +1,12 @@
 import sys
+
 import bson.objectid
+
+
 import config.global_configuration as global_conf
 import database.client
+import entity_list  # Needed to define entity types
+import util.database_helpers as dh
 
 
 def main(*args):
@@ -15,19 +20,27 @@ def main(*args):
     if len(args) >= 2:
         trial_id = bson.objectid.ObjectId(args[0])
         benchmark_id = bson.objectid.ObjectId(args[1])
+        experiment_id = bson.objectid.ObjectId(args[2]) if len(args) >= 3 else None
 
         config = global_conf.load_global_config('config.yml')
         db_client = database.client.DatabaseClient(config=config)
 
-        s_trial = db_client.trials_collection.find_one({'_id': trial_id})
-        trial_result = db_client.deserialize_entity(s_trial)
+        trial_result = dh.load_object(db_client, db_client.trials_collection, trial_id)
+        benchmark = dh.load_object(db_client, db_client.benchmarks_collection, benchmark_id)
+        experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
-        s_benchmark = db_client.benchmarks_collection.find_one({'_id': benchmark_id})
-        benchmark = db_client.deserialize_entity(s_benchmark)
-
-        if benchmark.is_trial_appropriate(trial_result):
-            benchmark_result = benchmark.benchmark_results(trial_result)
-            db_client.results_collection.insert(benchmark_result.serialize())
+        if benchmark is not None and trial_result is not None and benchmark.is_trial_appropriate(trial_result):
+            try:
+                benchmark_result = benchmark.benchmark_results(trial_result)
+            except:
+                benchmark_result = None
+            if benchmark_result is not None:
+                benchmark_result_id = db_client.results_collection.insert(benchmark_result.serialize())
+                if experiment is not None:
+                    experiment.add_benchmark_result(trial_result_id=trial_id, benchmark_id=benchmark_id,
+                                                    benchmark_result_id=benchmark_result_id, db_client=db_client)
+            elif experiment is not None:
+                experiment.retry_benchmark(trial_result_id=trial_id, benchmark_id=benchmark_id, db_client=db_client)
 
 
 if __name__ == '__main__':

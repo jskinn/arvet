@@ -4,7 +4,9 @@ import bson.objectid
 
 import config.global_configuration as global_conf
 import database.client
+import entity_list  # Needed to define entity types
 import runners.trial_runner as trial_runner
+import util.database_helpers as dh
 
 
 def main(*args):
@@ -19,26 +21,28 @@ def main(*args):
     if len(args) >= 2:
         system_id = bson.objectid.ObjectId(args[0])
         image_source_id = bson.objectid.ObjectId(args[1])
+        experiment_id = bson.objectid.ObjectId(args[2]) if len(args) >= 3 else None
 
         config = global_conf.load_global_config('config.yml')
         db_client = database.client.DatabaseClient(config=config)
 
-        system = None
-        s_system = db_client.system_collection.find_one({'_id': system_id})
-        if s_system is not None:
-            system = db_client.deserialize_entity(s_system)
-        del s_system
+        system = dh.load_object(db_client, db_client.system_collection, system_id)
+        image_source = dh.load_object(db_client, db_client.image_source_collection, image_source_id)
+        experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
-        image_source = None
-        s_image_source = db_client.image_source_collection.find_one({'_id': image_source_id})
-        if s_image_source is not None:
-            image_source = db_client.deserialize_entity(s_image_source)
-        del s_image_source
-
-        if system is not None and image_source is not None:
-            trial_result = trial_runner.run_system_with_source(system, image_source)
+        if system is not None and image_source is not None and system.is_image_source_appropriate(image_source):
+            try:
+                trial_result = trial_runner.run_system_with_source(system, image_source)
+            except:
+                trial_result = None
             if trial_result is not None:
-                db_client.trials_collection.insert(trial_result.serialize())
+                trial_result_id = db_client.trials_collection.insert(trial_result.serialize())
+                if experiment is not None:
+                    experiment.add_trial_result(system_id=system_id, image_source_id=image_source_id,
+                                                trial_result_id=trial_result_id, db_client=db_client)
+            elif experiment is not None:
+                experiment.update_trial_failed(system_id=system_id, image_source_id=image_source_id,
+                                               db_client=db_client)
 
 
 if __name__ == '__main__':
