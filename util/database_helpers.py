@@ -1,3 +1,6 @@
+import copy
+
+
 def load_object(db_client, collection, id_):
     """
     Shorthand helper for pulling a single entity from the database.
@@ -47,3 +50,22 @@ def query_to_dot_notation(query, flatten_arrays=False):
                     query[key+'.'+str(idx)] = elem
             del query[key]
     return query
+
+
+def add_unique(collection, entity):
+    """
+    Add an object to a collection, if that object does not already exist.
+    Treats the entire serialized object as the key, if only one entry is different, they're different objects.
+    This ONLY works for very simple entities, more complex objects like image collections
+    or image entities have their own save methods that check uniqueness.
+    :param collection: The mongodb collection to insert into
+    :param entity: The object to insert
+    :return: The id of the entity, whether newly added or existing
+    """
+    s_object = entity.serialize()
+    query = query_to_dot_notation(copy.deepcopy(s_object))
+    existing = collection.find_one(query, {'_id': True})
+    if existing is not None:
+        return existing['_id']
+    else:
+        return collection.insert(s_object)
