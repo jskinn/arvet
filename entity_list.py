@@ -12,3 +12,5 @@ import benchmarks.bounding_box_overlap.bounding_box_overlap
 import benchmarks.bounding_box_overlap.bounding_box_overlap_result
 
 import trials.object_detection.bounding_box_result
+
+import experiments.podcup.podcup_experiment

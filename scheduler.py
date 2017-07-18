@@ -1,6 +1,8 @@
 import config.global_configuration as global_conf
 import database.client
 import util.database_helpers as dh
+import entity_list
+import batch_analysis.job_systems.trivial_job_system
 
 
 def main():
@@ -10,7 +12,8 @@ def main():
     """
     config = global_conf.load_global_config('config.yml')
     db_client = database.client.DatabaseClient(config=config)
-    job_system = None   # TODO: Make a working job system
+    # TODO: Make better job systems, particularly the HPC job system
+    job_system = batch_analysis.job_systems.trivial_job_system.TrivialJobSystem()
 
     experiment_ids = db_client.experiments_collection.find({}, {'_id': True})
     for experiment_id in experiment_ids:
