@@ -15,7 +15,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
     {0} {1}
     """
 
-    def schedule_run_system(self, system_id, image_source_id, experiment=None):
+    def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
         Use the job system to run a system with a particular image source.
         Internally calls the 'run_script' function, above, with the "task_run_system" in the root of this project
@@ -30,7 +30,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         else:
             self.create_job(RUN_SYSTEM_SCRIPT, str(system_id), str(image_source_id))
 
-    def schedule_benchmark_result(self, trial_id, benchmark_id, experiment=None):
+    def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None):
         """
         Use the job system to benchmark a particular trial result.
         Uses the 'run_script' function, above

@@ -8,9 +8,14 @@ class TrivialJobSystem(batch_analysis.job_system.JobSystem):
     The worst possible, and simplest, job system.
     Simply does the job as part of scheduling it.
     No multiprocess, nothing, just direct execution.
+    Still implements a job queueing system,
+    so that we can defer the execution of jobs until we've finished creating them.
     """
 
-    def schedule_run_system(self, system_id, image_source_id, experiment=None):
+    def __init__(self):
+        self._queue = []
+
+    def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
         Run a system, now, in the current process
         :param system_id: The id of the vision system to test
@@ -19,11 +24,11 @@ class TrivialJobSystem(batch_analysis.job_system.JobSystem):
         :return: void
         """
         if experiment is not None:
-            task_run_system.main(system_id, image_source_id, experiment)
+            self._queue.append((task_run_system.main, (system_id, image_source_id, experiment)))
         else:
-            task_run_system.main(system_id, image_source_id)
+            self._queue.append((task_run_system.main, (system_id, image_source_id)))
 
-    def schedule_benchmark_result(self, trial_id, benchmark_id, experiment=None):
+    def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None):
         """
         Do a benchmark, now, in the current process.
         :param trial_id: The id of the trial result to benchmark
@@ -32,6 +37,15 @@ class TrivialJobSystem(batch_analysis.job_system.JobSystem):
         :return: void
         """
         if experiment is not None:
-            task_benchmark_result.main(trial_id, benchmark_id, experiment)
+            self._queue.append((task_benchmark_result.main, (trial_id, benchmark_id, experiment)))
         else:
-            task_benchmark_result.main(trial_id, benchmark_id)
+            self._queue.append((task_benchmark_result.main, (trial_id, benchmark_id)))
+
+    def push_queued_jobs(self):
+        """
+        Actually run the jobs.
+        :return: void
+        """
+        for func, args in self._queue:
+            func(*args)
+        self._queue = []
