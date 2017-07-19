@@ -20,7 +20,7 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         :return: A collection of the imported image source ids. May include existing ids.
         """
         image_sources = set()
-        image_sources.add(pod_dataset.import_rw_dataset('/home/john/datasets/cup_in_pod/clicks-1497585183.txt',
+        image_sources.add(pod_dataset.import_rw_dataset('/home/john/datasets/pod_cup/cup_in_pod/clicks-1497585183.txt',
                                                         db_client))
         return image_sources
 
@@ -53,5 +53,6 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         benchmarks.add(dh.add_unique(c, bench_bbox_overlap.BoundingBoxOverlapBenchmark()))
         return benchmarks
 
-    def plot_results(self):
+    def plot_results(self, db_client):
+        #TODO: Sort out pandas, and then move the contents of plot_results here
         pass

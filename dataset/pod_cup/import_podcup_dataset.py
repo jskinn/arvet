@@ -42,4 +42,4 @@ def import_rw_dataset(labels_path, db_client):
                 additional_metadata=None
             )
             builder.add_image(image_entity)
-    builder.save()
+    return builder.save()
