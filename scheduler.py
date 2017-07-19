@@ -21,7 +21,9 @@ def main():
         if experiment is not None:
             # TODO: Separate scripts for scheduling and importing, they run at different rates
             experiment.do_imports(db_client, save_changes=False)
-            experiment.schedule_tasks(job_system, db_client)
+            experiment.schedule_tasks(job_system, db_client)    # Will auto-save the experiment
+    # Push jobs for all experiments
+    job_system.push_queued_jobs()
 
 if __name__ == '__main__':
     main()
