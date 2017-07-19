@@ -85,14 +85,14 @@ class Experiment(database.entity.Entity):
         for system_id in self._trial_map.keys():
             for image_source_id in self._trial_map[system_id].keys():
                 if self._trial_map[system_id][image_source_id] == ProgressState.UNSTARTED:
-                    job_system.schedule_run_system(system_id, image_source_id, self.identifier)
+                    job_system.queue_run_system(system_id, image_source_id, self.identifier)
                     self._change_trial_state(system_id, image_source_id, ProgressState.RUNNING)
 
         # Schedule new benchmarks using the job system
         for trial_result_id in self._benchmark_map.keys():
             for benchmark_id in self._benchmark_map[trial_result_id].keys():
                 if self._benchmark_map[trial_result_id][benchmark_id] == ProgressState.UNSTARTED:
-                    job_system.schedule_benchmark_result(trial_result_id, benchmark_id, self.identifier)
+                    job_system.queue_benchmark_result(trial_result_id, benchmark_id, self.identifier)
                     self._change_result_state(trial_result_id, benchmark_id, ProgressState.RUNNING)
 
         if db_client is not None:
@@ -262,7 +262,7 @@ class Experiment(database.entity.Entity):
                 self._updates['$addToSet'] = {}
             existing = (set(self._updates['$addToSet'][serialized_key])
                         if serialized_key in self._updates['$addToSet'] else set())
-            self._updates['$addToSet'][serialized_key] = list(set(new_elements) | existing)
+            self._updates['$addToSet'][serialized_key] = {'$each': list(set(new_elements) | existing)}
 
     def validate(self):
         return super().validate()

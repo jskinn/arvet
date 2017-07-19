@@ -95,9 +95,9 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertIn(benchmark_id, subject._benchmarks)
         self.assertEqual({
             '$addToSet': {
-                'systems': [system_id],
-                'image_sources': [image_source_id],
-                'benchmarks': [benchmark_id]
+                'systems': {'$each': [system_id]},
+                'image_sources': {'$each': [image_source_id]},
+                'benchmarks': {'$each': [benchmark_id]}
             }
         }, subject._updates)
 
@@ -124,9 +124,9 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertEqual({benchmark_id1, benchmark_id2}, subject._benchmarks)
         self.assertEqual({
             '$addToSet': {
-                'systems': [system_id2],
-                'image_sources': [image_source_id2],
-                'benchmarks': [benchmark_id2]
+                'systems': {'$each': [system_id2]},
+                'image_sources': {'$each': [image_source_id2]},
+                'benchmarks': {'$each': [benchmark_id2]}
             }
         }, subject._updates)
 
@@ -150,9 +150,9 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             '_id': subject.identifier
         }, {
             '$addToSet': {
-                'systems': [system_id],
-                'image_sources': [image_source_id],
-                'benchmarks': [benchmark_id]
+                'systems': {'$each': [system_id]},
+                'image_sources': {'$each': [image_source_id]},
+                'benchmarks': {'$each': [benchmark_id]}
             }
         }), mock_db_client.experiments_collection.update.call_args)
 
@@ -198,15 +198,15 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                                 trial_map={system_ids[0]: {image_source_ids[0]: ex.ProgressState.RUNNING},
                                            system_ids[1]: {image_source_ids[0]: ex.ProgressState.UNSTARTED}})
         subject.schedule_tasks(mock_job_system)
-        self.assertTrue(mock_job_system.schedule_run_system.called)
+        self.assertTrue(mock_job_system.queue_run_system.called)
         self.assertNotIn(mock.call(system_ids[0], image_source_ids[0], subject.identifier),
-                         mock_job_system.schedule_run_system.call_args_list)
+                         mock_job_system.queue_run_system.call_args_list)
         self.assertIn(mock.call(system_ids[0], image_source_ids[1], subject.identifier),
-                      mock_job_system.schedule_run_system.call_args_list)
+                      mock_job_system.queue_run_system.call_args_list)
         self.assertIn(mock.call(system_ids[1], image_source_ids[0], subject.identifier),
-                      mock_job_system.schedule_run_system.call_args_list)
+                      mock_job_system.queue_run_system.call_args_list)
         self.assertIn(mock.call(system_ids[0], image_source_ids[1], subject.identifier),
-                      mock_job_system.schedule_run_system.call_args_list)
+                      mock_job_system.queue_run_system.call_args_list)
 
     def test_schedule_trials_performs_benchmarks(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
@@ -216,15 +216,15 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                                 benchmark_map={trial_result_ids[0]: {benchmark_ids[0]: ex.ProgressState.RUNNING},
                                                trial_result_ids[1]: {benchmark_ids[0]: ex.ProgressState.UNSTARTED}})
         subject.schedule_tasks(mock_job_system)
-        self.assertTrue(mock_job_system.schedule_benchmark_result.called)
+        self.assertTrue(mock_job_system.queue_benchmark_result.called)
         self.assertNotIn(mock.call(trial_result_ids[0], benchmark_ids[0], subject.identifier),
-                         mock_job_system.schedule_benchmark_result.call_args_list)
+                         mock_job_system.queue_benchmark_result.call_args_list)
         self.assertIn(mock.call(trial_result_ids[0], benchmark_ids[1], subject.identifier),
-                      mock_job_system.schedule_benchmark_result.call_args_list)
+                      mock_job_system.queue_benchmark_result.call_args_list)
         self.assertIn(mock.call(trial_result_ids[1], benchmark_ids[0], subject.identifier),
-                      mock_job_system.schedule_benchmark_result.call_args_list)
+                      mock_job_system.queue_benchmark_result.call_args_list)
         self.assertIn(mock.call(trial_result_ids[0], benchmark_ids[1], subject.identifier),
-                      mock_job_system.schedule_benchmark_result.call_args_list)
+                      mock_job_system.queue_benchmark_result.call_args_list)
 
     def test_schedule_trials_can_save_updates(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
@@ -311,7 +311,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                 "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): 2,
                 "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): 0
             },
-            '$addToSet': {'trial_results': [trial_result_id]}
+            '$addToSet': {'trial_results': {'$each': [trial_result_id]}}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_retry_benchmark_resets_progress(self):
@@ -368,7 +368,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             '$set': {
                 "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): 2
             },
-            '$addToSet': {'benchmark_results': [benchmark_result_id]}
+            '$addToSet': {'benchmark_results': {'$each': [benchmark_result_id]}}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_save_updates_inserts_if_no_id(self):
@@ -427,8 +427,8 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                 "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id2)): 1
             },
             '$addToSet': {
-                'trial_results': [trial_result_id],
-                'benchmark_results': [benchmark_result_id]
+                'trial_results': {'$each': [trial_result_id]},
+                'benchmark_results': {'$each': [benchmark_result_id]}
             }
         }), mock_db_client.experiments_collection.update.call_args)
 
