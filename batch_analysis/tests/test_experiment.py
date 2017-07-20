@@ -16,12 +16,21 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
+            'trainers': {oid.ObjectId(), oid.ObjectId(), oid.ObjectId()},
+            'trainees': {oid.ObjectId()},
             'image_sources': {oid.ObjectId(), oid.ObjectId(), oid.ObjectId()},
             'systems': {oid.ObjectId(), oid.ObjectId(), oid.ObjectId()},
             'benchmarks': {oid.ObjectId(), oid.ObjectId()},
             'trial_results': {oid.ObjectId()},
             'benchmark_results': {oid.ObjectId()}
         })
+        if 'training_map' not in kwargs:
+            states = [0, 0, 1, 0, 2, 0, 1, 0, 1]
+            kwargs['training_map'] = {
+                trainer_id: {trainee_id: ex.ProgressState(states[(7 * idx) % len(states)])
+                             for idx, trainee_id in enumerate(kwargs['image_sources'])}
+                for trainer_id in kwargs['systems']
+            }
         if 'trial_map' not in kwargs:
             states = [0, 0, 2, 1, 0, 1, 1, 0, 0]
             kwargs['trial_map'] = {
@@ -50,6 +59,8 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                 not isinstance(experiment2, ex.Experiment)):
             self.fail('object was not an Experiment')
         self.assertEqual(experiment1.identifier, experiment2.identifier)
+        self.assertEqual(experiment1._trainers, experiment2._trainers)
+        self.assertEqual(experiment1._trainees, experiment2._trainees)
         self.assertEqual(experiment1._image_sources, experiment2._image_sources)
         self.assertEqual(experiment1._systems, experiment2._systems)
         self.assertEqual(experiment1._benchmarks, experiment2._benchmarks)
@@ -64,10 +75,11 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         else:
             self.assertNotIn('_id', s_model1)
             self.assertNotIn('_id', s_model2)
-        for key in {'trial_map', 'benchmark_map'}:
+        for key in {'training_map', 'trial_map', 'benchmark_map'}:
             self.assertEqual(s_model1[key], s_model2[key], "Values for {0} were not equal".format(key))
         # Special handling for set keys, since the order is allowed to change.
-        for key in {'image_sources', 'systems', 'trial_results', 'benchmarks', 'benchmark_results'}:
+        for key in {'trainers', 'trainees', 'image_sources', 'systems', 'trial_results',
+                    'benchmarks', 'benchmark_results'}:
             self.assertEqual(set(s_model1[key]), set(s_model2[key]), "Values for {0} were not equal".format(key))
 
     def test_constructor_works_with_minimal_arguments(self):
@@ -75,10 +87,16 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
     def test_do_imports_imports_systems_sources_and_benchmarks(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
         system_id = oid.ObjectId()
         image_source_id = oid.ObjectId()
         benchmark_id = oid.ObjectId()
         subject = ex.Experiment(id_=oid.ObjectId())
+        subject.import_trainers = mock.create_autospec(subject.import_trainers)
+        subject.import_trainers.return_value = {trainer_id}
+        subject.import_trainees = mock.create_autospec(subject.import_trainees)
+        subject.import_trainees.return_value = {trainee_id}
         subject.import_systems = mock.create_autospec(subject.import_systems)
         subject.import_systems.return_value = {system_id}
         subject.import_image_sources = mock.create_autospec(subject.import_image_sources)
@@ -87,6 +105,10 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         subject.import_benchmarks.return_value = {benchmark_id}
 
         subject.do_imports(mock_db_client, save_changes=False)
+        self.assertTrue(subject.import_trainers.called)
+        self.assertIn(trainer_id, subject._trainers)
+        self.assertTrue(subject.import_trainees.called)
+        self.assertIn(trainee_id, subject._trainees)
         self.assertTrue(subject.import_systems.called)
         self.assertIn(system_id, subject._systems)
         self.assertTrue(subject.import_image_sources.called)
@@ -95,6 +117,8 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertIn(benchmark_id, subject._benchmarks)
         self.assertEqual({
             '$addToSet': {
+                'trainers': {'$each': [trainer_id]},
+                'trainees': {'$each': [trainee_id]},
                 'systems': {'$each': [system_id]},
                 'image_sources': {'$each': [image_source_id]},
                 'benchmarks': {'$each': [benchmark_id]}
@@ -103,14 +127,22 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
     def test_do_imports_handles_duplicates(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        trainer_id1 = oid.ObjectId()
+        trainer_id2 = oid.ObjectId()
+        trainee_id1 = oid.ObjectId()
+        trainee_id2 = oid.ObjectId()
         system_id1 = oid.ObjectId()
         system_id2 = oid.ObjectId()
         image_source_id1 = oid.ObjectId()
         image_source_id2 = oid.ObjectId()
         benchmark_id1 = oid.ObjectId()
         benchmark_id2 = oid.ObjectId()
-        subject = ex.Experiment(id_=oid.ObjectId(), systems={system_id1},
-                                image_sources={image_source_id1}, benchmarks={benchmark_id1})
+        subject = ex.Experiment(id_=oid.ObjectId(), trainers={trainer_id1}, trainees={trainee_id1},
+                                systems={system_id1}, image_sources={image_source_id1}, benchmarks={benchmark_id1})
+        subject.import_trainers = mock.create_autospec(subject.import_systems)
+        subject.import_trainers.return_value = {trainer_id1, trainer_id2}
+        subject.import_trainees = mock.create_autospec(subject.import_systems)
+        subject.import_trainees.return_value = {trainee_id1, trainee_id2}
         subject.import_systems = mock.create_autospec(subject.import_systems)
         subject.import_systems.return_value = {system_id1, system_id2}
         subject.import_image_sources = mock.create_autospec(subject.import_image_sources)
@@ -119,11 +151,15 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         subject.import_benchmarks.return_value = {benchmark_id1, benchmark_id2}
 
         subject.do_imports(mock_db_client, save_changes=False)
+        self.assertEqual({trainer_id1, trainer_id2}, subject._trainers)
+        self.assertEqual({trainee_id1, trainee_id2}, subject._trainees)
         self.assertEqual({system_id1, system_id2}, subject._systems)
         self.assertEqual({image_source_id1, image_source_id2}, subject._image_sources)
         self.assertEqual({benchmark_id1, benchmark_id2}, subject._benchmarks)
         self.assertEqual({
             '$addToSet': {
+                'trainers': {'$each': [trainer_id2]},
+                'trainees': {'$each': [trainee_id2]},
                 'systems': {'$each': [system_id2]},
                 'image_sources': {'$each': [image_source_id2]},
                 'benchmarks': {'$each': [benchmark_id2]}
@@ -133,10 +169,16 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
     def test_do_imports_can_save_changes(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
         system_id = oid.ObjectId()
         image_source_id = oid.ObjectId()
         benchmark_id = oid.ObjectId()
         subject = ex.Experiment(id_=oid.ObjectId())
+        subject.import_trainers = mock.create_autospec(subject.import_trainers)
+        subject.import_trainers.return_value = {trainer_id}
+        subject.import_trainees = mock.create_autospec(subject.import_trainees)
+        subject.import_trainees.return_value = {trainee_id}
         subject.import_systems = mock.create_autospec(subject.import_systems)
         subject.import_systems.return_value = {system_id}
         subject.import_image_sources = mock.create_autospec(subject.import_image_sources)
@@ -150,13 +192,32 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             '_id': subject.identifier
         }, {
             '$addToSet': {
+                'trainers': {'$each': [trainer_id]},
+                'trainees': {'$each': [trainee_id]},
                 'systems': {'$each': [system_id]},
                 'image_sources': {'$each': [image_source_id]},
                 'benchmarks': {'$each': [benchmark_id]}
             }
         }), mock_db_client.experiments_collection.update.call_args)
 
-    def test_schedule_trials_updates_trial_map(self):
+    def test_schedule_tasks_updates_training_map(self):
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        trainer_ids = (oid.ObjectId(), oid.ObjectId())
+        trainee_ids = (oid.ObjectId(), oid.ObjectId())
+        subject = ex.Experiment(id_=oid.ObjectId(), trainers=trainer_ids, trainees=trainee_ids)
+        subject.schedule_tasks(mock_job_system)
+        self.assertEqual({
+            trainer_ids[0]: {
+                trainee_ids[0]: ex.ProgressState.RUNNING,
+                trainee_ids[1]: ex.ProgressState.RUNNING,
+            },
+            trainer_ids[1]: {
+                trainee_ids[0]: ex.ProgressState.RUNNING,
+                trainee_ids[1]: ex.ProgressState.RUNNING,
+            }
+        }, subject._training_map)
+
+    def test_schedule_tasks_updates_trial_map(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         image_source_ids = (oid.ObjectId(), oid.ObjectId())
         system_ids = (oid.ObjectId(), oid.ObjectId())
@@ -173,7 +234,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             }
         }, subject._trial_map)
 
-    def test_schedule_trials_updates_benchmark_map(self):
+    def test_schedule_tasks_updates_benchmark_map(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         benchmark_ids = (oid.ObjectId(), oid.ObjectId())
         trial_result_ids = (oid.ObjectId(), oid.ObjectId())
@@ -190,7 +251,25 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             }
         }, subject._benchmark_map)
 
-    def test_schedule_trials_runs_systems(self):
+    def test_schedule_tasks_trains_systems(self):
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        trainer_ids = (oid.ObjectId(), oid.ObjectId())
+        trainee_ids = (oid.ObjectId(), oid.ObjectId())
+        subject = ex.Experiment(id_=oid.ObjectId(), trainers=trainer_ids, trainees=trainee_ids,
+                                training_map={trainer_ids[0]: {trainee_ids[0]: ex.ProgressState.RUNNING},
+                                              trainer_ids[1]: {trainee_ids[0]: ex.ProgressState.UNSTARTED}})
+        subject.schedule_tasks(mock_job_system)
+        self.assertTrue(mock_job_system.queue_train_system.called)
+        self.assertNotIn(mock.call(trainer_ids[0], trainee_ids[0], subject.identifier),
+                         mock_job_system.queue_train_system.call_args_list)
+        self.assertIn(mock.call(trainer_ids[0], trainee_ids[1], subject.identifier),
+                      mock_job_system.queue_train_system.call_args_list)
+        self.assertIn(mock.call(trainer_ids[1], trainee_ids[0], subject.identifier),
+                      mock_job_system.queue_train_system.call_args_list)
+        self.assertIn(mock.call(trainer_ids[0], trainee_ids[1], subject.identifier),
+                      mock_job_system.queue_train_system.call_args_list)
+
+    def test_schedule_tasks_runs_systems(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         image_source_ids = (oid.ObjectId(), oid.ObjectId())
         system_ids = (oid.ObjectId(), oid.ObjectId())
@@ -208,7 +287,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertIn(mock.call(system_ids[0], image_source_ids[1], subject.identifier),
                       mock_job_system.queue_run_system.call_args_list)
 
-    def test_schedule_trials_performs_benchmarks(self):
+    def test_schedule_tasks_performs_benchmarks(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         benchmark_ids = (oid.ObjectId(), oid.ObjectId())
         trial_result_ids = (oid.ObjectId(), oid.ObjectId())
@@ -226,16 +305,21 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertIn(mock.call(trial_result_ids[0], benchmark_ids[1], subject.identifier),
                       mock_job_system.queue_benchmark_result.call_args_list)
 
-    def test_schedule_trials_can_save_updates(self):
+    def test_schedule_tasks_can_save_updates(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        trainer_ids = (oid.ObjectId(), oid.ObjectId())
+        trainee_ids = (oid.ObjectId(), oid.ObjectId())
         image_source_ids = (oid.ObjectId(), oid.ObjectId())
         system_ids = (oid.ObjectId(), oid.ObjectId())
         benchmark_ids = (oid.ObjectId(), oid.ObjectId())
         trial_result_ids = (oid.ObjectId(), oid.ObjectId())
-        subject = ex.Experiment(id_=oid.ObjectId(), image_sources=image_source_ids, systems=system_ids,
+        subject = ex.Experiment(id_=oid.ObjectId(), trainers=trainer_ids, trainees=trainee_ids,
+                                image_sources=image_source_ids, systems=system_ids,
                                 benchmarks=benchmark_ids, trial_results=trial_result_ids,
+                                training_map={trainer_ids[0]: {trainee_ids[0]: ex.ProgressState.RUNNING},
+                                              trainer_ids[1]: {trainee_ids[0]: ex.ProgressState.UNSTARTED}},
                                 trial_map={system_ids[0]: {image_source_ids[0]: ex.ProgressState.RUNNING},
                                            system_ids[1]: {image_source_ids[0]: ex.ProgressState.UNSTARTED}},
                                 benchmark_map={trial_result_ids[0]: {benchmark_ids[0]: ex.ProgressState.RUNNING},
@@ -246,6 +330,9 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             '_id': subject.identifier
         }, {
             '$set': {
+                "training_map.{0}.{1}".format(str(trainer_ids[0]), str(trainee_ids[1])): 1,
+                "training_map.{0}.{1}".format(str(trainer_ids[1]), str(trainee_ids[0])): 1,
+                "training_map.{0}.{1}".format(str(trainer_ids[1]), str(trainee_ids[1])): 1,
                 "trial_map.{0}.{1}".format(str(system_ids[0]), str(image_source_ids[1])): 1,
                 "trial_map.{0}.{1}".format(str(system_ids[1]), str(image_source_ids[0])): 1,
                 "trial_map.{0}.{1}".format(str(system_ids[1]), str(image_source_ids[1])): 1,
@@ -253,6 +340,65 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                 "benchmark_map.{0}.{1}".format(str(trial_result_ids[1]), str(benchmark_ids[0])): 1,
                 "benchmark_map.{0}.{1}".format(str(trial_result_ids[1]), str(benchmark_ids[1])): 1,
             },
+        }), mock_db_client.experiments_collection.update.call_args)
+
+    def test_retry_training_resets_progress(self):
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
+        subject = ex.Experiment(trainers={trainer_id}, trainees={trainee_id}, training_map={
+            trainer_id: {trainee_id: ex.ProgressState.RUNNING}
+        })
+        subject.retry_training(trainer_id, trainee_id)
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._training_map[trainer_id][trainee_id])
+
+    def test_retry_training_saves_changes_if_given_db_client(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
+        subject = ex.Experiment(trainers={trainer_id}, trainees={trainee_id}, training_map={
+            trainer_id: {trainee_id: ex.ProgressState.RUNNING}
+        }, id_=oid.ObjectId())
+
+        subject.retry_training(trainer_id, trainee_id, mock_db_client)
+        self.assertTrue(mock_db_client.experiments_collection.update.called)
+        self.assertEqual(mock.call({
+             '_id': subject.identifier
+         }, {
+            '$set': {"training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): 0}
+        }), mock_db_client.experiments_collection.update.call_args)
+
+    def test_add_system_updates_progress(self):
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
+        subject = ex.Experiment(trainers={trainer_id}, trainees={trainee_id}, training_map={
+            trainer_id: {trainee_id: ex.ProgressState.RUNNING}
+        })
+        subject.add_system(trainer_id, trainee_id, oid.ObjectId())
+        self.assertEqual(ex.ProgressState.FINISHED, subject._training_map[trainer_id][trainee_id])
+
+    def test_add_system_saves_changes_if_given_db_client(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
+        image_source_id = oid.ObjectId()
+        system_id = oid.ObjectId()
+        subject = ex.Experiment(trainers={trainer_id}, trainees={trainee_id}, image_sources={image_source_id},
+                                training_map={trainer_id: {trainee_id: ex.ProgressState.RUNNING}}, id_=oid.ObjectId())
+
+        subject.add_system(trainer_id, trainee_id, system_id, mock_db_client)
+        self.assertTrue(mock_db_client.experiments_collection.update.called)
+        self.assertEqual(mock.call({
+             '_id': subject.identifier
+         }, {
+            '$set': {
+                "training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): 2,
+                "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): 0
+            },
+            '$addToSet': {'systems': {'$each': [system_id]}}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_retry_trial_resets_progress(self):
@@ -378,6 +524,8 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         mock_db_client.experiments_collection.insert.return_value = new_id
 
         subject = ex.Experiment()
+        subject._trainers = {oid.ObjectId(), oid.ObjectId(), oid.ObjectId()}
+        subject._trainees = {oid.ObjectId()}
         subject._systems = {oid.ObjectId(), oid.ObjectId(), oid.ObjectId()}
         subject._image_sources = {oid.ObjectId()}
         subject._benchmarks = {oid.ObjectId(), oid.ObjectId()}
@@ -396,9 +544,13 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
 
+        trainer_id = oid.ObjectId()
+        trainer_id2 = oid.ObjectId()
+        trainee_id = oid.ObjectId()
         image_source_id = oid.ObjectId()
         image_source_id2 = oid.ObjectId()
         system_id = oid.ObjectId()
+        system_id2 = oid.ObjectId()
         benchmark_id = oid.ObjectId()
         benchmark_id2 = oid.ObjectId()
         trial_result_id = oid.ObjectId()
@@ -406,11 +558,15 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
         subject = ex.Experiment(
             id_=oid.ObjectId(),
+            trainers={trainer_id, trainer_id2},
+            trainees={trainee_id},
             image_sources={image_source_id, image_source_id2},
             systems={system_id},
             benchmarks={benchmark_id, benchmark_id2},
+            training_map={trainer_id: {trainee_id: ex.ProgressState.RUNNING}},
             trial_map={system_id: {image_source_id: ex.ProgressState.RUNNING}}
         )
+        subject.add_system(trainer_id, trainee_id, system_id2)
         subject.add_trial_result(system_id, image_source_id, trial_result_id)
         subject.schedule_tasks(mock_job_system)
         subject.add_benchmark_result(trial_result_id, benchmark_id, benchmark_result_id)
@@ -421,12 +577,17 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             '_id': subject.identifier
         }, {
             '$set': {
+                "training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): 2,
+                "training_map.{0}.{1}".format(str(trainer_id2), str(trainee_id)): 1,
                 "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): 2,
                 "trial_map.{0}.{1}".format(str(system_id), str(image_source_id2)): 1,
+                "trial_map.{0}.{1}".format(str(system_id2), str(image_source_id)): 1,
+                "trial_map.{0}.{1}".format(str(system_id2), str(image_source_id2)): 1,
                 "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): 2,
                 "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id2)): 1
             },
             '$addToSet': {
+                'systems': {'$each': [system_id2]},
                 'trial_results': {'$each': [trial_result_id]},
                 'benchmark_results': {'$each': [benchmark_result_id]}
             }

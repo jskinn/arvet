@@ -1,4 +1,5 @@
 import batch_analysis.job_system
+import task_train_system
 import task_run_system
 import task_benchmark_result
 
@@ -14,6 +15,19 @@ class TrivialJobSystem(batch_analysis.job_system.JobSystem):
 
     def __init__(self):
         self._queue = []
+
+    def queue_train_system(self, trainer_id, trainee_id, experiment=None):
+        """
+        Train a system, now, in the current process
+        :param trainer_id: The id of the trainer doing the training
+        :param trainee_id: The id of the trainee being trained
+        :param experiment: The experiment associated with this run, if any
+        :return: void
+        """
+        if experiment is not None:
+            self._queue.append((task_train_system.main, (trainer_id, trainee_id, experiment)))
+        else:
+            self._queue.append((task_train_system.main, (trainer_id, trainee_id)))
 
     def queue_run_system(self, system_id, image_source_id, experiment=None):
         """

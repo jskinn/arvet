@@ -16,15 +16,19 @@ class ProgressState(enum.Enum):
 
 class Experiment(database.entity.Entity):
 
-    def __init__(self, image_sources=None, systems=None, benchmarks=None, trial_results=None, benchmark_results=None,
-                 trial_map=None, benchmark_map=None, id_=None):
+    def __init__(self, trainers=None, trainees=None, image_sources=None, systems=None, benchmarks=None,
+                 trial_results=None, benchmark_results=None, training_map=None, trial_map=None, benchmark_map=None,
+                 id_=None):
         super().__init__(id_=id_)
+        self._trainers = set(trainers) if trainers is not None else set()
+        self._trainees = set(trainees) if trainees is not None else set()
         self._image_sources = set(image_sources) if image_sources is not None else set()
         self._systems = set(systems) if systems is not None else set()
         self._benchmarks = set(benchmarks) if benchmarks is not None else set()
         self._trial_results = set(trial_results) if trial_results is not None else set()
         self._benchmark_results = set(benchmark_results) if benchmark_results is not None else set()
 
+        self._training_map = dict(training_map) if training_map is not None else {}
         self._trial_map = dict(trial_map) if trial_map is not None else {}
         self._benchmark_map = dict(benchmark_map) if benchmark_map is not None else {}
 
@@ -43,13 +47,19 @@ class Experiment(database.entity.Entity):
         :param save_changes: Whether we should save the changes when done, since we always need the db_client
         :return: void
         """
+        new_trainers = set(self.import_trainers(db_client))
+        new_trainees = set(self.import_trainees(db_client))
         new_systems = set(self.import_systems(db_client))
         new_image_sources = set(self.import_image_sources(db_client))
         new_benchmarks = set(self.import_benchmarks(db_client))
 
+        self._add_to_set('trainers', new_trainers - self._trainers)
+        self._add_to_set('trainees', new_trainees - self._trainees)
         self._add_to_set('systems', new_systems - self._systems)
         self._add_to_set('image_sources', new_image_sources - self._image_sources)
         self._add_to_set('benchmarks', new_benchmarks - self._benchmarks)
+        self._trainers = self._trainers | new_trainers
+        self._trainees = self._trainees | new_trainees
         self._systems = self._systems | new_systems
         self._image_sources = self._image_sources | new_image_sources
         self._benchmarks = self._benchmarks | new_benchmarks
@@ -64,6 +74,14 @@ class Experiment(database.entity.Entity):
         :param db_client: The database client if we want to save changes immediately, None otherwise.
         :return: void
         """
+
+        # Update training map for new/missing trainers and trainees
+        for trainer_id in self._trainers:
+            if trainer_id not in self._training_map:
+                self._training_map[trainer_id] = {}
+            for trainee_id in self._trainees:
+                if trainee_id not in self._training_map[trainer_id]:
+                    self._change_training_state(trainer_id, trainee_id, ProgressState.UNSTARTED)
 
         # Update trials map for new/missing image sources and systems
         for system_id in self._systems:
@@ -81,6 +99,13 @@ class Experiment(database.entity.Entity):
                 if benchmark_id not in self._benchmark_map[trial_result_id]:
                     self._change_result_state(trial_result_id, benchmark_id, ProgressState.UNSTARTED)
 
+        # Schedule new training using the job system
+        for trainer_id in self._training_map.keys():
+            for trainee_id in self._training_map[trainer_id].keys():
+                if self._training_map[trainer_id][trainee_id] == ProgressState.UNSTARTED:
+                    job_system.queue_train_system(trainer_id, trainee_id, self.identifier)
+                    self._change_training_state(trainer_id, trainee_id, ProgressState.RUNNING)
+
         # Schedule new trials using the job system
         for system_id in self._trial_map.keys():
             for image_source_id in self._trial_map[system_id].keys():
@@ -97,6 +122,42 @@ class Experiment(database.entity.Entity):
 
         if db_client is not None:
             self.save_updates(db_client)
+
+    def retry_training(self, trainer_id, trainee_id, db_client=None):
+        """
+        Training has failed for some reason, and we should retry it.
+        Change the state in the database to unstarted again so that a new run will be scheduled
+        the next time schedule_tasks is called.
+        :param trainer_id: The id of the trainer
+        :param trainee_id: The id of the trainee being trained
+        :param db_client: The database client if we want to save changes immediately, None otherwise.
+        :return:
+        """
+        if (trainer_id in self._training_map and trainee_id in self._training_map[trainer_id] and
+                self._training_map[trainer_id][trainee_id] == ProgressState.RUNNING):
+            self._change_training_state(trainer_id, trainee_id, ProgressState.UNSTARTED)
+            if db_client is not None:
+                self.save_updates(db_client)
+
+    def add_system(self, trainer_id, trainee_id, system_id, db_client=None):
+        """
+        Training has completed, producing a new system.
+        Update the map so we don't schedule it again, and store the new system for testing
+        :param trainer_id: The id of the trainer that did the training
+        :param trainee_id: The id if the trainee that was trained
+        :param system_id: The id of the newly created system
+        :param db_client: The database client if we want to save changes immediately, None otherwise.
+        :return:
+        """
+        if trainer_id in self._trainers and trainee_id in self._trainees:
+            self._change_training_state(trainer_id, trainee_id, ProgressState.FINISHED)
+            self._systems.add(system_id)
+            self._trial_map[system_id] = {}
+            for image_source_id in self._image_sources:
+                self._change_trial_state(system_id, image_source_id, ProgressState.UNSTARTED)
+            self._add_to_set('systems', {system_id})
+            if db_client is not None:
+                self.save_updates(db_client)
 
     def retry_trial(self, system_id, image_source_id, db_client=None):
         """
@@ -187,6 +248,29 @@ class Experiment(database.entity.Entity):
             db_client.experiments_collection.update({'_id': self.identifier}, self._updates)
             self._updates = {}
 
+    def import_trainers(self, db_client):
+        """
+        Import trainers to train new systems for the experiment.
+        Should return the database ids of the newly created trainers.
+        This may involve importing additional training datasets,
+        which should be stored along with the settings in the trainer
+        :param db_client: The database client
+        :return: A set of database ids for system trainers
+        """
+        return set()
+
+    def import_trainees(self, db_client):
+        """
+        Create or import trainees into the database for this experiment.
+        These determine which systems will be trained, and some of the settings for doing so.
+        Note that trainees and trainers are different, see core.trained_system for each of the types.
+        In genral, a trainer holds some image data, and a process for feeding it to a trainee,
+        which works like a builder to create a new trained system.
+        :param db_client: The database client
+        :return: The set of ids of new trainees. May include existing ids.
+        """
+        return set()
+
     def import_image_sources(self, db_client):
         """
         Import the datasets and other image sources associated with this experiment.
@@ -213,6 +297,21 @@ class Experiment(database.entity.Entity):
         :return:
         """
         return set()
+
+    def _change_training_state(self, trainer_id, trainee_id, state):
+        """
+        Helper to change a value in the training map,
+        accumulating a change query for later saving
+        :param trainer_id: The id of the trainer doing the training
+        :param trainee_id: The id of the trainee being trained
+        :param state: The new state value
+        :return:
+        """
+        self._training_map[trainer_id][trainee_id] = state
+        if '$set' not in self._updates:
+            self._updates['$set'] = {}
+        s_key = 'training_map.{0}.{1}'.format(str(trainer_id), str(trainee_id))
+        self._updates['$set'][s_key] = int(state.value)
 
     def _change_trial_state(self, system_id, image_source_id, state):
         """
@@ -269,12 +368,23 @@ class Experiment(database.entity.Entity):
 
     def serialize(self):
         serialized = super().serialize()
+        serialized['trainers'] = [str(oid) for oid in self._trainers]
+        serialized['trainees'] = [str(oid) for oid in self._trainees]
         serialized['image_sources'] = [str(oid) for oid in self._image_sources]
         serialized['systems'] = [str(oid) for oid in self._systems]
         serialized['trial_results'] = [str(oid) for oid in self._trial_results]
         serialized['benchmarks'] = [str(oid) for oid in self._benchmarks]
         serialized['benchmark_results'] = [str(oid) for oid in self._benchmark_results]
-        # Note: The way these serialize based on self._image_sources and self._systems keeps their keys in sync
+        # Note: The way these serialize based on the sets above keeps their keys in sync
+        serialized['training_map'] = {
+            str(trainer_id): {
+                str(trainee_id): (int(self._training_map[trainer_id][trainee_id].value)
+                                  if trainer_id in self._training_map and
+                                  trainee_id in self._training_map[trainer_id]
+                                  else int(ProgressState.UNSTARTED.value))
+                for trainee_id in self._trainees
+            } for trainer_id in self._trainers
+        }
         serialized['trial_map'] = {
             str(system_id): {
                 str(source_id): (int(self._trial_map[system_id][source_id].value)
@@ -295,6 +405,10 @@ class Experiment(database.entity.Entity):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'trainers' in serialized_representation:
+            kwargs['trainers'] = set(bson.objectid.ObjectId(oid) for oid in serialized_representation['trainers'])
+        if 'trainees' in serialized_representation:
+            kwargs['trainees'] = set(bson.objectid.ObjectId(oid) for oid in serialized_representation['trainees'])
         if 'image_sources' in serialized_representation:
             kwargs['image_sources'] = set(bson.objectid.ObjectId(oid)
                                           for oid in serialized_representation['image_sources'])
@@ -308,8 +422,18 @@ class Experiment(database.entity.Entity):
         if 'benchmark_results' in serialized_representation:
             kwargs['benchmark_results'] = set(bson.objectid.ObjectId(oid)
                                               for oid in serialized_representation['benchmark_results'])
-        # Rebuild the trial map and benchmark map
+        # Rebuild the training map, trial map, and benchmark map
         # This has the advantage of removing unassociated keys, and adding missing keys
+        kwargs['training_map'] = {
+            trainer_id: {
+                trainee_id: ProgressState(serialized_representation['training_map'][str(trainer_id)][str(trainee_id)])
+                if 'training_map' in serialized_representation and
+                   str(trainer_id) in serialized_representation['training_map'] and
+                   str(trainee_id) in serialized_representation['training_map'][str(trainer_id)]
+                else ProgressState.UNSTARTED
+                for trainee_id in kwargs['trainees']
+            } for trainer_id in kwargs['trainers']
+        }
         kwargs['trial_map'] = {
             system_id: {
                 source_id: ProgressState(serialized_representation['trial_map'][str(system_id)][str(source_id)])

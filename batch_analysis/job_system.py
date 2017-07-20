@@ -4,6 +4,21 @@ import abc
 class JobSystem(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
+    def queue_train_system(self, trainer_id, trainee_id, experiment=None):
+        """
+        Use the job system to make a trainer train a particular trainee to produce a new system
+
+        This should not run the job immediately, it may depend on some state
+        that has not been saved yet, defer the execution of jobs until we've finished creating them.
+
+        :param trainer_id: The id of the trainer to do the training
+        :param trainee_id: The id of the trainee to train
+        :param experiment: The experiment associated with this run, if any, to attach the new system to
+        :return: void
+        """
+        pass
+
+    @abc.abstractmethod
     def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
         Use the job system to run a system with a particular image source.

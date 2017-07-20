@@ -15,6 +15,21 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
     {0} {1}
     """
 
+    def queue_train_system(self, trainer_id, trainee_id, experiment=None):
+        """
+        Use the job system to train a system with a particular image source.
+        Internally calls the 'run_script' function, above, with the "task_run_system" in the root of this project
+        TODO: find a better way to get the path of the script
+        :param trainer_id: The id of the trainer doing the training
+        :param trainee_id: The id of the trainee being trained
+        :param experiment: The experiment associated with this run, if any
+        :return: void
+        """
+        if experiment is not None:
+            self.create_job(TRAIN_SYSTEM_SCRIPT, str(trainer_id), str(trainee_id), str(experiment))
+        else:
+            self.create_job(TRAIN_SYSTEM_SCRIPT, str(trainer_id), str(trainee_id))
+
     def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
         Use the job system to run a system with a particular image source.
@@ -43,6 +58,13 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
             self.create_job(BENCHMARK_RESULT_SCRIPT, str(trial_id), str(benchmark_id), str(experiment))
         else:
             self.create_job(BENCHMARK_RESULT_SCRIPT, str(trial_id), str(benchmark_id))
+
+    def push_queued_jobs(self):
+        """
+        TODO: Actually start the jobs here
+        :return:
+        """
+        pass
 
     def create_job(self, script_path, *args):
         """
