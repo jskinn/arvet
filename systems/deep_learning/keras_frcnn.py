@@ -222,6 +222,7 @@ class KerasFRCNN(core.system.VisionSystem):
     A Vision system for testing a keras-based FRCNN that does bounding-box estimation
     Based on keras-frcnn, found here: https://github.com/yhenon/keras-frcnn.
     This file is derived from test_frcnn.py and train_frcnn.py in the above project.
+    TODO: Can support VGG as well as Resnet50
     """
 
     def __init__(self, config, num_rois=32, id_=None):
@@ -355,7 +356,7 @@ class KerasFRCNN(core.system.VisionSystem):
             self.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
 
         # Convert the input image to be fed into the network
-        formatted_image, aspect_ratio = format_img(image.data[:, :, ::-1], self._config)
+        formatted_image, aspect_ratio = format_img(image.data, self._config)
         if keras_backend.image_dim_ordering() == 'tf':
             formatted_image = np.transpose(formatted_image, (0, 2, 3, 1))
 
@@ -528,8 +529,7 @@ def format_img_size(img, config):
 
 def format_img_channels(img, config):
     """ formats the image channels based on config """
-    img = img[:, :, (2, 1, 0)]
-    img = img.astype(np.float32)
+    img = np.array(img, copy=True, dtype=np.float32)
     img[:, :, 0] -= config.img_channel_mean[0]
     img[:, :, 1] -= config.img_channel_mean[1]
     img[:, :, 2] -= config.img_channel_mean[2]
