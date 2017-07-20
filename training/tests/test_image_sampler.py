@@ -18,6 +18,11 @@ class MockImageSource:
         pass
 
 
+class MockAugmenter:
+    def augment(self, x):
+        return x + 10
+
+
 class TestImageSampler(unittest.TestCase):
 
     def test_constructor_splits_existing_image_sources(self):
@@ -36,6 +41,15 @@ class TestImageSampler(unittest.TestCase):
         # Does not stack augmenters by default, linear increase
         self.assertEqual(21, subject.num_training)
         self.assertEqual(9, subject.num_validation)
+
+    def test_augmenters_can_be_objects(self):
+        subject = training.image_sampler.ImageSampler(
+            image_sources=(MockImageSource(range(0, 10)),),
+            augmenters=(MockAugmenter(),),
+            default_validation_fraction=0
+        )
+        self.assertEqual(20, subject.num_training)
+        self.assertIn(13, {subject.get(idx) for idx in range(subject.num_training)})
 
     def test_same_value_doesnt_appear_in_training_and_validation(self):
         subject = training.image_sampler.ImageSampler(

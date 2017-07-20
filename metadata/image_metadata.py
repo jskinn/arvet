@@ -1,5 +1,6 @@
 import enum
 import util.transform as tf
+import util.dict_utils as du
 
 
 class ImageSourceType(enum.Enum):
@@ -56,6 +57,11 @@ class LabelledObject:
 
     @property
     def bounding_box(self):
+        """
+        The bounding box, as (x, y, width, height).
+        Location is measured from the top left of the image
+        :return:
+        """
         return self._bounding_box
 
     @property
@@ -239,6 +245,41 @@ class ImageMetadata:
         :return: A float for the average scene depth, or for the average of many images,
         """
         return self._average_scene_depth
+
+    def clone(self, **kwargs):
+        """
+        Clone the metadata, optionally changing some of the values.
+        This is the best way to create a new metadata based on an existing one
+        :param kwargs: Overridden arguments for differences to the cloned metadata, same as the constructor arguments
+        :return: a new image metadata object
+        """
+        du.defaults(kwargs, {
+            'source_type': self.source_type,
+            'height': self.height,
+            'width': self.width,
+            'environment_type': self.environment_type,
+            'light_level': self.light_level,
+            'time_of_day': self.time_of_day,
+            'fov': self.fov,
+            'focal_length': self.focal_length,
+            'aperture': self.aperture,
+            'simulation_world': self.simulation_world,
+            'lighting_model': self.lighting_model,
+            'texture_mipmap_bias': self.texture_mipmap_bias,
+            'normal_maps_enabled': self.normal_maps_enabled,
+            'roughness_enabled': self.roughness_enabled,
+            'geometry_decimation': self.geometry_decimation,
+            'procedural_generation_seed': self.procedural_generation_seed,
+            'labelled_objects': [(LabelledObject(
+                class_names=obj.class_names,
+                bounding_box=obj.bounding_box,
+                label_color=obj.label_color,
+                relative_pose=obj.relative_pose,
+                object_id=obj.object_id)
+                for obj in self.labelled_objects)],
+            'average_scene_depth': self.average_scene_depth
+        })
+        return ImageMetadata(**kwargs)
 
     def serialize(self):
         return {
