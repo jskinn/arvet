@@ -23,7 +23,8 @@ class DatabaseClient:
                 'connection_parameters': <kwargs passed to MongoClient>
                 'database_name': <database name>
                 'collections': {
-                    'system_trainers_collection': <collection name for system trainers>
+                    'trainer_collection': <collection name for trainers>
+                    'trainee_collection': <collection name for trainees>
                     'system_collection': <collection name for systems>
                     'image_source_collection': <collection name for image sources>
                     'image_collection':  <collection name for images>
@@ -47,7 +48,8 @@ class DatabaseClient:
             'database_name': 'benchmark_system',
             'gridfs_bucket': 'fs',
             'collections': {
-                'system_trainers_collection': 'system_trainers',
+                'trainer_collection': 'trainers',
+                'trainee_collection': 'trainees',
                 'system_collection': 'systems',
                 'image_source_collection': 'image_sources',
                 'image_collection':  'images',
@@ -60,7 +62,8 @@ class DatabaseClient:
 
         conn_kwargs = db_config['connection_parameters']
         db_name = db_config['database_name']
-        self._system_trainers_collection_name = db_config['collections']['system_trainers_collection']
+        self._trainer_collection_name = db_config['collections']['trainer_collection']
+        self._trainee_collection_name = db_config['collections']['trainee_collection']
         self._system_collection_name = db_config['collections']['system_collection']
         self._image_source_collection_name = db_config['collections']['image_source_collection']
         self._image_collection_name = db_config['collections']['image_collection']
@@ -74,8 +77,12 @@ class DatabaseClient:
         self._gridfs = gridfs.GridFS(self._database, collection=db_config['gridfs_bucket'])
 
     @property
-    def system_trainers_collection(self):
-        return self._database[self._system_trainers_collection_name]
+    def trainer_collection(self):
+        return self._database[self._trainer_collection_name]
+
+    @property
+    def trainee_collection(self):
+        return self._database[self._trainee_collection_name]
 
     @property
     def system_collection(self):
