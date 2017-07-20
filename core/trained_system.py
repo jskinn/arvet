@@ -102,6 +102,34 @@ class VisionSystemTrainee(database.entity.Entity, metaclass=database.entity.Abst
         pass
 
     @abc.abstractmethod
+    def start_validation(self, num_validation_images=None):
+        """
+        While training, start performing validation
+        This is done to reduce overfitting
+        :param num_validation_images: The amount of validation data, so we can pre-allocate storage
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def validate_with_image(self, image):
+        """
+        Measure performance with a particular image. This should accumulate during validation.
+        :param image: The image
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def finish_validation(self):
+        """
+        Finish validation and return to training.
+        :return:
+        """
+        pass
+
+
+    @abc.abstractmethod
     def finish_training(self, trainer_id, image_source_ids=None, training_settings=None):
         """
         Finish training, producing a new vision system instance,

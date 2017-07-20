@@ -37,23 +37,48 @@ class TrainerContract(metaclass=abc.ABCMeta):
         self.assertTrue(mock_trainee.start_training.called)
         self.assertTrue(mock_trainee.train_with_image.called)
         self.assertTrue(mock_trainee.finish_training.called)
+        if mock_trainee.start_validation.called:
+            self.assertTrue(mock_trainee.validate_with_image.called)
+            self.assertTrue(mock_trainee.finish_validation.called)
 
         is_training = False
         open_training = 0
+        is_validating = False
+        open_validating = 0
         for call in mock_trainee.method_calls:
             if is_training:
                 self.assertNotEqual('start_training', call[0])  # No nested calls to start_training
+
+                if is_validating:
+                    self.assertNotEqual('start_validation', call[0])    # We're already validating, don't start
+                    self.assertNotEqual('train_with_image', call[0])    # don't train while validating
+                    self.assertNotEqual('finish_training', call[0])     # We're validating, don't stop training
+                    if call[0] == 'finish_validation':
+                        is_validating = False
+                        open_validating -= 1
+                else:
+                    self.assertNotEqual('validate_with_image', call[0])     # Not validating, don't give validation images
+                    self.assertNotEqual('finish_validation', call[0])       # Can't finish without starting
+                    if call[0] == 'start_validation':
+                        is_validating = True
+                        open_validating += 1
+
                 if call[0] == 'finish_training':
                     is_training = False
                     open_training -= 1
             else:
                 self.assertNotEqual('train_with_image', call[0])    # Can't train_with_image, since we're not training
                 self.assertNotEqual('finish_training', call[0])     # Can't finish without starting
+                self.assertNotEqual('start_validation', call[0])    # No validation when not training
+                self.assertNotEqual('validate_with_image', call[0])
+                self.assertNotEqual('finish_validation', call[0])
                 if call[0] == 'start_training':
                     is_training = True
                     open_training += 1
         self.assertFalse(is_training)
         self.assertEqual(0, open_training)  # Make sure we start and finish training the same number of times
+        self.assertFalse(is_validating)
+        self.assertEqual(0, open_validating)  # Make sure we start and finish validating the same number of times
 
 
 class MockTrainedSystem(core.trained_system.TrainedVisionSystem):
