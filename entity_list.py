@@ -6,6 +6,10 @@ Add new entity classes here, only leaf classes matter though
 import core.image_entity
 import core.image_collection
 
+import training.epoch_trainer
+
+import systems.deep_learning.keras_frcnn_trainee
+
 import systems.deep_learning.keras_frcnn
 
 import benchmarks.bounding_box_overlap.bounding_box_overlap
