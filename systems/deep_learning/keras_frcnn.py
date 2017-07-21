@@ -367,24 +367,24 @@ class KerasFRCNN(core.trained_system.TrainedVisionSystem):
         [rpn_class, rpn_regr, shared_layers_output] = self._model_rpn.predict(formatted_image)
 
         # Convert region proposals to bounding boxes
-        result = roi_helpers.rpn_to_roi(rpn_class, rpn_regr, self._config, keras_backend.image_dim_ordering(),
+        regions = roi_helpers.rpn_to_roi(rpn_class, rpn_regr, self._config, keras_backend.image_dim_ordering(),
                                         overlap_thresh=0.7)
 
         # convert from (x1,y1,x2,y2) to (x,y,w,h)
-        result[:, 2] -= result[:, 0]
-        result[:, 3] -= result[:, 1]
+        regions[:, 2] -= regions[:, 0]
+        regions[:, 3] -= regions[:, 1]
 
         # apply the spatial pyramid pooling to the proposed regions
         bboxes = {}
         probs = {}
-        for jk in range(result.shape[0] // self._config.num_rois + 1):  # // indicates integer division
-            regions_of_interest = np.expand_dims(result[self._config.num_rois * jk:
+        for jk in range(regions.shape[0] // self._config.num_rois + 1):  # // indicates integer division
+            regions_of_interest = np.expand_dims(regions[self._config.num_rois * jk:
                                                         self._config.num_rois * (jk + 1), :], axis=0)
             if regions_of_interest.shape[1] == 0:
                 break
 
-            if jk == result.shape[0] // self._config.num_rois:
-                # pad result
+            if jk == regions.shape[0] // self._config.num_rois:
+                # pad regions
                 curr_shape = regions_of_interest.shape
                 target_shape = (curr_shape[0], self._config.num_rois, curr_shape[2])
                 rois_padded = np.zeros(target_shape).astype(regions_of_interest.dtype)

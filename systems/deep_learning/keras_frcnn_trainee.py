@@ -212,7 +212,7 @@ import keras.backend as keras_backend
 from keras.optimizers import Adam   # SGD, RMSprop
 from keras.layers import Input
 from keras.models import Model
-from keras_frcnn import config, data_generators
+from keras_frcnn import config as frcnn_config, data_generators
 from keras_frcnn import losses as frcnn_losses
 from keras_frcnn import resnet as nn    # TODO: Handle VGG as well, see train_frcnn.py
 import keras_frcnn.roi_helpers as roi_helpers
@@ -280,7 +280,7 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         self._validation_losses = None
         self._validation_count = None
         self._best_validation_loss = None
-        self._image_counter = None
+        self._sa_image_count = None
 
     @property
     def required_training_type(self):
@@ -304,12 +304,12 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
 
     def start_training(self, num_images=None):
         """
-        Start training FRCNN
+        Start training Keras-FRCNN
         :return: void
         """
-        self._config = config.Config()
+        self._config = frcnn_config.Config()
         self._config.num_rois = int(self._num_rois)
-        self._config.output_weight_path = generate_filename(self._weights_folder)
+        self._config.model_path = generate_filename(self._weights_folder)
         self._config.class_mapping = self._class_mapping
 
         if self._initial_weights_path is not None:
@@ -360,11 +360,11 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         self._model_all.compile(optimizer='sgd', loss='mae')
 
         self._best_validation_loss = np.Inf
-        self._image_counter = 0
         if self._self_assessment_interval > 0:
             # If we want to measure the training loss, build a buffer for the losses, and remember the best
             self._training_losses = np.zeros((self._self_assessment_interval, 4))
             self._best_training_loss = np.Inf
+            self._sa_image_count = 0
 
     def train_with_image(self, image, index=None):
         """
@@ -379,17 +379,25 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
             # Image is not valid, return
             return
 
+        # Train the region proposal network
         loss_rpn = self._model_rpn.train_on_batch(img_data, gt_regions)
 
+        # Get output region proposals to train the classifier
         prob_rpn = self._model_rpn.predict_on_batch(img_data)
 
         regions = roi_helpers.rpn_to_roi(prob_rpn[0], prob_rpn[1], self._config, keras_backend.image_dim_ordering(),
                                          use_regr=True, overlap_thresh=0.7, max_boxes=300)
 
+        # I think 'iou' stands for "Intersection over Union",
+        # which is the area of intersection of a bounding box with the gt bounding box
+        # divided by the union of the two areas. See keras_frcnn.data_generators.iou
         # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-        X2, Y1, Y2 = roi_helpers.calc_iou(regions, img_metadata, self._config, self._class_mapping)
+        X2, Y1, Y2, _ = roi_helpers.calc_iou(regions, img_metadata, self._config, self._class_mapping)
 
         if X2 is None:
+            # None if none of the region proposals overlap a ground-truth bounding box enough
+            # Return, we're done here. We can't train the classifier with no regions,
+            # and we can't self-assess if we don't have classifier loss
             return
 
         neg_samples = np.where(Y1[0, :, -1] == 1)
@@ -407,16 +415,20 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
 
         # Choose a 50/50 mix if positive and negative samples to train the classifier
         if self._config.num_rois > 1:
+            # Randomly choose up to half the configured number of rois as positive examples
             if len(pos_samples) < self._config.num_rois // 2:
                 selected_pos_samples = pos_samples.tolist()
             else:
                 selected_pos_samples = np.random.choice(pos_samples, self._config.num_rois // 2, replace=False).tolist()
+            # Choose the remainder as negative examples
             if len(neg_samples) >= self._config.num_rois - len(selected_pos_samples):
                 selected_neg_samples = np.random.choice(neg_samples, self._config.num_rois - len(selected_pos_samples),
                                                         replace=False).tolist()
-            else:
+            elif len(neg_samples) > 0:
                 selected_neg_samples = np.random.choice(neg_samples, self._config.num_rois - len(selected_pos_samples),
                                                         replace=True).tolist()
+            else:
+                selected_neg_samples = []
 
             sel_samples = selected_pos_samples + selected_neg_samples
         else:
@@ -426,18 +438,21 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
             else:
                 sel_samples = random.choice(pos_samples)
 
+        # Train the classifier
         loss_class = self._model_classifier.train_on_batch([img_data, X2[:, sel_samples, :]],
                                                            [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
 
-        if self._self_assessment_interval > 0:
-            iter_num = self._image_counter % len(self._training_losses)
-            self._training_losses[iter_num, 0] = loss_rpn[1]
-            self._training_losses[iter_num, 1] = loss_rpn[2]
+        if self._self_assessment_interval > 0 and loss_class is not None:
+            self._training_losses[self._sa_image_count, 0] = loss_rpn[1]
+            self._training_losses[self._sa_image_count, 1] = loss_rpn[2]
 
-            self._training_losses[iter_num, 2] = loss_class[1]
-            self._training_losses[iter_num, 3] = loss_class[2]
+            self._training_losses[self._sa_image_count, 2] = loss_class[1]
+            self._training_losses[self._sa_image_count, 3] = loss_class[2]
 
-            if iter_num == 0 and self._image_counter > 0:
+            # Increment the number of self-assessment images we've seen
+            self._sa_image_count += 1
+            if self._sa_image_count >= self._self_assessment_interval:
+                self._sa_image_count = 0
                 loss_rpn_cls = np.mean(self._training_losses[:, 0])
                 loss_rpn_regr = np.mean(self._training_losses[:, 1])
                 loss_class_cls = np.mean(self._training_losses[:, 2])
@@ -448,9 +463,6 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
                     # Save, if we have improved the training loss
                     self._best_training_loss = curr_loss
                     self._model_all.save_weights(self._config.model_path)
-
-        # At the end, increment the count of images we've seen to maintain zero-indexing
-        self._image_counter += 1
 
     def start_validation(self, num_validation_images=None):
         """
@@ -475,17 +487,20 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
             # Image is not valid, return
             return
 
+        # Get the loss testing on the image
         loss_rpn = self._model_rpn.test_on_batch(img_data, gt_regions)
 
+        # Get proposed regions for the classifier
         prob_rpn = self._model_rpn.predict_on_batch(img_data)
 
         regions = roi_helpers.rpn_to_roi(prob_rpn[0], prob_rpn[1], self._config, keras_backend.image_dim_ordering(),
                                          use_regr=True, overlap_thresh=0.7, max_boxes=300)
 
         # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-        X2, Y1, Y2 = roi_helpers.calc_iou(regions, img_metadata, self._config, self._class_mapping)
+        X2, Y1, Y2, _ = roi_helpers.calc_iou(regions, img_metadata, self._config, self._class_mapping)
 
         if X2 is None:
+            # No valid regions for this image, we can't validate the classifier, skip to the next validation image
             return
 
         neg_samples = np.where(Y1[0, :, -1] == 1)
@@ -501,7 +516,7 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         else:
             pos_samples = []
 
-        # Choose a 50/50 mix if positive and negative samples to train the classifier
+        # Choose a 50/50 mix if positive and negative samples to test the classifier
         if self._config.num_rois > 1:
             if len(pos_samples) < self._config.num_rois // 2:
                 selected_pos_samples = pos_samples.tolist()
@@ -522,10 +537,15 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
             else:
                 sel_samples = random.choice(pos_samples)
 
+        # Test the classifier
         loss_class = self._model_classifier.test_on_batch([img_data, X2[:, sel_samples, :]],
                                                           [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
-        # TODO: Widen the validation losses if we have to
+        # Record the validation loss
+        if self._validation_count >= self._validation_losses.shape[0]:
+            # We're full up in our validation losses, expand them
+            self._validation_losses = np.concatenate((self._validation_losses, np.zeros((100, 4))), axis=0)
         self._validation_losses[self._validation_count, :] = loss_rpn[1], loss_rpn[2], loss_class[1], loss_class[2]
+        self._validation_count += 1
 
     def finish_validation(self):
         """
@@ -533,16 +553,20 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         This checks the validation set performance, and saves the model if there is an improvement
         :return:
         """
-        loss_rpn_cls = np.mean(self._validation_losses[0:self._validation_count, 0])
-        loss_rpn_regr = np.mean(self._validation_losses[0:self._validation_count, 1])
-        loss_class_cls = np.mean(self._validation_losses[0:self._validation_count, 2])
-        loss_class_regr = np.mean(self._validation_losses[0:self._validation_count, 3])
+        # Slice the losses to the number of validation images we've actually seen.
+        # This stops the zeros from biasing the results
+        if self._validation_count > 0:
+            loss_rpn_cls = np.mean(self._validation_losses[0:self._validation_count, 0])
+            loss_rpn_regr = np.mean(self._validation_losses[0:self._validation_count, 1])
+            loss_class_cls = np.mean(self._validation_losses[0:self._validation_count, 2])
+            loss_class_regr = np.mean(self._validation_losses[0:self._validation_count, 3])
 
-        curr_loss = loss_rpn_cls + loss_rpn_regr + loss_class_cls + loss_class_regr
-        if curr_loss < self._best_validation_loss:
-            # Save, if we have improved the validation loss
-            self._best_validation_loss = curr_loss
-            self._model_all.save_weights(self._config.model_path)
+            curr_loss = loss_rpn_cls + loss_rpn_regr + loss_class_cls + loss_class_regr
+            if curr_loss < self._best_validation_loss:
+                # Save, if we have improved the validation loss
+                self._best_validation_loss = curr_loss
+                self._model_all.save_weights(self._config.model_path)
+        self._validation_count = None
         self._validation_losses = None
 
     def finish_training(self, trainer_id, image_source_ids=None, training_settings=None):
@@ -622,21 +646,28 @@ def preprocess_image(image, config):
     # resize the image so that smalles side is length = 600px
     x_img = cv2.resize(x_img, (resized_width, resized_height), interpolation=cv2.INTER_CUBIC)
 
-    # Build the bounding boxes in the format keras_frcnn expects
+    # Build the metadata including bounding boxes in the format keras_frcnn expects
     # We filter out bounding boxes for classes we don't care about
-    bounding_boxes = {
-        'bboxes': [{
-            'x1': obj.bounding_box[0],
-            'y1': obj.bounding_box[1],
-            'x2': obj.bounding_box[0] + obj.bounding_box[2],
-            'y2': obj.bounding_box[1] + obj.bounding_box[3]
-        } for obj in image.metadata.labelled_objects
-            if len(obj.class_names & set(config.class_mapping.keys())) > 0]
+    bboxes = []
+    for obj in image.metadata.labelled_objects:
+        classes = set(obj.class_names) & set(config.class_mapping.keys())
+        for cls in classes:
+            bboxes.append({
+                'class': cls,
+                'x1': obj.bounding_box[0],
+                'y1': obj.bounding_box[1],
+                'x2': obj.bounding_box[0] + obj.bounding_box[2],
+                'y2': obj.bounding_box[1] + obj.bounding_box[3]
+            })
+    metadata = {
+        'width': width,
+        'height': height,
+        'bboxes': bboxes
     }
     try:
-        y_rpn_cls, y_rpn_regr = data_generators.calc_rpn(config, bounding_boxes, width, height,
+        y_rpn_cls, y_rpn_regr = data_generators.calc_rpn(config, metadata, width, height,
                                                          resized_width, resized_height, nn.get_img_output_length)
-    except:
+    except Exception:
         return None, None, None
 
     # Zero-center by mean pixel, and preprocess image
@@ -655,8 +686,4 @@ def preprocess_image(image, config):
         y_rpn_cls = np.transpose(y_rpn_cls, (0, 2, 3, 1))
         y_rpn_regr = np.transpose(y_rpn_regr, (0, 2, 3, 1))
 
-    return np.copy(x_img), [np.copy(y_rpn_cls), np.copy(y_rpn_regr)], {
-        'width': width,
-        'height': height,
-        'bboxes': bounding_boxes
-    }
+    return np.copy(x_img), [np.copy(y_rpn_cls), np.copy(y_rpn_regr)], metadata
