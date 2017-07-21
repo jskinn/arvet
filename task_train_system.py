@@ -1,5 +1,5 @@
 import sys
-
+import traceback
 import bson.objectid
 
 import config.global_configuration as global_conf
@@ -31,7 +31,8 @@ def main(*args):
         if trainer is not None and trainee is not None and trainer.can_train_trainee(trainee):
             try:
                 system = trainer.train_vision_system(trainee)
-            except:
+            except Exception:
+                traceback.print_exc()
                 system = None
             if system is not None:
                 system_id = db_client.system_collection.insert(system.serialize())

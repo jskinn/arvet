@@ -35,9 +35,9 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         trainers = set()
         for dataset in training_datasets:
             s_trainer = training.epoch_trainer.EpochTrainer.create_serialized(
-                num_epochs=1,
+                num_epochs=3,
                 use_source_length=False,
-                epoch_length=50,
+                epoch_length=1000,
                 image_sources=(dataset,),
                 horizontal_flips=True,
                 vertical_flips=True,
@@ -57,7 +57,7 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         frcnn_trainee = train_frcnn.KerasFRCNNTrainee(
             weights_folder=os.path.expanduser('~/keras-models/podcup'),
             classes={'cup'},
-            num_rois=32,
+            num_rois=64,
             input_weight_path=base_weights_path,
             use_training_loss=False
         )
