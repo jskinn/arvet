@@ -262,13 +262,19 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         # TODO: There are more options in config that affect the network structure, add parameters?
 
         # We need to fix the classes at configure time, they are used to shape the network
+        # This must be a specific format, validate it
         self._class_mapping = {}
-        classes = {cls.lower() for cls in classes}
-        for idx, cls in enumerate(classes):
-            self._class_mapping[cls] = idx
-        if 'bg' not in classes:
-            idx = len(self._class_mapping)
-            self._class_mapping['bg'] = idx
+        if isinstance(classes, dict):
+            self._class_mapping = classes
+        else:
+            classes = {cls.lower() for cls in classes if cls is not 'bg'}
+            for idx, cls in enumerate(classes):
+                self._class_mapping[cls] = idx
+        if 'bg' in self._class_mapping:
+            if self._class_mapping['bg'] != len(self._class_mapping) - 1:
+                raise ValueError("The class mapping for this trainee is invalid, background must have the last index")
+        else:
+            self._class_mapping['bg'] = len(self._class_mapping)
 
         # Training state
         self._config = None
@@ -439,8 +445,12 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
                 sel_samples = random.choice(pos_samples)
 
         # Train the classifier
-        loss_class = self._model_classifier.train_on_batch([img_data, X2[:, sel_samples, :]],
-                                                           [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
+        try:
+            loss_class = self._model_classifier.train_on_batch([img_data, X2[:, sel_samples, :]],
+                                                               [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
+        except ValueError as v:
+            print(repr(v))
+            return
 
         if self._self_assessment_interval > 0 and loss_class is not None:
             self._training_losses[self._sa_image_count, 0] = loss_rpn[1]
