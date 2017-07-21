@@ -41,8 +41,7 @@ def main(*args):
                     experiment.add_trial_result(system_id=system_id, image_source_id=image_source_id,
                                                 trial_result_id=trial_result_id, db_client=db_client)
             elif experiment is not None:
-                experiment.update_trial_failed(system_id=system_id, image_source_id=image_source_id,
-                                               db_client=db_client)
+                experiment.retry_trial(system_id=system_id, image_source_id=image_source_id, db_client=db_client)
 
 
 if __name__ == '__main__':
