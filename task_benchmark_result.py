@@ -29,6 +29,7 @@ def main(*args):
         benchmark = dh.load_object(db_client, db_client.benchmarks_collection, benchmark_id)
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
+        success = False
         if benchmark is not None and trial_result is not None and benchmark.is_trial_appropriate(trial_result):
             try:
                 benchmark_result = benchmark.benchmark_results(trial_result)
@@ -39,8 +40,9 @@ def main(*args):
                 if experiment is not None:
                     experiment.add_benchmark_result(trial_result_id=trial_id, benchmark_id=benchmark_id,
                                                     benchmark_result_id=benchmark_result_id, db_client=db_client)
-            elif experiment is not None:
-                experiment.retry_benchmark(trial_result_id=trial_id, benchmark_id=benchmark_id, db_client=db_client)
+                    success = True
+        if not success and experiment is not None:
+            experiment.retry_benchmark(trial_result_id=trial_id, benchmark_id=benchmark_id, db_client=db_client)
 
 
 if __name__ == '__main__':

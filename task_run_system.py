@@ -30,6 +30,7 @@ def main(*args):
         image_source = dh.load_object(db_client, db_client.image_source_collection, image_source_id)
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
+        success = True
         if system is not None and image_source is not None and system.is_image_source_appropriate(image_source):
             try:
                 trial_result = trial_runner.run_system_with_source(system, image_source)
@@ -40,8 +41,9 @@ def main(*args):
                 if experiment is not None:
                     experiment.add_trial_result(system_id=system_id, image_source_id=image_source_id,
                                                 trial_result_id=trial_result_id, db_client=db_client)
-            elif experiment is not None:
-                experiment.retry_trial(system_id=system_id, image_source_id=image_source_id, db_client=db_client)
+                    success = True
+        if not success and experiment is not None:
+            experiment.retry_trial(system_id=system_id, image_source_id=image_source_id, db_client=db_client)
 
 
 if __name__ == '__main__':

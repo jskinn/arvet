@@ -27,6 +27,7 @@ def main(*args):
         trainee = dh.load_object(db_client, db_client.trainee_collection, trainee_id)
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
+        success = False
         if trainer is not None and trainee is not None and trainer.can_train_trainee(trainee):
             try:
                 system = trainer.train_vision_system(trainee)
@@ -37,8 +38,9 @@ def main(*args):
                 if experiment is not None:
                     experiment.add_system(trainer_id=trainer_id, trainee_id=trainee_id,
                                           system_id=system_id, db_client=db_client)
-            elif experiment is not None:
-                experiment.retry_training(trainer_id=trainer_id, trainee_id=trainee_id, db_client=db_client)
+                    success = True
+        if not success and experiment is not None:
+            experiment.retry_training(trainer_id=trainer_id, trainee_id=trainee_id, db_client=db_client)
 
 
 if __name__ == '__main__':
