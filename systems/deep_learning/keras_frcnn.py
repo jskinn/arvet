@@ -212,12 +212,12 @@ import keras_frcnn.roi_helpers as roi_helpers
 import keras_frcnn.config
 import keras_frcnn.resnet as network
 import core.sequence_type
-import core.system
+import core.trained_system
 import trials.object_detection.bounding_box_result as bbox_result
 import systems.deep_learning.config_helpers as config_help
 
 
-class KerasFRCNN(core.system.VisionSystem):
+class KerasFRCNN(core.trained_system.TrainedVisionSystem):
     """
     A Vision system for testing a keras-based FRCNN that does bounding-box estimation
     Based on keras-frcnn, found here: https://github.com/yhenon/keras-frcnn.
@@ -225,8 +225,11 @@ class KerasFRCNN(core.system.VisionSystem):
     TODO: Can support VGG as well as Resnet50
     """
 
-    def __init__(self, config, num_rois=32, id_=None):
-        super().__init__(id_=id_)
+    def __init__(self, config, vision_system_trainer, num_rois=32,
+                 training_image_source_ids=None, training_settings=None, id_=None):
+        super().__init__(vision_system_trainer=vision_system_trainer,
+                         training_image_source_ids=training_image_source_ids,
+                         training_settings=training_image_source_ids, id_=id_)
 
         if not isinstance(config, keras_frcnn.config.Config):
             raise ValueError("Config parameter must be a keras_frcnn configuration produced during training."
