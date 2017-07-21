@@ -234,11 +234,11 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
 
     """
 
-    def __init__(self, weights_file, classes, num_rois=32, input_weight_path=None, use_training_loss=False,
+    def __init__(self, weights_folder, classes, num_rois=32, input_weight_path=None, use_training_loss=False,
                  self_assessment_interval=1000, id_=None, **kwargs):
         """
 
-        :param weights_file: The file path to store the weights in. Call generateFilename to make one.
+        :param weights_folder: The folder to store the weights in, new files will be created each run
         :param classes: A set of lowercase class names to try and detect
         :param num_rois: Number of ROIs per iteration. Higher means more memory use.
         :param horizontal_flips: Augment with horizontal flips in training. (Default=false).
@@ -252,7 +252,10 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         :param kwargs:
         """
         super().__init__(id_=id_, **kwargs)
-        self._weights_filename = str(weights_file)
+        if os.path.isdir(weights_folder):
+            self._weights_folder = str(weights_folder)
+        else:
+            raise ValueError("We need a valid folder to store the generated weights files in")
         self._num_rois = int(num_rois)
         self._initial_weights_path = input_weight_path if os.path.isfile(input_weight_path) else None
         self._self_assessment_interval = int(self_assessment_interval) if bool(use_training_loss) else -1
@@ -306,7 +309,7 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         """
         self._config = config.Config()
         self._config.num_rois = int(self._num_rois)
-        self._config.output_weight_path = self._weights_filename
+        self._config.output_weight_path = generate_filename(self._weights_folder)
         self._config.class_mapping = self._class_mapping
 
         if self._initial_weights_path is not None:
@@ -572,7 +575,7 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         :return: a dictionary representation of the entity, that can be saved to MongoDB
         """
         serialized = super().serialize()
-        serialized['weights_filename'] = self._weights_filename
+        serialized['weights_folder'] = self._weights_folder
         serialized['num_rois'] = self._num_rois
         serialized['initial_weights_path'] = self._initial_weights_path
         serialized['self_assessment_interval'] = self._self_assessment_interval
@@ -581,8 +584,8 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        if 'weights_filename' in serialized_representation:
-            kwargs['weights_file'] = serialized_representation['weights_filename']
+        if 'weights_folder' in serialized_representation:
+            kwargs['weights_folder'] = serialized_representation['weights_folder']
         if 'num_rois' in serialized_representation:
             kwargs['num_rois'] = serialized_representation['num_rois']
         if 'initial_weights_path' in serialized_representation:

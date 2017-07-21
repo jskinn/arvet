@@ -53,10 +53,9 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         :param db_client: The database client
         :return: The set of ids of new trainees. May include existing ids.
         """
-        models_folder = os.path.expanduser('~/keras-models/podcup')
         base_weights_path = os.path.expanduser('~/Documents/TensorflowModels/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5')
         frcnn_trainee = train_frcnn.KerasFRCNNTrainee(
-            weights_file=train_frcnn.generate_filename(models_folder),
+            weights_folder=os.path.expanduser('~/keras-models/podcup'),
             classes={'cup'},
             num_rois=32,
             input_weight_path=base_weights_path,
