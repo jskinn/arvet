@@ -116,9 +116,12 @@ class EpochTrainer(core.trained_system.VisionSystemTrainer):
 
         # Start training!
         epoch_length = image_sampler.num_training if self._use_image_source_length else self._epoch_length
-        image_sampler.begin()
+        image_sampler.begin(shuffle=False)
         vision_system_trainee.start_training(num_images=self._num_epochs * epoch_length)
         for epoch_num in range(self._num_epochs):
+            # First, re-shuffle the images
+            image_sampler.shuffle()
+
             # Train with the training set
             for image_index in range(epoch_length):
                 vision_system_trainee.train_with_image(image_sampler.get(image_index),
@@ -183,12 +186,41 @@ class EpochTrainer(core.trained_system.VisionSystemTrainer):
         if 'validation_fraction' in serialized_representation:
             kwargs['validation_fraction'] = serialized_representation['validation_fraction']
         if 'image_sources' in serialized_representation:
-            s_image_sources = db_client.image_collection.find({
+            s_image_sources = db_client.image_source_collection.find({
                 '_id': {'$in': serialized_representation['image_sources']}
             })
             kwargs['image_sources'] = [db_client.deserialize_entity(s_image_source)
                                        for s_image_source in s_image_sources]
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+    @classmethod
+    def create_serialized(cls, num_epochs=2000, use_source_length=False, epoch_length=1000, image_sources=None,
+                          horizontal_flips=False, vertical_flips=False, rot_90=False, validation_fraction=0.3):
+        """
+        Create an already serialized epoch trainer.
+        This saves us having to load all the image sources when trying to build a new trainer for the database.
+        :param num_epochs: The number of training epochs
+        :param use_source_length: Should each epoch be based on the size of the image source.
+        If true, will loop through the entire image source exactly once per epoch. Default false.
+        :param epoch_length: How many images in each epoch, assuming we're not basing it off the image source
+        :param image_sources: The set of initial image sources to use. More can be added.
+        :param horizontal_flips: Augment data with horizontal flips? Default False
+        :param vertical_flips: Augment data with vertical flips? Default False
+        :param rot_90: Augment data with rotations of multiples of 90 degrees. Default False
+        :param validation_fraction: The fraction of data to use in the validation set. Default 0.3 (30%)
+        :return:
+        """
+        return {
+            '_type': cls.__name__,
+            'num_epochs': num_epochs,
+            'epoch_length': epoch_length,
+            'use_source_length': use_source_length,
+            'horizontal_flips': horizontal_flips,
+            'vertical_flips': vertical_flips,
+            'rot_90': rot_90,
+            'validation_fraction': validation_fraction,
+            'image_sources': list(image_sources)
+        }
 
 
 class DataAugmenter:

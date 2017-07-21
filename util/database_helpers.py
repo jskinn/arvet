@@ -62,7 +62,10 @@ def add_unique(collection, entity):
     :param entity: The object to insert
     :return: The id of the entity, whether newly added or existing
     """
-    s_object = entity.serialize()
+    if isinstance(entity, dict):
+        s_object = entity
+    else:
+        s_object = entity.serialize()
     query = query_to_dot_notation(copy.deepcopy(s_object))
     existing = collection.find_one(query, {'_id': True})
     if existing is not None:

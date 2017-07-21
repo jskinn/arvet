@@ -79,7 +79,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
         self.make_image_collection_map()
 
         serialized_collections = [{'_id': coll.identifier} for coll in self.image_collection_map.values()]
-        self.db_client.image_collection.find.return_value = serialized_collections
+        self.db_client.image_source_collection.find.return_value = serialized_collections
         self.db_client.deserialize_entity.side_effect = lambda s_coll: self.image_collection_map[str(s_coll['_id'])]
         return self.db_client
 
@@ -167,6 +167,59 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
         # 3*2*2*4=48 training images per epoch, 1 epochs means 91 training calls
         self.assertEqual(48, trainee.start_training.call_args[1]['num_images'])
         self.assertEqual(48, trainee.train_with_image.call_count)
+
+    def test_provides_images_in_a_different_order_each_epoch(self):
+        collection = make_mock_image_collection(5)
+        trainee = self.make_mock_trainee()
+        subject = training.epoch_trainer.EpochTrainer(
+            image_sources=[collection],
+            num_epochs=5,
+            use_source_length=True,
+            horizontal_flips=False,
+            vertical_flips=False,
+            rot_90=False,
+            validation_fraction=0
+        )
+        subject.train_vision_system(trainee)
+        # 5 training images per epoch, 5 epochs means 91 training calls
+        self.assertEqual(25, trainee.train_with_image.call_count)
+
+        # Split the calls by epoch, producing lists of 'image' values
+        orders = [[trainee.train_with_image.call_args_list[epoch * 5 + idx][0][0]
+                   for idx in range(5)] for epoch in range(5)]
+
+        # make sure the list of calls in each epoch are not the same
+        for i in range(5):
+            for j in range(i + 1, 5):
+                self.assertNotEqual(orders[i], orders[j])
+
+    def test_create_serialized_makes_deserializeable_collection(self):
+        db_client = self.create_mock_db_client()
+        s_trainer1 = training.epoch_trainer.EpochTrainer.create_serialized(
+            image_sources=[coll.identifier for coll in self.image_collection_map.values()],
+            num_epochs=13,
+            epoch_length=142,
+            use_source_length=False,
+            horizontal_flips=False,
+            vertical_flips=True,
+            rot_90=False,
+            validation_fraction=0.3175172
+        )
+        trainer1 = training.epoch_trainer.EpochTrainer.deserialize(s_trainer1, db_client)
+
+        self.assertEqual(s_trainer1['num_epochs'], trainer1._num_epochs)
+        self.assertEqual(s_trainer1['epoch_length'], trainer1._epoch_length)
+        self.assertEqual(s_trainer1['use_source_length'], trainer1._use_image_source_length)
+        self.assertEqual(s_trainer1['horizontal_flips'], trainer1._horizontal_flips)
+        self.assertEqual(s_trainer1['vertical_flips'], trainer1._vertical_flips)
+        self.assertEqual(s_trainer1['rot_90'], trainer1._rot_90)
+        self.assertEqual(s_trainer1['validation_fraction'], trainer1._validation_fraction)
+        self.assertEqual(len(s_trainer1['image_sources']), trainer1.num_image_sources)
+        for source_idx in range(trainer1.num_image_sources):
+            self.assertEqual(s_trainer1['image_sources'][source_idx], trainer1._image_sources[source_idx].identifier)
+
+        s_trainer_2 = trainer1.serialize()
+        self.assert_serialized_equal(s_trainer1, s_trainer_2)
 
 
 def make_image(**kwargs):
