@@ -1,0 +1,10 @@
+pip
+pickle
+numpy>=1.12
+transforms3d
+pymongo
+unrealcv>=0.2
+xxhash
+opencv>=3.0
+keras
+tensorflow
