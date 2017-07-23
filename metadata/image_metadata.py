@@ -127,6 +127,12 @@ class LabelledObject:
         return cls(**kwargs)
 
 
+class SimulationWorld:
+
+    def __init__(self):
+        self.base_world = 10
+
+
 class ImageMetadata:
     """
     A collection of metadata properties for images.
@@ -156,7 +162,7 @@ class ImageMetadata:
         self._texture_mipmap_bias = int(texture_mipmap_bias) if texture_mipmap_bias is not None else None
         self._normal_maps_enabled = bool(normal_maps_enabled) if normal_maps_enabled is not None else None
         self._roughness_enabled = bool(roughness_enabled) if roughness_enabled is not None else None
-        self._geometry_decimation = int(geometry_decimation) if geometry_decimation is not None else None
+        self._geometry_decimation = float(geometry_decimation) if geometry_decimation is not None else None
 
         # Procedural Generation settings
         self._procedural_generation_seed = (int(procedural_generation_seed)
@@ -167,6 +173,34 @@ class ImageMetadata:
 
         # Depth information
         self._average_scene_depth = float(average_scene_depth) if average_scene_depth is not None else None
+
+    def __eq__(self, other):
+        return (isinstance(other, ImageMetadata) and
+                self.source_type == other.source_type and
+                self.environment_type == other.environment_type and
+                self.light_level == other.light_level and
+                self.time_of_day == other.time_of_day and
+                self.height == other.height and
+                self.width == other.width and
+                self.fov == other.fov and
+                self.focal_length == other.focal_length and
+                self.aperture == other.aperture and
+                self.simulation_world == other.simulation_world and
+                self.lighting_model == other.lighting_model and
+                self.texture_mipmap_bias == other.texture_mipmap_bias and
+                self.normal_maps_enabled == other.normal_maps_enabled and
+                self.roughness_enabled == other.roughness_enabled and
+                self.geometry_decimation == other.geometry_decimation and
+                self.procedural_generation_seed == other.procedural_generation_seed and
+                self.average_scene_depth == other.average_scene_depth and
+                set(self.labelled_objects) == set(other.labelled_objects))
+
+    def __hash__(self):
+        return hash((self.source_type, self.environment_type, self.light_level, self.time_of_day, self.height,
+                     self.width, self.fov, self.focal_length, self.aperture, self.simulation_world, self.lighting_model,
+                     self.texture_mipmap_bias,self.normal_maps_enabled, self.roughness_enabled,
+                     self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth) +
+                    tuple(hash(obj) for obj in self.labelled_objects))
 
     @property
     def source_type(self):

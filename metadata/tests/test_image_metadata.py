@@ -193,6 +193,209 @@ class TestImageMetadata(unittest.TestCase):
             self.assert_metadata_equal(entity1, entity2)
             self.assertEqual(s_entity1, s_entity2)
 
+    def test_equals(self):
+        alt_metadata = {
+            'source_type': [imeta.ImageSourceType.REAL_WORLD],
+            'environment_type': [imeta.EnvironmentType.INDOOR, imeta.EnvironmentType.OUTDOOR_URBAN,
+                                 imeta.EnvironmentType.OUTDOOR_LANDSCAPE],
+            'light_level': [imeta.LightingLevel.PITCH_BLACK, imeta.LightingLevel.DIM, imeta.LightingLevel.EVENLY_LIT,
+                            imeta.LightingLevel.BRIGHT],
+            'time_of_day': [imeta.TimeOfDay.DAWN, imeta.TimeOfDay.MORNING, imeta.TimeOfDay.AFTERNOON,
+                            imeta.TimeOfDay.TWILIGHT, imeta.TimeOfDay.NIGHT],
+            'height': [720],
+            'width': [1280],
+            'fov': [30],
+            'focal_length': [22],
+            'aperture': [1.2],
+            'simulation_world': ['TestSimulationWorld2'],
+            'lighting_model': [imeta.LightingModel.UNLIT],
+            'texture_mipmap_bias': [2],
+            'normal_maps_enabled': [False],
+            'roughness_enabled': [False],
+            'geometry_decimation': [0.3],
+            'procedural_generation_seed': [7329],
+            'average_scene_depth': [102.33],
+            'labelled_objects': [[], [
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 280, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cat',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 163),
+                    relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ],[
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 12, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('car',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 163),
+                    relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ],[
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 280, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('car',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 255),
+                    relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ]]
+        }
+        a = self.make_metadata()
+        b = self.make_metadata()
+        self.assertEqual(a, b)
+
+        # Change single keys, and make sure it is no longer equal
+        for key, values in alt_metadata.items():
+            for val in values:
+                b = self.make_metadata(**{key: val})
+                self.assertNotEqual(a, b, "Changing key {0} to {1} did not change the hash".format(key, str(val)))
+
+    def test_hash(self):
+        alt_metadata = {
+            'source_type': [imeta.ImageSourceType.REAL_WORLD],
+            'environment_type': [imeta.EnvironmentType.INDOOR, imeta.EnvironmentType.OUTDOOR_URBAN,
+                                 imeta.EnvironmentType.OUTDOOR_LANDSCAPE],
+            'light_level': [imeta.LightingLevel.PITCH_BLACK, imeta.LightingLevel.DIM, imeta.LightingLevel.EVENLY_LIT,
+                            imeta.LightingLevel.BRIGHT],
+            'time_of_day': [imeta.TimeOfDay.DAWN, imeta.TimeOfDay.MORNING, imeta.TimeOfDay.AFTERNOON,
+                            imeta.TimeOfDay.TWILIGHT, imeta.TimeOfDay.NIGHT],
+            'height': [720],
+            'width': [1280],
+            'fov': [30],
+            'focal_length': [22],
+            'aperture': [1.2],
+            'simulation_world': ['TestSimulationWorld2'],
+            'lighting_model': [imeta.LightingModel.UNLIT],
+            'texture_mipmap_bias': [2],
+            'normal_maps_enabled': [False],
+            'roughness_enabled': [False],
+            'geometry_decimation': [0.3],
+            'procedural_generation_seed': [7329],
+            'average_scene_depth': [102.33],
+            'labelled_objects': [[], [
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 280, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cat',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 163),
+                    relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ], [
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 12, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('car',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 163),
+                    relative_pose=tf.Transform(location=(286, -465, -165),
+                                               rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ], [
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 280, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('car',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 255),
+                    relative_pose=tf.Transform(location=(286, -465, -165),
+                                               rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ]]
+        }
+        a = self.make_metadata()
+        b = self.make_metadata()
+        self.assertEqual(hash(a), hash(b))
+
+        # Change single keys, and make sure it is no longer equal
+        for key, values in alt_metadata.items():
+            for val in values:
+                b = self.make_metadata(**{key: val})
+                self.assertNotEqual(hash(a), hash(b),
+                                    "Changing key {0} to {1} did not change the hash".format(key, str(val)))
+
     def assert_metadata_equal(self, metadata1, metadata2):
         if not isinstance(metadata1, imeta.ImageMetadata):
             self.fail("metadata 1 is not an image metadata")
