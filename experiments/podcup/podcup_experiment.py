@@ -35,7 +35,7 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         trainers = set()
         for dataset in training_datasets:
             s_trainer = training.epoch_trainer.EpochTrainer.create_serialized(
-                num_epochs=3,
+                num_epochs=50,
                 use_source_length=False,
                 epoch_length=1000,
                 image_sources=(dataset,),

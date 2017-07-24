@@ -400,7 +400,7 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
         X2, Y1, Y2, _ = roi_helpers.calc_iou(regions, img_metadata, self._config, self._class_mapping)
 
-        if X2 is None:
+        if X2 is None or len(Y1) <= 0:
             # None if none of the region proposals overlap a ground-truth bounding box enough
             # Return, we're done here. We can't train the classifier with no regions,
             # and we can't self-assess if we don't have classifier loss
@@ -434,7 +434,9 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
                 selected_neg_samples = np.random.choice(neg_samples, self._config.num_rois - len(selected_pos_samples),
                                                         replace=True).tolist()
             else:
-                selected_neg_samples = []
+                # We don't have any negative samples this time, fill the rois out with positive ones
+                selected_neg_samples = np.random.choice(pos_samples, self._config.num_rois - len(selected_pos_samples),
+                                                        replace=True).tolist()
 
             sel_samples = selected_pos_samples + selected_neg_samples
         else:
@@ -509,7 +511,7 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
         # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
         X2, Y1, Y2, _ = roi_helpers.calc_iou(regions, img_metadata, self._config, self._class_mapping)
 
-        if X2 is None:
+        if X2 is None or len(Y1) <= 0:
             # No valid regions for this image, we can't validate the classifier, skip to the next validation image
             return
 
@@ -535,10 +537,13 @@ class KerasFRCNNTrainee(core.trained_system.VisionSystemTrainee):
             if len(neg_samples) >= self._config.num_rois - len(selected_pos_samples):
                 selected_neg_samples = np.random.choice(neg_samples, self._config.num_rois - len(selected_pos_samples),
                                                         replace=False).tolist()
-            else:
+            elif len(neg_samples) > 0:
                 selected_neg_samples = np.random.choice(neg_samples, self._config.num_rois - len(selected_pos_samples),
                                                         replace=True).tolist()
-
+            else:
+                # We don't have any negative samples this time, fill the rois out with positive ones
+                selected_neg_samples = np.random.choice(pos_samples, self._config.num_rois - len(selected_pos_samples),
+                                                        replace=True).tolist()
             sel_samples = selected_pos_samples + selected_neg_samples
         else:
             # in the extreme case where num_rois = 1, we pick a random pos or neg sample
