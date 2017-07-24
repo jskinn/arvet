@@ -34,6 +34,15 @@ class Experiment(database.entity.Entity):
 
         self._updates = {}
 
+    @property
+    def results_ids(self):
+        """
+        Get the set of benchmark results
+        produced in this experiment
+        :return:
+        """
+        return self._benchmark_results
+
     def do_imports(self, db_client, save_changes=True):
         """
         Perform imports for this experiment.
