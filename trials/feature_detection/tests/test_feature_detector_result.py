@@ -84,7 +84,3 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         for key in trial_result1.camera_poses.keys():
             self.assertEqual(trial_result1.camera_poses[key], trial_result2.camera_poses[key])
         self.assertEqual(trial_result1.settings, trial_result2.settings)
-
-    def test_identifier(self):
-        trial_result = self.make_instance(id_=123)
-        self.assertEqual(trial_result.identifier, 123)
