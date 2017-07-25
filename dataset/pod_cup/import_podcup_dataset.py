@@ -1,7 +1,9 @@
 import os.path
 import re
+import xxhash
 import cv2
 
+import util.dict_utils as du
 import util.transform as tf
 import metadata.image_metadata as imeta
 import core.image_entity
@@ -10,7 +12,14 @@ import core.sequence_type
 import dataset.image_collection_builder
 
 
-def import_rw_dataset(labels_path, db_client):
+def import_rw_dataset(labels_path, db_client, **kwargs):
+    """
+    Import a real-world dataset with labelled images.
+    :param labels_path:
+    :param db_client:
+    :param kwargs: Additional arguments passed to the image metadata
+    :return:
+    """
     builder = dataset.image_collection_builder.ImageCollectionBuilder(db_client)
     builder.set_non_sequential()
     with open(labels_path, 'r') as labels_file:
@@ -33,12 +42,12 @@ def import_rw_dataset(labels_path, db_client):
                 data=im,
                 camera_pose=tf.Transform(),
                 metadata=imeta.ImageMetadata(
+                    hash_=xxhash.xxh64(im).digest(),
                     source_type=imeta.ImageSourceType.REAL_WORLD,
                     height=im.shape[0],
                     width=im.shape[1],
-                    environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                    light_level=imeta.LightingLevel.EVENLY_LIT,
-                    labelled_objects=(labelled_object,)),
+                    labelled_objects=(labelled_object,),
+                    **kwargs),
                 additional_metadata=None
             )
             builder.add_image(image_entity)

@@ -6,6 +6,7 @@ import pandas as pd
 import bson.objectid
 import batch_analysis.experiment
 import util.database_helpers as dh
+import metadata.image_metadata as imeta
 import dataset.pod_cup.import_podcup_dataset as pod_dataset
 import training.epoch_trainer
 import systems.deep_learning.keras_frcnn_trainee as train_frcnn
@@ -34,7 +35,10 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         subdirs = {'cup_in_pod', 'cup_outside_pod', 'other_cups_indoor', 'other_cups_outdoor', 'other_cups_pod'}
         for subdir in subdirs:
             for clicks_file in glob.iglob(os.path.join(root_dir, subdir, 'clicks-*.txt')):  # there should only be one
-                dataset_id = pod_dataset.import_rw_dataset(clicks_file, db_client)
+                # TODO: Different metadata for each dataset
+                dataset_id = pod_dataset.import_rw_dataset(clicks_file, db_client,
+                                                           environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                                           light_level=imeta.LightingLevel.EVENLY_LIT)
                 self._training_data_names[dataset_id] = subdir
                 training_datasets.append(dataset_id)
 

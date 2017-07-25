@@ -1,4 +1,5 @@
 import os
+import xxhash
 import numpy as np
 import cv2
 import unrealcv
@@ -318,7 +319,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                                       right_data=right_image_data,
                                       left_camera_pose=cached_pose,
                                       right_camera_pose=right_pose,
-                                      metadata=self._make_metadata(image_data.shape, depth_data, labels_data),
+                                      metadata=self._make_metadata(image_data, depth_data, labels_data,
+                                                                   cached_pose, right_pose),
                                       additional_metadata=self._additional_metadata,
                                       left_depth_data=depth_data,
                                       left_labels_data=labels_data,
@@ -327,15 +329,14 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                                       right_labels_data=right_labels,
                                       right_world_normals_data=right_world_normals)
             return im.Image(data=image_data,
-                            camera_pose=self.current_pose,
-                            metadata=self._make_metadata(image_data.shape, depth_data, labels_data),
+                            metadata=self._make_metadata(image_data, depth_data, labels_data, self.current_pose),
                             additional_metadata=self._additional_metadata,
                             depth_data=depth_data,
                             labels_data=labels_data,
                             world_normals_data=world_normals_data)
         return None
 
-    def _make_metadata(self, im_shape, depth_data, label_data):
+    def _make_metadata(self, im_data, depth_data, label_data, camera_pose, right_camera_pose=None):
         fov = None
         focus_length = None
         aperture = None
@@ -365,13 +366,17 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                         object_id=name
                     ))
 
-        return imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=im_shape[0], width=im_shape[1],
-                                   environment_type=self._metadata['environment_type'],
-                                   light_level=self._metadata['light_level'], time_of_day=self._metadata['time_of_day'],
-                                   fov=fov, focal_length=focus_length, aperture=aperture,
-                                   simulation_world=self._metadata['simulation_world'],
-                                   lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
-                                   texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,
-                                   geometry_decimation=None, procedural_generation_seed=None,
-                                   labelled_objects=labelled_objects,
-                                   average_scene_depth=np.mean(depth_data) if depth_data is not None else None)
+        return imeta.ImageMetadata(
+            hash_=xxhash.xxh64(im_data).digest(),
+            source_type=imeta.ImageSourceType.SYNTHETIC, height=im_data.shape[0], width=im_data.shape[1],
+            camera_pose=camera_pose,
+            right_camera_pose=right_camera_pose,
+            environment_type=self._metadata['environment_type'],
+            light_level=self._metadata['light_level'], time_of_day=self._metadata['time_of_day'],
+            fov=fov, focal_length=focus_length, aperture=aperture,
+            simulation_world=self._metadata['simulation_world'],
+            lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
+            texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,
+            geometry_decimation=None, procedural_generation_seed=None,
+            labelled_objects=labelled_objects,
+            average_scene_depth=np.mean(depth_data) if depth_data is not None else None)

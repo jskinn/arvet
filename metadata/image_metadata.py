@@ -141,10 +141,13 @@ class ImageMetadata:
     Instances of this class are associated with Image objects
     """
 
-    def __init__(self, source_type, height, width, environment_type=None, light_level=None, time_of_day=None, fov=None,
-                 focal_length=None, aperture=None, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
-                 normal_maps_enabled=True, roughness_enabled=None, geometry_decimation=None,
-                 procedural_generation_seed=None, labelled_objects=None, average_scene_depth=None):
+    def __init__(self, source_type, height, width, hash_, camera_pose=None, right_camera_pose=None,
+                 environment_type=None, light_level=None, time_of_day=None, fov=None, focal_length=None, aperture=None,
+                 simulation_world=None, lighting_model=None, texture_mipmap_bias=None, normal_maps_enabled=True,
+                 roughness_enabled=None, geometry_decimation=None, procedural_generation_seed=None,
+                 labelled_objects=None, average_scene_depth=None):
+        self._hash = hash_
+
         self._source_type = ImageSourceType(source_type)
         self._environment_type = EnvironmentType(environment_type) if environment_type is not None else None
         self._light_level = LightingLevel(light_level) if light_level is not None else None
@@ -152,6 +155,8 @@ class ImageMetadata:
 
         self._height = int(height)
         self._width = int(width)
+        self._camera_pose = camera_pose
+        self._right_camera_pose = right_camera_pose
         self._fov = float(fov) if fov is not None else None
         self._focal_length = float(focal_length) if focal_length is not None else None
         self._aperture = float(aperture) if aperture is not None else None
@@ -176,12 +181,15 @@ class ImageMetadata:
 
     def __eq__(self, other):
         return (isinstance(other, ImageMetadata) and
+                self.hash == other.hash and
                 self.source_type == other.source_type and
                 self.environment_type == other.environment_type and
                 self.light_level == other.light_level and
                 self.time_of_day == other.time_of_day and
                 self.height == other.height and
                 self.width == other.width and
+                self.camera_pose == other.camera_pose and
+                self.right_camera_pose == other.right_camera_pose and
                 self.fov == other.fov and
                 self.focal_length == other.focal_length and
                 self.aperture == other.aperture and
@@ -196,11 +204,22 @@ class ImageMetadata:
                 set(self.labelled_objects) == set(other.labelled_objects))
 
     def __hash__(self):
-        return hash((self.source_type, self.environment_type, self.light_level, self.time_of_day, self.height,
-                     self.width, self.fov, self.focal_length, self.aperture, self.simulation_world, self.lighting_model,
-                     self.texture_mipmap_bias,self.normal_maps_enabled, self.roughness_enabled,
+        return hash((self.hash, self.source_type, self.environment_type, self.light_level, self.time_of_day,
+                     self.height, self.width, self.camera_pose, self.right_camera_pose, self.fov, self.focal_length,
+                     self.aperture, self.simulation_world, self.lighting_model,
+                     self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
                      self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth) +
                     tuple(hash(obj) for obj in self.labelled_objects))
+
+    @property
+    def hash(self):
+        """
+        The 64-bit xxhash of the image data.
+        this is useful for quick comparisons of images,
+        particularly within the database where we don't have the image data available.
+        :return:
+        """
+        return self._hash
 
     @property
     def source_type(self):
@@ -225,6 +244,14 @@ class ImageMetadata:
     @property
     def width(self):
         return self._width
+
+    @property
+    def camera_pose(self):
+        return self._camera_pose
+
+    @property
+    def right_camera_pose(self):
+        return self._right_camera_pose
 
     @property
     def fov(self):
@@ -288,9 +315,12 @@ class ImageMetadata:
         :return: a new image metadata object
         """
         du.defaults(kwargs, {
+            'hash_': self.hash,
             'source_type': self.source_type,
             'height': self.height,
             'width': self.width,
+            'camera_pose': self.camera_pose,
+            'right_camera_pose': self.right_camera_pose,
             'environment_type': self.environment_type,
             'light_level': self.light_level,
             'time_of_day': self.time_of_day,
@@ -316,12 +346,16 @@ class ImageMetadata:
         return ImageMetadata(**kwargs)
 
     def serialize(self):
+        #TODO: We want serialize to omit none keys for brevity in the database. Only list what we know.
         return {
+            'hash': self.hash,
             'source_type': self.source_type.value,
             'environment_type': self.environment_type.value if self.environment_type is not None else None,
             'light_level': self.light_level.value if self.light_level is not None else None,
             'time_of_day': self.time_of_day.value if self.time_of_day is not None else None,
 
+            'camera_pose': self.camera_pose.serialize() if self.camera_pose is not None else None,
+            'right_camera_pose': self.right_camera_pose.serialize() if self.right_camera_pose is not None else None,
             'height': self.height,
             'width': self.width,
             'fov': self.fov,
@@ -345,13 +379,19 @@ class ImageMetadata:
     @classmethod
     def deserialize(cls, serialized):
         kwargs = {}
-        direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width', 'fov',
-                            'focal_length', 'aperture', 'simulation_world', 'lighting_model', 'texture_mipmap_bias',
-                            'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
+        direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width',
+                            'fov', 'focal_length', 'aperture', 'simulation_world', 'lighting_model',
+                            'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth']
         for key in direct_copy_keys:
             if key in serialized:
                 kwargs[key] = serialized[key]
+        if 'hash' in serialized:
+            kwargs['hash_'] = serialized['hash']
+        if 'camera_pose' in serialized and serialized['camera_pose'] is not None:
+            kwargs['camera_pose'] = tf.Transform.deserialize(serialized['camera_pose'])
+        if 'right_camera_pose' in serialized and serialized['right_camera_pose'] is not None:
+            kwargs['right_camera_pose'] = tf.Transform.deserialize(serialized['right_camera_pose'])
         if 'labelled_objects' in serialized:
             kwargs['labelled_objects'] = tuple(LabelledObject.deserialize(s_obj)
                                                for s_obj in serialized['labelled_objects'])

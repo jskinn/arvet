@@ -80,7 +80,7 @@ class TestImportGeneratedDataset(unittest.TestCase):
         })
 
     def test_build_image_metadata_constructs_image_metadata_from_metadata(self):
-        metadata = import_gen.build_image_metadata((600, 800), None, {
+        metadata = import_gen.build_image_metadata(np.zeros((600, 800, 3), dtype='uint8'), None, None, {
             "Version": "0.1.2",
             "Material Properties": {
                 "RoughnessQuality": 0,
@@ -324,8 +324,8 @@ class TestImportGeneratedDataset(unittest.TestCase):
         self.assertCalled(mock_db_client.image_collection.insert)
         s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
         self.assertEqual('ImageEntity', s_result_image['_type'])
-        self.assertNPEqual((1, -1, 1), s_result_image['camera_pose']['location'])
-        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['camera_pose']['rotation'], approx=0.000000000000001)
+        self.assertNPEqual((1, -1, 1), s_result_image['metadata']['camera_pose']['location'])
+        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['camera_pose']['rotation'], approx=0.000000000000001)
         self.assertEqual({
             'world': 'nope',
             'quality': 'overpowered',
@@ -425,11 +425,11 @@ class TestImportGeneratedDataset(unittest.TestCase):
         self.assertCalled(mock_db_client.image_collection.insert)
         s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
         self.assertEqual('StereoImageEntity', s_result_image['_type'])
-        self.assertNPEqual((1, -1, 1), s_result_image['left_camera_pose']['location'])
-        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['left_camera_pose']['rotation'],
+        self.assertNPEqual((1, -1, 1), s_result_image['metadata']['camera_pose']['location'])
+        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['camera_pose']['rotation'],
                            approx=0.000000000000001)
-        self.assertNPEqual((1, -1, 1), s_result_image['right_camera_pose']['location'])
-        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['right_camera_pose']['rotation'],
+        self.assertNPEqual((1, -1, 1), s_result_image['metadata']['right_camera_pose']['location'])
+        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['right_camera_pose']['rotation'],
                            approx=0.000000000000001)
         self.assertEqual({
             'world': 'nope',

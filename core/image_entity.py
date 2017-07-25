@@ -51,7 +51,6 @@ class ImageEntity(core.image.Image, database.entity.Entity):
     def serialize(self):
         serialized = super().serialize()
         serialized['data'] = self._data_id
-        serialized['camera_pose'] = self.camera_pose.serialize()
         serialized['metadata'] = self.metadata.serialize()
         serialized['additional_metadata'] = copy.deepcopy(self.additional_metadata)
         serialized['depth_data'] = self._depth_id
@@ -61,8 +60,6 @@ class ImageEntity(core.image.Image, database.entity.Entity):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        if 'camera_pose' in serialized_representation:
-            kwargs['camera_pose'] = tf.Transform.deserialize(serialized_representation['camera_pose'])
         if 'metadata' in serialized_representation:
             kwargs['metadata'] = imeta.ImageMetadata.deserialize(serialized_representation['metadata'])
         if 'additional_metadata' in serialized_representation:
@@ -143,13 +140,12 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         serialized = super().serialize()
 
         # fiddle the serialized version for left and right images
-        fiddle_keys = ['data', 'camera_pose', 'depth_data', 'labels_data', 'world_normals_data']
+        fiddle_keys = ['data', 'depth_data', 'labels_data', 'world_normals_data']
         for key in fiddle_keys:
             serialized['left_' + key] = serialized[key]
             del serialized[key]
 
         serialized['right_data'] = self._right_data_id
-        serialized['right_camera_pose'] = self.right_camera_pose.serialize()
         serialized['right_depth_data'] = self._right_depth_id
         serialized['right_labels_data'] = self._right_labels_id
         serialized['right_world_normals_data'] = self._right_world_normals_id
@@ -162,8 +158,6 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
             kwargs['left_data_id'] = serialized_representation['left_data']
             if kwargs['left_data_id'] is not None:
                 kwargs['left_data'] = pickle.loads(db_client.grid_fs.get(kwargs['left_data_id']).read())
-        if 'left_camera_pose' in serialized_representation:
-            kwargs['left_camera_pose'] = tf.Transform.deserialize(serialized_representation['left_camera_pose'])
         if 'left_depth_data' in serialized_representation:
             kwargs['left_depth_id'] = serialized_representation['left_depth_data']
             if kwargs['left_depth_id'] is not None:
@@ -182,8 +176,6 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
             kwargs['right_data_id'] = serialized_representation['right_data']
             if kwargs['right_data_id'] is not None:
                 kwargs['right_data'] = pickle.loads(db_client.grid_fs.get(kwargs['right_data_id']).read())
-        if 'right_camera_pose' in serialized_representation:
-            kwargs['right_camera_pose'] = tf.Transform.deserialize(serialized_representation['right_camera_pose'])
         if 'right_depth_data' in serialized_representation:
             kwargs['right_depth_id'] = serialized_representation['right_depth_data']
             if kwargs['right_depth_id'] is not None:
@@ -214,8 +206,6 @@ def image_to_entity(image):
     elif isinstance(image, core.image.StereoImage):
         return StereoImageEntity(left_data=image.left_data,
                                  right_data=image.right_data,
-                                 left_camera_pose=image.left_camera_pose,
-                                 right_camera_pose=image.right_camera_pose,
                                  metadata=image.metadata,
                                  additional_metadata=image.additional_metadata,
                                  left_depth_data=image.left_depth_data,
@@ -226,7 +216,6 @@ def image_to_entity(image):
                                  right_world_normals_data=image.right_world_normals_data)
     elif isinstance(image, core.image.Image):
         return ImageEntity(data=image.data,
-                           camera_pose=image.camera_pose,
                            metadata=image.metadata,
                            additional_metadata=image.additional_metadata,
                            depth_data=image.depth_data,

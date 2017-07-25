@@ -43,21 +43,22 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         kwargs = du.defaults(kwargs, {
             'data': self.data_map[0],
             'data_id': 0,
-            'camera_pose': tf.Transform(location=(1, 2, 3),
-                                        rotation=(4, 5, 6, 7)),
-            'metadata': imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
-                                            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                            light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                                            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
-                                            lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
-                                            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
-                                            procedural_generation_seed=16234,
-                                            labelled_objects={imeta.LabelledObject(class_names={'cup'},
-                                                                                   bounding_box=(10, 65, 97, 24),
-                                                                                   relative_pose=tf.Transform((1, 2, 3),
-                                                                                                              (0.1, 0.2,
-                                                                                                               0.3)))},
-                                            average_scene_depth=90.12),
+            'metadata': imeta.ImageMetadata(
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                camera_pose=tf.Transform(location=(1, 2, 3), rotation=(4, 5, 6, 7)),
+                environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+                normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+                procedural_generation_seed=16234,
+                labelled_objects={imeta.LabelledObject(class_names={'cup'},
+                                                       bounding_box=(10, 65, 97, 24),
+                                                       relative_pose=tf.Transform((1, 2, 3),
+                                                                                  (0.1, 0.2,
+                                                                                   0.3)))},
+                average_scene_depth=90.12),
             'additional_metadata': {
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -102,14 +103,14 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
 
     def test_constructor_works_with_minimal_arguments(self):
         ie.ImageEntity(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
-                       camera_pose=tf.Transform(),
-                       metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                       metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                                    source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
 
     def test_serialize_and_deserialize_works_with_minimal_arguments(self):
         entity1 = ie.ImageEntity(data=self.data_map[0],
                                  data_id=0,
-                                 camera_pose=tf.Transform(),
-                                 metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
+                                 metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                                              source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
                                                               width=800))
         s_entity = entity1.serialize()
         entity2 = ie.ImageEntity.deserialize(s_entity, self.create_mock_db_client())
@@ -199,8 +200,6 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         kwargs = du.defaults(kwargs, {
             'left_data': self.data_map[0],
             'left_data_id': 0,
-            'left_camera_pose': tf.Transform(location=(1, 2, 3),
-                                             rotation=(4, 5, 6, 7)),
             'left_depth_data': self.data_map[1],
             'left_depth_id': 1,
             'left_labels_data': self.data_map[2],
@@ -209,27 +208,29 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
             'left_world_normals_id': 3,
             'right_data': self.data_map[4],
             'right_data_id': 4,
-            'right_camera_pose': tf.Transform(location=(8, 9, 10),
-                                              rotation=(11, 12, 13, 14)),
             'right_depth_data': self.data_map[5],
             'right_depth_id': 5,
             'right_labels_data': self.data_map[6],
             'right_labels_id': 6,
             'right_world_normals_data': self.data_map[7],
             'right_world_normals_id': 7,
-            'metadata': imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
-                                            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                            light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                                            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
-                                            lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
-                                            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
-                                            procedural_generation_seed=16234,
-                                            labelled_objects={imeta.LabelledObject(class_names=('cup',),
-                                                                                   bounding_box=(10, 65, 97, 24),
-                                                                                   relative_pose=tf.Transform((1, 2, 3),
-                                                                                                              (0.1, 0.2,
-                                                                                                               0.3)))},
-                                            average_scene_depth=90.12),
+            'metadata': imeta.ImageMetadata(
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                camera_pose=tf.Transform(location=(1, 2, 3), rotation=(4, 5, 6, 7)),
+                right_camera_pose=tf.Transform(location=(8, 9, 10), rotation=(11, 12, 13, 14)),
+                environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+                normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+                procedural_generation_seed=16234,
+                labelled_objects={imeta.LabelledObject(class_names=('cup',),
+                                                       bounding_box=(10, 65, 97, 24),
+                                                       relative_pose=tf.Transform((1, 2, 3),
+                                                                                  (0.1, 0.2,
+                                                                                   0.3)))},
+                average_scene_depth=90.12),
             'additional_metadata': {
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -274,20 +275,22 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
     def test_constructor_works_with_minimal_arguments(self):
         ie.StereoImageEntity(left_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                              right_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
-                             left_camera_pose=tf.Transform(),
-                             right_camera_pose=tf.Transform(),
-                             metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
-                                                          width=800))
+                             metadata=imeta.ImageMetadata(
+                                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                 source_type=imeta.ImageSourceType.SYNTHETIC,
+                                 height=600,
+                                 width=800))
 
     def test_serialize_and_deserialize_work_with_minimal_arguments(self):
         entity1 = ie.StereoImageEntity(left_data=self.data_map[0],
                                        left_data_id=0,
                                        right_data=self.data_map[1],
                                        right_data_id=1,
-                                       left_camera_pose=tf.Transform(),
-                                       right_camera_pose=tf.Transform(),
-                                       metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
-                                                                    height=600, width=800))
+                                       metadata=imeta.ImageMetadata(
+                                           hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                           source_type=imeta.ImageSourceType.SYNTHETIC,
+                                           height=600,
+                                           width=800))
         s_entity = entity1.serialize()
         entity2 = ie.StereoImageEntity.deserialize(s_entity, self.create_mock_db_client())
         s_entity2 = entity2.serialize()
@@ -378,8 +381,8 @@ class TestImageToEntity(unittest.TestCase):
 
     def test_image_to_image_entity_does_nothing_to_an_image_entity(self):
         entity = ie.ImageEntity(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
-                                camera_pose=tf.Transform(),
-                                metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
+                                metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                                             source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
                                                              width=800))
         result = ie.image_to_entity(entity)
         self.assertEqual(entity, result)
@@ -387,34 +390,41 @@ class TestImageToEntity(unittest.TestCase):
     def test_image_to_image_entity_does_nothing_to_stereo_image_entity(self):
         entity = ie.StereoImageEntity(left_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                       right_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
-                                      left_camera_pose=tf.Transform(),
-                                      right_camera_pose=tf.Transform(),
-                                      metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
+                                      metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                                                   source_type=imeta.ImageSourceType.SYNTHETIC,
                                                                    height=600, width=800))
         result = ie.image_to_entity(entity)
         self.assertEqual(entity, result)
 
     def test_image_to_image_entity_turns_image_to_image_entity(self):
         image = core.image.Image(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
-                                 camera_pose=tf.Transform(location=(10, 13, -67), rotation=(0.5, 0.1, 0.2)),
-                                 metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
+                                 metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                                              camera_pose=tf.Transform(location=(10, 13, -67),
+                                                                                       rotation=(0.5, 0.1, 0.2)),
+                                                              source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
                                                               width=800))
         entity = ie.image_to_entity(image)
         self.assertIsInstance(entity, ie.ImageEntity)
         self.assertTrue(np.array_equal(entity.data, image.data), "Image data are not equal")
+        self.assertEqual(image.metadata, entity.metadata)
         self.assertEqual(image.camera_pose, entity.camera_pose)
 
     def test_image_to_image_entity_turns_stereo_image_to_stereo_image_entity(self):
         image = core.image.StereoImage(left_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                        right_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
-                                       left_camera_pose=tf.Transform(location=(10, 13, -67), rotation=(0.5, 0.1, 0.2)),
-                                       right_camera_pose=tf.Transform(location=(-32, 2, -8), rotation=(0.1, 0.6, 0.8)),
-                                       metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
+                                       metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                                                    camera_pose=tf.Transform(location=(10, 13, -67),
+                                                                                             rotation=(0.5, 0.1, 0.2)),
+                                                                    right_camera_pose=tf.Transform(
+                                                                        location=(-32, 2, -8),
+                                                                        rotation=(0.1, 0.6, 0.8)),
+                                                                    source_type=imeta.ImageSourceType.SYNTHETIC,
                                                                     height=600, width=800))
         entity = ie.image_to_entity(image)
         self.assertIsInstance(entity, ie.StereoImageEntity)
         self.assertTrue(np.array_equal(entity.left_data, image.left_data), "Left image data are not equal")
         self.assertTrue(np.array_equal(entity.right_data, image.right_data), "Right image data are not equal")
+        self.assertEqual(image.metadata, entity.metadata)
         self.assertEqual(image.left_camera_pose, entity.left_camera_pose)
         self.assertEqual(image.right_camera_pose, entity.right_camera_pose)
 
@@ -439,8 +449,12 @@ class TestSaveImage(unittest.TestCase):
         image = core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
-            camera_pose=tf.Transform(),
-            metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+            depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            depth_id=1,
+            labels_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            labels_id=2,
+            metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         ie.save_image(self.mock_db_client, image)
 
         existing_query = self.mock_db_client.image_collection.find_one.mock_calls[0][1][0]
@@ -457,9 +471,12 @@ class TestSaveImage(unittest.TestCase):
             left_data_id=0,
             right_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             right_data_id=1,
-            left_camera_pose=tf.Transform(),
-            right_camera_pose=tf.Transform(),
-            metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+            left_depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            left_depth_id=2,
+            right_depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            right_depth_id=3,
+            metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         ie.save_image(self.mock_db_client, image)
 
         existing_query = self.mock_db_client.image_collection.find_one.mock_calls[0][1][0]
@@ -479,8 +496,8 @@ class TestSaveImage(unittest.TestCase):
         image = core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
-            camera_pose=tf.Transform(),
-            metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+            metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         result = ie.save_image(self.mock_db_client, image)
         self.assertEqual(existing_id, result)
         self.assertTrue(self.mock_db_client.image_collection.find_one.called)
@@ -490,8 +507,8 @@ class TestSaveImage(unittest.TestCase):
         image = core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=None,
-            camera_pose=tf.Transform(),
-            metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+            metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         ie.save_image(self.mock_db_client, image)
         self.assertTrue(self.mock_db_client.grid_fs.put.called)
 
@@ -501,8 +518,8 @@ class TestSaveImage(unittest.TestCase):
         image = core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
-            camera_pose=tf.Transform(),
-            metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+            metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         result = ie.save_image(self.mock_db_client, image)
         self.assertEqual(new_id, result)
         self.assertTrue(self.mock_db_client.image_collection.find_one.called)
@@ -514,8 +531,8 @@ class TestSaveImage(unittest.TestCase):
         image = core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=None,
-            camera_pose=tf.Transform(),
-            metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+            metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         ie.save_image(self.mock_db_client, image)
         s_image = self.mock_db_client.image_collection.insert.mock_calls[0][1][0]
         self.assertEqual(new_id, s_image['data'])

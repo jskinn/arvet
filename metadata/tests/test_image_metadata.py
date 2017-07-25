@@ -107,6 +107,7 @@ class TestImageMetadata(unittest.TestCase):
 
     def make_metadata(self, **kwargs):
         kwargs = du.defaults(kwargs, {
+            'hash_': b'\xa5\xc9\x08\xaf$\x0b\x116',
             'source_type': imeta.ImageSourceType.SYNTHETIC,
             'environment_type': imeta.EnvironmentType.INDOOR_CLOSE,
             'light_level': imeta.LightingLevel.WELL_LIT,
@@ -114,6 +115,8 @@ class TestImageMetadata(unittest.TestCase):
 
             'height': 600,
             'width': 800,
+            'camera_pose': tf.Transform((1, 3, 4), (0.2, 0.8, 0.2, -0.7)),
+            'right_camera_pose': tf.Transform((-10, -20, -30), (0.9, -0.7, 0.5, -0.3)),
             'fov': 90,
             'focal_length': 5,
             'aperture': 22,
@@ -157,7 +160,8 @@ class TestImageMetadata(unittest.TestCase):
         return imeta.ImageMetadata(**kwargs)
 
     def test_constructor_works_with_minimal_parameters(self):
-        imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800)
+        imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                            height=600, width=800)
 
     def test_serialize_and_deserialise(self):
         entity1 = self.make_metadata()
@@ -177,7 +181,8 @@ class TestImageMetadata(unittest.TestCase):
             self.assertEqual(s_entity1, s_entity2)
 
     def test_serialize_and_deserialize_works_with_minimal_parameters(self):
-        entity1 = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800)
+        entity1 = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                                      height=600, width=800)
         s_entity1 = entity1.serialize()
 
         entity2 = imeta.ImageMetadata.deserialize(s_entity1)
@@ -195,6 +200,7 @@ class TestImageMetadata(unittest.TestCase):
 
     def test_equals(self):
         alt_metadata = {
+            'hash_': [b'\x1f`\xa8\x8aR\xed\x9f\x0b'],
             'source_type': [imeta.ImageSourceType.REAL_WORLD],
             'environment_type': [imeta.EnvironmentType.INDOOR, imeta.EnvironmentType.OUTDOOR_URBAN,
                                  imeta.EnvironmentType.OUTDOOR_LANDSCAPE],
@@ -204,6 +210,8 @@ class TestImageMetadata(unittest.TestCase):
                             imeta.TimeOfDay.TWILIGHT, imeta.TimeOfDay.NIGHT],
             'height': [720],
             'width': [1280],
+            'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
+            'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
             'fov': [30],
             'focal_length': [22],
             'aperture': [1.2],
@@ -291,10 +299,11 @@ class TestImageMetadata(unittest.TestCase):
         for key, values in alt_metadata.items():
             for val in values:
                 b = self.make_metadata(**{key: val})
-                self.assertNotEqual(a, b, "Changing key {0} to {1} did not change the hash".format(key, str(val)))
+                self.assertNotEqual(a, b, "Changing key {0} to {1} did not change equality".format(key, str(val)))
 
     def test_hash(self):
         alt_metadata = {
+            'hash_': [b'\x1f`\xa8\x8aR\xed\x9f\x0b'],
             'source_type': [imeta.ImageSourceType.REAL_WORLD],
             'environment_type': [imeta.EnvironmentType.INDOOR, imeta.EnvironmentType.OUTDOOR_URBAN,
                                  imeta.EnvironmentType.OUTDOOR_LANDSCAPE],
@@ -304,6 +313,8 @@ class TestImageMetadata(unittest.TestCase):
                             imeta.TimeOfDay.TWILIGHT, imeta.TimeOfDay.NIGHT],
             'height': [720],
             'width': [1280],
+            'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
+            'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
             'fov': [30],
             'focal_length': [22],
             'aperture': [1.2],
@@ -401,12 +412,15 @@ class TestImageMetadata(unittest.TestCase):
             self.fail("metadata 1 is not an image metadata")
         if not isinstance(metadata2, imeta.ImageMetadata):
             self.fail("metadata 1 is not an image metadata")
+        self.assertEqual(metadata1.hash, metadata2.hash)
         self.assertEqual(metadata1.source_type, metadata2.source_type)
         self.assertEqual(metadata1.environment_type, metadata2.environment_type)
         self.assertEqual(metadata1.light_level, metadata2.light_level)
         self.assertEqual(metadata1.time_of_day, metadata2.time_of_day)
         self.assertEqual(metadata1.height, metadata2.height)
         self.assertEqual(metadata1.width, metadata2.width)
+        self.assertEqual(metadata1.camera_pose, metadata2.camera_pose)
+        self.assertEqual(metadata1.right_camera_pose, metadata2.right_camera_pose)
         self.assertEqual(metadata1.fov, metadata2.fov)
         self.assertEqual(metadata1.focal_length, metadata2.focal_length)
         self.assertEqual(metadata1.aperture, metadata2.aperture)

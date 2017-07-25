@@ -5,6 +5,7 @@ import os.path
 
 import numpy as np
 import cv2
+import xxhash
 
 import core.image_collection as im_coll
 import core.image_entity
@@ -85,18 +86,22 @@ def sanitize_additional_metadata(metadata):
     return metadata
 
 
-def build_image_metadata(im_shape, depth_data, metadata):
+def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camera_pose=None):
     """
     Construct an image metadata object from the reference images and a metadata dict.
     Should delete the keys it uses from the metadata, so that the remaining values are  'additional metadata'
-    :param im_shape: The shape of the base RGB image, stored as height and width
+    :param im_data: The image data
     :param depth_data: Ground-truth depth, if available.
     :param metadata: The metadata dict
     :return:
     """
     image_metadata = imeta.ImageMetadata(
-        source_type=imeta.ImageSourceType.SYNTHETIC, height=im_shape[0],
-        width=im_shape[1],
+        hash_=xxhash.xxh64(im_data).digest(),
+        source_type=imeta.ImageSourceType.SYNTHETIC,
+        height=im_data.shape[0],
+        width=im_data.shape[1],
+        camera_pose=camera_pose,
+        right_camera_pose=right_camera_pose,
         environment_type=imeta.EnvironmentType.INDOOR,
         light_level=imeta.LightingLevel.EVENLY_LIT,
         time_of_day=imeta.TimeOfDay.DAY,
@@ -194,8 +199,7 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
 
         image = core.image_entity.ImageEntity(
             data=image_data,
-            camera_pose=camera_pose,
-            metadata=build_image_metadata(image_data.shape, depth_data, metadata),
+            metadata=build_image_metadata(image_data, depth_data, camera_pose, metadata),
             additional_metadata=sanitize_additional_metadata(metadata),
             depth_data=depth_data,
             labels_data=labels_data,
@@ -222,14 +226,12 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
 
         du.defaults(metadata, right_metadata, dataset_metadata)
         image = core.image_entity.StereoImageEntity(
-            metadata=build_image_metadata(image_data.shape, depth_data, metadata),
+            metadata=build_image_metadata(image_data, depth_data, camera_pose, metadata, right_camera_pose),
             additional_metadata=sanitize_additional_metadata(metadata),
-            left_camera_pose=camera_pose,
             left_data=image_data,
             left_depth_data=depth_data,
             left_labels_data=labels_data,
             left_world_normals_data=world_normals_data,
-            right_camera_pose=right_camera_pose,
             right_data=right_image_data,
             right_depth_data=right_depth_data,
             right_labels_data=right_labels_data,

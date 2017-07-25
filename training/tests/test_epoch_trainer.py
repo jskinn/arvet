@@ -231,11 +231,12 @@ def make_image(**kwargs):
     kwargs = du.defaults(kwargs, {
         'id_': bson.objectid.ObjectId(),
         'data': np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
-        'camera_pose': tf.Transform(location=np.random.uniform(-1000, 1000, 3),
-                                    rotation=np.random.uniform(-1, 1, 4)),
         'metadata': imeta.ImageMetadata(
+            hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
             source_type=imeta.ImageSourceType.SYNTHETIC,
             height=600, width=800,
+            camera_pose=tf.Transform(location=np.random.uniform(-1000, 1000, 3),
+                                     rotation=np.random.uniform(-1, 1, 4)),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,

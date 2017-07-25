@@ -76,6 +76,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
         self._key_points = {}
         self._timestamps = {}
+        self._camera_poses = {}
         self._detector = self.make_detector()
 
     def process_image(self, image, timestamp):
@@ -93,6 +94,8 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
             key_points.sort(key=operator.attrgetter('response'))
             self._key_points[image.identifier] = key_points
             self._timestamps[timestamp] = image.identifier
+            if image.camera_pose is not None:
+                self._camera_poses[image.identifier] = image.camera_pose
 
     def finish_trial(self):
         """
@@ -106,9 +109,11 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
             result = detector_result.FeatureDetectorResult(system_id=self.identifier,
                                                            keypoints=self._key_points,
                                                            timestamps=self._timestamps,
+                                                           camera_poses=self._camera_poses,
                                                            sequence_type=self._sequence_type,
                                                            system_settings=self.get_system_settings())
         self._key_points = None
         self._timestamps = None
+        self._camera_poses = None
         self._detector = None
         return result

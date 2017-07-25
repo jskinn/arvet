@@ -9,7 +9,7 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
     Contains the list of key points produced by that detector
     """
 
-    def __init__(self, system_id, keypoints, timestamps, sequence_type, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id, keypoints, timestamps, camera_poses, sequence_type, system_settings, id_=None, **kwargs):
         """
         :param system_id: The identifier of the system producing this result
         :param keypoints: A dictionary of image ids to detected keypoints
@@ -24,6 +24,7 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
                          id_=id_, **kwargs)
         self._keypoints = keypoints
         self._timestamps = timestamps
+        self._camera_poses = camera_poses
 
     @property
     def keypoints(self):
@@ -42,6 +43,14 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
         :return:
         """
         return self._timestamps
+
+    @property
+    def camera_poses(self):
+        """
+        The ground-truth camera pose for each image
+        :return:
+        """
+        return self._camera_poses
 
     def get_keypoints(self):
         """

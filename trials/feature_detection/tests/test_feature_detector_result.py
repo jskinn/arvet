@@ -9,6 +9,7 @@ import core.sequence_type
 import database.tests.test_entity
 import trials.feature_detection.feature_detector_result as feature_result
 import util.dict_utils as du
+import util.transform as tf
 
 
 class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unittest.TestCase):
@@ -41,6 +42,10 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         if 'timestamps' not in kwargs:
             kwargs['timestamps'] = {idx + np.random.uniform(0, 1): identifier
                                     for idx, identifier in enumerate(kwargs['keypoints'].keys())}
+        if 'camera_poses' not in kwargs:
+            kwargs['camera_poses'] = {identifier: tf.Transform(location=np.random.uniform(-1000, 1000, 3),
+                                                               rotation=np.random.uniform(-1, 1, 4))
+                                      for identifier in kwargs['keypoints'].keys()}
         return feature_result.FeatureDetectorResult(*args, **kwargs)
 
     def assert_models_equal(self, trial_result1, trial_result2):
@@ -75,6 +80,9 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         self.assertEqual(set(trial_result1.timestamps.keys()), set(trial_result2.timestamps.keys()))
         for key in trial_result1.timestamps.keys():
             self.assertEqual(trial_result1.timestamps[key], trial_result2.timestamps[key])
+        self.assertEqual(set(trial_result1.camera_poses.keys()), set(trial_result2.camera_poses.keys()))
+        for key in trial_result1.camera_poses.keys():
+            self.assertEqual(trial_result1.camera_poses[key], trial_result2.camera_poses[key])
         self.assertEqual(trial_result1.settings, trial_result2.settings)
 
     def test_identifier(self):
