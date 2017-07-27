@@ -19,3 +19,7 @@ Unreal Engine simulators depend on:
 Deep-learning depends on:
 - keras (requires scikit-learn, pillow, h5py)
 - tensorflow (see [https://www.tensorflow.org/install/install_linux], best with GPU and CUDA)
+
+Libviso can be downloaded from:http://www.cvlibs.net/software/libviso/ .
+Libviso is written in C++, use within the framework requres python bindings,
+which can be downloaded here: https://github.com/jlowenz/pyviso2 
