@@ -12,6 +12,7 @@ class ProgressState(enum.Enum):
     UNSTARTED = 0
     RUNNING = 1
     FINISHED = 2
+    UNSUPPORTED = 3
 
 
 class Experiment(database.entity.Entity):
@@ -112,25 +113,40 @@ class Experiment(database.entity.Entity):
         for trainer_id in self._training_map.keys():
             for trainee_id in self._training_map[trainer_id].keys():
                 if self._training_map[trainer_id][trainee_id] == ProgressState.UNSTARTED:
-                    job_system.queue_train_system(trainer_id, trainee_id, self.identifier)
-                    self._change_training_state(trainer_id, trainee_id, ProgressState.RUNNING)
+                    if job_system.queue_train_system(trainer_id, trainee_id, self.identifier):
+                        self._change_training_state(trainer_id, trainee_id, ProgressState.RUNNING)
 
         # Schedule new trials using the job system
         for system_id in self._trial_map.keys():
             for image_source_id in self._trial_map[system_id].keys():
                 if self._trial_map[system_id][image_source_id] == ProgressState.UNSTARTED:
-                    job_system.queue_run_system(system_id, image_source_id, self.identifier)
-                    self._change_trial_state(system_id, image_source_id, ProgressState.RUNNING)
+                    if job_system.queue_run_system(system_id, image_source_id, self.identifier):
+                        self._change_trial_state(system_id, image_source_id, ProgressState.RUNNING)
 
         # Schedule new benchmarks using the job system
         for trial_result_id in self._benchmark_map.keys():
             for benchmark_id in self._benchmark_map[trial_result_id].keys():
                 if self._benchmark_map[trial_result_id][benchmark_id] == ProgressState.UNSTARTED:
-                    job_system.queue_benchmark_result(trial_result_id, benchmark_id, self.identifier)
-                    self._change_result_state(trial_result_id, benchmark_id, ProgressState.RUNNING)
+                    if job_system.queue_benchmark_result(trial_result_id, benchmark_id, self.identifier):
+                        self._change_result_state(trial_result_id, benchmark_id, ProgressState.RUNNING)
 
         if db_client is not None:
             self.save_updates(db_client)
+
+    def mark_training_unsupported(self, trainer_id, trainee_id, db_client=None):
+        """
+        Indicate that a particular combination of trainer and trainee are incompatible,
+        don't try this combination again.
+        :param trainer_id: The id of the trainer
+        :param trainee_id: The id of the trainee
+        :param db_client: The database client if we want to save changes immediately, None otherwise
+        :return:
+        """
+        if (trainer_id in self._training_map and trainee_id in self._training_map[trainer_id] and
+                self._training_map[trainer_id][trainee_id] == ProgressState.RUNNING):
+            self._change_training_state(trainer_id, trainee_id, ProgressState.UNSUPPORTED)
+            if db_client is not None:
+                self.save_updates(db_client)
 
     def retry_training(self, trainer_id, trainee_id, db_client=None):
         """
@@ -168,6 +184,21 @@ class Experiment(database.entity.Entity):
             if db_client is not None:
                 self.save_updates(db_client)
 
+    def mark_trial_unsupported(self, system_id, image_source_id, db_client=None):
+        """
+        Indicate that a particular combination of trainer and trainee are incompatible,
+        don't try this combination again.
+        :param system_id: The id of the system under test
+        :param image_source_id: The id of the image source used for testing
+        :param db_client: The database client if we want to save changes immediately, None otherwise
+        :return:
+        """
+        if (system_id in self._trial_map and image_source_id in self._trial_map[system_id] and
+                self._trial_map[system_id][image_source_id] == ProgressState.RUNNING):
+            self._change_trial_state(system_id, image_source_id, ProgressState.UNSUPPORTED)
+            if db_client is not None:
+                self.save_updates(db_client)
+
     def retry_trial(self, system_id, image_source_id, db_client=None):
         """
         A given trial has failed for some reason, and we should retry it.
@@ -202,6 +233,20 @@ class Experiment(database.entity.Entity):
             for benchmark_id in self._benchmarks:
                 self._change_result_state(trial_result_id, benchmark_id, ProgressState.UNSTARTED)
             self._add_to_set('trial_results', {trial_result_id})
+            if db_client is not None:
+                self.save_updates(db_client)
+
+    def mark_benchmark_unsupported(self, trial_result_id, benchmark_id, db_client=None):
+        """
+        Mark that a given benchmark cannot measure a particular trial result. Do not retry.
+        :param trial_result_id: The id of the trial result being measured
+        :param benchmark_id: The id of the benchmark to use
+        :param db_client: The database client if we want to save changes immediately, None otherwise.
+        :return:
+        """
+        if (trial_result_id in self._benchmark_map and benchmark_id in self._benchmark_map[trial_result_id] and
+                self._benchmark_map[trial_result_id][benchmark_id] == ProgressState.RUNNING):
+            self._change_result_state(trial_result_id, benchmark_id, ProgressState.UNSUPPORTED)
             if db_client is not None:
                 self.save_updates(db_client)
 

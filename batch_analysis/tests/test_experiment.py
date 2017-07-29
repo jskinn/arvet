@@ -253,6 +253,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
     def test_schedule_tasks_trains_systems(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        mock_job_system.queue_train_system.return_value = True
         trainer_ids = (oid.ObjectId(), oid.ObjectId())
         trainee_ids = (oid.ObjectId(), oid.ObjectId())
         subject = ex.Experiment(id_=oid.ObjectId(), trainers=trainer_ids, trainees=trainee_ids,
@@ -269,8 +270,23 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertIn(mock.call(trainer_ids[0], trainee_ids[1], subject.identifier),
                       mock_job_system.queue_train_system.call_args_list)
 
+    def test_schedule_tasks_doesnt_update_training_map_if_job_system_returns_false(self):
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        mock_job_system.queue_train_system.return_value = False
+        trainer_ids = (oid.ObjectId(), oid.ObjectId())
+        trainee_ids = (oid.ObjectId(), oid.ObjectId())
+        subject = ex.Experiment(id_=oid.ObjectId(), trainers=trainer_ids, trainees=trainee_ids,
+                                training_map={trainer_ids[0]: {trainee_ids[0]: ex.ProgressState.RUNNING},
+                                              trainer_ids[1]: {trainee_ids[0]: ex.ProgressState.UNSTARTED}})
+        subject.schedule_tasks(mock_job_system)
+        self.assertEqual(ex.ProgressState.RUNNING, subject._training_map[trainer_ids[0]][trainee_ids[0]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._training_map[trainer_ids[0]][trainee_ids[1]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._training_map[trainer_ids[1]][trainee_ids[0]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._training_map[trainer_ids[1]][trainee_ids[1]])
+
     def test_schedule_tasks_runs_systems(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        mock_job_system.queue_run_system.return_value = True
         image_source_ids = (oid.ObjectId(), oid.ObjectId())
         system_ids = (oid.ObjectId(), oid.ObjectId())
         subject = ex.Experiment(id_=oid.ObjectId(), image_sources=image_source_ids, systems=system_ids,
@@ -287,8 +303,23 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertIn(mock.call(system_ids[0], image_source_ids[1], subject.identifier),
                       mock_job_system.queue_run_system.call_args_list)
 
+    def test_schedule_tasks_doesnt_update_trial_map_if_job_system_returns_false(self):
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        mock_job_system.queue_run_system.return_value = False
+        image_source_ids = (oid.ObjectId(), oid.ObjectId())
+        system_ids = (oid.ObjectId(), oid.ObjectId())
+        subject = ex.Experiment(id_=oid.ObjectId(), image_sources=image_source_ids, systems=system_ids,
+                                trial_map={system_ids[0]: {image_source_ids[0]: ex.ProgressState.RUNNING},
+                                           system_ids[1]: {image_source_ids[0]: ex.ProgressState.UNSTARTED}})
+        subject.schedule_tasks(mock_job_system)
+        self.assertEqual(ex.ProgressState.RUNNING, subject._trial_map[system_ids[0]][image_source_ids[0]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._trial_map[system_ids[0]][image_source_ids[1]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._trial_map[system_ids[1]][image_source_ids[0]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._trial_map[system_ids[1]][image_source_ids[1]])
+
     def test_schedule_tasks_performs_benchmarks(self):
         mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        mock_job_system.queue_benchmark_result.return_value = True
         benchmark_ids = (oid.ObjectId(), oid.ObjectId())
         trial_result_ids = (oid.ObjectId(), oid.ObjectId())
         subject = ex.Experiment(id_=oid.ObjectId(), benchmarks=benchmark_ids, trial_results=trial_result_ids,
@@ -304,6 +335,20 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
                       mock_job_system.queue_benchmark_result.call_args_list)
         self.assertIn(mock.call(trial_result_ids[0], benchmark_ids[1], subject.identifier),
                       mock_job_system.queue_benchmark_result.call_args_list)
+
+    def test_schedule_tasks_doesnt_update_benchmark_map_if_job_system_returns_false(self):
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
+        mock_job_system.queue_benchmark_result.return_value = False
+        benchmark_ids = (oid.ObjectId(), oid.ObjectId())
+        trial_result_ids = (oid.ObjectId(), oid.ObjectId())
+        subject = ex.Experiment(id_=oid.ObjectId(), benchmarks=benchmark_ids, trial_results=trial_result_ids,
+                                benchmark_map={trial_result_ids[0]: {benchmark_ids[0]: ex.ProgressState.RUNNING},
+                                               trial_result_ids[1]: {benchmark_ids[0]: ex.ProgressState.UNSTARTED}})
+        subject.schedule_tasks(mock_job_system)
+        self.assertEqual(ex.ProgressState.RUNNING, subject._benchmark_map[trial_result_ids[0]][benchmark_ids[0]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._benchmark_map[trial_result_ids[0]][benchmark_ids[1]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._benchmark_map[trial_result_ids[1]][benchmark_ids[0]])
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._benchmark_map[trial_result_ids[1]][benchmark_ids[1]])
 
     def test_schedule_tasks_can_save_updates(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
@@ -342,6 +387,34 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             },
         }), mock_db_client.experiments_collection.update.call_args)
 
+    def test_mark_training_unsupported_resets_state(self):
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
+        subject = ex.Experiment(trainers={trainer_id}, trainees={trainee_id}, training_map={
+            trainer_id: {trainee_id: ex.ProgressState.RUNNING}
+        })
+        subject.mark_training_unsupported(trainer_id, trainee_id)
+        self.assertEqual(ex.ProgressState.UNSUPPORTED, subject._training_map[trainer_id][trainee_id])
+
+    def test_mark_training_unsupported_saves_changes_if_given_db_client(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+
+        trainer_id = oid.ObjectId()
+        trainee_id = oid.ObjectId()
+        subject = ex.Experiment(trainers={trainer_id}, trainees={trainee_id}, training_map={
+            trainer_id: {trainee_id: ex.ProgressState.RUNNING}
+        }, id_=oid.ObjectId())
+
+        subject.mark_training_unsupported(trainer_id, trainee_id, mock_db_client)
+        self.assertTrue(mock_db_client.experiments_collection.update.called)
+        self.assertEqual(mock.call({
+             '_id': subject.identifier
+         }, {
+            '$set': {"training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)):
+                     ex.ProgressState.UNSUPPORTED.value}
+        }), mock_db_client.experiments_collection.update.call_args)
+
     def test_retry_training_resets_progress(self):
         trainer_id = oid.ObjectId()
         trainee_id = oid.ObjectId()
@@ -366,7 +439,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertEqual(mock.call({
              '_id': subject.identifier
          }, {
-            '$set': {"training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): 0}
+            '$set': {"training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): ex.ProgressState.UNSTARTED.value}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_add_system_updates_progress(self):
@@ -395,10 +468,38 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
              '_id': subject.identifier
          }, {
             '$set': {
-                "training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): 2,
-                "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): 0
+                "training_map.{0}.{1}".format(str(trainer_id), str(trainee_id)): ex.ProgressState.FINISHED.value,
+                "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): ex.ProgressState.UNSTARTED.value
             },
             '$addToSet': {'systems': {'$each': [system_id]}}
+        }), mock_db_client.experiments_collection.update.call_args)
+
+    def test_mark_trial_unsupported_resets_state(self):
+        system_id = oid.ObjectId()
+        image_source_id = oid.ObjectId()
+        subject = ex.Experiment(systems={system_id}, image_sources={image_source_id}, trial_map={
+            system_id: {image_source_id: ex.ProgressState.RUNNING}
+        })
+        subject.mark_trial_unsupported(system_id, image_source_id)
+        self.assertEqual(ex.ProgressState.UNSUPPORTED, subject._trial_map[system_id][image_source_id])
+
+    def test_mark_trial_unsupported_saves_changes_if_given_db_client(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+
+        system_id = oid.ObjectId()
+        image_source_id = oid.ObjectId()
+        subject = ex.Experiment(systems={system_id}, image_sources={image_source_id}, trial_map={
+            system_id: {image_source_id: ex.ProgressState.RUNNING}
+        }, id_=oid.ObjectId())
+
+        subject.mark_trial_unsupported(system_id, image_source_id, mock_db_client)
+        self.assertTrue(mock_db_client.experiments_collection.update.called)
+        self.assertEqual(mock.call({
+             '_id': subject.identifier
+         }, {
+            '$set': {"trial_map.{0}.{1}".format(str(system_id), str(image_source_id)):
+                     ex.ProgressState.UNSUPPORTED.value}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_retry_trial_resets_progress(self):
@@ -425,7 +526,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertEqual(mock.call({
              '_id': subject.identifier
          }, {
-            '$set': {"trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): 0}
+            '$set': {"trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): ex.ProgressState.UNSTARTED.value}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_add_trial_result_updates_progress(self):
@@ -454,10 +555,39 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
              '_id': subject.identifier
          }, {
             '$set': {
-                "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): 2,
-                "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): 0
+                "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): ex.ProgressState.FINISHED.value,
+                "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)):
+                    ex.ProgressState.UNSTARTED.value
             },
             '$addToSet': {'trial_results': {'$each': [trial_result_id]}}
+        }), mock_db_client.experiments_collection.update.call_args)
+
+    def test_mark_benchmark_unsupported_resets_state(self):
+        trial_result_id = oid.ObjectId()
+        benchmark_id = oid.ObjectId()
+        subject = ex.Experiment(trial_results={trial_result_id}, benchmarks={benchmark_id}, benchmark_map={
+            trial_result_id: {benchmark_id: ex.ProgressState.RUNNING}
+        })
+        subject.mark_benchmark_unsupported(trial_result_id, benchmark_id)
+        self.assertEqual(ex.ProgressState.UNSUPPORTED, subject._benchmark_map[trial_result_id][benchmark_id])
+
+    def test_mark_benchmark_unsupported_saves_changes_if_given_db_client(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+
+        trial_result_id = oid.ObjectId()
+        benchmark_id = oid.ObjectId()
+        subject = ex.Experiment(trial_results={trial_result_id}, benchmarks={benchmark_id}, benchmark_map={
+            trial_result_id: {benchmark_id: ex.ProgressState.RUNNING}
+        }, id_=oid.ObjectId())
+
+        subject.mark_benchmark_unsupported(trial_result_id, benchmark_id, mock_db_client)
+        self.assertTrue(mock_db_client.experiments_collection.update.called)
+        self.assertEqual(mock.call({
+             '_id': subject.identifier
+         }, {
+            '$set': {"benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)):
+                     ex.ProgressState.UNSUPPORTED.value}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_retry_benchmark_resets_progress(self):
@@ -484,7 +614,8 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         self.assertEqual(mock.call({
              '_id': subject.identifier
          }, {
-            '$set': {"benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): 0}
+            '$set': {"benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)):
+                     ex.ProgressState.UNSTARTED.value}
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_add_benchmark_result_updates_progress(self):
@@ -512,7 +643,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
              '_id': subject.identifier
          }, {
             '$set': {
-                "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): 2
+                "benchmark_map.{0}.{1}".format(str(trial_result_id), str(benchmark_id)): ex.ProgressState.FINISHED.value
             },
             '$addToSet': {'benchmark_results': {'$each': [benchmark_result_id]}}
         }), mock_db_client.experiments_collection.update.call_args)

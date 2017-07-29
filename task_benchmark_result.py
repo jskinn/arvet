@@ -30,19 +30,27 @@ def main(*args):
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
         success = False
-        if benchmark is not None and trial_result is not None and benchmark.is_trial_appropriate(trial_result):
-            try:
-                benchmark_result = benchmark.benchmark_results(trial_result)
-            except:
-                benchmark_result = None
-            if benchmark_result is not None:
-                benchmark_result_id = db_client.results_collection.insert(benchmark_result.serialize())
-                if experiment is not None:
-                    experiment.add_benchmark_result(trial_result_id=trial_id, benchmark_id=benchmark_id,
-                                                    benchmark_result_id=benchmark_result_id, db_client=db_client)
-                    success = True
+        retry = True
+        if benchmark is not None and trial_result is not None:
+            if not benchmark.is_trial_appropriate(trial_result):
+                retry = False
+            else:
+                try:
+                    benchmark_result = benchmark.benchmark_results(trial_result)
+                except:
+                    benchmark_result = None
+                if benchmark_result is not None:
+                    benchmark_result_id = db_client.results_collection.insert(benchmark_result.serialize())
+                    if experiment is not None:
+                        experiment.add_benchmark_result(trial_result_id=trial_id, benchmark_id=benchmark_id,
+                                                        benchmark_result_id=benchmark_result_id, db_client=db_client)
+                        success = True
         if not success and experiment is not None:
-            experiment.retry_benchmark(trial_result_id=trial_id, benchmark_id=benchmark_id, db_client=db_client)
+            if retry:
+                experiment.retry_benchmark(trial_result_id=trial_id, benchmark_id=benchmark_id, db_client=db_client)
+            else:
+                experiment.mark_benchmark_unsupported(trial_result_id=trial_id, benchmark_id=benchmark_id,
+                                                      db_client=db_client)
 
 
 if __name__ == '__main__':
