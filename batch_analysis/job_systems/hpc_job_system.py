@@ -44,7 +44,8 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         elif 'VIRTUAL_ENV' in os.environ:
             # No configured virtual environment, but this process has one, use it
             self._virtual_env = os.environ['VIRTUAL_ENV']
-        self._job_folder = config['job_location'] if 'job_folder' in config else os.path.expanduser('~')
+        self._job_folder = config['job_location'] if 'job_location' in config else '~'
+        self._job_folder = os.path.expanduser(self._job_folder)
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
         self._queued_jobs = []
 
@@ -80,7 +81,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment associated with this run, if any
         :return: void
         """
-        self.create_job('train', task_train_system.__file__, str(trainer_id), str(trainee_id), experiment)
+        return self.create_job('train', task_train_system.__file__, str(trainer_id), str(trainee_id), experiment)
 
     def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
@@ -92,7 +93,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment associated with this run, if any
         :return: void
         """
-        self.create_job('run', task_run_system.__file__, str(system_id), str(image_source_id), experiment)
+        return self.create_job('run', task_run_system.__file__, str(system_id), str(image_source_id), experiment)
 
     def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None):
         """
@@ -103,7 +104,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment this is associated with, if any
         :return: void
         """
-        self.create_job('benchmark', task_benchmark_result.__file__, str(trial_id), str(benchmark_id), experiment)
+        return self.create_job('benchmark', task_benchmark_result.__file__, str(trial_id), str(benchmark_id), experiment)
 
     def push_queued_jobs(self):
         """
@@ -125,7 +126,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment id to use, or None if no experiment
         :return: void
         """
-        name = self._name_prefix + "{0]-{1}-{2}-{3}".format(type_, arg1, arg2, datetime.datetime.now())
+        name = self._name_prefix + "{0}-{1}-{2}-{3}".format(type_, arg1, arg2, datetime.datetime.now())
         env = ('source ' + os.path.join(self._virtual_env, 'bin', 'activate')) if self._virtual_env is not None else ''
         args = arg1 + ' ' + arg2
         if experiment is not None:
@@ -144,3 +145,4 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
                 args=args
             ))
         self._queued_jobs.append(job_file_path)
+        return True
