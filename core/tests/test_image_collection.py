@@ -168,3 +168,6 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
             self.assertTrue(np.array_equal(self.images_list[idx].world_normals_data,
                                            self.images_list[idx].world_normals_data))
             self.assertEqual(self.images_list[idx].additional_metadata, collection[idx].additional_metadata)
+
+        s_image_collection_2 = collection.serialize()
+        self.assert_serialized_equal(s_image_collection, s_image_collection_2)

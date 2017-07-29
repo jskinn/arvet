@@ -323,7 +323,7 @@ class TestImportGeneratedDataset(unittest.TestCase):
 
         self.assertCalled(mock_db_client.image_collection.insert)
         s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
-        self.assertEqual('ImageEntity', s_result_image['_type'])
+        self.assertEqual('core.image_entity.ImageEntity', s_result_image['_type'])
         self.assertNPEqual((1, -1, 1), s_result_image['metadata']['camera_pose']['location'])
         self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['camera_pose']['rotation'], approx=0.000000000000001)
         self.assertEqual({
@@ -424,7 +424,7 @@ class TestImportGeneratedDataset(unittest.TestCase):
 
         self.assertCalled(mock_db_client.image_collection.insert)
         s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
-        self.assertEqual('StereoImageEntity', s_result_image['_type'])
+        self.assertEqual('core.image_entity.StereoImageEntity', s_result_image['_type'])
         self.assertNPEqual((1, -1, 1), s_result_image['metadata']['camera_pose']['location'])
         self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['camera_pose']['rotation'],
                            approx=0.000000000000001)

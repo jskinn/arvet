@@ -83,11 +83,11 @@ class EntityContract(metaclass=abc.ABCMeta):
         with self.assertRaises(TypeError):
             self.make_instance(**kwargs)
 
-    def test_serialize_includes_type(self):
+    def test_serialize_includes_fully_qualified_type(self):
         EntityClass = self.get_class()
         entity = self.make_instance(id_=123)
         s_entity = entity.serialize()
-        self.assertEqual(s_entity['_type'], EntityClass.__name__)
+        self.assertEqual(s_entity['_type'], EntityClass.__module__ + '.' + EntityClass.__name__)
 
     def test_serialize_produces_valid_keys(self):
         entity = self.make_instance(id_=6224)
@@ -115,7 +115,7 @@ class EntityContract(metaclass=abc.ABCMeta):
 
     def test_entity_automatically_registered(self):
         EntityClass = self.get_class()
-        self.assertEqual(reg.get_entity_type(EntityClass.__name__), EntityClass)
+        self.assertEqual(reg.get_entity_type(EntityClass.__module__ + '.' + EntityClass.__name__), EntityClass)
 
 
 class TestEntity(EntityContract, unittest.TestCase):

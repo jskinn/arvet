@@ -211,7 +211,7 @@ class EpochTrainer(core.trained_system.VisionSystemTrainer):
         :return:
         """
         return {
-            '_type': cls.__name__,
+            '_type': cls.__module__ + '.' + cls.__name__,
             'num_epochs': num_epochs,
             'epoch_length': epoch_length,
             'use_source_length': use_source_length,

@@ -69,10 +69,11 @@ class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
         Serialize the entity to a dict format, that can be saved to the database
         :return: a dictionary representation of the entity, that can be saved to MongoDB
         """
+        type_ = type(self)
         if self._id is None:
-            return {'_type': type(self).__name__}
+            return {'_type': type_.__module__ + '.' + type_.__name__}
         else:
-            return {'_id': self._id, '_type': type(self).__name__}
+            return {'_id': self._id, '_type': type_.__module__ + '.' + type_.__name__}
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
@@ -81,6 +82,7 @@ class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
         Also accepts keyword arguments that are passed directly to the entity constructor,
         so that we can have required parameters to the initialization
         :param serialized_representation: dict
+        :param db_client: The database client, which is used to deserialize linked entities
         :return: An instance of the entity class, constructed from the serialized representation
         """
         if '_id' in serialized_representation:

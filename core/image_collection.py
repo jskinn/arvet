@@ -230,7 +230,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return:
         """
         return {
-            '_type': cls.__name__,
+            '_type': cls.__module__ + '.' + cls.__name__,
             'images': image_ids,
             'sequence_type': 'SEQ' if sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
         }
