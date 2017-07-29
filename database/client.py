@@ -1,5 +1,7 @@
+import sys
 import pymongo
 import gridfs
+import importlib
 import database.entity
 import database.entity_registry
 import util.dict_utils as du
@@ -118,6 +120,13 @@ class DatabaseClient:
 
     def deserialize_entity(self, s_entity):
         type_name = s_entity['_type']
+        module_ = type_name.rpartition('.')[0]
+        if module_ is not '' and module_ not in sys.modules:
+            try:
+                importlib.import_module(module_)
+            except ImportError:
+                # TODO: Log the failure to import
+                pass
         entity_type = database.entity_registry.get_entity_type(type_name)
         if entity_type:
             return entity_type.deserialize(s_entity, self)

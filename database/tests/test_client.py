@@ -4,6 +4,7 @@ import unittest.mock as mock
 import pymongo
 import pymongo.database
 import gridfs
+import importlib
 import database.client
 
 
@@ -187,13 +188,42 @@ class TestDatabaseClient(unittest.TestCase):
 
     @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
-    def test_deserialize_entity_raises_exception_for_unrecognized_entity_class(self, mock_mongoclient, _):
+    @mock.patch('database.client.importlib', autospec=importlib)
+    def test_deserialize_entity_tries_to_import_module(self, mock_importlib, *_):
         database_name = 'test_database_name_' + str(random.uniform(-10000, 10000))
         db_client = database.client.DatabaseClient({
             'database_config': {
                 'database_name': database_name
             }
         })
+        with self.assertRaises(ValueError):
+            db_client.deserialize_entity({'_type': 'notamodule.NotAnEntity', 'a': 1})
+        self.assertTrue(mock_importlib.import_module.called)
+        self.assertEqual(mock.call('notamodule'), mock_importlib.import_module.call_args)
 
+    @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
+    @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
+    @mock.patch('database.client.importlib', autospec=importlib)
+    def test_deserialize_entity_doesnt_import_empty_module(self, mock_importlib, *_):
+        database_name = 'test_database_name_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'database_name': database_name
+            }
+        })
         with self.assertRaises(ValueError):
             db_client.deserialize_entity({'_type': 'NotAnEntity', 'a': 1})
+        self.assertFalse(mock_importlib.import_module.called)
+
+    @mock.patch('database.client.importlib', autospec=importlib)
+    @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
+    @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
+    def test_deserialize_entity_raises_exception_for_unrecognized_entity_class(self, *_):
+        database_name = 'test_database_name_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'database_name': database_name
+            }
+        })
+        with self.assertRaises(ValueError):
+            db_client.deserialize_entity({'_type': 'notamodule.NotAnEntity', 'a': 1})
