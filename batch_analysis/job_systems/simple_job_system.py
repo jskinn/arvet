@@ -4,7 +4,7 @@ import task_run_system
 import task_benchmark_result
 
 
-class TrivialJobSystem(batch_analysis.job_system.JobSystem):
+class SimpleJobSystem(batch_analysis.job_system.JobSystem):
     """
     The worst possible, and simplest, job system.
     Simply does the job as part of scheduling it.
@@ -13,8 +13,31 @@ class TrivialJobSystem(batch_analysis.job_system.JobSystem):
     so that we can defer the execution of jobs until we've finished creating them.
     """
 
-    def __init__(self):
+    def __init__(self, config):
         self._queue = []
+
+    def can_generate_dataset(self, simulator, config):
+        """
+        Can this job system generate synthetic datasets?
+        This job system can.
+        :param simulator: The simulator id that will be doing the generation
+        :param config: Configuration passed to the simulator at run time
+        :return: True
+        """
+        return True
+
+    def queue_generate_dataset(self, simulator_id, config, experiment=None):
+        """
+        Queue generating a synthetic dataset using a particular simulator and a particular configuration
+        :param simulator_id: The id of the simulator to use to generate the dataset
+        :param config: Configuration passed to the simulator to control the dataset generation
+        :param experiment: The experiment this generated dataset is associated with, if any
+        :return: True iff the job was successfully queued
+        """
+        if experiment is not None:
+            self._queue.append()
+        else:
+            self._queue.append()
 
     def queue_train_system(self, trainer_id, trainee_id, experiment=None):
         """

@@ -91,3 +91,6 @@ ENV/
 
 # Pycharm settings
 .idea
+
+# Config files, are deployment specific
+config.yml

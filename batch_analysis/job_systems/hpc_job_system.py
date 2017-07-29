@@ -1,19 +1,74 @@
 import os
+import datetime
+import subprocess
 import batch_analysis.job_system
+import task_train_system
+import task_run_system
+import task_benchmark_result
 
 
-# Paths to task scripts files
-TRAIN_SYSTEM_SCRIPT = 'task_train_system.py'
-RUN_SYSTEM_SCRIPT = 'task_run_system.py'
-BENCHMARK_RESULT_SCRIPT = 'task_benchmark_result.py'
+# This is the template for python scripts run by the hpc
+JOB_TEMPLATE = """#!/bin/bash -l
+#PBS -N {name}
+#PBS -l walltime={time}
+#PBS -l mem={mem}
+#PBS -l ngpus={gpus}
+#PBS -l ncpus={cpus}
+#PBS -l gputype=M40
+#PBS -l cputype=E5-2680v4
+module load python
+{env}
+python {script} {args}
+"""
 
 
 class HPCJobSystem(batch_analysis.job_system.JobSystem):
-
-    job_template = """
-    #!/bin/python3
-    {0} {1}
     """
+    A job system using HPC to run tasks.
+
+    """
+
+    def __init__(self, config):
+        """
+        Takes configuration parameters in a dict with the following format:
+        {
+            'virtualenv': 'path-to-root-of-virtualenv'  # Optional, will look for env used by current process if omitted
+            'job_location: 'folder-to-create-jobs'      # Default ~
+            'job_name_prefix': 'prefix-to-job-names'    # Default ''
+        }
+        :param config: A dict of configuration parameters
+        """
+        self._virtual_env = None
+        if 'virtualenv' in config:
+            self._virtual_env = config['virtualenv']
+        elif 'VIRTUAL_ENV' in os.environ:
+            # No configured virtual environment, but this process has one, use it
+            self._virtual_env = os.environ['VIRTUAL_ENV']
+        self._job_folder = config['job_location'] if 'job_folder' in config else os.path.expanduser('~')
+        self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
+        self._queued_jobs = []
+
+    def can_generate_dataset(self, simulator, config):
+        """
+        Can this job system generate synthetic datasets.
+        HPC cannot generate datasets, because it is a server with
+        no X session
+        :param simulator: The simulator id that will be doing the generation
+        :param config: Configuration passed to the simulator at run time
+        :return: True iff the job system can generate datasets. HPC cannot.
+        """
+        return False
+
+    def queue_generate_dataset(self, simulator_id, config, experiment=None):
+        """
+        Queue generating a synthetic dataset using a particular simulator
+        and a particular configuration
+        :param simulator_id: The id of the simulator to use to generate the dataset
+        :param config: Configuration passed to the simulator to control the dataset generation
+        :param experiment: The experiment this generated dataset is associated with, if any
+        :return: void
+        """
+        return False
 
     def queue_train_system(self, trainer_id, trainee_id, experiment=None):
         """
@@ -25,10 +80,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment associated with this run, if any
         :return: void
         """
-        if experiment is not None:
-            self.create_job(TRAIN_SYSTEM_SCRIPT, str(trainer_id), str(trainee_id), str(experiment))
-        else:
-            self.create_job(TRAIN_SYSTEM_SCRIPT, str(trainer_id), str(trainee_id))
+        self.create_job('train', task_train_system.__file__, str(trainer_id), str(trainee_id), experiment)
 
     def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
@@ -40,10 +92,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment associated with this run, if any
         :return: void
         """
-        if experiment is not None:
-            self.create_job(RUN_SYSTEM_SCRIPT, str(system_id), str(image_source_id), str(experiment))
-        else:
-            self.create_job(RUN_SYSTEM_SCRIPT, str(system_id), str(image_source_id))
+        self.create_job('run', task_run_system.__file__, str(system_id), str(image_source_id), experiment)
 
     def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None):
         """
@@ -54,28 +103,44 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment this is associated with, if any
         :return: void
         """
-        if experiment is not None:
-            self.create_job(BENCHMARK_RESULT_SCRIPT, str(trial_id), str(benchmark_id), str(experiment))
-        else:
-            self.create_job(BENCHMARK_RESULT_SCRIPT, str(trial_id), str(benchmark_id))
+        self.create_job('benchmark', task_benchmark_result.__file__, str(trial_id), str(benchmark_id), experiment)
 
     def push_queued_jobs(self):
         """
-        TODO: Actually start the jobs here
+        Actually add the queued jobs to the HPC job queue
         :return:
         """
-        pass
+        for job_file in self._queued_jobs:
+            subprocess.call(['qsub', job_file])
 
-    def create_job(self, script_path, *args):
+    def create_job(self, type_, script_path, arg1, arg2, experiment=None):
         """
-        Create a
-        TODO: Create a HPC job and add it to the queue.
-        :param script_path: The path of the python file to run, with respect to the root of this project
-        :param args: Arguments passed to the script on the command line as space-separated strings
+        Create a new HPC job file, ready to be submitted to the queue.
+        It's basically the same for all types of job, so we have this helper function to do all the work.
+
+        :param type_: The type of job, used in the job name
+        :param script_path: The path of the python file to run
+        :param arg1: The first argument to the script, as a string
+        :param arg2: The second argument to the script
+        :param experiment: The experiment id to use, or None if no experiment
         :return: void
         """
-        cwd = os.getcwd()
-
-        # Create a job file
-        args = ' '.join(args)
-        script_content = self.job_template.format(os.path.abspath(os.path.join(cwd, script_path)), args)
+        name = self._name_prefix + "{0]-{1}-{2}-{3}".format(type_, arg1, arg2, datetime.datetime.now())
+        env = ('source ' + os.path.join(self._virtual_env, 'bin', 'activate')) if self._virtual_env is not None else ''
+        args = arg1 + ' ' + arg2
+        if experiment is not None:
+            args += ' ' + str(experiment)
+        job_file_path = os.path.join(self._job_folder, name + '.sub')
+        with open(job_file_path, 'w+') as job_file:
+            job_file.write(JOB_TEMPLATE.format(
+                name=name,
+                # TODO: Get good estimates of the required resources and time
+                time='24:00:00',
+                mem='16GB',
+                gpus=0,
+                cpus=1,
+                env=env,
+                script=script_path,
+                args=args
+            ))
+        self._queued_jobs.append(job_file_path)
