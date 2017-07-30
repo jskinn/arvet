@@ -1,40 +1,28 @@
 import abc
+import core.image_source
 
 
-class Controller(metaclass=abc.ABCMeta):
+class Controller(core.image_source.ImageSource, metaclass=abc.ABCMeta):
+    """
+    A controller wraps an interactive image source and turns it into a static one.
+    That is, it controls the simulator in a predefined way to output images without requiring input.
+    It changes an INTERACTIVE sequence type to either SEQUENTIAL or NON_SEQUENTIAL
+    """
 
-    @property
     @abc.abstractmethod
-    def motion_type(self):
+    def can_control_simulator(self, simulator):
         """
-        Get the kind of image sequence produced by this controller in a simulator.
+        Can this controller
+        :param simulator:
         :return:
         """
         pass
 
     @abc.abstractmethod
-    def is_complete(self):
+    def set_simulator(self, simulator):
         """
-        Is the motion for this controller complete.
-        Some controllers will produce finite motion, some will not.
-        Those that do not simply always return false here.
+        Set the simulator being controlled by this controller
+        :param simulator:
         :return:
-        """
-        pass
-
-    @abc.abstractmethod
-    def update_state(self, delta_time, simulator):
-        """
-        Step the controller a time amount,
-        and push changes to the simulator, such as the camera pose
-        :return: void
-        """
-        pass
-
-    @abc.abstractmethod
-    def reset(self):
-        """
-        Reset the controller state so we can restart the simulation
-        :return: void
         """
         pass

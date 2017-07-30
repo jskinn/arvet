@@ -13,45 +13,38 @@ import util.unreal_transform as uetf
 
 class UnrealCVSimulator(simulation.simulator.Simulator):
 
-    def __init__(self, controller=None, config=None):
-        super().__init__(controller)
-
+    def __init__(self, config=None):
+        """
+        Create an unrealcv simulator with a bunch of configuration.
+        :param config: Simulator configuration
+        """
         if config is None:
             config = {}
-        config = du.defaults(config, {
-            'framerate': 30,     # fps
+        du.defaults(config, {
             'stereo_offset': 0,  # unreal units
             'provide_rgb': True,
             'provide_depth': False,
             'provide_labels': False,
             'provide_world_normals': False,
 
-            # Run settings
-            'max_frames': 1000000,  # maximum number of frames, set to <= 0 for infinite
-
             # Simulation server config
             'host': 'localhost',
             'port': 9000,
 
-            # Simulation metadata
-            'metadata': {
-                'environment_type': imeta.EnvironmentType.INDOOR,
-                'light_level': imeta.LightingLevel.EVENLY_LIT,
-                'time_of_day': imeta.TimeOfDay.DAY,
-                'simulation_world': 'UnrealWorld'
-            }
+            'metadata': {}
         })
-
-        self._framerate = float(config['framerate'])
-        if self._framerate <= 0:
-            self._framerate = 1
+        # Simulation metadata, provided as kwargs to ImageMetadata
+        du.defaults(config['metadata'], {
+            'environment_type': imeta.EnvironmentType.INDOOR,
+            'light_level': imeta.LightingLevel.EVENLY_LIT,
+            'time_of_day': imeta.TimeOfDay.DAY,
+            'simulation_world': 'UnrealWorld'
+        })
 
         self._stereo_offset = float(config['stereo_offset'])
         self._provide_depth = bool(config['provide_depth'])
         self._provide_labels = bool(config['provide_labels'])
         self._provide_world_normals = bool(config['provide_world_normals'])
-
-        self._max_frames = int(config['max_frames'])
 
         self._host = str(config['host'])
         self._port = int(config['port'])
@@ -66,10 +59,11 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
 
         self._client = None
         self._current_pose = None
+        self._fov = None
+        self._focus_distance = None
+        self._aperture = None
         self._lit_mode = (bool(config['metadata']['lit']) if 'metadata' in config and
                                                              'lit' in config['metadata'] else True)
-        self._timestamp = 0
-        self._frame_count = 0
 
     @property
     def is_depth_available(self):
@@ -121,17 +115,61 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         """
         return False
 
-    @property
-    def sequence_type(self):
+    def begin(self):
         """
-        Get the type of image sequence produced by this image source.
-        For instance, the source may produce sequential images, or disjoint, random images.
-        This may change with the configuration of the image source.
-        It is useful for determining which sources can run with which algorithms.
-        :return: The image sequence type enum
-        :rtype core.image_sequence.ImageSequenceType:
+        Start producing images.
+        This will trigger any necessary startup code,
+        and will allow get_next_image to be called.
+        Return False if there is a problem starting the source.
+        :return: True iff the simulator has started correctly.
         """
-        return self.controller.motion_type
+        # TODO: Launch external process running the simulator
+        if self._client is None:
+            self._client = unrealcv.Client((self._host, self._port))
+        if self._client.isconnected():
+            return True
+        conn = self._client.connect()
+        if conn:
+            # TODO: Read the
+            self._fov = 90
+            self._focus_distance = -1
+            self._aperture = -1
+
+    def get_next_image(self):
+        """
+        Get the next image from this source.
+        It assumes that the simulation state has been changed externally
+        Parallel versions of this may add a timeout parameter.
+        Returning None indicates that this image source will produce no more images
+
+        :return: An Image object (see core.image) or None, and None for the timestamp
+        """
+        if self._client is not None:
+            # Get and return the image from the simulator
+            return self._get_image(), None
+        return None, None
+
+    def is_complete(self):
+        """
+        Have we got all the images from this source?
+        Simulators never run out of images.
+        :return: False
+        """
+        return False
+
+    def shutdown(self):
+        """
+        Shut down the simulator.
+        At the moment, this is less relevant for other image source types.
+        If it becomes more common, move it into image_source
+        :return:
+        """
+        # TODO: Stop the external process.
+        self._client.disconnect()
+        self._current_pose = None
+        self._fov = None
+        self._focus_distance = None
+        self._aperture = None
 
     @property
     def current_pose(self):
@@ -160,6 +198,10 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
                                                                               pose.yaw,
                                                                               pose.roll))
 
+    @property
+    def field_of_view(self):
+        return self._fov
+
     def set_field_of_view(self, fov):
         """
         Set the field of view of the simulator
@@ -169,6 +211,14 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         if self._client is not None:
             self._client.request("vset /camera/0/fov {0}".format(float(fov)))
 
+    @property
+    def focus_distance(self):
+        if self._focus_distance is not None and self._focus_distance >= 0:
+            return self._focus_distance
+        elif self._client is not None:
+            return float(self._client.request("vget /camera/0/fov"))
+        return None
+
     def set_focus_distance(self, focus_distance):
         """
         Set the focus distance of the simulator.
@@ -177,6 +227,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :return:
         """
         if self._client is not None:
+            self._focus_distance = focus_distance
             self._client.request("vset /camera/0/autofocus 0")
             self._client.request("vset /camera/0/focus-distance {0}".format(float(focus_distance)))
 
@@ -187,7 +238,16 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :return:
         """
         if self._client is not None:
+            self._focus_distance = -1
             self._client.request("vset /camera/0/autofocus {0}".format(int(bool(autofocus))))
+
+    @property
+    def fstop(self):
+        if self._aperture is not None and self._aperture > 0:
+            return self._aperture
+        elif self._aperture is not None:
+            return self._client.request("vget /camera/0/fstop")
+        return None
 
     def set_fstop(self, fstop):
         """
@@ -196,7 +256,16 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :return:
         """
         if self._client is not None:
+            self._aperture = float(fstop)
             self._client.request("vset /camera/0/fstop {0}".format(float(fstop)))
+
+    def get_camera_matrix(self):
+        """
+        Get the camera matrix for this simulator.
+        TODO: get it correctly from unrealcv
+        :return: The camera matrix as a numpy array
+        """
+        return np.identity(3)
 
     def get_object_pose(self, object_name):
         """
@@ -224,59 +293,11 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
             return int(result)
         return 0
 
-    def begin(self):
-        """
-        Start producing images.
-        This will trigger any necessary startup code,
-        and will allow get_next_image to be called.
-        Return False if there is a problem starting the source.
-        :return: True iff the simulator has started correctly.
-        """
-        # TODO: Launch external process running the simulator
-        self.controller.reset()
-        self._frame_count = 0
-        self._timestamp = 0
-
-        if self._client is None:
-            self._client = unrealcv.Client((self._host, self._port))
-        if self._client.isconnected():
-            return True
-        return self._client.connect()
-
-    def get_next_image(self):
-        """
-        Blocking get the next image from this source.
-        Parallel versions of this may add a timeout parameter.
-        Returning None indicates that this image source will produce no more images
-
-        :return: An Image object (see core.image) or None
-        """
-        if self._client is not None:
-            # Use the controller to update the simulation state
-            self.controller.update_state(1/self._framerate, self)
-
-            # move forward in time
-            self._timestamp += 1/self._framerate
-            self._frame_count += 1
-
-            # Get and return the image from the simulator
-            return self._get_image(), self._timestamp
-        return None, None
-
-    def is_complete(self):
-        """
-        Have we got all the images from this source?
-        Some sources are infinite, some are not,
-        and this method lets those that are not end the iteration.
-        :return: True
-        """
-        return self.controller.is_complete() or 0 < self._max_frames <= self._frame_count
-
     def _request_image(self, viewmode):
         filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
         data = cv2.imread(filename)
         os.remove(filename)     # Clean up after ourselves, now that we have the image data
-        return data[:, :, ::-1]
+        return np.ascontiguousarray(data[:, :, ::-1], dtype='uint8')
 
     def _get_image(self):
         if self._client is not None:

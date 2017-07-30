@@ -1,5 +1,4 @@
 import abc
-import core.sequence_type
 
 
 class ImageSource(metaclass=abc.ABCMeta):
@@ -9,6 +8,29 @@ class ImageSource(metaclass=abc.ABCMeta):
     and simulators, the big addition of this iteration.
     TODO: We need more ways to interrogate the image source for information about it.
     """
+
+    @property
+    @abc.abstractmethod
+    def sequence_type(self):
+        """
+        Get the type of image sequence produced by this image source.
+        For instance, the source may produce sequential images, or disjoint, random images.
+        This may change with the configuration of the image source.
+        It is useful for determining which sources can run with which algorithms.
+        :return: The image sequence type enum
+        :rtype core.image_sequence.ImageSequenceType:
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def supports_random_access(self):
+        """
+        True iff we can randomly access the images in this source by index.
+        We expect len(image_source) to return meaningful values, and
+        :return:
+        """
+        pass
 
     @property
     @abc.abstractmethod
@@ -69,19 +91,6 @@ class ImageSource(metaclass=abc.ABCMeta):
         """
         pass
 
-    @property
-    @abc.abstractmethod
-    def sequence_type(self):
-        """
-        Get the type of image sequence produced by this image source.
-        For instance, the source may produce sequential images, or disjoint, random images.
-        This may change with the configuration of the image source.
-        It is useful for determining which sources can run with which algorithms.
-        :return: The image sequence type enum
-        :rtype core.image_sequence.ImageSequenceType:
-        """
-        return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-
     @abc.abstractmethod
     def begin(self):
         """
@@ -92,6 +101,18 @@ class ImageSource(metaclass=abc.ABCMeta):
         :return: True iff we have successfully started iteration
         """
         return False
+
+    @abc.abstractmethod
+    def get(self, index):
+        """
+        If this image source supports random access, get an image by element.
+        The valid indexes should be integers in the range 0 <= index < len(image_source)
+        If it does not, always return None.
+        Unlike get_next_image, this does not return the index or timestamp, since that has to be provided
+        :param index: The index of the image to get
+        :return: An image object, or None if the index is out of range.
+        """
+        pass
 
     @abc.abstractmethod
     def get_next_image(self):

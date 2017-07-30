@@ -17,7 +17,9 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
 
         self._images = images
         self._framerate = float(framerate) if framerate is not None and framerate > 0 else None
-        if isinstance(type_, core.sequence_type.ImageSequenceType):
+        if (isinstance(type_, core.sequence_type.ImageSequenceType) and
+                type_ is not core.sequence_type.ImageSequenceType.INTERACTIVE):
+            # image collections cannot be interactive
             self._sequence_type = type_
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
@@ -53,22 +55,13 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         """
         return self.get(item)
 
-    def get(self, index):
-        """
-        A getter for random access, since we're storing a list
-        :param index:
-        :return:
-        """
-        if 0 <= index < len(self._images):
-            return self._images[index]
-        return None
-
     @property
     def sequence_type(self):
         """
         Get the type of image sequence produced by this image source.
         This is determined when creating the image collection
         It is useful for determining which sources can run with which algorithms.
+        Image collections can be NON_SEQUENTIAL or SEQUENTIAL, but not INTERACTIVE
         :return: The image sequence type enum
         :rtype core.image_sequence.ImageSequenceType:
         """
@@ -96,6 +89,16 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         self._current_index = 0
         return True
 
+    def get(self, index):
+        """
+        A getter for random access, since we're storing a list
+        :param index:
+        :return:
+        """
+        if 0 <= index < len(self._images):
+            return self._images[index]
+        return None
+
     def get_next_image(self):
         """
         Blocking get the next image from this source.
@@ -121,6 +124,14 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return: True if there are more images to get, false otherwise.
         """
         return self._current_index >= len(self)
+
+    @property
+    def supports_random_access(self):
+        """
+        Image collections support random access, they are a list of images
+        :return:
+        """
+        return True
 
     @property
     def is_depth_available(self):
