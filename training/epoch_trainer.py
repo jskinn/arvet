@@ -248,8 +248,8 @@ class DataAugmenter:
 def horizontal_flip(image):
     return core.image.Image(
         data=np.fliplr(image.data),
-        camera_pose=image.camera_pose,
         metadata=image.metadata.clone(
+            camera_pose=image.camera_pose,
             labelled_objects=(imeta.LabelledObject(
                 class_names=obj.class_names,
                 bounding_box=(
@@ -272,8 +272,8 @@ def horizontal_flip(image):
 def vertical_flip(image):
     return core.image.Image(
         data=np.flipud(image.data),
-        camera_pose=image.camera_pose,
         metadata=image.metadata.clone(
+            camera_pose=image.camera_pose,
             labelled_objects=(imeta.LabelledObject(
                 class_names=obj.class_names,
                 bounding_box=(
@@ -296,8 +296,8 @@ def vertical_flip(image):
 def rotate_90(image):
     return core.image.Image(
         data=np.rot90(image.data, k=1),
-        camera_pose=image.camera_pose,
         metadata=image.metadata.clone(
+            camera_pose=image.camera_pose,
             labelled_objects=(imeta.LabelledObject(
                 class_names=obj.class_names,
                 bounding_box=(
@@ -320,8 +320,8 @@ def rotate_90(image):
 def rotate_180(image):
     return core.image.Image(
         data=np.rot90(image.data, k=2),
-        camera_pose=image.camera_pose,
         metadata=image.metadata.clone(
+            camera_pose=image.camera_pose,
             labelled_objects=(imeta.LabelledObject(
                 class_names=obj.class_names,
                 bounding_box=(
@@ -344,8 +344,8 @@ def rotate_180(image):
 def rotate_270(image):
     return core.image.Image(
         data=np.rot90(image.data, k=3),
-        camera_pose=image.camera_pose,
         metadata=image.metadata.clone(
+            camera_pose=image.camera_pose,
             labelled_objects=(imeta.LabelledObject(
                 class_names=obj.class_names,
                 bounding_box=(

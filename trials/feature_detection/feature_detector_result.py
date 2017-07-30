@@ -1,6 +1,7 @@
 import cv2
 import bson.objectid as oid
 import core.trial_result
+import util.transform as tf
 
 
 class FeatureDetectorResult(core.trial_result.TrialResult):
@@ -71,6 +72,7 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
         serialized['keypoints'] = {str(identifier): [serialize_keypoint(keypoint) for keypoint in keypoints]
                                    for identifier, keypoints in self.keypoints.items()}
         serialized['timestamps'] = [(stamp, str(identifier)) for stamp, identifier in self.timestamps.items()]
+        serialized['camera_poses'] = [(stamp, pose.serialize()) for stamp, pose in self.camera_poses.items()]
         return serialized
 
     @classmethod
@@ -82,6 +84,9 @@ class FeatureDetectorResult(core.trial_result.TrialResult):
         if 'timestamps' in serialized_representation:
             kwargs['timestamps'] = {stamp: oid.ObjectId(identifier)
                                     for stamp, identifier in serialized_representation['timestamps']}
+        if 'camera_poses' in serialized_representation:
+            kwargs['camera_poses'] = {stamp: tf.Transform.deserialize(s_trans) for stamp, s_trans
+                                      in serialized_representation['camera_poses']}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 

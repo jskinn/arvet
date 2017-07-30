@@ -93,7 +93,7 @@ class TestImageCollectionBuilder(unittest.TestCase):
 
         self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
         self.assertEqual({
-            '_type': 'ImageCollection',
+            '_type': 'core.image_collection.ImageCollection',
             'images': ids,
             'sequence_type': 'SEQ'
         }, self.mock_db_client.image_source_collection.insert.call_args[0][0])
@@ -111,7 +111,7 @@ class TestImageCollectionBuilder(unittest.TestCase):
 
         self.assertTrue(self.mock_db_client.image_source_collection.find_one.called)
         self.assertEqual({
-            '_type': 'ImageCollection',
+            '_type': 'core.image_collection.ImageCollection',
             'images': ids,
             'sequence_type': 'SEQ'
         }, self.mock_db_client.image_source_collection.find_one.call_args[0][0])
