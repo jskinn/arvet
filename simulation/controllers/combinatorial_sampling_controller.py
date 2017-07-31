@@ -86,7 +86,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Determined by the underlying simulator
         :return:
         """
-        return self._simulator.is_depth_available()
+        return self._simulator is not None and self._simulator.is_depth_available
 
     @property
     def is_per_pixel_labels_available(self):
@@ -95,7 +95,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Determined by the underlying simulator.
         :return: True if this image source can produce object labels for each image
         """
-        return self._simulator.is_per_pixel_labels_available()
+        return self._simulator is not None and self._simulator.is_per_pixel_labels_available
 
     @property
     def is_labels_available(self):
@@ -104,7 +104,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Determined by the underlying simulator.
         :return: True iff the image metadata includes bounding boxes
         """
-        return self._simulator.is_labels_available()
+        return self._simulator is not None and self._simulator.is_labels_available
 
     @property
     def is_normals_available(self):
@@ -113,7 +113,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Determined by the underlying simulator.
         :return: True if images have world normals associated with them
         """
-        return self._simulator.is_normals_available()
+        return self._simulator is not None and self._simulator.is_normals_available
 
     @property
     def is_stereo_available(self):
@@ -123,16 +123,16 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Determined by the underlying simulator.
         :return:
         """
-        return self._simulator.is_stereo_available()
+        return self._simulator is not None and self._simulator.is_stereo_available
 
     @property
     def is_stored_in_database(self):
         """
         Do this images from this source come from the database.
-        Since they come from a simulator, no they do not.
+        Since they come from a simulator, it doesn't seem likely.
         :return:
         """
-        return False
+        return self._simulator is not None and self._simulator.is_stored_in_database
 
     def begin(self):
         """
@@ -156,7 +156,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         :param index: The index of the image to get
         :return: An image object, or None if the index is out of range.
         """
-        if self._simulator is not None and self._current_index is not None and 0 < index <= len(self):
+        if self._simulator is not None and self._current_index is not None and 0 <= index < len(self):
             fov, aperture, x, y, z, roll, pitch, yaw = self._samples[index]
             if self._last_fov != fov:
                 self._simulator.set_field_of_view(fov)
