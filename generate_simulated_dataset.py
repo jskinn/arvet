@@ -2,11 +2,10 @@ import numpy as np
 
 import config.global_configuration as global_conf
 import database.client
-import util.transform as tf
-
-import simulation.combinatorial_sampling_controller as sample_controller
-import simulation.unrealcv.unrealcv_simulator as ue_sim
 import dataset.image_collection_builder as collection_builder
+import simulation.controllers.combinatorial_sampling_controller as sample_controller
+import simulation.unrealcv.unrealcv_simulator as ue_sim
+import util.transform as tf
 
 
 def image_filter(image):
