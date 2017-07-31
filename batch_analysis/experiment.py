@@ -352,6 +352,14 @@ class Experiment(database.entity.Entity):
         """
         return set()
 
+    def plot_results(self, db_client):
+        """
+        Visualise the results from this experiment
+        :param db_client:
+        :return:
+        """
+        pass
+
     def _change_training_state(self, trainer_id, trainee_id, state):
         """
         Helper to change a value in the training map,

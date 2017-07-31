@@ -120,9 +120,6 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
 
     def plot_results(self, db_client):
 
-
-
-
         for result_id in self.results_ids:
             result = dh.load_object(db_client, db_client.results_collection, result_id)
             if result is not None:
