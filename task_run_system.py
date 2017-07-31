@@ -4,7 +4,6 @@ import bson.objectid
 
 import config.global_configuration as global_conf
 import database.client
-import entity_list  # Needed to define entity types
 import runners.trial_runner as trial_runner
 import util.database_helpers as dh
 

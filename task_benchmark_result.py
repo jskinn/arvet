@@ -1,11 +1,7 @@
 import sys
-
 import bson.objectid
-
-
 import config.global_configuration as global_conf
 import database.client
-import entity_list  # Needed to define entity types
 import util.database_helpers as dh
 
 

@@ -1,7 +1,6 @@
 import config.global_configuration as global_conf
 import database.client
 import util.database_helpers as dh
-import entity_list
 import batch_analysis.job_systems.job_system_factory as job_system_factory
 
 

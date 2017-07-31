@@ -1,6 +1,5 @@
 import database.client
 import config.global_configuration as global_conf
-import entity_list
 import util.database_helpers as dh
 
 
