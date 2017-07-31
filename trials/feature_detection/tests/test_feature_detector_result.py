@@ -31,8 +31,8 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
                         _response=np.random.uniform(0, 1),
                         _size=np.random.uniform(10)
                     )
-                    for _ in range(np.random.randint(50))]
-                for _ in range(100)
+                    for _ in range(np.random.randint(3))]
+                for _ in range(10)
             },
             'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {
@@ -84,3 +84,14 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         for key in trial_result1.camera_poses.keys():
             self.assertEqual(trial_result1.camera_poses[key], trial_result2.camera_poses[key])
         self.assertEqual(trial_result1.settings, trial_result2.settings)
+
+    def assert_serialized_equal(self, s_model1, s_model2):
+        self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
+        for key in {'_id', '_type', 'keypoints', 'sequence_type', 'settings', 'settings'}:
+            self.assertEqual(s_model1[key], s_model2[key])
+        s_model1_stamps = {stamp: bson.objectid.ObjectId(identifier) for stamp, identifier in s_model1['timestamps']}
+        s_model2_stamps = {stamp: bson.objectid.ObjectId(identifier) for stamp, identifier in s_model1['timestamps']}
+        self.assertEqual(s_model1_stamps, s_model2_stamps)
+        s_model1_poses = {stamp: tf.Transform.deserialize(s_trans) for stamp, s_trans in s_model1['camera_poses']}
+        s_model2_poses = {stamp: tf.Transform.deserialize(s_trans) for stamp, s_trans in s_model2['camera_poses']}
+        self.assertEqual(s_model1_poses, s_model2_poses)
