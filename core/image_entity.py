@@ -1,9 +1,10 @@
 import os
 import os.path
+import xxhash
+import numpy as np
 import copy
 import pickle
 import database.entity
-import util.transform as tf
 import util.database_helpers as db_help
 import metadata.image_metadata as imeta
 import core.image
@@ -38,14 +39,16 @@ class ImageEntity(core.image.Image, database.entity.Entity):
                                                                         protocol=pickle.HIGHEST_PROTOCOL))
 
     def validate(self):
-        if not os.path.isfile(self.data):
+        if self.data is None:
+            # Raw RGB data is null
             return False
-        if self.depth_data is not None and not os.path.isfile(self.depth_data):
+        if not self.metadata.hash == xxhash.xxh64(self.data).digest():
+            # Hash is wrong
             return False
-        if self.labels_data is not None and not os.path.isfile(self.labels_data):
+        if self.depth_data is not None and self.metadata.average_scene_depth != np.mean(self.depth_data):
+            # Average scene depth does not match actual depth data
             return False
-        if self.depth_data is not None and not os.path.isfile(self.depth_data):
-            return False
+        # TODO: Verify bounding boxes
         return True
 
     def serialize(self):
@@ -126,13 +129,7 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
     def validate(self):
         if not super().validate():
             return False
-        if not os.path.isfile(self.right_data):
-            return False
-        if self.depth_data is not None and not os.path.isfile(self.right_depth_data):
-            return False
-        if self.labels_data is not None and not os.path.isfile(self.right_labels_data):
-            return False
-        if self.depth_data is not None and not os.path.isfile(self.right_depth_data):
+        if self.right_data is None:
             return False
         return True
 

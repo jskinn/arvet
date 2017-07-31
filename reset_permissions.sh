@@ -14,3 +14,4 @@ chmod +x generate_simulated_dataset.py
 chmod +x plot_results.py
 chmod +x recalculate_bounding_boxes.py
 chmod +x verify_bounding_boxes_manually.py
+chmod +x verify_database.py
