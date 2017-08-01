@@ -1,9 +1,9 @@
 import os.path
+import glob
 import re
 import xxhash
 import cv2
 
-import util.dict_utils as du
 import util.transform as tf
 import metadata.image_metadata as imeta
 import core.image_entity
@@ -12,7 +12,7 @@ import core.sequence_type
 import dataset.image_collection_builder
 
 
-def import_rw_dataset(labels_path, db_client, **kwargs):
+def import_dataset(labels_path, db_client, **kwargs):
     """
     Import a real-world dataset with labelled images.
     :param labels_path:
@@ -20,6 +20,14 @@ def import_rw_dataset(labels_path, db_client, **kwargs):
     :param kwargs: Additional arguments passed to the image metadata
     :return:
     """
+    if os.path.isdir(labels_path):
+        # Look in the given folder for possible labels files
+        candidates = glob.glob(os.path.join(labels_path, '*.txt'))
+        if len(candidates) >= 1:
+            labels_path = candidates[0]
+        else:
+            # Cannot find the labels file, return None
+            return None
     builder = dataset.image_collection_builder.ImageCollectionBuilder(db_client)
     builder.set_non_sequential()
     with open(labels_path, 'r') as labels_file:

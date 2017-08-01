@@ -93,6 +93,8 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     :param im_data: The image data
     :param depth_data: Ground-truth depth, if available.
     :param metadata: The metadata dict
+    :param camera_pose: The camera pose
+    :param right_camera_pose: The pose of the right stereo camera, if available
     :return:
     """
     image_metadata = imeta.ImageMetadata(
@@ -141,7 +143,7 @@ def load_image_set(base_path, filename_format, mappings, index_padding, index, e
 
 
 def import_image_object(db_client, base_path, filename_format, mappings, index_padding,
-                        index, extension, timestamp, dataset_metadata):
+                        index, extension, dataset_metadata):
     """
     Save an image to the database.
     First, assemble the ImageEntity from multiple image files, and a metadata file.
@@ -155,7 +157,6 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
     :param mappings: Additional mappings fed to the filename generation
     :param index_padding: Padding to the index when creating the filename
     :param extension: The file extension
-    :param timestamp: The timestamp of the image within the sequence:
     :param dataset_metadata: Additional metadata held at the dataset level.
     :return: The ID of the newly loaded image, or None if it failed to load.
     :rtype bson.objectid.ObjectId:
@@ -264,7 +265,7 @@ def parse_sequence_type(type_string):
     return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
 
-def import_generated_dataset_collection_from_folder(folder_path, db_client):
+def import_dataset(folder_path, db_client):
     """
     Search in a given folder path for generated image datasets and import them.
     A dataset is structured as a folder full of images, containing a file called 'metadata.json'
@@ -287,7 +288,6 @@ def import_generated_dataset_collection_from_folder(folder_path, db_client):
             # First, load the images.
             dataset_dir = os.path.dirname(dataset_metadata_path)
             file_extension = metadata['File Extension']
-            framerate = float(metadata['framerate'])
             image_ids = []
 
             # loop over the maximum possible number of images, should break before the end of this range
@@ -299,7 +299,6 @@ def import_generated_dataset_collection_from_folder(folder_path, db_client):
                                                mappings=metadata['Image Filename Format Mappings'],
                                                index_padding=metadata['Index Padding'],
                                                extension=file_extension,
-                                               timestamp=index / framerate,
                                                dataset_metadata=copy.deepcopy(metadata))
                 if image_id is not None:
                     image_ids.append(image_id)
