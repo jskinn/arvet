@@ -1,4 +1,5 @@
 import batch_analysis.job_system
+import task_import_dataset
 import task_train_system
 import task_run_system
 import task_benchmark_result
@@ -38,6 +39,20 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
             self._queue.append()
         else:
             self._queue.append()
+
+    def queue_import_dataset(self, module_name, directory, experiment=None):
+        """
+        Use the job system to import a dataset
+        :param module_name: The name of the python module to use to do the import as a string.
+        It must have a function 'import_dataset', taking a directory and the database client
+        :param directory: The root directory containing the dataset to import
+        :param experiment: The experiment to give the imported dataset to, if any
+        :return: True iff the job was queued
+        """
+        if experiment is not None:
+            self._queue.append((task_import_dataset.main, (module_name, directory, experiment)))
+        else:
+            self._queue.append((task_import_dataset.main, (module_name, directory)))
 
     def queue_train_system(self, trainer_id, trainee_id, experiment=None):
         """

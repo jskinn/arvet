@@ -2,6 +2,7 @@ import os
 import datetime
 import subprocess
 import batch_analysis.job_system
+import task_import_dataset
 import task_train_system
 import task_run_system
 import task_benchmark_result
@@ -16,7 +17,7 @@ JOB_TEMPLATE = """#!/bin/bash -l
 #PBS -l ncpus={cpus}
 #PBS -l gputype=M40
 #PBS -l cputype=E5-2680v4
-module load python
+module load python/3.5.2-intel-2016b
 {env}
 python {script} {args}
 """
@@ -71,6 +72,16 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         return False
 
+    def queue_import_dataset(self, module_name, directory, experiment=None):
+        """
+        Create a HPC job to import an image dataset into the image dataset
+        :param module_name: The python module to use to do the import
+        :param directory: The directory to import the dataset from
+        :param experiment: The experiment associated with this import, if any
+        :return: True iff the job was queued
+        """
+        return self.create_job('import', task_import_dataset.__file__, str(module_name), str(directory), experiment)
+
     def queue_train_system(self, trainer_id, trainee_id, experiment=None):
         """
         Use the job system to train a system with a particular image source.
@@ -79,7 +90,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param trainer_id: The id of the trainer doing the training
         :param trainee_id: The id of the trainee being trained
         :param experiment: The experiment associated with this run, if any
-        :return: void
+        :return: True iff the job was queued
         """
         return self.create_job('train', task_train_system.__file__, str(trainer_id), str(trainee_id), experiment)
 
@@ -91,7 +102,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param system_id: The id of the vision system to test
         :param image_source_id: The id of the image source to test with
         :param experiment: The experiment associated with this run, if any
-        :return: void
+        :return: True iff the job was queued
         """
         return self.create_job('run', task_run_system.__file__, str(system_id), str(image_source_id), experiment)
 
@@ -102,7 +113,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param trial_id: The id of the trial result to benchmark
         :param benchmark_id: The id of the benchmark to use
         :param experiment: The experiment this is associated with, if any
-        :return: void
+        :return: True iff the job was queued
         """
         return self.create_job('benchmark', task_benchmark_result.__file__, str(trial_id), str(benchmark_id), experiment)
 
@@ -126,7 +137,8 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment id to use, or None if no experiment
         :return: void
         """
-        name = self._name_prefix + "{0}-{1}-{2}-{3}".format(type_, arg1, arg2, datetime.datetime.now())
+        name = "{0}-{1}-{2}-{3}".format(type_, arg1, arg2, datetime.datetime.now())
+        name = self._name_prefix + name.replace(' ', '-').replace('/', '-')
         env = ('source ' + os.path.join(self._virtual_env, 'bin', 'activate')) if self._virtual_env is not None else ''
         args = arg1 + ' ' + arg2
         if experiment is not None:

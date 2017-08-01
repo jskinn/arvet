@@ -3,6 +3,7 @@ import unittest.mock as mock
 import os
 import bson.objectid as oid
 import batch_analysis.job_systems.hpc_job_system as hpc
+import task_import_dataset
 import task_train_system
 import task_run_system
 import task_benchmark_result
@@ -20,6 +21,131 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_queue_generate_dataset_returns_false(self):
         subject = hpc.HPCJobSystem({})
         self.assertFalse(subject.queue_generate_dataset(oid.ObjectId(), {}))
+
+    def test_queue_import_dataset_creates_job_file(self):
+        mock_open = mock.mock_open()
+        mock_open.return_value = mock.MagicMock()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        self.assertTrue(mock_open.called)
+        filename = mock_open.call_args[0][0]
+        # Creates in the home directory by default
+        self.assertTrue(filename.startswith(os.path.expanduser('~')),
+                        "{0} is not in the home directory".format(filename))
+        self.assertIn('dataset.importer', filename)
+        self.assertIn('-tmp-dataset', filename)
+        self.assertNotIn('/tmp/dataset', filename)  # we shouldn't add arbitrary slashes
+        self.assertTrue(filename.endswith('.sub'), "{0} does not end with '.sub'".format(filename))
+
+    def test_queue_import_dataset_creates_job_file_in_configured_directory(self):
+        mock_open = mock.mock_open()
+        mock_open.return_value = mock.MagicMock()
+        target_folder = os.path.join('/tmp', 'trial-{}'.format(oid.ObjectId()))
+        subject = hpc.HPCJobSystem({'job_location': target_folder})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        self.assertTrue(mock_open.called)
+        filename = mock_open.call_args[0][0]
+        # Creates in the home directory by default
+        self.assertTrue(filename.startswith(target_folder),
+                        "{0} is not in the target directory".format(filename))
+
+    def test_queue_import_dataset_writes_job_script(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        self.assertTrue(mock_open.called)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
+        self.assertIn("python {0} {1} {2}".format(
+            task_import_dataset.__file__, 'dataset.importer', '/tmp/dataset'), script_contents)
+
+    def test_queue_import_dataset_passes_experiment_to_task(self):
+        mock_open = mock.mock_open()
+        experiment_id = oid.ObjectId()
+
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset', experiment_id)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn(
+            "python {0} {1} {2} {3}".format(
+                task_import_dataset.__file__,
+                'dataset.importer',
+                '/tmp/dataset',
+                str(experiment_id)),
+            script_contents)
+
+    def test_queue_import_dataset_job_name_matches_filename(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        self.assertTrue(mock_open.called)
+        filename = mock_open.call_args[0][0]
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertRegex(filename, "import-{0}-{1}-[0-9 -.:]+\.sub$".format('dataset.importer', '-tmp-dataset'))
+        self.assertIn("#PBS -N import-{0}-{1}".format('dataset.importer', '-tmp-dataset'), script_contents)
+        _, _, filename = filename.rpartition('/')
+        filename, _, _ = filename.rpartition('.')
+        self.assertNotEqual('', filename)
+        # Check that the name in the job file is exactly the same as the script name
+        self.assertIn('#PBS -N {0}'.format(filename), script_contents)
+
+    def test_queue_import_dataset_job_name_has_configured_prefix(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        self.assertTrue(mock_open.called)
+        filename = mock_open.call_args[0][0]
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertRegex(filename, "job_import-{0}-{1}-[0-9 -.:]+\.sub$".format('dataset.importer', '-tmp-dataset'))
+        self.assertIn("#PBS -N job_import-{0}-{1}".format('dataset.importer', '-tmp-dataset'), script_contents)
+        _, _, filename = filename.rpartition('/')
+        filename, _, _ = filename.rpartition('.')
+        self.assertNotEqual('', filename)
+        # Check that the name in the job file is exactly the same as the script name
+        self.assertIn('#PBS -N {0}'.format(filename), script_contents)
+
+    def test_queue_import_dataset_uses_configured_virtualenv(self):
+        mock_open = mock.mock_open()
+        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
+        subject = hpc.HPCJobSystem({'virtualenv': virtualenv_path})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+
+    def test_queue_import_dataset_uses_virtualenv_from_environment(self):
+        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
+        mock_open = mock.mock_open()
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
+            subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+
+    def test_queue_import_dataset_returns_true(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            self.assertTrue(subject.queue_import_dataset('dataset.importer', '/tmp/dataset'))
 
     def test_queue_train_system_creates_job_file(self):
         mock_open = mock.mock_open()
