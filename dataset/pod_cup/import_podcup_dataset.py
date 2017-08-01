@@ -48,12 +48,12 @@ def import_dataset(labels_path, db_client, **kwargs):
             )
             image_entity = core.image_entity.ImageEntity(
                 data=im,
-                camera_pose=tf.Transform(),
                 metadata=imeta.ImageMetadata(
                     hash_=xxhash.xxh64(im).digest(),
                     source_type=imeta.ImageSourceType.REAL_WORLD,
                     height=im.shape[0],
                     width=im.shape[1],
+                    camera_pose=tf.Transform(),
                     labelled_objects=(labelled_object,),
                     **kwargs),
                 additional_metadata=None

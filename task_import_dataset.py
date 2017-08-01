@@ -18,7 +18,7 @@ def main(*args):
     """
     if len(args) >= 2:
         loader_module_name = str(args[0])
-        directory = bson.objectid.ObjectId(args[1])
+        directory = str(args[1])
         experiment_id = bson.objectid.ObjectId(args[2]) if len(args) >= 3 else None
 
         config = global_conf.load_global_config('config.yml')

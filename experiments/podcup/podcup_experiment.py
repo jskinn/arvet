@@ -36,9 +36,9 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         for subdir in subdirs:
             for clicks_file in glob.iglob(os.path.join(root_dir, subdir, 'clicks-*.txt')):  # there should only be one
                 # TODO: Different metadata for each dataset
-                dataset_id = pod_dataset.import_rw_dataset(clicks_file, db_client,
-                                                           environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                                           light_level=imeta.LightingLevel.EVENLY_LIT)
+                dataset_id = pod_dataset.import_dataset(clicks_file, db_client,
+                                                        environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                                        light_level=imeta.LightingLevel.EVENLY_LIT)
                 self._training_data_names[dataset_id] = subdir
                 training_datasets.append(dataset_id)
 
@@ -78,15 +78,15 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         trainee_id = dh.add_unique(db_client.trainee_collection, frcnn_trainee)
         return {trainee_id}
 
-    def import_image_sources(self, db_client):
+    def import_image_sources(self, db_client, job_system):
         """
         Import the cup in pod dataset used for testing in this experiment
         :param db_client: The database client, used to do the importing
         :return: A collection of the imported image source ids. May include existing ids.
         """
         image_sources = set()
-        image_sources.add(pod_dataset.import_rw_dataset('/home/john/datasets/pod_cup/cup_in_pod/clicks-1497585183.txt',
-                                                        db_client))
+        image_sources.add(pod_dataset.import_dataset('/home/john/datasets/pod_cup/cup_in_pod/clicks-1497585183.txt',
+                                                     db_client))
         return image_sources
 
     def import_systems(self, db_client):
@@ -227,12 +227,11 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
                                              for oid, name in serialized_representation['training_data_names'].items()}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
-
     def get_name(self, bbox_result, db_client):
         s_trial_result = db_client.trials_collection.find_one({'_id': bbox_result.trial_result}, {'system': True})
         if s_trial_result is not None:
             s_system = db_client.system_collection.find_one({'_id': s_trial_result['system']},
-                                                             {'training_image_sources': True})
+                                                            {'training_image_sources': True})
             if s_system is not None:
                 for image_source_id in s_system['training_image_sources']:
                     if image_source_id in self._training_data_names:
