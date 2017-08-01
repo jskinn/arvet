@@ -44,7 +44,7 @@ class Experiment(database.entity.Entity):
         """
         return self._benchmark_results
 
-    def do_imports(self, db_client, save_changes=True):
+    def do_imports(self, db_client, job_system, save_changes=True):
         """
         Perform imports for this experiment.
         By default, this calls import_systems, import_image_sources, and import_benchmarks.
@@ -54,13 +54,14 @@ class Experiment(database.entity.Entity):
         it will be called repeatedly by the scheduler.
 
         :param db_client: The database client, we need it for importing, and for saving changes
+        :param job_system: The job system, for larger imports
         :param save_changes: Whether we should save the changes when done, since we always need the db_client
         :return: void
         """
         new_trainers = set(self.import_trainers(db_client))
         new_trainees = set(self.import_trainees(db_client))
         new_systems = set(self.import_systems(db_client))
-        new_image_sources = set(self.import_image_sources(db_client))
+        new_image_sources = set(self.import_image_sources(db_client, job_system))
         new_benchmarks = set(self.import_benchmarks(db_client))
 
         self._add_to_set('trainers', new_trainers - self._trainers)
@@ -346,12 +347,16 @@ class Experiment(database.entity.Entity):
         """
         return set()
 
-    def import_image_sources(self, db_client):
+    def import_image_sources(self, db_client, job_system):
         """
         Import the datasets and other image sources associated with this experiment.
         Should return the database ids of the image sources, this may include any image sources
         that have already been imported (we use sets to remove duplicates)
+
+        Note that sometimes importing data is time-consuming.
+        In this case, you should use the job system to schedule
         :param db_client: The database client, used to do the importing
+        :param job_system: The job system, for scheduling larger imports
         :return: A collection of the imported image source ids. May include existing ids.
         """
         return set()

@@ -18,7 +18,7 @@ def main():
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
         if experiment is not None:
             # TODO: Separate scripts for scheduling and importing, they run at different rates
-            experiment.do_imports(db_client, save_changes=False)
+            experiment.do_imports(db_client, job_system, save_changes=False)
             experiment.schedule_tasks(job_system, db_client)    # Will auto-save the experiment
     # Push jobs for all experiments
     job_system.push_queued_jobs()

@@ -87,6 +87,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
     def test_do_imports_imports_systems_sources_and_benchmarks(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         trainer_id = oid.ObjectId()
         trainee_id = oid.ObjectId()
         system_id = oid.ObjectId()
@@ -104,7 +105,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         subject.import_benchmarks = mock.create_autospec(subject.import_benchmarks)
         subject.import_benchmarks.return_value = {benchmark_id}
 
-        subject.do_imports(mock_db_client, save_changes=False)
+        subject.do_imports(mock_db_client, mock_job_system, save_changes=False)
         self.assertTrue(subject.import_trainers.called)
         self.assertIn(trainer_id, subject._trainers)
         self.assertTrue(subject.import_trainees.called)
@@ -127,6 +128,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
 
     def test_do_imports_handles_duplicates(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         trainer_id1 = oid.ObjectId()
         trainer_id2 = oid.ObjectId()
         trainee_id1 = oid.ObjectId()
@@ -150,7 +152,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         subject.import_benchmarks = mock.create_autospec(subject.import_benchmarks)
         subject.import_benchmarks.return_value = {benchmark_id1, benchmark_id2}
 
-        subject.do_imports(mock_db_client, save_changes=False)
+        subject.do_imports(mock_db_client, mock_job_system, save_changes=False)
         self.assertEqual({trainer_id1, trainer_id2}, subject._trainers)
         self.assertEqual({trainee_id1, trainee_id2}, subject._trainees)
         self.assertEqual({system_id1, system_id2}, subject._systems)
@@ -169,6 +171,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
     def test_do_imports_can_save_changes(self):
         mock_db_client = mock.create_autospec(database.client.DatabaseClient)
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_job_system = mock.create_autospec(batch_analysis.job_system.JobSystem)
         trainer_id = oid.ObjectId()
         trainee_id = oid.ObjectId()
         system_id = oid.ObjectId()
@@ -186,7 +189,7 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
         subject.import_benchmarks = mock.create_autospec(subject.import_benchmarks)
         subject.import_benchmarks.return_value = {benchmark_id}
 
-        subject.do_imports(mock_db_client, save_changes=True)
+        subject.do_imports(mock_db_client, mock_job_system, save_changes=True)
         self.assertTrue(mock_db_client.experiments_collection.update.called)
         self.assertEqual(mock.call({
             '_id': subject.identifier
