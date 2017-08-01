@@ -387,6 +387,41 @@ class TestExperiment(database.tests.test_entity.EntityContract, unittest.TestCas
             },
         }), mock_db_client.experiments_collection.update.call_args)
 
+    def test_add_image_source_creates_unsheduled_trials(self):
+        image_source_id = oid.ObjectId()
+        system_id = oid.ObjectId()
+        subject = ex.Experiment(systems={system_id}, trial_map={system_id: {}})
+        subject.add_image_source(image_source_id, '/tmp/dataset1')
+        self.assertEqual(ex.ProgressState.UNSTARTED, subject._trial_map[system_id][image_source_id])
+
+    def test_add_image_source_doesnt_reset_existing_trials(self):
+        image_source_id = oid.ObjectId()
+        system_id = oid.ObjectId()
+        subject = ex.Experiment(systems={system_id}, image_sources={image_source_id}, trial_map={
+            system_id: {image_source_id: ex.ProgressState.FINISHED}
+        })
+        subject.add_image_source(image_source_id, '/tmp/dataset1')
+        self.assertEqual(ex.ProgressState.FINISHED, subject._trial_map[system_id][image_source_id])
+
+    def test_add_image_source_saves_changes_if_given_db_client(self):
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
+
+        image_source_id = oid.ObjectId()
+        system_id = oid.ObjectId()
+        subject = ex.Experiment(systems={system_id}, trial_map={system_id: {}}, id_=oid.ObjectId())
+
+        subject.add_image_source(image_source_id, '/tmp/dataset1', mock_db_client)
+        self.assertTrue(mock_db_client.experiments_collection.update.called)
+        self.assertEqual(mock.call({
+            '_id': subject.identifier
+        }, {
+            '$set': {
+                "trial_map.{0}.{1}".format(str(system_id), str(image_source_id)): ex.ProgressState.UNSTARTED.value
+            },
+            '$addToSet': {'image_sources': {'$each': [image_source_id]}}
+        }), mock_db_client.experiments_collection.update.call_args)
+
     def test_mark_training_unsupported_resets_state(self):
         trainer_id = oid.ObjectId()
         trainee_id = oid.ObjectId()

@@ -133,6 +133,27 @@ class Experiment(database.entity.Entity):
         if db_client is not None:
             self.save_updates(db_client)
 
+    def add_image_source(self, image_source_id, folder, db_client=None):
+        """
+        We've imported a new dataset from the disk.
+        We do this asynchronously so that we can do significant processing during the import
+        or import large datasets.
+        By default, we assume this is a testing dataset, and add it to the set of
+        image sources we will schedule trials for.
+        If you're doing training, you want to override this, and only call super if you want to use
+        the dataset for testing.
+        :param image_source_id: The id of the newly created image source
+        :param folder: The folder we imported it from, for checking the purpose of the dataset
+        :param db_client: The database client if we want to save changes immediately, None otherwise
+        :return: void
+        """
+        self._add_to_set('image_sources', {image_source_id} - self._image_sources)
+        for system_id in self._systems:
+            if image_source_id not in self._trial_map[system_id]:
+                self._change_trial_state(system_id, image_source_id, ProgressState.UNSTARTED)
+        if db_client is not None:
+            self.save_updates(db_client)
+
     def mark_training_unsupported(self, trainer_id, trainee_id, db_client=None):
         """
         Indicate that a particular combination of trainer and trainee are incompatible,
