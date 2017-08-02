@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import os.path
 import json
-import pickle
+import glob
 import pymongo.collection
 import gridfs
 import bson.objectid
@@ -12,6 +12,7 @@ import unittest.mock as mock
 import util.transform
 import util.dict_utils as du
 import metadata.image_metadata as imeta
+import core.image_entity
 import database.client
 import dataset.generated.import_generated_dataset as import_gen
 
@@ -155,17 +156,14 @@ class TestImportGeneratedDataset(unittest.TestCase):
     @mock.patch('dataset.generated.import_generated_dataset.open', mock.mock_open(), create=True)
     @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
     def test_import_image_object_returns_none_if_image_doesnt_exist(self, mock_isfile, *_):
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
         expected_filename = '/home/user/Test.000013.0.png'
         mock_isfile.side_effect = lambda fn: (fn != expected_filename)
-        result = import_gen.import_image_object(db_client=mock_db_client,
-                                                base_path='/home/user',
+        result = import_gen.import_image_object(base_path='/home/user',
                                                 filename_format="Test.{frame}.{stereopass}",
                                                 mappings={},
                                                 index_padding=6,
                                                 index=13,
                                                 extension='.png',
-                                                timestamp=10,
                                                 dataset_metadata={})
         self.assertIn(mock.call(expected_filename), mock_isfile.call_args_list)
         self.assertIsNone(result)
@@ -174,17 +172,14 @@ class TestImportGeneratedDataset(unittest.TestCase):
     @mock.patch('dataset.generated.import_generated_dataset.open', mock.mock_open(), create=True)
     @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
     def test_import_image_object_returns_none_if_metadata_doesnt_exist(self, mock_isfile, *_):
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
         expected_filename = '/home/user/Test.000013.0.png.metadata.json'
         mock_isfile.side_effect = lambda fn: (fn != expected_filename)
-        result = import_gen.import_image_object(db_client=mock_db_client,
-                                                base_path='/home/user',
+        result = import_gen.import_image_object(base_path='/home/user',
                                                 filename_format="Test.{frame}.{stereopass}",
                                                 mappings={},
                                                 index_padding=6,
                                                 index=13,
                                                 extension='.png',
-                                                timestamp=10,
                                                 dataset_metadata={
                                                     "Material Properties": {
                                                         "RoughnessQuality": 0,
@@ -210,257 +205,224 @@ class TestImportGeneratedDataset(unittest.TestCase):
     @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
     @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
     @mock.patch('dataset.generated.import_generated_dataset.cv2', autospec=cv2)
-    def test_import_image_object_returns_id_of_existing_image(self, mock_cv2, mock_isfile, mock_json_load):
-        mock_data = self.prepare_mocks(mock_cv2=mock_cv2, mock_isfile=mock_isfile, mock_json_load=mock_json_load,
-                                       image_metadata={
-                                           'Camera Location': {'X': -22, 'Y': 13, 'Z': 4},
-                                           'Camera Orientation': {'W': -0.5, 'X': 0.5, 'Y': -0.5, 'Z': -0.5}
-                                       })
-        mock_db_client = mock_data[0]
-
-        existing_id = bson.objectid.ObjectId()
-        mock_db_client.image_collection.find_one.return_value = {'_id': existing_id}
-        result = import_gen.import_image_object(db_client=mock_db_client,
-                                                base_path='/home/user',
-                                                filename_format="Test.{frame}.{stereopass}",
-                                                mappings={},
-                                                index_padding=6,
-                                                index=13,
-                                                extension='.png',
-                                                timestamp=10,
-                                                dataset_metadata={
-                                                    'world': 'mock',
-                                                    'quality': 'maximum',
-                                                    "Material Properties": {
-                                                        "RoughnessQuality": 0,
-                                                        "BaseMipMapBias": 0,
-                                                        "NormalQuality": 1
-                                                    },
-                                                    "Geometry Detail": {
-                                                        "Forced LOD level": 0
-                                                    },
-                                                    "World Name": "AIUE_V01_001",
-                                                    "World Information": {
-                                                        "Camera Path": {
-                                                            "Path Generation": {
-                                                                "Random Seed": 0,
-                                                            }
-                                                        }
-                                                    }
-                                                })
-        self.assertEqual(existing_id, result)
-        self.assertFalse(mock_db_client.grid_fs.put.called)
-        self.assertFalse(mock_db_client.image_collection.insert.called)
-        self.assertTrue(mock_db_client.image_collection.find_one.called)
-        existing_query = mock_db_client.image_collection.find_one.call_args[0][0]
-        self.assertIn('camera_pose.location', existing_query)
-        self.assertNPEqual((-22, -13, 4), existing_query['camera_pose.location'])
-        self.assertIn('camera_pose.rotation', existing_query)
-        self.assertNPEqual((0.5, 0.5, 0.5, -0.5), existing_query['camera_pose.rotation'], approx=0.000000000000001)
-        self.assertIn('additional_metadata.world', existing_query)
-        self.assertEqual('mock', existing_query['additional_metadata.world'])
-        self.assertIn('additional_metadata.quality', existing_query)
-        self.assertEqual('maximum', existing_query['additional_metadata.quality'])
-
-    @mock.patch('dataset.generated.import_generated_dataset.open', mock.mock_open(), create=True)
-    @mock.patch('core.image_entity.pickle', autospec=pickle)
-    @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
-    @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
-    @mock.patch('dataset.generated.import_generated_dataset.cv2', autospec=cv2)
-    def test_import_image_object_loads_image(self, mock_cv2, mock_isfile, mock_json_load, mock_pickle):
-        mock_db_client, images, ids = self.prepare_mocks(mock_isfile=mock_isfile, mock_json_load=mock_json_load,
-                                                         mock_cv2=mock_cv2, mock_pickle=mock_pickle)
-        im_id, depth_id, labels_id, normals_id = ids
+    def test_import_image_object_returns_constructed_image_object(self, mock_cv2, mock_isfile, mock_json_load):
+        _, images, _ = self.prepare_mocks(mock_cv2=mock_cv2, mock_isfile=mock_isfile, mock_json_load=mock_json_load,
+                                          image_metadata={
+                                              'Camera Location': {'X': -22, 'Y': 13, 'Z': 4},
+                                              'Camera Orientation': {'W': -0.5, 'X': 0.5, 'Y': -0.5, 'Z': -0.5}
+                                          })
         im_data, depth_data, labels_data, normals_data = images
-
-        import_gen.import_image_object(db_client=mock_db_client,
-                                       base_path='/home/user',
-                                       filename_format="Test.{frame}.{stereopass}",
-                                       mappings={},
-                                       index_padding=6,
-                                       index=13,
-                                       extension='.png',
-                                       timestamp=10,
-                                       dataset_metadata={
-                                           'world': 'nope',
-                                           'quality': 'overpowered',
-                                           "Material Properties": {
-                                               "RoughnessQuality": 0,
-                                               "BaseMipMapBias": 0,
-                                               "NormalQuality": 1
-                                           },
-                                           "Geometry Detail": {
-                                               "Forced LOD level": 0
-                                           },
-                                           "World Name": "AIUE_V01_001",
-                                           "World Information": {
-                                               "Camera Path": {
-                                                   "Path Generation": {
-                                                       "Random Seed": 0,
+        image = import_gen.import_image_object(base_path='/home/user',
+                                               filename_format="Test.{frame}.{stereopass}",
+                                               mappings={},
+                                               index_padding=6,
+                                               index=13,
+                                               extension='.png',
+                                               dataset_metadata={
+                                                   'world': 'mock',
+                                                   'quality': 'maximum',
+                                                   "Material Properties": {
+                                                       "RoughnessQuality": 0,
+                                                       "BaseMipMapBias": 2,
+                                                       "NormalQuality": 1
+                                                   },
+                                                   "Geometry Detail": {
+                                                       "Forced LOD level": 4
+                                                   },
+                                                   "World Name": "AIUE_V01_001",
+                                                   "World Information": {
+                                                       "Camera Path": {
+                                                           "Path Generation": {
+                                                               "Random Seed": 1236,
+                                                           }
+                                                       }
                                                    }
-                                               }
-                                           }
-                                       })
-
-        self.assertCalled(mock_db_client.grid_fs.put)
-        found_im = False
-        found_depth = False
-        found_labels = False
-        found_normals = False
-        for call_args in mock_db_client.grid_fs.put.call_args_list:
-            if np.array_equal(im_data, call_args[0][0]):
-                found_im = True
-            elif np.array_equal(depth_data, call_args[0][0]):
-                found_depth = True
-            elif np.array_equal(labels_data, call_args[0][0]):
-                found_labels = True
-            elif np.array_equal(normals_data, call_args[0][0]):
-                found_normals = True
-        self.assertTrue(found_im, "{0} was not called with the image data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_depth, "{0} was not called with the depth data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_labels, "{0} was not called with the labels data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_normals, "{0} was not called with the normals".format(str(mock_db_client.grid_fs.put)))
-
-        self.assertCalled(mock_db_client.image_collection.insert)
-        s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
-        self.assertEqual('core.image_entity.ImageEntity', s_result_image['_type'])
-        self.assertNPEqual((1, -1, 1), s_result_image['metadata']['camera_pose']['location'])
-        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['camera_pose']['rotation'], approx=0.000000000000001)
-        self.assertEqual({
-            'world': 'nope',
-            'quality': 'overpowered',
-            "World Information": {
-                "Camera Path": {
-                    "Path Generation": {
-                        "Random Seed": 0,
-                    }
-                }
-            }
-        }, s_result_image['additional_metadata'])
-        self.assertEqual(im_id, s_result_image['data'])
-        self.assertEqual(depth_id, s_result_image['depth_data'])
-        self.assertEqual(labels_id, s_result_image['labels_data'])
-        self.assertEqual(normals_id, s_result_image['world_normals_data'])
+                                               })
+        self.assertIsInstance(image, core.image_entity.ImageEntity)
+        self.assertNPEqual((-22, -13, 4), image.metadata.camera_pose.location)
+        self.assertNPEqual((0.5, 0.5, 0.5, -0.5), image.metadata.camera_pose.rotation_quat(True),
+                           approx=0.000000000000001)
+        self.assertNPEqual(im_data, image.data)
+        self.assertNPEqual(depth_data, image.depth_data)
+        self.assertNPEqual(labels_data, image.labels_data)
+        self.assertNPEqual(normals_data, image.world_normals_data)
+        self.assertEqual(2, image.metadata.texture_mipmap_bias)
+        self.assertEqual(True, image.metadata.normal_maps_enabled)
+        self.assertEqual(False, image.metadata.roughness_enabled)
+        self.assertEqual(4, image.metadata.geometry_decimation)
+        self.assertEqual(1236, image.metadata.procedural_generation_seed)
+        self.assertEqual('AIUE_V01_001', image.metadata.simulation_world)
 
     @mock.patch('dataset.generated.import_generated_dataset.open', mock.mock_open(), create=True)
-    @mock.patch('core.image_entity.pickle', autospec=pickle)
     @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
     @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
     @mock.patch('dataset.generated.import_generated_dataset.cv2', autospec=cv2)
-    def test_import_image_object_loads_stereo_image(self, mock_cv2, mock_isfile, mock_json_load, mock_pickle):
-        mock_db_client, images, ids = self.prepare_mocks(mock_isfile=mock_isfile, mock_json_load=mock_json_load,
-                                                         mock_cv2=mock_cv2, mock_pickle=mock_pickle, make_stereo=True)
-        im_id, depth_id, labels_id, normals_id, right_id, right_depth_id, right_labels_id, right_normals_id = ids
+    def test_import_image_object_loads_stereo_image(self, mock_cv2, mock_isfile, mock_json_load):
+        _, images, _ = self.prepare_mocks(mock_isfile=mock_isfile, mock_json_load=mock_json_load, mock_cv2=mock_cv2,
+                                          image_metadata={
+                                              'Camera Location': {'X': -22, 'Y': 13, 'Z': 4},
+                                              'Camera Orientation': {'W': -0.5, 'X': 0.5, 'Y': -0.5, 'Z': -0.5}
+                                          }, make_stereo=True)
         (im_data, depth_data, labels_data, normals_data, right_im_data,
          right_depth_data, right_labels_data, right_normals_data) = images
 
-        import_gen.import_image_object(db_client=mock_db_client,
-                                       base_path='/home/user',
-                                       filename_format="Test.{frame}.{stereopass}",
-                                       mappings={},
-                                       index_padding=6,
-                                       index=13,
-                                       extension='.png',
-                                       timestamp=10,
-                                       dataset_metadata={
-                                           'world': 'nope',
-                                           'quality': 'overpowered',
-                                           "Material Properties": {
-                                               "RoughnessQuality": 0,
-                                               "BaseMipMapBias": 0,
-                                               "NormalQuality": 1
-                                           },
-                                           "Geometry Detail": {
-                                               "Forced LOD level": 0
-                                           },
-                                           "World Name": "AIUE_V01_001",
-                                           "World Information": {
-                                               "Camera Path": {
-                                                   "Path Generation": {
-                                                       "Random Seed": 0,
-                                                   }
-                                               }
-                                           }
-                                       })
-
-        self.assertCalled(mock_db_client.grid_fs.put)
-        found_im = False
-        found_depth = False
-        found_labels = False
-        found_normals = False
-        found_right_im = False
-        found_right_depth = False
-        found_right_labels = False
-        found_right_normals = False
-        for call_args in mock_db_client.grid_fs.put.call_args_list:
-            if np.array_equal(im_data, call_args[0][0]):
-                found_im = True
-            elif np.array_equal(depth_data, call_args[0][0]):
-                found_depth = True
-            elif np.array_equal(labels_data, call_args[0][0]):
-                found_labels = True
-            elif np.array_equal(normals_data, call_args[0][0]):
-                found_normals = True
-            elif np.array_equal(right_im_data, call_args[0][0]):
-                found_right_im = True
-            elif np.array_equal(right_depth_data, call_args[0][0]):
-                found_right_depth = True
-            elif np.array_equal(right_labels_data, call_args[0][0]):
-                found_right_labels = True
-            elif np.array_equal(right_normals_data, call_args[0][0]):
-                found_right_normals = True
-        self.assertTrue(found_im, "{0} was not called with the image data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_depth, "{0} was not called with the depth data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_labels, "{0} was not called with the labels data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_normals, "{0} was not called with the normals".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_right_im,
-                        "{0} was not called with the right image data".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_right_depth,
-                        "{0} was not called with the right depth".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_right_labels,
-                        "{0} was not called with the right labels".format(str(mock_db_client.grid_fs.put)))
-        self.assertTrue(found_right_normals,
-                        "{0} was not called with the right normals".format(str(mock_db_client.grid_fs.put)))
-
-        self.assertCalled(mock_db_client.image_collection.insert)
-        s_result_image = mock_db_client.image_collection.insert.call_args[0][0]  # First argument of first call
-        self.assertEqual('core.image_entity.StereoImageEntity', s_result_image['_type'])
-        self.assertNPEqual((1, -1, 1), s_result_image['metadata']['camera_pose']['location'])
-        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['camera_pose']['rotation'],
+        stereo_image = import_gen.import_image_object(base_path='/home/user',
+                                                      filename_format="Test.{frame}.{stereopass}",
+                                                      mappings={},
+                                                      index_padding=6,
+                                                      index=13,
+                                                      extension='.png',
+                                                      dataset_metadata={
+                                                          'world': 'nope',
+                                                          'quality': 'overpowered',
+                                                          "Material Properties": {
+                                                              "RoughnessQuality": 0,
+                                                              "BaseMipMapBias": 2,
+                                                              "NormalQuality": 1
+                                                          },
+                                                          "Geometry Detail": {
+                                                              "Forced LOD level": 4
+                                                          },
+                                                          "World Name": "AIUE_V01_001",
+                                                          "World Information": {
+                                                              "Camera Path": {
+                                                                  "Path Generation": {
+                                                                      "Random Seed": 12365,
+                                                                  }
+                                                              }
+                                                          }
+                                                      })
+        self.assertIsInstance(stereo_image, core.image_entity.StereoImageEntity)
+        self.assertNPEqual((-22, -13, 4), stereo_image.metadata.camera_pose.location)
+        self.assertNPEqual((0.5, 0.5, 0.5, -0.5), stereo_image.metadata.camera_pose.rotation_quat(True),
                            approx=0.000000000000001)
-        self.assertNPEqual((1, -1, 1), s_result_image['metadata']['right_camera_pose']['location'])
-        self.assertNPEqual((0.2, -0.4, 0.8, -0.4), s_result_image['metadata']['right_camera_pose']['rotation'],
+        self.assertNPEqual((-22, -13, 4), stereo_image.metadata.right_camera_pose.location)
+        self.assertNPEqual((0.5, 0.5, 0.5, -0.5), stereo_image.metadata.right_camera_pose.rotation_quat(True),
                            approx=0.000000000000001)
-        self.assertEqual({
-            'world': 'nope',
-            'quality': 'overpowered',
-            "World Information": {
-                "Camera Path": {
-                    "Path Generation": {
-                        "Random Seed": 0,
-                    }
-                }
-            }
-        }, s_result_image['additional_metadata'])
-        self.assertEqual(im_id, s_result_image['left_data'])
-        self.assertEqual(depth_id, s_result_image['left_depth_data'])
-        self.assertEqual(labels_id, s_result_image['left_labels_data'])
-        self.assertEqual(normals_id, s_result_image['left_world_normals_data'])
-        self.assertEqual(right_id, s_result_image['right_data'])
-        self.assertEqual(right_depth_id, s_result_image['right_depth_data'])
-        self.assertEqual(right_labels_id, s_result_image['right_labels_data'])
-        self.assertEqual(right_normals_id, s_result_image['right_world_normals_data'])
+        self.assertNPEqual(im_data, stereo_image.left_data)
+        self.assertNPEqual(depth_data, stereo_image.left_depth_data)
+        self.assertNPEqual(labels_data, stereo_image.left_labels_data)
+        self.assertNPEqual(normals_data, stereo_image.left_world_normals_data)
+        self.assertNPEqual(right_im_data, stereo_image.right_data)
+        self.assertNPEqual(right_depth_data, stereo_image.right_depth_data)
+        self.assertNPEqual(right_labels_data, stereo_image.right_labels_data)
+        self.assertNPEqual(right_normals_data, stereo_image.right_world_normals_data)
+        self.assertEqual(2, stereo_image.metadata.texture_mipmap_bias)
+        self.assertEqual(True, stereo_image.metadata.normal_maps_enabled)
+        self.assertEqual(False, stereo_image.metadata.roughness_enabled)
+        self.assertEqual(4, stereo_image.metadata.geometry_decimation)
+        self.assertEqual(12365, stereo_image.metadata.procedural_generation_seed)
+        self.assertEqual('AIUE_V01_001', stereo_image.metadata.simulation_world)
+
+    def test_import_dataset_returns_none_if_metadata_doesnt_exist(self):
+        self.assertIsNone(import_gen.import_dataset('notafile.fail', mock.create_autospec(database.client)))
+
+    @mock.patch('dataset.generated.import_generated_dataset.glob.glob', autospec=glob.glob)
+    @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
+    @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
+    def test_import_dataset_reads_dataset_metadata(self, mock_isfile, mock_json_load, mock_glob):
+        mock_glob.return_value = []
+        mock_isfile.return_value = True
+        mock_json_load.return_value = {
+            'World Name': 'test_world',
+            'File Extension': '.img'    # Need this so it can call glob and not error
+        }
+        mock_open = mock.mock_open()
+        with mock.patch('dataset.generated.import_generated_dataset.open', mock_open, create=True):
+            import_gen.import_dataset('/temp/isfilehonest', mock.create_autospec(database.client))
+        self.assertTrue(mock_open.called)
+        self.assertTrue('/temp/isfilehonest', mock_open.call_args[0][0])
+        self.assertTrue(mock_json_load.called)
+
+    @mock.patch('dataset.generated.import_generated_dataset.import_image_object',
+                autospec=import_gen.import_image_object)
+    @mock.patch('dataset.generated.import_generated_dataset.glob.glob', autospec=glob.glob)
+    @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
+    @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
+    def test_import_dataset_loads_images_for_number_of_image_files(self, mock_isfile, mock_json_load, mock_glob,
+                                                                   mock_import_image):
+        mock_glob.return_value = list(range(10))    # Values don't matter, only length
+        mock_isfile.return_value = True
+        mock_json_load.return_value = {
+            'World Name': 'test_world',
+            'File Extension': '.img',
+            'Image Filename Format': '{name}-{color}',
+            'Image Filename Format Mappings': {'name': 'yes', 'color': 'red'},
+            'Index Padding': 10
+        }
+        mock_import_image.return_value = mock.create_autospec(core.image_entity.ImageEntity)
+        mock_db_client = mock.create_autospec(database.client)
+        mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_open = mock.mock_open()
+        with mock.patch('dataset.generated.import_generated_dataset.open', mock_open, create=True):
+            import_gen.import_dataset('/temp/isfilehonest', mock_db_client)
+        self.assertEqual(10, mock_import_image.call_count)
+
+    @mock.patch('dataset.generated.import_generated_dataset.import_image_object',
+                autospec=import_gen.import_image_object)
+    @mock.patch('dataset.generated.import_generated_dataset.glob.glob', autospec=glob.glob)
+    @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
+    @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
+    def test_import_dataset_stops_when_failed_to_load(self, mock_isfile, mock_json_load, mock_glob,
+                                                                   mock_import_image):
+        mock_glob.return_value = list(range(10))    # Values don't matter, only length
+        mock_isfile.return_value = True
+        mock_json_load.return_value = {
+            'File Extension': '.img',
+            'Image Filename Format': '{name}-{color}',
+            'Image Filename Format Mappings': {'name': 'yes', 'color': 'red'},
+            'Index Padding': 10
+        }
+        mock_import_image.return_value = None
+        mock_db_client = mock.create_autospec(database.client)
+        mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_open = mock.mock_open()
+        with mock.patch('dataset.generated.import_generated_dataset.open', mock_open, create=True):
+            import_gen.import_dataset('/temp/isfilehonest', mock_db_client)
+        self.assertEqual(1, mock_import_image.call_count)
+
+    @mock.patch('dataset.generated.import_generated_dataset.import_image_object',
+                autospec=import_gen.import_image_object)
+    @mock.patch('dataset.generated.import_generated_dataset.glob.glob', autospec=glob.glob)
+    @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
+    @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
+    def test_import_dataset_saves_image_collection(self, mock_isfile, mock_json_load, mock_glob,
+                                                                   mock_import_image):
+        mock_glob.return_value = list(range(10))    # Values don't matter, only length
+        mock_isfile.return_value = True
+        mock_json_load.return_value = {
+            'File Extension': '.img',
+            'Image Filename Format': '{name}-{color}',
+            'Image Filename Format Mappings': {'name': 'yes', 'color': 'red'},
+            'Index Padding': 10
+        }
+        mock_import_image.return_value = mock.create_autospec(core.image_entity.ImageEntity)
+        mock_db_client = mock.create_autospec(database.client)
+        mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_source_collection.find_one.return_value = None
+        mock_open = mock.mock_open()
+        with mock.patch('dataset.generated.import_generated_dataset.open', mock_open, create=True):
+            import_gen.import_dataset('/temp/isfilehonest', mock_db_client)
+        self.assertTrue(mock_db_client.image_source_collection.find_one.called)
+        self.assertTrue(mock_db_client.image_source_collection.insert.called)
 
     @staticmethod
     def prepare_mocks(mock_cv2=None, mock_isfile=None, mock_json_load=None, mock_pickle=None,
                       image_metadata=None, make_stereo=False):
         """
-        Set up mocks for tests.
+        Set up mocks for testing loading an image.
+        The image loader expects to be able to read several image files.
+        We need to set up the mocks to support loading each of these files as expected
         The mocks passed in will be modified, additional mocks will be returned
         :param mock_cv2:
         :param mock_isfile:
         :param mock_json_load:
         :param mock_pickle:
+        :param image_metadata:
+        :param make_stereo:
         :return:
         """
         # Create example data, and map it between expected filenames and the data

@@ -7,12 +7,11 @@ import numpy as np
 import cv2
 import xxhash
 
-import core.image_collection as im_coll
 import core.image_entity
 import core.sequence_type
+import dataset.image_collection_builder
 import dataset.generated.metadata_patch as metadata_patch
 import metadata.image_metadata as imeta
-import util.database_helpers
 import util.dict_utils as du
 import util.unreal_transform as ue_tf
 
@@ -142,7 +141,7 @@ def load_image_set(base_path, filename_format, mappings, index_padding, index, e
     return image_data, depth_data, labels_data, world_normals_data
 
 
-def import_image_object(db_client, base_path, filename_format, mappings, index_padding,
+def import_image_object(base_path, filename_format, mappings, index_padding,
                         index, extension, dataset_metadata):
     """
     Save an image to the database.
@@ -150,7 +149,6 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
     Then, check if a similar image already exists in the database, if so, return that id.
     Otherwise, add the new Entity to the database, and return ID of the newly stored object.
 
-    :param db_client: the database client to store in
     :param base_path: The base directory containing the image
     :param index: The index of the image, used in the filename
     :param filename_format: Additional formatting for the image filenames.
@@ -198,7 +196,7 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
         # No right image, this is a monocular image, make the entity
         du.defaults(metadata, dataset_metadata)
 
-        image = core.image_entity.ImageEntity(
+        return core.image_entity.ImageEntity(
             data=image_data,
             metadata=build_image_metadata(image_data, depth_data, camera_pose, metadata),
             additional_metadata=sanitize_additional_metadata(metadata),
@@ -226,7 +224,7 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
                                                                            **path_kwargs))
 
         du.defaults(metadata, right_metadata, dataset_metadata)
-        image = core.image_entity.StereoImageEntity(
+        return core.image_entity.StereoImageEntity(
             metadata=build_image_metadata(image_data, depth_data, camera_pose, metadata, right_camera_pose),
             additional_metadata=sanitize_additional_metadata(metadata),
             left_data=image_data,
@@ -239,33 +237,8 @@ def import_image_object(db_client, base_path, filename_format, mappings, index_p
             right_world_normals_data=right_world_normals_data
         )
 
-    # Check it doesn't already exist
-    query = util.database_helpers.query_to_dot_notation({
-        'camera_pose': image.camera_pose.serialize(),
-        'additional_metadata': copy.deepcopy(image.additional_metadata)
-    })
-    existing = db_client.image_collection.find_one(query, {'_id': True})
-    if existing is not None:
-        # The image already exists, return it's id
-        return existing['_id']
-    else:
-        # This is a new image, store it and return the new id
-        image.save_image_data(db_client)
-        return db_client.image_collection.insert(image.serialize())
 
-
-def parse_sequence_type(type_string):
-    """
-    Parse the sequence type in the metadata into a ImageSequenceType
-    :param type_string:
-    :return:
-    """
-    if type_string.lower() == 'sequential':
-        return core.sequence_type.ImageSequenceType.SEQUENTIAL
-    return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-
-
-def import_dataset(folder_path, db_client):
+def import_dataset(metadata_path, db_client):
     """
     Search in a given folder path for generated image datasets and import them.
     A dataset is structured as a folder full of images, containing a file called 'metadata.json'
@@ -273,50 +246,36 @@ def import_dataset(folder_path, db_client):
     All images must be indexed, determining their order in the image sequence.
     Uses iglob to search subdirectories, so it can import many datasets at once.
 
-    :param folder_path: The root directory to start searching from
+    :param metadata_path: The
     :param db_client: The client to the database to store the images in.
-    :return: The number of datasets imported
+    :return: The ids of the newly imported datasets
     """
-    num_imported = 0
-    if os.path.isdir(folder_path):
-        for dataset_metadata_path in glob.iglob(os.path.join(folder_path, '**', 'metadata.json')):
-            # Load the dataset
-            with open(dataset_metadata_path, 'rU') as metadata_file:
-                metadata = json.load(metadata_file)
-            metadata_patch.update_dataset_metadata(metadata)
+    if os.path.isfile(metadata_path):
+        # Load the dataset
+        with open(metadata_path, 'rU') as metadata_file:
+            metadata = json.load(metadata_file)
+        metadata_patch.update_dataset_metadata(metadata)
 
-            # First, load the images.
-            dataset_dir = os.path.dirname(dataset_metadata_path)
-            file_extension = metadata['File Extension']
-            image_ids = []
+        builder = dataset.image_collection_builder.ImageCollectionBuilder(db_client)
 
-            # loop over the maximum possible number of images, should break before the end of this range
-            for index in range(0, len(glob.glob(os.path.join(dataset_dir, '*' + file_extension)))):
-                image_id = import_image_object(db_client=db_client,
-                                               base_path=dataset_dir,
-                                               index=index,
-                                               filename_format=metadata['Image Filename Format'],
-                                               mappings=metadata['Image Filename Format Mappings'],
-                                               index_padding=metadata['Index Padding'],
-                                               extension=file_extension,
-                                               dataset_metadata=copy.deepcopy(metadata))
-                if image_id is not None:
-                    image_ids.append(image_id)
-                else:
-                    # This image failed to load, lets assume we've reached the maximum range of the dataset
-                    break
+        # First, load the images.
+        dataset_dir = os.path.dirname(metadata_path)
+        file_extension = metadata['File Extension']
 
-            # Now that we've got all the images, build the image collection to hold them
-            s_collection = im_coll.ImageCollection.create_serialized(image_ids,
-                                                                     parse_sequence_type(metadata['Sequence Type']))
+        # loop over the maximum possible number of images, should break before the end of this range
+        for index in range(0, len(glob.glob(os.path.join(dataset_dir, '*' + file_extension)))):
+            image = import_image_object(base_path=dataset_dir,
+                                        index=index,
+                                        filename_format=metadata['Image Filename Format'],
+                                        mappings=metadata['Image Filename Format Mappings'],
+                                        index_padding=metadata['Index Padding'],
+                                        extension=file_extension,
+                                        dataset_metadata=copy.deepcopy(metadata))
+            if image is not None:
+                builder.add_image(image)
+            else:
+                # This image failed to load, lets assume we've reached the maximum range of the dataset
+                break
 
-            # Check it doesn't already exist
-            query = util.database_helpers.query_to_dot_notation(copy.deepcopy(s_collection))
-            if '_id' in query:
-                del query['_id']
-            existing = db_client.image_collection.find_one(query, {'_id': True})
-            if existing is None:
-                # This is a new collection, store it.
-                db_client.image_source_collection.insert(s_collection)
-                num_imported += 1
-    return num_imported
+        return builder.save()
+    return None
