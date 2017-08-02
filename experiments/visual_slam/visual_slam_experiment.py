@@ -1,4 +1,6 @@
+import matplotlib.pyplot as pyplot
 import util.database_helpers as dh
+import util.associate
 import batch_analysis.experiment
 import systems.visual_odometry.libviso2.libviso2 as libviso2
 import benchmarks.rpe.relative_pose_error as rpe
@@ -104,7 +106,33 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param db_client:
         :return:
         """
-        pass
+        for trial_result_id in self._trial_results:
+            trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
+            ground_truth_traj = trial_result.get_ground_truth_camera_poses()
+            result_traj = trial_result.get_computed_camera_poses()
+            matches = util.associate.associate(ground_truth_traj, result_traj, offset=0, max_difference=1)
+            x = []
+            y = []
+            x_gt = []
+            y_gt = []
+            gt_start = ground_truth_traj[min(ground_truth_traj.keys())]
+            for gt_stamp, result_stamp in matches:
+                gt_relative_pose = gt_start.find_relative(ground_truth_traj[gt_stamp])
+                x_gt.append(gt_relative_pose.location[0])
+                y_gt.append(gt_relative_pose.location[1])
+                x.append(result_traj[result_stamp].location[0])
+                y.append(result_traj[result_stamp].location[1])
+
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            ax = figure.add_subplot(111)
+            ax.plot(x, y)
+            ax.plot(x_gt, y_gt)
+            ax.set_xlabel('x-location')
+            ax.set_ylabel('y-location')
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
+        pyplot.show()
+
 
     def serialize(self):
         serialized = super().serialize()
