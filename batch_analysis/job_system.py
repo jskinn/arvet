@@ -28,12 +28,12 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def queue_import_dataset(self, module_name, directory, experiment=None):
+    def queue_import_dataset(self, module_name, path, experiment=None):
         """
         Use the job system to import a dataset
         :param module_name: The name of the python module to use to do the import as a string.
         It must have a function 'import_dataset', taking a directory and the database client
-        :param directory: The root directory containing the dataset to import
+        :param path: The root file or directory describing the dataset to import
         :param experiment: The experiment to give the imported dataset to, if any
         :return: True iff the job was queued
         """

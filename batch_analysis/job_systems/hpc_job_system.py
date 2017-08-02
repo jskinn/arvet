@@ -72,15 +72,15 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         return False
 
-    def queue_import_dataset(self, module_name, directory, experiment=None):
+    def queue_import_dataset(self, module_name, path, experiment=None):
         """
         Create a HPC job to import an image dataset into the image dataset
         :param module_name: The python module to use to do the import
-        :param directory: The directory to import the dataset from
+        :param path: The directory to import the dataset from
         :param experiment: The experiment associated with this import, if any
         :return: True iff the job was queued
         """
-        return self.create_job('import', task_import_dataset.__file__, str(module_name), str(directory), experiment)
+        return self.create_job('import', task_import_dataset.__file__, str(module_name), str(path), experiment)
 
     def queue_train_system(self, trainer_id, trainee_id, experiment=None):
         """
