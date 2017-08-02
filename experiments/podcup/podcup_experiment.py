@@ -30,17 +30,21 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         :param db_client: The database client
         :return: A set of database ids for system trainers
         """
-        training_datasets = []
+        added_training_data = False
+        training_datasets = set(self._training_data_names.keys())
         root_dir = os.path.expanduser('~/datasets/pod_cup')
+        existing = set(self._training_data_names.values())
         subdirs = {'cup_in_pod', 'cup_outside_pod', 'other_cups_indoor', 'other_cups_outdoor', 'other_cups_pod'}
         for subdir in subdirs:
-            for clicks_file in glob.iglob(os.path.join(root_dir, subdir, 'clicks-*.txt')):  # there should only be one
-                # TODO: Different metadata for each dataset
-                dataset_id = pod_dataset.import_dataset(clicks_file, db_client,
-                                                        environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                                        light_level=imeta.LightingLevel.EVENLY_LIT)
-                self._training_data_names[dataset_id] = subdir
-                training_datasets.append(dataset_id)
+            if subdir not in existing:
+                for clicks_file in glob.iglob(os.path.join(root_dir, subdir, 'clicks-*.txt')):  # there should only be one
+                    # TODO: Different metadata for each dataset
+                    dataset_id = pod_dataset.import_dataset(clicks_file, db_client,
+                                                            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                                            light_level=imeta.LightingLevel.EVENLY_LIT)
+                    self._training_data_names[dataset_id] = subdir
+                    training_datasets.add(dataset_id)
+                    added_training_data = True
 
         trainers = set()
         for dataset in training_datasets:
@@ -55,10 +59,11 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
                 validation_fraction=0.2
             )
             trainers.add(dh.add_unique(db_client.trainer_collection, s_trainer))
-        if '$set' not in self._updates:
-            self._updates['$set'] = {}
-        self._updates['$set']['training_data_names'] = {str(oid): name for oid, name
-                                                        in self._training_data_names.items()}
+        if added_training_data:
+            if '$set' not in self._updates:
+                self._updates['$set'] = {}
+            self._updates['$set']['training_data_names'] = {str(oid): name for oid, name
+                                                            in self._training_data_names.items()}
         return trainers
 
     def import_trainees(self, db_client):
