@@ -1,4 +1,5 @@
 import numpy as np
+import cv2  # TODO: Replace with a lighter library, maybe pillow
 import viso2 as libviso2
 
 import core.sequence_type
@@ -51,7 +52,9 @@ class LibVisOSystem(core.system.VisionSystem):
         self._gt_poses = {}
 
     def process_image(self, image, timestamp):
-        self._viso.process_frame(image.left_data, image.right_data)
+        left_grey = cv2.cvtColor(image.left_data, cv2.COLOR_RGB2GRAY)
+        right_grey = cv2.cvtColor(image.right_data, cv2.COLOR_RGB2GRAY)
+        self._viso.process_frame(left_grey, right_grey)
         motion = self._viso.getMotion()  # Motion is a 4x4 pose matrix
         np_motion = np.zeros((4, 4))
         motion.toNumpy(np_motion)
