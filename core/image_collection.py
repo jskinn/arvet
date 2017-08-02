@@ -24,17 +24,19 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
-        self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_filename') and
+        self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_data') and
                                                            image.depth_data is not None for image in images)
-        self._is_labels_image_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
+        self._is_labels_image_available = len(images) > 0 and all(hasattr(image, 'labels_data') and
                                                                   image.labels_data is not None for image in images)
         self._is_bboxes_available = len(images) > 0 and all(
             hasattr(image, 'metadata') and hasattr(image.metadata, 'labelled_objects') and
             len(image.metadata.labelled_objects) > 0 for image in images)
-        self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_filename') and
+        self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_data') and
                                                              image.world_normals_data is not None for image in images)
-        self._is_stereo_available = len(images) > 0 and all(hasattr(image, 'left_filename') and
-                                                            hasattr(image, 'right_filename') for image in images)
+        self._is_stereo_available = len(images) > 0 and all(
+            hasattr(image, 'left_data') and image.left_data is not None and
+            hasattr(image, 'right_data') and image.right_data is not None
+            for image in images)
         self._current_index = 0
 
     def __len__(self):
@@ -223,7 +225,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
                 '_id': {'$in': serialized_representation['images']}
             }).sort('timestamp', pymongo.ASCENDING)
             kwargs['images'] = [db_client.deserialize_entity(s_image) for s_image in s_images]
-        if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] is 'SEQ':
+        if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] == 'SEQ':
             kwargs['type_'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
             kwargs['type_'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL

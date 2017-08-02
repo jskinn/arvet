@@ -37,12 +37,13 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         for path in {'/home/john/Renders/Dataset 1/metadata.json'}:
-            if path not in self._dataset_map:
+            map_key = path.replace('.', '-')
+            if map_key not in self._dataset_map:
                 if job_system.queue_import_dataset('dataset.generated.import_generated_dataset', path, self.identifier):
-                    self._dataset_map[path] = False
+                    self._dataset_map[map_key] = False
                     if '$set' not in self._updates:
                         self._updates['$set'] = {}
-                    self._updates['$set']['dataset_map.{0}'.format(path)] = False
+                    self._updates['$set']['dataset_map.{0}'.format(map_key)] = False
         return set()
 
     def import_systems(self, db_client):
@@ -89,10 +90,11 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def add_image_source(self, image_source_id, folder, db_client=None):
         # TODO: Grab out any dataset we only want to use for training
-        self._dataset_map[folder] = image_source_id
+        map_key = folder.replace('.', '-')
+        self._dataset_map[map_key] = image_source_id
         if '$set' not in self._updates:
             self._updates['$set'] = {}
-        self._updates['$set']['dataset_map.{0}'.format(folder)] = image_source_id
+        self._updates['$set']['dataset_map.{0}'.format(map_key)] = image_source_id
         super().add_image_source(image_source_id, folder, db_client)
 
     def plot_results(self, db_client):

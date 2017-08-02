@@ -365,7 +365,7 @@ class TestImportGeneratedDataset(unittest.TestCase):
     @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
     @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
     def test_import_dataset_stops_when_failed_to_load(self, mock_isfile, mock_json_load, mock_glob,
-                                                                   mock_import_image):
+                                                      mock_import_image):
         mock_glob.return_value = list(range(10))    # Values don't matter, only length
         mock_isfile.return_value = True
         mock_json_load.return_value = {
@@ -389,7 +389,7 @@ class TestImportGeneratedDataset(unittest.TestCase):
     @mock.patch('dataset.generated.import_generated_dataset.json.load', autospec=json.load)
     @mock.patch('dataset.generated.import_generated_dataset.os.path.isfile', autospec=os.path.isfile)
     def test_import_dataset_saves_image_collection(self, mock_isfile, mock_json_load, mock_glob,
-                                                                   mock_import_image):
+                                                   mock_import_image):
         mock_glob.return_value = list(range(10))    # Values don't matter, only length
         mock_isfile.return_value = True
         mock_json_load.return_value = {
@@ -408,6 +408,8 @@ class TestImportGeneratedDataset(unittest.TestCase):
             import_gen.import_dataset('/temp/isfilehonest', mock_db_client)
         self.assertTrue(mock_db_client.image_source_collection.find_one.called)
         self.assertTrue(mock_db_client.image_source_collection.insert.called)
+        s_image_collection = mock_db_client.image_source_collection.insert.call_args[0][0]
+        self.assertEqual('SEQ', s_image_collection['sequence_type'])
 
     @staticmethod
     def prepare_mocks(mock_cv2=None, mock_isfile=None, mock_json_load=None, mock_pickle=None,

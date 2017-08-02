@@ -35,10 +35,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment this generated dataset is associated with, if any
         :return: True iff the job was successfully queued
         """
-        if experiment is not None:
-            self._queue.append()
-        else:
-            self._queue.append()
+        return False
 
     def queue_import_dataset(self, module_name, path, experiment=None):
         """
@@ -53,6 +50,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
             self._queue.append((task_import_dataset.main, (module_name, path, experiment)))
         else:
             self._queue.append((task_import_dataset.main, (module_name, path)))
+        return True
 
     def queue_train_system(self, trainer_id, trainee_id, experiment=None):
         """
@@ -66,6 +64,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
             self._queue.append((task_train_system.main, (trainer_id, trainee_id, experiment)))
         else:
             self._queue.append((task_train_system.main, (trainer_id, trainee_id)))
+        return True
 
     def queue_run_system(self, system_id, image_source_id, experiment=None):
         """
@@ -79,6 +78,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
             self._queue.append((task_run_system.main, (system_id, image_source_id, experiment)))
         else:
             self._queue.append((task_run_system.main, (system_id, image_source_id)))
+        return True
 
     def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None):
         """
@@ -92,6 +92,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
             self._queue.append((task_benchmark_result.main, (trial_id, benchmark_id, experiment)))
         else:
             self._queue.append((task_benchmark_result.main, (trial_id, benchmark_id)))
+        return True
 
     def push_queued_jobs(self):
         """
