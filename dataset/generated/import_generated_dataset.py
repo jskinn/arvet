@@ -48,7 +48,7 @@ def read_image_file(filename):
     if not os.path.isfile(filename):
         return None
     data = cv2.imread(filename)
-    if len(data.shape) >= 3 and data.shape[2] > 1:
+    if data is not None and len(data.shape) >= 3 and data.shape[2] > 1:
         return data[:, :, ::-1]  # fix the channel order to RGB if we have a colour image
     return data
 
@@ -97,7 +97,7 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     :return:
     """
     image_metadata = imeta.ImageMetadata(
-        hash_=xxhash.xxh64(im_data).digest(),
+        hash_=xxhash.xxh64(np.ascontiguousarray(im_data)).digest(),
         source_type=imeta.ImageSourceType.SYNTHETIC,
         height=im_data.shape[0],
         width=im_data.shape[1],
@@ -183,6 +183,9 @@ def import_image_object(base_path, filename_format, mappings, index_padding,
 
     # Load the image files, will be None if they don't exist
     image_data = read_image_file(image_filename)
+    if image_data is None:
+        # Base image was none when we didn't expect it, fail loading this image.
+        return None
     depth_data = read_image_file(generate_image_filename(stereo_pass=0, render_pass='SceneDepthWorldUnits',
                                                          **path_kwargs))
     # TODO: Need to check these render pass names
