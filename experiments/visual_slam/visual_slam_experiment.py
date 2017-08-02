@@ -1,5 +1,3 @@
-import os
-import glob
 import util.database_helpers as dh
 import batch_analysis.experiment
 import systems.visual_odometry.libviso2.libviso2 as libviso2
@@ -11,7 +9,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def __init__(self, *args, dataset_map=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self._datset_map = dataset_map if dataset_map is not None else {}
+        self._dataset_map = dataset_map if dataset_map is not None else {}
 
     def import_trainers(self, db_client):
         """
@@ -38,10 +36,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param job_system: The job system
         :return:
         """
-        for path in glob.iglob(os.path.join('/home/john/Renders/', '**', 'metadata.json')):
-            if path not in self._datset_map:
+        for path in {'/home/john/Renders/Dataset 1/metadata.json'}:
+            if path not in self._dataset_map:
                 if job_system.queue_import_dataset('dataset.generated.import_generated_dataset', path, self.identifier):
-                    self._datset_map[path] = False
+                    self._dataset_map[path] = False
                     if '$set' not in self._updates:
                         self._updates['$set'] = {}
                     self._updates['$set']['dataset_map.{0}'.format(path)] = False
@@ -91,7 +89,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def add_image_source(self, image_source_id, folder, db_client=None):
         # TODO: Grab out any dataset we only want to use for training
-        self._datset_map[folder] = image_source_id
+        self._dataset_map[folder] = image_source_id
         if '$set' not in self._updates:
             self._updates['$set'] = {}
         self._updates['$set']['dataset_map.{0}'.format(folder)] = image_source_id
