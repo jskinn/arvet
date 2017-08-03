@@ -90,8 +90,8 @@ class PodCupExperiment(batch_analysis.experiment.Experiment):
         :return: A collection of the imported image source ids. May include existing ids.
         """
         image_sources = set()
-        image_sources.add(pod_dataset.import_dataset('/home/john/datasets/pod_cup/cup_in_pod/clicks-1497585183.txt',
-                                                     db_client))
+        image_sources.add(pod_dataset.import_dataset(
+            os.path.expanduser('~/datasets/pod_cup/cup_in_pod/clicks-1497585183.txt'), db_client))
         return image_sources
 
     def import_systems(self, db_client):

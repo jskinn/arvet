@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as pyplot
 import util.database_helpers as dh
 import util.associate
@@ -38,7 +39,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param job_system: The job system
         :return:
         """
-        for path in {'/home/john/Renders/Dataset 1/metadata.json'}:
+        for path in {os.path.expanduser('~/Renders/Dataset 1/metadata.json')}:
             map_key = path.replace('.', '-')
             if map_key not in self._dataset_map:
                 if job_system.queue_import_dataset('dataset.generated.import_generated_dataset', path, self.identifier):
@@ -132,7 +133,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             pyplot.tight_layout()
             pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
-
 
     def serialize(self):
         serialized = super().serialize()
