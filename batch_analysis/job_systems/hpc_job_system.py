@@ -1,15 +1,12 @@
 import os
 import logging
-import datetime
+import time
 import subprocess
 import batch_analysis.job_system
 import task_import_dataset
 import task_train_system
 import task_run_system
 import task_benchmark_result
-
-
-_log = logging.getLogger(__name__)
 
 
 # This is the template for python scripts run by the hpc
@@ -48,6 +45,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         elif 'VIRTUAL_ENV' in os.environ:
             # No configured virtual environment, but this process has one, use it
             self._virtual_env = os.environ['VIRTUAL_ENV']
+        self._virtual_env = os.path.expanduser(self._virtual_env)
         self._job_folder = config['job_location'] if 'job_location' in config else '~'
         self._job_folder = os.path.expanduser(self._job_folder)
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
@@ -126,7 +124,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :return:
         """
         for job_file in self._queued_jobs:
-            _log.info("Submitting job file {0}".format(job_file))
+            logging.getLogger(__name__).info("Submitting job file {0}".format(job_file))
             subprocess.call(['qsub', job_file])
 
     def create_job(self, type_, script_path, arg1, arg2, experiment=None):
@@ -141,8 +139,8 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param experiment: The experiment id to use, or None if no experiment
         :return: void
         """
-        name = "{0}-{1}-{2}-{3}".format(type_, arg1, arg2, datetime.datetime.now())
-        name = self._name_prefix + name.replace(' ', '-').replace('/', '-')
+        name = "{0}-{1}".format(type_, time.time())
+        name = self._name_prefix + name.replace(' ', '-').replace('/', '-').replace('.', '-')
         env = ('source ' + os.path.join(self._virtual_env, 'bin', 'activate')) if self._virtual_env is not None else ''
         args = arg1 + ' ' + arg2
         if experiment is not None:
@@ -160,6 +158,6 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
                 script=script_path,
                 args=args
             ))
-        _log.info("Queueing {0} job in file {1}".format(type_, job_file_path))
+        logging.getLogger(__name__).info("Queueing {0} job in file {1}".format(type_, job_file_path))
         self._queued_jobs.append(job_file_path)
         return True
