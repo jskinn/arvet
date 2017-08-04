@@ -1,10 +1,13 @@
 pip
 pickle
+packaging
 numpy>=1.12
 transforms3d
+pyyaml
 pymongo
-unrealcv>=0.2
 xxhash
+matplotlib
+unrealcv>=0.2
 opencv>=3.0
 keras
 tensorflow
