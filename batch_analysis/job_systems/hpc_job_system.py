@@ -19,7 +19,8 @@ JOB_TEMPLATE = """#!/bin/bash -l
 #PBS -l gputype=M40
 #PBS -l cputype=E5-2680v4
 {env}
-python {script} {args}
+cd "{working_directory}"
+python "{script}" {args}
 """
 
 
@@ -142,9 +143,9 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         name = "{0}-{1}".format(type_, time.time())
         name = self._name_prefix + name.replace(' ', '-').replace('/', '-').replace('.', '-')
         env = ('source ' + self._virtual_env) if self._virtual_env is not None else ''
-        args = arg1 + ' ' + arg2
+        args = '"' + arg1 + '" "' + arg2 + '"'  # Quotes around the args to handle spaces
         if experiment is not None:
-            args += ' ' + str(experiment)
+            args += ' "' + str(experiment) + '"'
         job_file_path = os.path.join(self._job_folder, name + '.sub')
         with open(job_file_path, 'w+') as job_file:
             job_file.write(JOB_TEMPLATE.format(
@@ -155,6 +156,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
                 gpus=0,
                 cpus=1,
                 env=env,
+                working_directory=os.path.dirname(script_path),
                 script=script_path,
                 args=args
             ))
