@@ -1,5 +1,7 @@
 import sys
-
+import traceback
+import logging
+import logging.config
 import bson.objectid
 
 import config.global_configuration as global_conf
@@ -23,12 +25,18 @@ def main(*args):
         experiment_id = bson.objectid.ObjectId(args[2]) if len(args) >= 3 else None
 
         config = global_conf.load_global_config('config.yml')
+        logging.config.dictConfig(config['logging'])
+        log = logging.getLogger(__name__)
         db_client = database.client.DatabaseClient(config=config)
 
         system = dh.load_object(db_client, db_client.system_collection, system_id)
         image_source = dh.load_object(db_client, db_client.image_source_collection, image_source_id)
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
 
+        log.info("Start running system {0} ({1}) with image source {2}".format(
+            system_id,
+            system_id.__module__ + '.' + system_id.__class__.__name__,
+            image_source_id))
         success = False
         retry = True
         if system is not None and image_source is not None:
@@ -37,18 +45,29 @@ def main(*args):
             else:
                 try:
                     trial_result = trial_runner.run_system_with_source(system, image_source)
-                except:
+                except Exception:
                     trial_result = None
+                    log.error("Error occurred while running system {0} with image source {1}:\n{2}".format(
+                        system_id,
+                        image_source_id,
+                        traceback.format_exc()
+                    ))
                 if trial_result is not None:
                     trial_result_id = db_client.trials_collection.insert(trial_result.serialize())
+                    log.info(("Successfully ran system {0} with image source {1}, producing trial result {2}; " +
+                              "adding to experiment {3}").format(system_id, image_source_id,
+                                                                 trial_result_id, experiment_id))
                     if experiment is not None:
                         experiment.add_trial_result(system_id=system_id, image_source_id=image_source_id,
                                                     trial_result_id=trial_result_id, db_client=db_client)
                         success = True
         if not success and experiment is not None:
             if retry:
+                log.warning("Failed running system {0} with image source {1}, retrying".format(system_id,
+                                                                                               image_source_id))
                 experiment.retry_trial(system_id=system_id, image_source_id=image_source_id, db_client=db_client)
             else:
+                log.info("System {0} is incompatible with image source {1}".format(system_id, image_source_id))
                 experiment.mark_trial_unsupported(system_id=system_id, image_source_id=image_source_id,
                                                   db_client=db_client)
 

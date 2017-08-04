@@ -1,4 +1,5 @@
 import os.path
+import logging
 from yaml import dump as yaml_dump, load as yaml_load
 try:
     from yaml import CDumper as YamlDumper, CLoader as YamlLoader
@@ -30,6 +31,16 @@ def load_global_config(filename):
         },
         'job_system_config': {
             'job_system': 'simple'
+        },
+        'logging': {    # Default logging configuration
+            'version': 1,
+            'formatters': {
+                'f': {'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'}
+            },
+            'handlers': {
+                'h': {'class': 'logging.StreamHandler', 'formatter': 'f', 'level': logging.DEBUG}
+            },
+            'root': {'handlers': ['h'], 'level': logging.DEBUG},
         }
     }
     if os.path.isfile(filename):

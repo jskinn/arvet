@@ -1,8 +1,12 @@
+import logging
 import batch_analysis.job_system
 import task_import_dataset
 import task_train_system
 import task_run_system
 import task_benchmark_result
+
+
+_log = logging.getLogger(__name__)
 
 
 class SimpleJobSystem(batch_analysis.job_system.JobSystem):
@@ -99,6 +103,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
         Actually run the jobs.
         :return: void
         """
+        _log.info("Running {0} jobs...".format(len(self._queue)))
         for func, args in self._queue:
             func(*args)
         self._queue = []

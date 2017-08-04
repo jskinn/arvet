@@ -1,5 +1,7 @@
 import sys
-import os.path
+import traceback
+import logging
+import logging.config
 import importlib
 import bson.objectid
 
@@ -22,6 +24,8 @@ def main(*args):
         experiment_id = bson.objectid.ObjectId(args[2]) if len(args) >= 3 else None
 
         config = global_conf.load_global_config('config.yml')
+        logging.config.dictConfig(config['logging'])
+        log = logging.getLogger(__name__)
         db_client = database.client.DatabaseClient(config=config)
 
         # Try and import the desired loader module
@@ -29,16 +33,35 @@ def main(*args):
             loader_module = importlib.import_module(loader_module_name)
         except ImportError:
             loader_module = None
-        if loader_module is None or not hasattr(loader_module, 'import_dataset'):
+        if loader_module is None:
+            log.error("Could not load module {0} for importing dataset, check it  exists".format(loader_module_name))
+            return
+        if not hasattr(loader_module, 'import_dataset'):
+            log.error("Module {0} does not have method 'import_dataset'".format(loader_module_name))
             return
 
         # It's up to the importer to fail here if the path doesn't exist
-        dataset_id = loader_module.import_dataset(path, db_client)
+        if experiment_id is not None:
+            log.info("Importing dataset from {0} using module {1} for experiment {2}".format(path, loader_module_name,
+                                                                                             experiment_id))
+        else:
+            log.info("Importing dataset from {0} using module {1}".format(path, loader_module_name))
+        try:
+            dataset_id = loader_module.import_dataset(path, db_client)
+        except Exception:
+            dataset_id = None
+            log.error("Exception occurred while importing dataset from {0} with module {1}:\n{2}".format(
+                path, loader_module_name, traceback.format_exc()
+            ))
 
         if dataset_id is not None:
             experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
             if experiment is not None:
+                log.info("Successfully imported dataset {0}, adding to experiment {1}".format(dataset_id,
+                                                                                              experiment_id))
                 experiment.add_image_source(dataset_id, path, db_client)
+            else:
+                log.info("Successfully imported dataset {0}".format(dataset_id))
 
 
 if __name__ == '__main__':

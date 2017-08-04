@@ -47,6 +47,42 @@ def make_image(index=1, **kwargs):
     return ie.ImageEntity(**kwargs)
 
 
+def make_stereo_image(index=1, **kwargs):
+    kwargs = du.defaults(kwargs, {
+        'id_': bson.objectid.ObjectId(),
+        'data': np.random.uniform(0, 255, (32, 32, 3)),
+        'metadata': imeta.ImageMetadata(
+            hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
+            source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+            camera_pose=tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
+                                    rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+            light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+            procedural_generation_seed=16234, labelled_objects=(
+                imeta.LabelledObject(class_names=('car',), bounding_box=(12, 144, 67, 43), label_color=(123, 127, 112),
+                                     relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), object_id='Car-002'),
+                imeta.LabelledObject(class_names=('cat',), bounding_box=(125, 244, 117, 67), label_color=(27, 89, 62),
+                                     relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
+                                     object_id='cat-090')
+            ), average_scene_depth=90.12),
+        'additional_metadata': {
+            'Source': 'Generated',
+            'Resolution': {'width': 1280, 'height': 720},
+            'Material Properties': {
+                'BaseMipMapBias': 0,
+                'RoughnessQuality': True
+            }
+        },
+        'depth_data': np.random.uniform(0, 1, (32, 32)),
+        'labels_data': np.random.uniform(0, 1, (32, 32, 3)),
+        'world_normals_data': np.random.uniform(0, 1, (32, 32, 3))
+    })
+    return ie.ImageEntity(**kwargs)
+
+
 class TestImageCollection(database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):

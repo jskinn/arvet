@@ -1,4 +1,5 @@
 import os
+import logging
 import datetime
 import subprocess
 import batch_analysis.job_system
@@ -6,6 +7,9 @@ import task_import_dataset
 import task_train_system
 import task_run_system
 import task_benchmark_result
+
+
+_log = logging.getLogger(__name__)
 
 
 # This is the template for python scripts run by the hpc
@@ -123,6 +127,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :return:
         """
         for job_file in self._queued_jobs:
+            _log.info("Submitting job file {0}".format(job_file))
             subprocess.call(['qsub', job_file])
 
     def create_job(self, type_, script_path, arg1, arg2, experiment=None):
@@ -156,5 +161,6 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
                 script=script_path,
                 args=args
             ))
+        _log.info("Queueing {0} job in file {1}".format(type_, job_file_path))
         self._queued_jobs.append(job_file_path)
         return True

@@ -1,10 +1,14 @@
 import sys
+import logging
 import pymongo
 import gridfs
 import importlib
 import database.entity
 import database.entity_registry
 import util.dict_utils as du
+
+
+_log = logging.getLogger(__name__)
 
 
 class DatabaseClient:
@@ -125,7 +129,7 @@ class DatabaseClient:
             try:
                 importlib.import_module(module_)
             except ImportError:
-                # TODO: Log the failure to import
+                _log.error("Could not import module {0} containing type {1}".format(module_, type_name))
                 pass
         entity_type = database.entity_registry.get_entity_type(type_name)
         if entity_type:
