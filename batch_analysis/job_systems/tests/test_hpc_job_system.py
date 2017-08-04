@@ -114,16 +114,16 @@ class TestHPCJobSystem(unittest.TestCase):
         # Check that the name in the job file is exactly the same as the script name
         self.assertIn('#PBS -N {0}'.format(filename), script_contents)
 
-    def test_queue_import_dataset_uses_configured_virtualenv(self):
+    def test_queue_import_dataset_uses_configured_environment(self):
         mock_open = mock.mock_open()
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
-        subject = hpc.HPCJobSystem({'virtualenv': virtualenv_path})
+        virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
+        subject = hpc.HPCJobSystem({'environment': virtualenv_path})
         with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.queue_import_dataset('dataset.importer', '/tmp/dataset')
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+        self.assertIn('source {0}'.format(virtualenv_path), script_contents)
 
     def test_queue_import_dataset_uses_virtualenv_from_environment(self):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'
@@ -249,14 +249,14 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_queue_train_system_uses_configured_virtualenv(self):
         mock_open = mock.mock_open()
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
-        subject = hpc.HPCJobSystem({'virtualenv': virtualenv_path})
+        virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
+        subject = hpc.HPCJobSystem({'environment': virtualenv_path})
         with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.queue_train_system(oid.ObjectId(), oid.ObjectId())
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+        self.assertIn('source {0}'.format(virtualenv_path), script_contents)
 
     def test_queue_train_system_uses_virtualenv_from_environment(self):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'
@@ -382,14 +382,14 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_queue_run_system_uses_configured_virtualenv(self):
         mock_open = mock.mock_open()
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
-        subject = hpc.HPCJobSystem({'virtualenv': virtualenv_path})
+        virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
+        subject = hpc.HPCJobSystem({'environment': virtualenv_path})
         with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.queue_run_system(oid.ObjectId(), oid.ObjectId())
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+        self.assertIn('source {0}'.format(virtualenv_path), script_contents)
 
     def test_queue_run_system_uses_virtualenv_from_environment(self):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'
@@ -513,16 +513,16 @@ class TestHPCJobSystem(unittest.TestCase):
         # Check that the name in the job file is exactly the same as the script name
         self.assertIn('#PBS -N {0}'.format(filename), script_contents)
 
-    def test_queue_benchmark_result_uses_configured_virtualenv(self):
+    def test_queue_benchmark_result_uses_configured_environment(self):
         mock_open = mock.mock_open()
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
-        subject = hpc.HPCJobSystem({'virtualenv': virtualenv_path})
+        virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
+        subject = hpc.HPCJobSystem({'environment': virtualenv_path})
         with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.queue_benchmark_result(oid.ObjectId(), oid.ObjectId())
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+        self.assertIn('source {0}'.format(virtualenv_path), script_contents)
 
     def test_queue_benchmark_result_uses_virtualenv_from_environment(self):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'

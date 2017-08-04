@@ -33,18 +33,18 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         Takes configuration parameters in a dict with the following format:
         {
-            'virtualenv': 'path-to-root-of-virtualenv'  # Optional, will look for env used by current process if omitted
+            'environment': 'path-to-virtualenv-activate'  # Optional, will look for env used by current process if omitted
             'job_location: 'folder-to-create-jobs'      # Default ~
             'job_name_prefix': 'prefix-to-job-names'    # Default ''
         }
         :param config: A dict of configuration parameters
         """
         self._virtual_env = None
-        if 'virtualenv' in config:
-            self._virtual_env = config['virtualenv']
+        if 'environment' in config:
+            self._virtual_env = config['environment']
         elif 'VIRTUAL_ENV' in os.environ:
             # No configured virtual environment, but this process has one, use it
-            self._virtual_env = os.environ['VIRTUAL_ENV']
+            self._virtual_env = os.path.join(os.environ['VIRTUAL_ENV'], 'bin/activate')
         self._virtual_env = os.path.expanduser(self._virtual_env)
         self._job_folder = config['job_location'] if 'job_location' in config else '~'
         self._job_folder = os.path.expanduser(self._job_folder)
@@ -141,7 +141,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         name = "{0}-{1}".format(type_, time.time())
         name = self._name_prefix + name.replace(' ', '-').replace('/', '-').replace('.', '-')
-        env = ('source ' + os.path.join(self._virtual_env, 'bin', 'activate')) if self._virtual_env is not None else ''
+        env = ('source ' + self._virtual_env) if self._virtual_env is not None else ''
         args = arg1 + ' ' + arg2
         if experiment is not None:
             args += ' ' + str(experiment)
