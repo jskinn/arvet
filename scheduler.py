@@ -18,6 +18,7 @@ def main():
     db_client = database.client.DatabaseClient(config=config)
     job_system = job_system_factory.create_job_system(config=config)
 
+    log.info("Starting scheduling...")
     experiment_ids = db_client.experiments_collection.find({}, {'_id': True})
     for experiment_id in experiment_ids:
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])

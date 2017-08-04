@@ -21,7 +21,6 @@ JOB_TEMPLATE = """#!/bin/bash -l
 #PBS -l ncpus={cpus}
 #PBS -l gputype=M40
 #PBS -l cputype=E5-2680v4
-module load python/3.5.2-intel-2016b
 {env}
 python {script} {args}
 """
