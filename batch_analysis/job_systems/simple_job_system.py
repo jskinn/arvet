@@ -6,9 +6,6 @@ import task_run_system
 import task_benchmark_result
 
 
-_log = logging.getLogger(__name__)
-
-
 class SimpleJobSystem(batch_analysis.job_system.JobSystem):
     """
     The worst possible, and simplest, job system.
@@ -103,7 +100,7 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
         Actually run the jobs.
         :return: void
         """
-        _log.info("Running {0} jobs...".format(len(self._queue)))
+        logging.getLogger(__name__).info("Running {0} jobs...".format(len(self._queue)))
         for func, args in self._queue:
             func(*args)
         self._queue = []

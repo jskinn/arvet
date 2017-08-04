@@ -9,9 +9,6 @@ import database.entity_registry
 import util.dict_utils as du
 
 
-_log = logging.getLogger(__name__)
-
-
 class DatabaseClient:
     """
     A wrapper class for maintaining a mongodb database connection.
@@ -130,8 +127,8 @@ class DatabaseClient:
             try:
                 importlib.import_module(module_)
             except ImportError:
-                _log.error("Could not import module {0} containing type {1}:\{2}".format(module_, type_name,
-                                                                                         traceback.format_exc()))
+                logging.getLogger(__name__).error("Could not import module {0} containing type {1}:\{2}".format(
+                    module_, type_name, traceback.format_exc()))
                 pass
         entity_type = database.entity_registry.get_entity_type(type_name)
         if entity_type:
