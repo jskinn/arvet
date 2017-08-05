@@ -59,7 +59,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1} {2}".format(
+        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
             task_import_dataset.__file__, 'dataset.importer', '/tmp/dataset'), script_contents)
 
     def test_queue_import_dataset_passes_experiment_to_task(self):
@@ -73,7 +73,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python {0} {1} {2} {3}".format(
+            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
                 task_import_dataset.__file__,
                 'dataset.importer',
                 '/tmp/dataset',
@@ -184,7 +184,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1} {2}".format(
+        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
             task_train_system.__file__, str(trainer_id), str(trainee_id)), script_contents)
 
     def test_queue_train_system_passes_experiment_to_task(self):
@@ -200,7 +200,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python {0} {1} {2} {3}".format(
+            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
                 task_train_system.__file__,
                 str(trainer_id),
                 str(trainee_id),
@@ -317,7 +317,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1} {2}".format(
+        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
             task_run_system.__file__, str(system_id), str(image_source_id)), script_contents)
 
     def test_queue_run_system_passes_experiment_to_task(self):
@@ -333,7 +333,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python {0} {1} {2} {3}".format(
+            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
                 task_run_system.__file__,
                 str(system_id),
                 str(image_source_id),
@@ -450,7 +450,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1} {2}".format(
+        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
             task_benchmark_result.__file__, str(trial_id), str(benchmark_id)), script_contents)
 
     def test_queue_benchmark_result_passes_experiment_to_task(self):
@@ -466,7 +466,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python {0} {1} {2} {3}".format(
+            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
                 task_benchmark_result.__file__,
                 str(trial_id),
                 str(benchmark_id),
