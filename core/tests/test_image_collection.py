@@ -19,7 +19,7 @@ def make_image(index=1, **kwargs):
             hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
             source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
             camera_pose=tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
-                                    rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+                                     rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
             fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
@@ -50,12 +50,13 @@ def make_image(index=1, **kwargs):
 def make_stereo_image(index=1, **kwargs):
     kwargs = du.defaults(kwargs, {
         'id_': bson.objectid.ObjectId(),
-        'data': np.random.uniform(0, 255, (32, 32, 3)),
+        'left_data': np.random.uniform(0, 255, (32, 32, 3)),
+        'right_data': np.random.uniform(0, 255, (32, 32, 3)),
         'metadata': imeta.ImageMetadata(
             hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
             source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
             camera_pose=tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
-                                    rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+                                     rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
             fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
@@ -76,11 +77,14 @@ def make_stereo_image(index=1, **kwargs):
                 'RoughnessQuality': True
             }
         },
-        'depth_data': np.random.uniform(0, 1, (32, 32)),
-        'labels_data': np.random.uniform(0, 1, (32, 32, 3)),
-        'world_normals_data': np.random.uniform(0, 1, (32, 32, 3))
+        'left_depth_data': np.random.uniform(0, 1, (32, 32)),
+        'right_depth_data': np.random.uniform(0, 1, (32, 32)),
+        'left_labels_data': np.random.uniform(0, 1, (32, 32, 3)),
+        'right_labels_data': np.random.uniform(0, 1, (32, 32, 3)),
+        'left_world_normals_data': np.random.uniform(0, 1, (32, 32, 3)),
+        'right_world_normals_data': np.random.uniform(0, 1, (32, 32, 3))
     })
-    return ie.ImageEntity(**kwargs)
+    return ie.StereoImageEntity(**kwargs)
 
 
 class TestImageCollection(database.tests.test_entity.EntityContract, unittest.TestCase):
@@ -116,7 +120,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertEqual(image_collection1.identifier, image_collection2.identifier)
         self.assertEqual(image_collection1.sequence_type, image_collection2.sequence_type)
         self.assertEqual(image_collection1.is_depth_available, image_collection2.is_depth_available)
-        self.assertEqual(image_collection1.is_per_pixel_labels_available, image_collection2.is_per_pixel_labels_available)
+        self.assertEqual(image_collection1.is_per_pixel_labels_available,
+                         image_collection2.is_per_pixel_labels_available)
         self.assertEqual(image_collection1.is_normals_available, image_collection2.is_normals_available)
         self.assertEqual(image_collection1.is_stereo_available, image_collection2.is_stereo_available)
         self.assertEqual(len(image_collection1), len(image_collection2))
@@ -138,6 +143,55 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[str(s_image['_id'])]
         return self.db_client
 
+    def test_is_depth_available_is_true_iff_all_images_have_depth_data(self):
+        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertTrue(subject.is_depth_available)
+        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     images=self.images_list + [make_image(depth_data=None)])
+        self.assertFalse(subject.is_depth_available)
+
+    def test_is_per_pixel_labels_available_is_true_iff_all_images_have_labels_data(self):
+        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertTrue(subject.is_per_pixel_labels_available)
+        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     images=self.images_list + [make_image(labels_data=None)])
+        self.assertFalse(subject.is_per_pixel_labels_available)
+
+    def test_is_labels_available_is_true_iff_all_images_have_bounding_boxes(self):
+        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertTrue(subject.is_labels_available)
+        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     images=self.images_list + [make_image(metadata=imeta.ImageMetadata(
+                                         hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
+                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                                         camera_pose=tf.Transform(location=(800, 2 + np.random.uniform(-1, 1), 3),
+                                                                  rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+                                         environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+                                         light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                                         fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                                         lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+                                         normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+                                         procedural_generation_seed=16234, labelled_objects=[],
+                                         average_scene_depth=90.12
+                                     ))])
+        self.assertFalse(subject.is_labels_available)
+
+    def test_is_normals_available_is_true_iff_all_images_have_normals_data(self):
+        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertTrue(subject.is_normals_available)
+        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     images=self.images_list + [make_image(world_normals_data=None)])
+        self.assertFalse(subject.is_normals_available)
+
+    def test_is_stereo_available_is_true_iff_all_images_are_stereo_images(self):
+        stereo_images_list = [make_stereo_image(index=i) for i in range(10)]
+        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     images=stereo_images_list)
+        self.assertTrue(subject.is_stereo_available)
+        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     images=stereo_images_list + self.images_list)
+        self.assertFalse(subject.is_stereo_available)
+
     def test_get_next_image_returns_images_in_order(self):
         subject = self.make_instance()
         for idx in range(len(self.images_list)):
@@ -146,7 +200,6 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
             self.assertTrue(np.array_equal(self.images_list[idx].data, image.data))
         self.assertTrue(subject.is_complete())
         self.assertEqual((None, None), subject.get_next_image())
-
 
     def test_framerate_changes_timestamps(self):
         subject = self.make_instance()
@@ -170,7 +223,6 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
             self.assertTrue(np.array_equal(self.images_list[idx].data, image.data))
         self.assertTrue(subject.is_complete())
         self.assertEqual((None, None), subject.get_next_image())
-
 
     def test_deserializes_images(self):
         s_image_collection = {
