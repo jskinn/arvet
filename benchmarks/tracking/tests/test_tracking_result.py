@@ -80,15 +80,15 @@ class TestTrackingBenchmarkResult(entity_test.EntityContract, unittest.TestCase)
         intervals2 = pickle.loads(s_model2['intervals'])
         self.assertEqual(len(intervals1), len(intervals2))
         for idx in range(len(intervals1)):
-            self.assertEquals(intervals1[idx].start_time, intervals2[idx].start_time)
-            self.assertEquals(intervals1[idx].end_time, intervals2[idx].end_time)
-            self.assertEquals(intervals1[idx].duration, intervals2[idx].duration)
-            self.assertEquals(intervals1[idx].distance, intervals2[idx].distance)
-            self.assertEquals(intervals1[idx].frames, intervals2[idx].frames)
+            self.assertEqual(intervals1[idx].start_time, intervals2[idx].start_time)
+            self.assertEqual(intervals1[idx].end_time, intervals2[idx].end_time)
+            self.assertEqual(intervals1[idx].duration, intervals2[idx].duration)
+            self.assertEqual(intervals1[idx].distance, intervals2[idx].distance)
+            self.assertEqual(intervals1[idx].frames, intervals2[idx].frames)
 
     def test_times_lost_is_correct(self):
         subject = self.make_instance()
-        self.assertEquals(len(subject.lost_intervals), subject.times_lost)
+        self.assertEqual(len(subject.lost_intervals), subject.times_lost)
 
     def test_mean_distance_is_correct(self):
         subject = self.make_instance()
