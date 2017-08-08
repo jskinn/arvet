@@ -2,17 +2,6 @@ import sys
 import config.global_configuration as global_conf
 import database.client
 import database.entity_registry
-#import entity_list
-#import benchmarks.ate.absolute_trajectory_error
-#import benchmarks.ate.absolute_trajectory_error_comparison
-#import benchmarks.loop_closure.loop_closure
-#import benchmarks.matching.match_comparison
-#import benchmarks.rpe.relative_pose_error
-#import benchmarks.rpe.relative_pose_error_comparison
-#import benchmarks.tracking.tracking_benchmark
-#import benchmarks.tracking.tracking_comparison_benchmark
-#import core.image_collection
-#import core.image_entity
 
 
 def check_collection(collection, db_client):
@@ -47,10 +36,6 @@ def main(*args):
     (note that args[0] should be the x
     :return:
     """
-    # TODO: Load each entity type from the database, and call its validate method
-    # TODO: Update validate methods for each entity
-
-    # TODO: At the moment we're using the database for patching
     config = global_conf.load_global_config('config.yml')
     db_client = database.client.DatabaseClient(config=config)
 
