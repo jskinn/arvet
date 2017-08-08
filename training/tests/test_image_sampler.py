@@ -6,7 +6,8 @@ import training.image_sampler
 class MockImageSource:
 
     def __init__(self, images):
-        self.images = images
+        self.images = {1.24 * t: image for t, image in enumerate(images)}
+        self.timestamps = list(self.images.keys())
 
     def __len__(self):
         return len(self.images)

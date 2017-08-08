@@ -1,5 +1,5 @@
 import abc
-import pymongo
+import logging
 import database.entity
 import core.image
 import core.sequence_type
@@ -12,11 +12,10 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     This can be a sequential set of images like a video, or a random sampling of different pictures.
     """
 
-    def __init__(self, images, type_, framerate=None, id_=None, **kwargs):
+    def __init__(self, images, type_, id_=None, **kwargs):
         super().__init__(id_=id_, **kwargs)
 
         self._images = images
-        self._framerate = float(framerate) if framerate is not None and framerate > 0 else None
         if (isinstance(type_, core.sequence_type.ImageSequenceType) and
                 type_ is not core.sequence_type.ImageSequenceType.INTERACTIVE):
             # image collections cannot be interactive
@@ -24,34 +23,42 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
-        self._is_depth_available = len(images) > 0 and all(hasattr(image, 'depth_data') and
-                                                           image.depth_data is not None for image in images)
-        self._is_labels_image_available = len(images) > 0 and all(hasattr(image, 'labels_data') and
-                                                                  image.labels_data is not None for image in images)
+        self._is_depth_available = len(images) > 0 and all(
+            hasattr(image, 'depth_data') and image.depth_data is not None for image in images.values())
+        self._is_labels_image_available = len(images) > 0 and all(
+            hasattr(image, 'labels_data') and image.labels_data is not None for image in images.values())
         self._is_bboxes_available = len(images) > 0 and all(
             hasattr(image, 'metadata') and hasattr(image.metadata, 'labelled_objects') and
-            len(image.metadata.labelled_objects) > 0 for image in images)
-        self._is_normals_available = len(images) > 0 and all(hasattr(image, 'labels_data') and
-                                                             image.world_normals_data is not None for image in images)
+            len(image.metadata.labelled_objects) > 0 for image in images.values())
+        self._is_normals_available = len(images) > 0 and all(
+            hasattr(image, 'labels_data') and image.world_normals_data is not None for image in images.values())
         self._is_stereo_available = len(images) > 0 and all(
             hasattr(image, 'left_data') and image.left_data is not None and
             hasattr(image, 'right_data') and image.right_data is not None
-            for image in images)
+            for image in images.values())
+
+        self._timestamps = sorted(self._images.keys())
         self._current_index = 0
 
     def __len__(self):
+        """
+        The length of the image collection
+        :return:
+        """
         return len(self._images)
 
     def __iter__(self):
         """
-        Iterator for the image collection
+        Iterator for the image collection.
+        Returns the iterator over the inner images dict
         :return:
         """
-        return iter(self._images)
+        return self._images.items()
 
     def __getitem__(self, item):
         """
         Allow index-based access. Why not.
+        This is the same as get
         :param item:
         :return:
         """
@@ -70,17 +77,14 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         return self._sequence_type
 
     @property
-    def framerate(self):
+    def timestamps(self):
         """
-        The framerate of the collection when being iterated over.
-        This is adjustable, higher framerates mean smaller intervals between frames.
+        Get the list of timestamps/indexes in this collection, in order.
+        They are the list of valid keys to get and __getitem__,
+        all others return None
         :return:
         """
-        return self._framerate
-
-    @framerate.setter
-    def framerate(self, framerate):
-        self._framerate = float(framerate) if framerate is not None and framerate > 0 else None
+        return self._timestamps
 
     def begin(self):
         """
@@ -97,7 +101,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :param index:
         :return:
         """
-        if 0 <= index < len(self._images):
+        if index in self._images:
             return self._images[index]
         return None
 
@@ -110,10 +114,8 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return: An Image object (see core.image) or None, and a timestamp or None
         """
         if not self.is_complete():
-            result = self._images[self._current_index]
-            timestamp = self._current_index
-            if self.framerate is not None and self.framerate > 0:
-                timestamp = self._current_index / self.framerate
+            timestamp = self._timestamps[self._current_index]
+            result = self._images[timestamp]
             self._current_index += 1
             return result, timestamp
         return None, None
@@ -125,7 +127,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         and this method lets those that are not end the iteration.
         :return: True if there are more images to get, false otherwise.
         """
-        return self._current_index >= len(self)
+        return self._current_index >= len(self._timestamps)
 
     @property
     def supports_random_access(self):
@@ -200,7 +202,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     def serialize(self):
         serialized = super().serialize()
         # Only include the image IDs here, they'll get turned back into objects for us
-        serialized['images'] = [image.identifier for image in self._images]
+        serialized['images'] = [(stamp, image.identifier) for stamp, image in self._images.items()]
         if self.sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL:
             serialized['sequence_type'] = 'SEQ'
         else:
@@ -222,9 +224,10 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         """
         if 'images' in serialized_representation:
             s_images = db_client.image_collection.find({
-                '_id': {'$in': serialized_representation['images']}
-            }).sort('timestamp', pymongo.ASCENDING)
-            kwargs['images'] = [db_client.deserialize_entity(s_image) for s_image in s_images]
+                '_id': {'$in': [img_id for _, img_id in serialized_representation['images']]}
+            })
+            image_map = {s_image['_id']: db_client.deserialize_entity(s_image) for s_image in s_images}
+            kwargs['images'] = {stamp: image_map[img_id] for stamp, img_id in serialized_representation['images']}
         if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] == 'SEQ':
             kwargs['type_'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
@@ -232,18 +235,36 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
     @classmethod
-    def create_serialized(cls, image_ids, sequence_type):
+    def create_and_save(cls, db_client, image_map, sequence_type):
         """
         Make an already serialized image collection.
         Since, sometimes we have the image ids, but we don't want to have to load the objects to make the collection.
         WARNING: This can create invalid serialized image collections, since it can't check the validity of the ids.
 
-        :param image_ids: A list of bson.objectid.ObjectId that refer to image objects in the database
+        :param db_client: The database client, used to check image ids and for saving
+        :param image_map: A map of timestamp to bson.objectid.ObjectId that refer to image objects in the database
         :param sequence_type: core.sequence_type.ImageSequenceType
-        :return:
+        :return: The id of the newly created image collection, or None if there is an error
         """
-        return {
+        found_images = db_client.image_collection.find({
+            '_id': {'$in': list(image_map.values())}
+        }, {'_id': True}).count()
+        if not found_images == len(image_map):
+            logging.getLogger(__name__).warning(
+                "Tried to create image collection with {0} missing ids".format(len(image_map) - found_images))
+            return None
+        s_images_list = [(stamp, image_id) for stamp, image_id in image_map.items()]
+        s_seq_type = 'SEQ' if sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
+        existing = db_client.image_source_collection.find_one({
             '_type': cls.__module__ + '.' + cls.__name__,
-            'images': image_ids,
-            'sequence_type': 'SEQ' if sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
-        }
+            'images': {'$all': s_images_list},
+            'sequence_type': s_seq_type
+        }, {'_id': True})
+        if existing is not None:
+            return existing['_id']
+        else:
+            return db_client.image_source_collection.insert({
+                '_type': cls.__module__ + '.' + cls.__name__,
+                'images': s_images_list,
+                'sequence_type': s_seq_type
+            })

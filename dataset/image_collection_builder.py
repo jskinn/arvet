@@ -12,7 +12,8 @@ class ImageCollectionBuilder:
 
     def __init__(self, db_client):
         self._db_client = db_client
-        self._image_ids = []
+        self._image_ids = {}
+        self._max_timestamp = None
         self._sequence_type = core.sequence_type.ImageSequenceType.SEQUENTIAL
 
     def set_non_sequential(self):
@@ -23,22 +24,27 @@ class ImageCollectionBuilder:
         """
         self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
-    def add_image(self, image):
+    def add_image(self, image, timestamp=None):
         """
         Add an image to the growing image collection.
         Does not affect the sequence type, you may need to set that manually.
         :param image: An image_entity or image object.
+        :param timestamp: The timestamp of the new image, default 1 + the previous timestamp
         :return: void
         """
+        if timestamp is None:
+            timestamp = self._max_timestamp + 1 if self._max_timestamp is not None else 0
+        if self._max_timestamp is None or timestamp > self._max_timestamp:
+            self._max_timestamp = timestamp
         if hasattr(image, 'identifier') and image.identifier is not None:
             # Image is already in the database, just store it's id
-            self._image_ids.append(image.identifier)
+            self._image_ids[timestamp] = image.identifier
         else:
             image_id = core.image_entity.save_image(self._db_client, image)
             if image_id is not None:
-                self._image_ids.append(image_id)
+                self._image_ids[timestamp] = image_id
 
-    def add_from_image_source(self, image_source, filter_function=None):
+    def add_from_image_source(self, image_source, filter_function=None, offset=0):
         """
         Read an image source, and save it in the database as an image collection.
         This is used to both save datasets from simulation,
@@ -46,6 +52,8 @@ class ImageCollectionBuilder:
 
         :param image_source: The image source to save
         :param filter_function: A function used to filter the images that will be part of the new collection.
+        :param offset: An offset added to the timestamps, this allows adding from multiple image sources without
+        the timestamps colliding
         :return:
         """
         if (len(self._image_ids) > 0 or
@@ -53,9 +61,11 @@ class ImageCollectionBuilder:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         image_source.begin()
         while not image_source.is_complete():
-            image, _ = image_source.get_next_image()
+            image, timestamp = image_source.get_next_image()
+            if timestamp is not None:
+                timestamp += offset
             if not callable(filter_function) or filter_function(image):
-                self.add_image(image)
+                self.add_image(image, timestamp)
 
     def save(self):
         """
@@ -64,14 +74,9 @@ class ImageCollectionBuilder:
         :return: The id of the image collection in the database
         """
         if len(self._image_ids) > 0:
-            s_collection = core.image_collection.ImageCollection.create_serialized(
-                image_ids=self._image_ids,
+            return core.image_collection.ImageCollection.create_and_save(
+                db_client=self._db_client,
+                image_map=self._image_ids,
                 sequence_type=self._sequence_type
             )
-            query = db_help.query_to_dot_notation(copy.deepcopy(s_collection))
-            existing = self._db_client.image_source_collection.find_one(query, {'_id': True})
-            if existing is not None:
-                return existing['_id']
-            else:
-                return self._db_client.image_source_collection.insert(s_collection)
         return None

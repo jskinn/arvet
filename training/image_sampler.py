@@ -87,13 +87,14 @@ class ImageSampler:
         :return:
         """
         # Duck typing!
-        if hasattr(image_source, 'begin') and (hasattr(image_source, '__getitem__') or hasattr(image_source, 'get')):
+        if hasattr(image_source, 'begin') and hasattr(image_source, 'timestamps') and (
+                hasattr(image_source, '__getitem__') or hasattr(image_source, 'get')):
             num_new_indexes = len(image_source)
             if validation_fraction is None:
                 validation_fraction = self._validation_fraction
 
             # Randomly partition the new images into validation and training sets.
-            new_indexes = list(range(num_new_indexes))
+            new_indexes = list(image_source.timestamps)
             random.shuffle(new_indexes)
             split = int(validation_fraction * num_new_indexes)
 

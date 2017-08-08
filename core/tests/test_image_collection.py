@@ -91,18 +91,18 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
 
     def setUp(self):
         self.image_map = {}
-        self.images_list = []
+        self.images = {}
         for i in range(10):
             image = make_image(i)
             self.image_map[str(image.identifier)] = image
-            self.images_list.append(image)
+            self.images[i * 1.2] = image
 
     def get_class(self):
         return ic.ImageCollection
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'images': self.images_list,
+            'images': self.images,
             'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL
         })
         return ic.ImageCollection(*args, **kwargs)
@@ -125,43 +125,56 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertEqual(image_collection1.is_normals_available, image_collection2.is_normals_available)
         self.assertEqual(image_collection1.is_stereo_available, image_collection2.is_stereo_available)
         self.assertEqual(len(image_collection1), len(image_collection2))
+        self.assertEqual(image_collection1.timestamps, image_collection2.timestamps)
+        image_collection1.begin()
+        image_collection2.begin()
         for idx in range(len(image_collection1)):
-            self.assertEqual(image_collection1[idx].identifier, image_collection2[idx].identifier)
-            self.assertTrue(np.array_equal(image_collection1[idx].data, image_collection2[idx].data))
-            self.assertEqual(image_collection1[idx].camera_pose, image_collection2[idx].camera_pose)
-            self.assertTrue(np.array_equal(image_collection1[idx].depth_data, image_collection2[idx].depth_data))
-            self.assertTrue(np.array_equal(image_collection1[idx].labels_data, image_collection2[idx].labels_data))
-            self.assertTrue(np.array_equal(image_collection1[idx].world_normals_data,
-                                           image_collection2[idx].world_normals_data))
-            self.assertEqual(image_collection1[idx].additional_metadata, image_collection2[idx].additional_metadata)
+            img1, stamp1 = image_collection1.get_next_image()
+            img2, stamp2 = image_collection2.get_next_image()
+            self.assertEqual(stamp1, stamp2)
+            self.assertEqual(img1.identifier, img2.identifier)
+            self.assertTrue(np.array_equal(img1.data, img2.data))
+            self.assertEqual(img1.camera_pose, img2.camera_pose)
+            self.assertTrue(np.array_equal(img1.depth_data, img2.depth_data))
+            self.assertTrue(np.array_equal(img1.labels_data, img2.labels_data))
+            self.assertTrue(np.array_equal(img1.world_normals_data, img2.world_normals_data))
+            self.assertEqual(img1.metadata, img2.metadata)
+            self.assertEqual(img1.additional_metadata, img2.additional_metadata)
+        self.assertTrue(image_collection1.is_complete())
+        self.assertTrue(image_collection2.is_complete())
 
     def create_mock_db_client(self):
         self.db_client = super().create_mock_db_client()
 
-        self.db_client.image_collection.find.return_value.sort.return_value = [image.serialize()
-                                                                               for image in self.images_list]
+        self.db_client.image_collection.find.return_value = [image.serialize() for image in self.images.values()]
         self.db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[str(s_image['_id'])]
         return self.db_client
 
+    def test_timestamps_returns_all_timestamps_in_order(self):
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertEqual([1.2 * t for t in range(10)], subject.timestamps)
+        for stamp in subject.timestamps:
+            self.assertIsNotNone(subject.get(stamp))
+
     def test_is_depth_available_is_true_iff_all_images_have_depth_data(self):
-        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertTrue(subject.is_depth_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=self.images_list + [make_image(depth_data=None)])
+                                     images=du.defaults({1.7: make_image(depth_data=None)}, self.images))
         self.assertFalse(subject.is_depth_available)
 
     def test_is_per_pixel_labels_available_is_true_iff_all_images_have_labels_data(self):
-        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertTrue(subject.is_per_pixel_labels_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=self.images_list + [make_image(labels_data=None)])
+                                     images=du.defaults({1.7: make_image(labels_data=None)}, self.images))
         self.assertFalse(subject.is_per_pixel_labels_available)
 
     def test_is_labels_available_is_true_iff_all_images_have_bounding_boxes(self):
-        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertTrue(subject.is_labels_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=self.images_list + [make_image(metadata=imeta.ImageMetadata(
+                                     images=du.defaults({1.7: make_image(metadata=imeta.ImageMetadata(
                                          hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
                                          source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
                                          camera_pose=tf.Transform(location=(800, 2 + np.random.uniform(-1, 1), 3),
@@ -173,89 +186,139 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
                                          normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
                                          procedural_generation_seed=16234, labelled_objects=[],
                                          average_scene_depth=90.12
-                                     ))])
+                                     ))}, self.images))
         self.assertFalse(subject.is_labels_available)
 
     def test_is_normals_available_is_true_iff_all_images_have_normals_data(self):
-        subject = ic.ImageCollection(images=self.images_list, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertTrue(subject.is_normals_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=self.images_list + [make_image(world_normals_data=None)])
+                                     images=du.defaults({1.7: make_image(world_normals_data=None)}, self.images))
         self.assertFalse(subject.is_normals_available)
 
     def test_is_stereo_available_is_true_iff_all_images_are_stereo_images(self):
-        stereo_images_list = [make_stereo_image(index=i) for i in range(10)]
+        stereo_images_list = {i * 1.3: make_stereo_image(index=i) for i in range(10)}
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=stereo_images_list)
         self.assertTrue(subject.is_stereo_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=stereo_images_list + self.images_list)
+                                     images=du.defaults(stereo_images_list, self.images))
         self.assertFalse(subject.is_stereo_available)
 
     def test_get_next_image_returns_images_in_order(self):
         subject = self.make_instance()
-        for idx in range(len(self.images_list)):
-            image, timestamp = subject.get_next_image()
-            self.assertEqual(self.images_list[idx].identifier, image.identifier)
-            self.assertTrue(np.array_equal(self.images_list[idx].data, image.data))
+        timestamps = sorted(self.images.keys())
+        for stamp in timestamps:
+            result_image, result_timestamp = subject.get_next_image()
+            self.assertEqual(stamp, result_timestamp)
+            self.assertEqual(self.images[stamp].identifier, result_image.identifier)
+            self.assertTrue(np.array_equal(self.images[stamp].data, result_image.data))
         self.assertTrue(subject.is_complete())
-        self.assertEqual((None, None), subject.get_next_image())
-
-    def test_framerate_changes_timestamps(self):
-        subject = self.make_instance()
-        subject.framerate = 30
-        for idx in range(len(self.images_list)):
-            image, timestamp = subject.get_next_image()
-            self.assertEqual(self.images_list[idx].identifier, image.identifier)
-            self.assertEqual(timestamp, idx / 30)
         self.assertEqual((None, None), subject.get_next_image())
 
     def test_begin_restarts(self):
         subject = self.make_instance()
+        subject.begin()
         subject.get_next_image()
         subject.get_next_image()
         subject.get_next_image()
 
         subject.begin()
-        for idx in range(len(self.images_list)):
-            image, timestamp = subject.get_next_image()
-            self.assertEqual(self.images_list[idx].identifier, image.identifier)
-            self.assertTrue(np.array_equal(self.images_list[idx].data, image.data))
+        for stamp in sorted(self.images.keys()):
+            result_image, timestamp = subject.get_next_image()
+            self.assertEqual(stamp, timestamp)
+            self.assertEqual(self.images[stamp].identifier, result_image.identifier)
+            self.assertTrue(np.array_equal(self.images[stamp].data, result_image.data))
         self.assertTrue(subject.is_complete())
         self.assertEqual((None, None), subject.get_next_image())
 
     def test_deserializes_images(self):
         s_image_collection = {
             '_id': 12345,
-            'images': [image.identifier for image in self.images_list],
+            'images': [(stamp, image.identifier) for stamp, image in self.images.items()],
             '_type': 'ImageCollection',
             'sequence_type': 'SEQ'
         }
         db_client = self.create_mock_db_client()
 
         ic.ImageCollection.deserialize(s_image_collection, db_client)
-        self.assertIn(mock.call({'_id': {'$in': s_image_collection['images']}}),
-                      db_client.image_collection.find.call_args_list)
-        for image in self.images_list:
+        # Find a call requesting all images by id.
+        # Do it this way because we can't guarantee the order of the ids in the list.
+        found = False
+        for call in db_client.image_collection.find.call_args_list:
+            if (len(call[0][0]) == 1 and '_id' in call[0][0] and
+                    len(call[0][0]['_id']) == 1 and '$in' in call[0][0]['_id']):
+                if all(image.identifier in call[0][0]['_id']['$in'] for image in self.images.values()):
+                    found = True
+                    break
+        self.assertTrue(found, "Could not find call for all image ids")
+        for image in self.images.values():
             self.assertIn(mock.call(image.serialize()), db_client.deserialize_entity.call_args_list)
 
-    def test_create_serialized_makes_deserializeable_collection(self):
+    def test_create_and_save_checks_image_ids_and_stops_if_not_all_found(self):
         db_client = self.create_mock_db_client()
+        mock_cursor = mock.MagicMock()
+        mock_cursor.count.return_value = len(self.image_map) - 2    # Return missing ids.
+        db_client.image_collection.find.return_value = mock_cursor
 
-        s_image_collection = ic.ImageCollection.create_serialized([image.identifier for image in self.images_list],
-                                                                  core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        result = ic.ImageCollection.create_and_save(
+            db_client, {timestamp: image.identifier for timestamp, image in self.images.items()},
+            core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertIsNone(result)
+        self.assertTrue(db_client.image_collection.find.called)
+        self.assertEqual({'_id': {'$in': [image.identifier for image in self.images.values()]}},
+                         db_client.image_collection.find.call_args[0][0])
+        self.assertFalse(db_client.image_source_collection.insert.called)
+
+    def test_create_and_save_checks_for_existing_collection(self):
+        db_client = self.create_mock_db_client()
+        mock_cursor = mock.MagicMock()
+        mock_cursor.count.return_value = len(self.image_map)
+        db_client.image_collection.find.return_value = mock_cursor
+        db_client.image_source_collection.find_one.return_value = None
+
+        ic.ImageCollection.create_and_save(db_client,
+                                           {timestamp: image.identifier for timestamp, image in self.images.items()},
+                                           core.sequence_type.ImageSequenceType.SEQUENTIAL)
+
+        self.assertTrue(db_client.image_source_collection.find_one.called)
+        existing_query = db_client.image_source_collection.find_one.call_args[0][0]
+        self.assertIn('_type', existing_query)
+        self.assertEqual('core.image_collection.ImageCollection', existing_query['_type'])
+        self.assertIn('sequence_type', existing_query)
+        self.assertEqual('SEQ', existing_query['sequence_type'])
+        self.assertIn('images', existing_query)
+        self.assertIn('$all', existing_query['images'])
+        # Because dicts, we can't guarantee the order of this list
+        # So we use $all, and make sure all the timestamp->image_id pairs are in it
+        for timestamp, image in self.images.items():
+            self.assertIn((timestamp, image.identifier), existing_query['images']['$all'])
+
+    def test_create_and_save_makes_valid_collection(self):
+        db_client = self.create_mock_db_client()
+        mock_cursor = mock.MagicMock()
+        mock_cursor.count.return_value = len(self.image_map)
+        db_client.image_collection.find.return_value = mock_cursor
+        db_client.image_source_collection.find_one.return_value = None
+
+        ic.ImageCollection.create_and_save(db_client,
+                                           {timestamp: image.identifier for timestamp, image in self.images.items()},
+                                           core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertTrue(db_client.image_source_collection.insert.called)
+        s_image_collection = db_client.image_source_collection.insert.call_args[0][0]
+
+        db_client = self.create_mock_db_client()
         collection = ic.ImageCollection.deserialize(s_image_collection, db_client)
         self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, collection.sequence_type)
-        self.assertEqual(len(self.images_list), len(collection))
-        for idx in range(len(self.images_list)):
-            self.assertEqual(self.images_list[idx].identifier, collection[idx].identifier)
-            self.assertTrue(np.array_equal(self.images_list[idx].data, collection[idx].data))
-            self.assertEqual(self.images_list[idx].camera_pose, collection[idx].camera_pose)
-            self.assertTrue(np.array_equal(self.images_list[idx].depth_data, collection[idx].depth_data))
-            self.assertTrue(np.array_equal(self.images_list[idx].labels_data, collection[idx].labels_data))
-            self.assertTrue(np.array_equal(self.images_list[idx].world_normals_data,
-                                           self.images_list[idx].world_normals_data))
-            self.assertEqual(self.images_list[idx].additional_metadata, collection[idx].additional_metadata)
+        self.assertEqual(len(self.images), len(collection))
+        for stamp, image in self.images.items():
+            self.assertEqual(image.identifier, collection[stamp].identifier)
+            self.assertTrue(np.array_equal(image.data, collection[stamp].data))
+            self.assertEqual(image.camera_pose, collection[stamp].camera_pose)
+            self.assertTrue(np.array_equal(image.depth_data, collection[stamp].depth_data))
+            self.assertTrue(np.array_equal(image.labels_data, collection[stamp].labels_data))
+            self.assertTrue(np.array_equal(image.world_normals_data, collection[stamp].world_normals_data))
+            self.assertEqual(image.additional_metadata, collection[stamp].additional_metadata)
 
         s_image_collection_2 = collection.serialize()
         self.assert_serialized_equal(s_image_collection, s_image_collection_2)

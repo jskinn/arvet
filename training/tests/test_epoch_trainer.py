@@ -70,7 +70,8 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
             self.assertEqual(image_collection1.is_normals_available, image_collection2.is_normals_available)
             self.assertEqual(image_collection1.is_stereo_available, image_collection2.is_stereo_available)
             self.assertEqual(len(image_collection1), len(image_collection2))
-            for img_idx in range(len(image_collection1)):
+            self.assertEqual(image_collection1.timestamps, image_collection2.timestamps)
+            for img_idx in image_collection1.timestamps:
                 # Don't compare image details, if the ids are the same, they're the same
                 self.assertEqual(image_collection1[img_idx].identifier, image_collection2[img_idx].identifier)
 
@@ -284,5 +285,5 @@ def make_mock_image_collection(num_images):
     return ic.ImageCollection(
         id_=bson.objectid.ObjectId(),
         type_=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
-        images=[make_image() for _ in range(num_images)]
+        images={1.2 * idx: make_image() for idx in range(num_images)}
     )

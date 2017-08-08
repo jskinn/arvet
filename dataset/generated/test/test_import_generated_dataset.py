@@ -353,6 +353,8 @@ class TestImportGeneratedDataset(unittest.TestCase):
         mock_import_image.return_value = mock.create_autospec(core.image_entity.ImageEntity)
         mock_db_client = mock.create_autospec(database.client)
         mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_collection.find.return_value = mock.create_autospec(pymongo.cursor.Cursor)
+        mock_db_client.image_collection.find.return_value.count.return_value = 10
         mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_open = mock.mock_open()
         with mock.patch('dataset.generated.import_generated_dataset.open', mock_open, create=True):
@@ -377,6 +379,8 @@ class TestImportGeneratedDataset(unittest.TestCase):
         mock_import_image.return_value = None
         mock_db_client = mock.create_autospec(database.client)
         mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_collection.find.return_value = mock.create_autospec(pymongo.cursor.Cursor)
+        mock_db_client.image_collection.find.return_value.count.return_value = 1
         mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_open = mock.mock_open()
         with mock.patch('dataset.generated.import_generated_dataset.open', mock_open, create=True):
@@ -401,6 +405,8 @@ class TestImportGeneratedDataset(unittest.TestCase):
         mock_import_image.return_value = mock.create_autospec(core.image_entity.ImageEntity)
         mock_db_client = mock.create_autospec(database.client)
         mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client.image_collection.find.return_value = mock.create_autospec(pymongo.cursor.Cursor)
+        mock_db_client.image_collection.find.return_value.count.return_value = 10
         mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_db_client.image_source_collection.find_one.return_value = None
         mock_open = mock.mock_open()
