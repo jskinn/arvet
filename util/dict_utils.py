@@ -35,6 +35,13 @@ def defaults(base, *args, modify_base=True):
 
 
 def split_period_keys(base):
+    """
+    Split dictionary keys containing periods into sub-dictionaries.
+    This makes it nicer in the mongodb structure, you still access it with the period,
+    it just looks in a nested structure
+    :param base: The base dict
+    :return: A copy of the base dict, with no periods in its keys
+    """
     result = {}
     for key, value in base.items():
         subkeys = key.split('.')

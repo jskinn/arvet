@@ -75,10 +75,6 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
         stats2 = pickle.loads(s_model2['tracking_stats'])
         self.assertEqual(stats1, stats2)
 
-    def test_identifier(self):
-        trial_result = self.make_instance(id_=123)
-        self.assertEqual(trial_result.identifier, 123)
-
     def _assertTrajectoryEqual(self, traj1, traj2):
         self.assertEqual(list(traj1.keys()).sort(), list(traj2.keys()).sort())
         for time in traj1.keys():
