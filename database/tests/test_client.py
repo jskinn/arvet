@@ -12,6 +12,17 @@ class TestDatabaseClient(unittest.TestCase):
 
     @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
+    def test_can_configure_temporary_folder(self, *_):
+        folder_name = 'arealfolder/anotherrealfolder_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'temp_folder': folder_name
+            }
+        })
+        self.assertEqual(folder_name, db_client.temp_folder)
+
+    @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
+    @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
     def test_can_configure_database_name(self, mock_mongoclient, _):
         mock_client_instance = mock_mongoclient.return_value
 

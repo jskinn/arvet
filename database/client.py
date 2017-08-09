@@ -24,8 +24,10 @@ class DatabaseClient:
         Takes configuration parameters in a dict with the following format:
         {
             'database_config': {
-                'connection_parameters': <kwargs passed to MongoClient>
-                'database_name': <database name>
+                'connection_parameters': <kwargs passed to MongoClient>,
+                'database_name': <database name>,
+                'gridfs_bucket': <gridfs bucket name>,
+                'temp_folder': <folder to store temporary files>,
                 'collections': {
                     'trainer_collection': <collection name for trainers>
                     'trainee_collection': <collection name for trainees>
@@ -51,6 +53,7 @@ class DatabaseClient:
             'connection_parameters': {},
             'database_name': 'benchmark_system',
             'gridfs_bucket': 'fs',
+            'temp_folder': 'temp',
             'collections': {
                 'trainer_collection': 'trainers',
                 'trainee_collection': 'trainees',
@@ -66,6 +69,7 @@ class DatabaseClient:
 
         conn_kwargs = db_config['connection_parameters']
         db_name = db_config['database_name']
+        self._temp_folder = db_config['temp_folder']
         self._trainer_collection_name = db_config['collections']['trainer_collection']
         self._trainee_collection_name = db_config['collections']['trainee_collection']
         self._system_collection_name = db_config['collections']['system_collection']
@@ -119,6 +123,10 @@ class DatabaseClient:
     @property
     def grid_fs(self):
         return self._gridfs
+
+    @property
+    def temp_folder(self):
+        return self._temp_folder
 
     def deserialize_entity(self, s_entity):
         type_name = s_entity['_type']

@@ -17,6 +17,7 @@ def load_global_config(filename):
             'connection_parameters': {},
             'database_name': 'benchmark_system',
             'gridfs_bucket': 'fs',
+            'temp_folder': 'temp',
             'collections': {
                 'trainer_collection': 'trainers',
                 'trainee_collection': 'trainees',
