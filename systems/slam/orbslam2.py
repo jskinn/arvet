@@ -4,6 +4,7 @@ import re
 import signal
 import queue
 import multiprocessing
+import enum
 import core.system
 import core.sequence_type
 import core.trial_result
@@ -20,15 +21,23 @@ except ImportError:
     from yaml import Dumper as YamlDumper
 
 
+class SensorMode(enum.Enum):
+    MONOCULAR = 0
+    STEREO = 1
+    RGBD = 2
+
+
 class ORBSLAM2(core.system.VisionSystem):
     """
     Python wrapper for ORB_SLAM2
     """
 
-    def __init__(self, vocabulary_file, settings, temp_folder='temp', id_=None):
+    def __init__(self, vocabulary_file, settings, mode=SensorMode.RGBD, resolution=None, temp_folder='temp', id_=None):
         super().__init__(id_=id_)
         self._vocabulary_file = vocabulary_file
 
+        self._mode = mode if isinstance(mode, SensorMode) else SensorMode.RGBD
+        self._resolution = resolution if resolution is not None and len(resolution) == 2 else (640, 480)
         # Default settings based on UE4 calibration results
         self._orbslam_settings = du.defaults({}, settings, {
             'Camera': {
@@ -132,7 +141,9 @@ class ORBSLAM2(core.system.VisionSystem):
                                                       args=(self._output_queue,
                                                             self._input_queue,
                                                             self._vocabulary_file,
-                                                            self._settings_file))
+                                                            self._settings_file,
+                                                            self._mode,
+                                                            self._resolution))
         self._child_process.start()
 
     def process_image(self, image, timestamp):
@@ -220,6 +231,8 @@ class ORBSLAM2(core.system.VisionSystem):
     def serialize(self):
         serialized = super().serialize()
         serialized['vocabulary_file'] = self._vocabulary_file
+        serialized['mode'] = self._mode.value
+        serialized['resolution'] = self._resolution
         serialized['settings'] = self.get_settings()
         return serialized
 
@@ -227,6 +240,10 @@ class ORBSLAM2(core.system.VisionSystem):
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'vocabulary_file' in serialized_representation:
             kwargs['vocabulary_file'] = serialized_representation['vocabulary_file']
+        if 'mode' in serialized_representation:
+            kwargs['mode'] = SensorMode(serialized_representation['mode'])
+        if 'resolution' in serialized_representation:
+            kwargs['resolution'] = serialized_representation['resolution']
         if 'settings' in serialized_representation:
             kwargs['settings'] = serialized_representation['settings']
         kwargs['temp_folder'] = db_client.temp_folder
@@ -280,12 +297,18 @@ def dump_config(filename, data, dumper=YamlDumper, default_flow_style=False, **k
         return yaml_dump(data, config_file, Dumper=dumper, default_flow_style=default_flow_style, **kwargs)
 
 
-def run_orbslam(output_queue, input_queue, vocab_file, settings_file):
+def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, resolution):
     import orbslam2
     import trials.slam.tracking_state
 
+    sensor_mode = orbslam2.Sensor.RGBD
+    if mode == SensorMode.MONOCULAR:
+        sensor_mode = orbslam2.Sensor.MONOCULAR
+    elif mode == SensorMode.STEREO:
+        sensor_mode = orbslam2.Sensor.STEREO
+
     tracking_stats = []
-    orbslam_system = orbslam2.System(vocab_file, settings_file)
+    orbslam_system = orbslam2.System(vocab_file, settings_file, resolution[0], resolution[1], sensor_mode)
     orbslam_system.set_use_viewer(True)
     orbslam_system.initialize()
     running = True

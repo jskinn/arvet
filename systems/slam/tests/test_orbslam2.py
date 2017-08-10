@@ -55,6 +55,8 @@ class TestORBSLAM2(database.tests.test_entity.EntityContract, unittest.TestCase)
                     'ViewpointF': np.random.uniform(0, 10)
                 }
             },
+            'mode': systems.slam.orbslam2.SensorMode(np.random.randint(0, 3)),
+            'resolution': tuple(np.random.randint(10, 1000, 2)),
             'temp_folder': 'imafolder-{0}'.format(np.random.randint(10, 20))
         })
         return systems.slam.orbslam2.ORBSLAM2(*args, **kwargs)
