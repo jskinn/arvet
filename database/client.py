@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 import traceback
@@ -70,6 +71,7 @@ class DatabaseClient:
         conn_kwargs = db_config['connection_parameters']
         db_name = db_config['database_name']
         self._temp_folder = db_config['temp_folder']
+        os.makedirs(self._temp_folder, exist_ok=True)   # Make sure the temp folder exists.
         self._trainer_collection_name = db_config['collections']['trainer_collection']
         self._trainee_collection_name = db_config['collections']['trainee_collection']
         self._system_collection_name = db_config['collections']['system_collection']
