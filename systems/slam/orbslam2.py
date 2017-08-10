@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 import re
 import signal
@@ -147,6 +148,24 @@ class ORBSLAM2(core.system.VisionSystem):
                                                             self._mode,
                                                             self._resolution))
         self._child_process.start()
+        try:
+            started = self._output_queue.get(block=True, timeout=self._expected_completion_timeout)
+        except queue.Empty:
+            started = False
+        if not started:
+            self._child_process.terminate()
+            self._child_process.join(timeout=5)
+            if self._child_process.is_alive():
+                os.kill(self._child_process.pid, signal.SIGKILL)  # Definitely kill the process.
+            if os.path.isfile(self._settings_file):
+                os.remove(self._settings_file)  # Delete the settings file
+            self._settings_file = None
+            self._child_process = None
+            self._input_queue = None
+            self._output_queue = None
+            self._gt_trajectory = None
+        return started
+
 
     def process_image(self, image, timestamp):
         """
@@ -156,6 +175,11 @@ class ORBSLAM2(core.system.VisionSystem):
         :param timestamp: A timestamp or index associated with this image. Sometimes None.
         :return: void
         """
+        # Wait here, to throttle the input rate to the queue, and prevent it from growing too large
+        delay_time = 0
+        while self._input_queue.qsize() > 10 and delay_time < 10:
+            time.sleep(1)
+            delay_time += 1
         if self._input_queue is not None:
             # Send different input based on the running mode
             if self._mode == SensorMode.MONOCULAR:
@@ -302,7 +326,19 @@ def dump_config(filename, data, dumper=YamlDumper, default_flow_style=False, **k
     """
     with open(filename, 'w') as config_file:
         config_file.write("%YAML:1.0\n")
-        return yaml_dump(data, config_file, Dumper=dumper, default_flow_style=default_flow_style, **kwargs)
+        return yaml_dump(nested_to_dotted(data), config_file, Dumper=dumper,
+                         default_flow_style=default_flow_style, **kwargs)
+
+
+def nested_to_dotted(data):
+    result = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            for inner_key, value in nested_to_dotted(value).items():
+                result[key + '.' + inner_key] = value
+        else:
+            result[key] = value
+    return result
 
 
 def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, resolution):
@@ -319,8 +355,9 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
     orbslam_system = orbslam2.System(vocab_file, settings_file, resolution[0], resolution[1], sensor_mode)
     orbslam_system.set_use_viewer(True)
     orbslam_system.initialize()
-    running = True
+    output_queue.put(True)  # Tell the parent process we've set-up correctly and are ready to go.
 
+    running = True
     while running:
         in_data = input_queue.get(block=True)
         if isinstance(in_data, tuple) and len(in_data) == 3:
