@@ -11,6 +11,7 @@ import metadata.image_metadata as imeta
 import core.sequence_type
 import core.image
 import systems.slam.orbslam2
+import orbslam2
 
 
 class TestORBSLAM2(database.tests.test_entity.EntityContract, unittest.TestCase):
@@ -169,7 +170,7 @@ class TestORBSLAM2(database.tests.test_entity.EntityContract, unittest.TestCase)
         subject = self.make_instance()
         with mock.patch('systems.slam.orbslam2.open', mock_open, create=True):
             subject.start_trial(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
-        #TODO: Finish testing finish_trial
+        # TODO: Finish testing finish_trial
 
     def assertNPEqual(self, arr1, arr2):
         self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
@@ -177,3 +178,18 @@ class TestORBSLAM2(database.tests.test_entity.EntityContract, unittest.TestCase)
     def assertNPClose(self, arr1, arr2):
         self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
 
+
+class TestRunOrbslam(unittest.TestCase):
+
+    def test_calls_initialize_and_shutdown(self):
+        mock_input_queue = mock.create_autospec(multiprocessing.queues.Queue)
+        mock_input_queue.get.side_effect = [None, None]
+        mock_output_queue = mock.create_autospec(multiprocessing.queues.Queue)
+        mock_orbslam = mock.create_autospec(orbslam2)
+        mock_system = mock.create_autospec(orbslam2.System)
+        mock_orbslam.System.return_value = mock_system
+        with mock.patch.dict('sys.modules', orbslam2=mock_orbslam):
+            systems.slam.orbslam2.run_orbslam(mock_output_queue, mock_input_queue, '', '',
+                                              systems.slam.orbslam2.SensorMode.RGBD, (1280, 720))
+        self.assertTrue(mock_system.initialize.called)
+        self.assertTrue(mock_system.shutdown.called)

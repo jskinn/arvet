@@ -119,8 +119,10 @@ class ORBSLAM2(core.system.VisionSystem):
         :return: True iff the particular dataset is appropriate for this vision system.
         :rtype: bool
         """
-        return (image_source.sequence_type == core.sequence_type.ImageSequenceType.SEQUENTIAL and
-                image_source.is_depth_available)
+        return (image_source.sequence_type == core.sequence_type.ImageSequenceType.SEQUENTIAL and (
+            self._mode == SensorMode.MONOCULAR or
+            (self._mode == SensorMode.STEREO and image_source.is_stereo_available) or
+            (self._mode == SensorMode.RGBD and image_source.is_depth_available)))
 
     def start_trial(self, sequence_type):
         """
@@ -155,7 +157,13 @@ class ORBSLAM2(core.system.VisionSystem):
         :return: void
         """
         if self._input_queue is not None:
-            self._input_queue.put((np.copy(image.data), np.copy(image.depth_data), timestamp))
+            # Send different input based on the running mode
+            if self._mode == SensorMode.MONOCULAR:
+                self._input_queue.put((np.copy(image.data), None, timestamp))
+            elif self._mode == SensorMode.STEREO:
+                self._input_queue.put((np.copy(image.left_data), np.copy(image.right_data), timestamp))
+            elif self._mode == SensorMode.RGBD:
+                self._input_queue.put((np.copy(image.data), np.copy(image.depth_data), timestamp))
 
     def finish_trial(self):
         """
@@ -316,9 +324,14 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
     while running:
         in_data = input_queue.get(block=True)
         if isinstance(in_data, tuple) and len(in_data) == 3:
-            img_data, depth_data, timestamp = in_data
+            img1, img2, timestamp = in_data
+            if mode == SensorMode.MONOCULAR:
+                orbslam_system.process_image_mono(img1, timestamp)
+            elif mode == SensorMode.STEREO:
+                orbslam_system.process_image_stereo(img1, img2, timestamp)
+            elif mode == SensorMode.RGBD:
+                orbslam_system.process_image_rgbd(img1, img2, timestamp)
 
-            orbslam_system.process_image(img_data, depth_data, timestamp)
             tracking_state = orbslam_system.get_tracking_state()
             if (tracking_state == orbslam2.TrackingState.SYSTEM_NOT_READY or
                     tracking_state == orbslam2.TrackingState.NO_IMAGES_YET or
