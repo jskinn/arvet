@@ -143,7 +143,8 @@ class ORBSLAM2(core.system.VisionSystem):
         :param timestamp: A timestamp or index associated with this image. Sometimes None.
         :return: void
         """
-        self._input_queue.put((np.copy(image.data), np.copy(image.depth_data), timestamp))
+        if self._input_queue is not None:
+            self._input_queue.put((np.copy(image.data), np.copy(image.depth_data), timestamp))
 
     def finish_trial(self):
         """
@@ -152,7 +153,7 @@ class ORBSLAM2(core.system.VisionSystem):
         :return:
         :rtype TrialResult:
         """
-        self._input_queue.put(None)
+        self._input_queue.put(None)     # This will end the main loop, see run_orbslam, below
         try:
             trajectory_list, tracking_stats = self._output_queue.get(block=True,
                                                                      timeout=self._expected_completion_timeout)
@@ -213,6 +214,7 @@ class ORBSLAM2(core.system.VisionSystem):
                 for idx in range(10000):
                     if not os.path.isfile(self._settings_file + '-' + str(idx)):
                         self._settings_file += '-' + str(idx)
+                        break
             dump_config(self._settings_file, self._orbslam_settings)
 
     def serialize(self):
@@ -303,6 +305,9 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file):
                 tracking_stats.append(trials.slam.tracking_state.TrackingState.OK)
             else:
                 tracking_stats.append(trials.slam.tracking_state.TrackingState.LOST)
+        else:
+            # Non-matching input indicates the end of processing, stop the main loop
+            running = False
 
     # send the final trajectory to the parent
     output_queue.put((orbslam_system.get_trajectory_points(), tracking_stats))
