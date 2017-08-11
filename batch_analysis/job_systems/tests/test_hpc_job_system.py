@@ -59,8 +59,55 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
-            task_import_dataset.__file__, 'dataset.importer', '/tmp/dataset'), script_contents)
+        self.assertIn("python {0} {1} {2}".format(
+            hpc.quote(task_import_dataset.__file__), 'dataset.importer', '/tmp/dataset'), script_contents)
+
+    def test_queue_import_dataset_indicates_desired_cpus(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset', num_cpus=15789, num_gpus=0)
+        self.assertTrue(mock_open.called)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn("#PBS -l ncpus={cpus}".format(cpus=15789), script_contents)
+        self.assertNotIn("#PBS -l cputype=", script_contents)
+
+    def test_queue_import_dataset_indicates_desired_gpus(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset', num_gpus=8026)
+        self.assertTrue(mock_open.called)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn("#PBS -l ngpus={gpus}".format(gpus=8026), script_contents)
+        self.assertIn("#PBS -l gputype=M40", script_contents)
+        self.assertIn("#PBS -l cputype=E5-2680v4", script_contents)
+
+    def test_queue_import_dataset_indicates_desired_memory(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset', memory_requirements='1542GB')
+        self.assertTrue(mock_open.called)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn("#PBS -l mem={mem}".format(mem='1542GB'), script_contents)
+
+    def test_queue_import_dataset_indicates_expected_run_time(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.queue_import_dataset('dataset.importer', '/tmp/dataset', expected_duration='125:23:16')
+        self.assertTrue(mock_open.called)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn("#PBS -l walltime={time}".format(time='125:23:16'), script_contents)
 
     def test_queue_import_dataset_passes_experiment_to_task(self):
         mock_open = mock.mock_open()
@@ -73,8 +120,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
-                task_import_dataset.__file__,
+            "python {0} {1} {2} {3}".format(
+                hpc.quote(task_import_dataset.__file__),
                 'dataset.importer',
                 '/tmp/dataset',
                 str(experiment_id)),
@@ -184,8 +231,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
-            task_train_system.__file__, str(trainer_id), str(trainee_id)), script_contents)
+        self.assertIn("python {0} {1} {2}".format(
+            hpc.quote(task_train_system.__file__), str(trainer_id), str(trainee_id)), script_contents)
 
     def test_queue_train_system_passes_experiment_to_task(self):
         mock_open = mock.mock_open()
@@ -200,8 +247,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
-                task_train_system.__file__,
+            "python {0} {1} {2} {3}".format(
+                hpc.quote(task_train_system.__file__),
                 str(trainer_id),
                 str(trainee_id),
                 str(experiment_id)),
@@ -317,8 +364,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
-            task_run_system.__file__, str(system_id), str(image_source_id)), script_contents)
+        self.assertIn("python {0} {1} {2}".format(
+            hpc.quote(task_run_system.__file__), str(system_id), str(image_source_id)), script_contents)
 
     def test_queue_run_system_passes_experiment_to_task(self):
         mock_open = mock.mock_open()
@@ -333,8 +380,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
-                task_run_system.__file__,
+            "python {0} {1} {2} {3}".format(
+                hpc.quote(task_run_system.__file__),
                 str(system_id),
                 str(image_source_id),
                 str(experiment_id)),
@@ -450,8 +497,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python \"{0}\" \"{1}\" \"{2}\"".format(
-            task_benchmark_result.__file__, str(trial_id), str(benchmark_id)), script_contents)
+        self.assertIn("python {0} {1} {2}".format(
+            hpc.quote(task_benchmark_result.__file__), str(trial_id), str(benchmark_id)), script_contents)
 
     def test_queue_benchmark_result_passes_experiment_to_task(self):
         mock_open = mock.mock_open()
@@ -466,8 +513,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn(
-            "python \"{0}\" \"{1}\" \"{2}\" \"{3}\"".format(
-                task_benchmark_result.__file__,
+            "python {0} {1} {2} {3}".format(
+                hpc.quote(task_benchmark_result.__file__),
                 str(trial_id),
                 str(benchmark_id),
                 str(experiment_id)),
@@ -567,3 +614,11 @@ class TestHPCJobSystem(unittest.TestCase):
                       mock_subprocess.call.call_args_list)
         self.assertIn(mock.call(['qsub', os.path.expanduser("~/benchmark-123456789.sub")]),
                       mock_subprocess.call.call_args_list)
+
+    def test_quote_passes_through_strings_without_spaces(self):
+        string = 'this-is_a#string!@#$%^&**)12344575{0}},./'
+        self.assertEqual(string, hpc.quote(string))
+
+    def test_quote_wraps_a_string_containing_spaces_in_double_quotes(self):
+        string = 'this-is a#string!@#$%^&**)12344575{0}},./'
+        self.assertEqual('"' + string + '"', hpc.quote(string))
