@@ -1,7 +1,7 @@
 import os
 import glob
 import matplotlib.pyplot as pyplot
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D     # Necessary for 3D plots
 import util.database_helpers as dh
 import util.associate
 import batch_analysis.experiment
@@ -13,9 +13,10 @@ import benchmarks.trajectory_drift.trajectory_drift as traj_drift
 
 class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
-    def __init__(self, *args, dataset_map=None, **kwargs):
+    def __init__(self, *args, dataset_map=None, uncategorized_datasets=None, **kwargs):
         super().__init__(*args, **kwargs)
         self._dataset_map = dataset_map if dataset_map is not None else {}
+        self._uncategorized_datasets = uncategorized_datasets if uncategorized_datasets is not None else set()
 
     def import_trainers(self, db_client):
         """
@@ -50,6 +51,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     if '$set' not in self._updates:
                         self._updates['$set'] = {}
                     self._updates['$set']['dataset_map.{0}'.format(map_key)] = False
+
+        # TODO: Categorize the uncategorized datasets, and return at least some of them
+
         return set()
 
     def import_systems(self, db_client):
@@ -99,13 +103,15 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         return benchmarks
 
     def add_image_source(self, image_source_id, folder, db_client=None):
-        # TODO: Grab out any dataset we only want to use for training
         map_key = folder.replace('.', '-')
         self._dataset_map[map_key] = image_source_id
+        self._uncategorized_datasets.add(image_source_id)
+        self._add_to_set('uncategorized_datasets', (image_source_id,))
         if '$set' not in self._updates:
             self._updates['$set'] = {}
         self._updates['$set']['dataset_map.{0}'.format(map_key)] = image_source_id
-        super().add_image_source(image_source_id, folder, db_client)
+        if db_client is not None:
+            self.save_updates(db_client)
 
     def plot_results(self, db_client):
         """
@@ -148,10 +154,13 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
     def serialize(self):
         serialized = super().serialize()
         serialized['dataset_map'] = {folder: dataset_id for folder, dataset_id in self._dataset_map.items()}
+        serialized['uncategorized_datasets'] = list(self._uncategorized_datasets)
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'dataset_map' in serialized_representation:
             kwargs['dataset_map'] = serialized_representation['dataset_map']
+        if 'uncategorized_datasets' in serialized_representation:
+            kwargs['uncategorized_datasets'] = set(serialized_representation['uncategorized_datasets'])
         return super().deserialize(serialized_representation, db_client, **kwargs)
