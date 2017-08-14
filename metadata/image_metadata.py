@@ -1,4 +1,5 @@
 import enum
+import numpy as np
 import util.transform as tf
 import util.dict_utils as du
 
@@ -127,12 +128,6 @@ class LabelledObject:
         return cls(**kwargs)
 
 
-class SimulationWorld:
-
-    def __init__(self):
-        self.base_world = 10
-
-
 class ImageMetadata:
     """
     A collection of metadata properties for images.
@@ -145,7 +140,7 @@ class ImageMetadata:
                  environment_type=None, light_level=None, time_of_day=None, fov=None, focal_length=None, aperture=None,
                  simulation_world=None, lighting_model=None, texture_mipmap_bias=None, normal_maps_enabled=True,
                  roughness_enabled=None, geometry_decimation=None, procedural_generation_seed=None,
-                 labelled_objects=None, average_scene_depth=None):
+                 labelled_objects=None, average_scene_depth=None, base_image=None, transformation_matrix=None):
         self._hash = hash_
 
         self._source_type = ImageSourceType(source_type)
@@ -179,6 +174,10 @@ class ImageMetadata:
         # Depth information
         self._average_scene_depth = float(average_scene_depth) if average_scene_depth is not None else None
 
+        # Metadata from data augmentation and warping
+        self._base_image = base_image
+        self._affine_transformation_matrix = transformation_matrix
+
     def __eq__(self, other):
         return (isinstance(other, ImageMetadata) and
                 self.hash == other.hash and
@@ -201,6 +200,8 @@ class ImageMetadata:
                 self.geometry_decimation == other.geometry_decimation and
                 self.procedural_generation_seed == other.procedural_generation_seed and
                 self.average_scene_depth == other.average_scene_depth and
+                self.base_image == other.base_image and
+                np.array_equal(self.affine_transformation_matrix, other.affine_transformation_matrix) and
                 set(self.labelled_objects) == set(other.labelled_objects))
 
     def __hash__(self):
@@ -208,7 +209,8 @@ class ImageMetadata:
                      self.height, self.width, self.camera_pose, self.right_camera_pose, self.fov, self.focal_length,
                      self.aperture, self.simulation_world, self.lighting_model,
                      self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
-                     self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth) +
+                     self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth,
+                     hash(self.base_image), tuple(tuple(row) for row in self.affine_transformation_matrix)) +
                     tuple(hash(obj) for obj in self.labelled_objects))
 
     @property
@@ -307,6 +309,24 @@ class ImageMetadata:
         """
         return self._average_scene_depth
 
+    @property
+    def base_image(self):
+        """
+        If this image is warped from another image, this is the source image.
+        Otherwise, None
+        :return: The base image this warped image was produced from, or None.
+        """
+        return self._base_image
+
+    @property
+    def affine_transformation_matrix(self):
+        """
+        If this image is a warped image, this is the affine transformation matrix used to
+        warp the original image to produce this one.
+        :return:
+        """
+        return self._affine_transformation_matrix
+
     def clone(self, **kwargs):
         """
         Clone the metadata, optionally changing some of the values.
@@ -334,19 +354,20 @@ class ImageMetadata:
             'roughness_enabled': self.roughness_enabled,
             'geometry_decimation': self.geometry_decimation,
             'procedural_generation_seed': self.procedural_generation_seed,
-            'labelled_objects': [(LabelledObject(
+            'labelled_objects': tuple((LabelledObject(
                 class_names=obj.class_names,
                 bounding_box=obj.bounding_box,
                 label_color=obj.label_color,
                 relative_pose=obj.relative_pose,
                 object_id=obj.object_id)
-                for obj in self.labelled_objects)],
-            'average_scene_depth': self.average_scene_depth
+                for obj in self.labelled_objects)),
+            'average_scene_depth': self.average_scene_depth,
+            'base_image': self.base_image,
+            'transformation_matrix': self.affine_transformation_matrix
         })
         return ImageMetadata(**kwargs)
 
     def serialize(self):
-        #TODO: We want serialize to omit none keys for brevity in the database. Only list what we know.
         return {
             'hash': self.hash,
             'source_type': self.source_type.value,
@@ -373,7 +394,9 @@ class ImageMetadata:
 
             'labelled_objects': [obj.serialize() for obj in self.labelled_objects],
 
-            'average_scene_depth': self.average_scene_depth
+            'average_scene_depth': self.average_scene_depth,
+            'base_image': self.base_image,
+            'transformation_matrix': self.affine_transformation_matrix
         }
 
     @classmethod
@@ -382,7 +405,7 @@ class ImageMetadata:
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width',
                             'fov', 'focal_length', 'aperture', 'simulation_world', 'lighting_model',
                             'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
-                            'procedural_generation_seed', 'average_scene_depth']
+                            'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
         for key in direct_copy_keys:
             if key in serialized:
                 kwargs[key] = serialized[key]

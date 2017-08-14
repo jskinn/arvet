@@ -1,8 +1,10 @@
 import unittest
+import unittest.mock as mock
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
 import metadata.image_metadata as imeta
+import core.image
 
 
 class TestLabelledObject(unittest.TestCase):
@@ -105,6 +107,11 @@ class TestLabelledObject(unittest.TestCase):
 
 class TestImageMetadata(unittest.TestCase):
 
+    parent_image = core.image.Image(
+        data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+        metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                                     height=600, width=800))
+
     def make_metadata(self, **kwargs):
         kwargs = du.defaults(kwargs, {
             'hash_': b'\xa5\xc9\x08\xaf$\x0b\x116',
@@ -153,9 +160,11 @@ class TestImageMetadata(unittest.TestCase):
                     object_id='LabelledObject-56485'
                 )
             ],
-
-            # Depth information
-            'average_scene_depth': 90.12
+            'average_scene_depth': 90.12,
+            'base_image': self.parent_image,
+            'transformation_matrix': np.array([[0.19882871, 0.58747441, 0.90084303],
+                                               [0.6955363, 0.48193339, 0.09503605],
+                                               [0.20549805, 0.6110534, 0.61145574]])
         })
         return imeta.ImageMetadata(**kwargs)
 
@@ -223,7 +232,9 @@ class TestImageMetadata(unittest.TestCase):
             'geometry_decimation': [0.3],
             'procedural_generation_seed': [7329],
             'average_scene_depth': [102.33],
-            'labelled_objects': [[], [
+            'base_image': [mock.create_autospec(core.image.Image)],
+            'transformation_matrix': [np.random.uniform(0, 1, (3, 3))],
+            'labelled_objects': [tuple(), (
                 imeta.LabelledObject(
                     class_names=('cup',),
                     bounding_box=(142, 280, 54, 78),
@@ -245,7 +256,7 @@ class TestImageMetadata(unittest.TestCase):
                     relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
                     object_id='LabelledObject-56485'
                 )
-            ],[
+            ), (
                 imeta.LabelledObject(
                     class_names=('cup',),
                     bounding_box=(142, 12, 54, 78),
@@ -267,7 +278,7 @@ class TestImageMetadata(unittest.TestCase):
                     relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
                     object_id='LabelledObject-56485'
                 )
-            ],[
+            ), (
                 imeta.LabelledObject(
                     class_names=('cup',),
                     bounding_box=(142, 280, 54, 78),
@@ -289,7 +300,7 @@ class TestImageMetadata(unittest.TestCase):
                     relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
                     object_id='LabelledObject-56485'
                 )
-            ]]
+            )]
         }
         a = self.make_metadata()
         b = self.make_metadata()
@@ -326,7 +337,9 @@ class TestImageMetadata(unittest.TestCase):
             'geometry_decimation': [0.3],
             'procedural_generation_seed': [7329],
             'average_scene_depth': [102.33],
-            'labelled_objects': [[], [
+            'base_image': [mock.create_autospec(core.image.Image)],
+            'transformation_matrix': [np.random.uniform(0, 1, (3, 3))],
+            'labelled_objects': [tuple(), (
                 imeta.LabelledObject(
                     class_names=('cup',),
                     bounding_box=(142, 280, 54, 78),
@@ -348,7 +361,7 @@ class TestImageMetadata(unittest.TestCase):
                     relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
                     object_id='LabelledObject-56485'
                 )
-            ], [
+            ), (
                 imeta.LabelledObject(
                     class_names=('cup',),
                     bounding_box=(142, 12, 54, 78),
@@ -371,7 +384,7 @@ class TestImageMetadata(unittest.TestCase):
                                                rotation=(0.9, 0.1, 0.5)),
                     object_id='LabelledObject-56485'
                 )
-            ], [
+            ), (
                 imeta.LabelledObject(
                     class_names=('cup',),
                     bounding_box=(142, 280, 54, 78),
@@ -394,7 +407,7 @@ class TestImageMetadata(unittest.TestCase):
                                                rotation=(0.9, 0.1, 0.5)),
                     object_id='LabelledObject-56485'
                 )
-            ]]
+            )]
         }
         a = self.make_metadata()
         b = self.make_metadata()
@@ -406,6 +419,218 @@ class TestImageMetadata(unittest.TestCase):
                 b = self.make_metadata(**{key: val})
                 self.assertNotEqual(hash(a), hash(b),
                                     "Changing key {0} to {1} did not change the hash".format(key, str(val)))
+
+    def test_clone(self):
+        alt_metadata = {
+            'hash_': [b'\x1f`\xa8\x8aR\xed\x9f\x0b'],
+            'source_type': [imeta.ImageSourceType.REAL_WORLD],
+            'environment_type': [imeta.EnvironmentType.INDOOR, imeta.EnvironmentType.OUTDOOR_URBAN,
+                                 imeta.EnvironmentType.OUTDOOR_LANDSCAPE],
+            'light_level': [imeta.LightingLevel.PITCH_BLACK, imeta.LightingLevel.DIM, imeta.LightingLevel.EVENLY_LIT,
+                            imeta.LightingLevel.BRIGHT],
+            'time_of_day': [imeta.TimeOfDay.DAWN, imeta.TimeOfDay.MORNING, imeta.TimeOfDay.AFTERNOON,
+                            imeta.TimeOfDay.TWILIGHT, imeta.TimeOfDay.NIGHT],
+            'height': [720],
+            'width': [1280],
+            'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
+            'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
+            'fov': [30],
+            'focal_length': [22],
+            'aperture': [1.2],
+            'simulation_world': ['TestSimulationWorld2'],
+            'lighting_model': [imeta.LightingModel.UNLIT],
+            'texture_mipmap_bias': [2],
+            'normal_maps_enabled': [False],
+            'roughness_enabled': [False],
+            'geometry_decimation': [0.3],
+            'procedural_generation_seed': [7329],
+            'average_scene_depth': [102.33],
+            'base_image': [mock.create_autospec(core.image.Image)],
+            'transformation_matrix': [np.random.uniform(0, 1, (3, 3))],
+            'labelled_objects': [tuple(), (
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 280, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cat',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 163),
+                    relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ), (
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 12, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('car',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 163),
+                    relative_pose=tf.Transform(location=(286, -465, -165),
+                                               rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            ), (
+                imeta.LabelledObject(
+                    class_names=('cup',),
+                    bounding_box=(142, 280, 54, 78),
+                    label_color=(2, 227, 34),
+                    relative_pose=tf.Transform(location=(-246, 468, 4), rotation=(0.2, 0.3, 0.4)),
+                    object_id='LabelledObject-68478'
+                ),
+                imeta.LabelledObject(
+                    class_names=('car',),
+                    bounding_box=(542, 83, 63, 123),
+                    label_color=(26, 12, 212),
+                    relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
+                    object_id='LabelledObject-8246'
+                ),
+                imeta.LabelledObject(
+                    class_names=('cow',),
+                    bounding_box=(349, 672, 124, 208),
+                    label_color=(162, 134, 255),
+                    relative_pose=tf.Transform(location=(286, -465, -165),
+                                               rotation=(0.9, 0.1, 0.5)),
+                    object_id='LabelledObject-56485'
+                )
+            )]
+        }
+        a = self.make_metadata()
+        b = a.clone()
+        self.assert_metadata_equal(a, b)
+
+        # Change single keys, and make sure it is no longer equal
+        for key, values in alt_metadata.items():
+            for val in values:
+                b = a.clone(**{key: val})
+
+                if key == 'hash_':
+                    self.assertEqual(val, b.hash)
+                    self.assertNotEqual(a.hash, b.hash)
+                else:
+                    self.assertEqual(a.hash, b.hash)
+                if key == 'source_type':
+                    self.assertEqual(val, b.source_type)
+                    self.assertNotEqual(a.source_type, b.source_type)
+                else:
+                    self.assertEqual(a.source_type, b.source_type)
+                if key == 'environment_type':
+                    self.assertEqual(val, b.environment_type)
+                    self.assertNotEqual(a.environment_type, b.environment_type)
+                else:
+                    self.assertEqual(a.environment_type, b.environment_type)
+                if key == 'light_level':
+                    self.assertEqual(val, b.light_level)
+                    self.assertNotEqual(a.light_level, b.light_level)
+                else:
+                    self.assertEqual(a.light_level, b.light_level)
+                if key == 'time_of_day':
+                    self.assertEqual(val, b.time_of_day)
+                    self.assertNotEqual(a.time_of_day, b.time_of_day)
+                else:
+                    self.assertEqual(a.time_of_day, b.time_of_day)
+                if key == 'height':
+                    self.assertEqual(val, b.height)
+                    self.assertNotEqual(a.height, b.height)
+                else:
+                    self.assertEqual(a.height, b.height)
+                if key == 'width':
+                    self.assertEqual(val, b.width)
+                    self.assertNotEqual(a.width, b.width)
+                else:
+                    self.assertEqual(a.width, b.width)
+                if key == 'camera_pose':
+                    self.assertEqual(val, b.camera_pose)
+                    self.assertNotEqual(a.camera_pose, b.camera_pose)
+                else:
+                    self.assertEqual(a.camera_pose, b.camera_pose)
+                if key == 'right_camera_pose':
+                    self.assertEqual(val, b.right_camera_pose)
+                    self.assertNotEqual(a.right_camera_pose, b.right_camera_pose)
+                else:
+                    self.assertEqual(a.right_camera_pose, b.right_camera_pose)
+                if key == 'fov':
+                    self.assertEqual(val, b.fov)
+                    self.assertNotEqual(a.fov, b.fov)
+                else:
+                    self.assertEqual(a.fov, b.fov)
+                if key == 'focal_length':
+                    self.assertEqual(val, b.focal_length)
+                    self.assertNotEqual(a.focal_length, b.focal_length)
+                else:
+                    self.assertEqual(a.focal_length, b.focal_length)
+                if key == 'aperture':
+                    self.assertEqual(val, b.aperture)
+                    self.assertNotEqual(a.aperture, b.aperture)
+                else:
+                    self.assertEqual(a.aperture, b.aperture)
+                if key == 'simulation_world':
+                    self.assertEqual(val, b.simulation_world)
+                    self.assertNotEqual(a.simulation_world, b.simulation_world)
+                else:
+                    self.assertEqual(a.simulation_world, b.simulation_world)
+                if key == 'lighting_model':
+                    self.assertEqual(val, b.lighting_model)
+                    self.assertNotEqual(a.lighting_model, b.lighting_model)
+                else:
+                    self.assertEqual(a.lighting_model, b.lighting_model)
+                if key == 'texture_mipmap_bias':
+                    self.assertEqual(val, b.texture_mipmap_bias)
+                    self.assertNotEqual(a.texture_mipmap_bias, b.texture_mipmap_bias)
+                else:
+                    self.assertEqual(a.texture_mipmap_bias, b.texture_mipmap_bias)
+                if key == 'normal_maps_enabled':
+                    self.assertEqual(val, b.normal_maps_enabled)
+                    self.assertNotEqual(a.normal_maps_enabled, b.normal_maps_enabled)
+                else:
+                    self.assertEqual(a.normal_maps_enabled, b.normal_maps_enabled)
+                if key == 'roughness_enabled':
+                    self.assertEqual(val, b.roughness_enabled)
+                    self.assertNotEqual(a.roughness_enabled, b.roughness_enabled)
+                else:
+                    self.assertEqual(a.roughness_enabled, b.roughness_enabled)
+                if key == 'geometry_decimation':
+                    self.assertEqual(val, b.geometry_decimation)
+                    self.assertNotEqual(a.geometry_decimation, b.geometry_decimation)
+                else:
+                    self.assertEqual(a.geometry_decimation, b.geometry_decimation)
+                if key == 'procedural_generation_seed':
+                    self.assertEqual(val, b.procedural_generation_seed)
+                    self.assertNotEqual(a.procedural_generation_seed, b.procedural_generation_seed)
+                else:
+                    self.assertEqual(a.procedural_generation_seed, b.procedural_generation_seed)
+                if key == 'labelled_objects':
+                    self.assertEqual(val, b.labelled_objects)
+                    self.assertNotEqual(a.labelled_objects, b.labelled_objects)
+                else:
+                    self.assertEqual(a.labelled_objects, b.labelled_objects)
+                if key == 'average_scene_depth':
+                    self.assertEqual(val, b.average_scene_depth)
+                    self.assertNotEqual(a.average_scene_depth, b.average_scene_depth)
+                else:
+                    self.assertEqual(a.average_scene_depth, b.average_scene_depth)
 
     def assert_metadata_equal(self, metadata1, metadata2):
         if not isinstance(metadata1, imeta.ImageMetadata):
@@ -433,3 +658,5 @@ class TestImageMetadata(unittest.TestCase):
         self.assertEqual(metadata1.procedural_generation_seed, metadata2.procedural_generation_seed)
         self.assertEqual(metadata1.labelled_objects, metadata2.labelled_objects)
         self.assertEqual(metadata1.average_scene_depth, metadata2.average_scene_depth)
+        self.assertEqual(metadata1.base_image, metadata2.base_image)
+        self.assertTrue(np.array_equal(metadata1.affine_transformation_matrix, metadata2.affine_transformation_matrix))
