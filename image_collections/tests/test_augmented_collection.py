@@ -23,7 +23,7 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'inner': make_image_collection(),
-            'augmenters': [simple_augments.HorizontalFlip(), simple_augments.Rotate270, None]
+            'augmenters': [simple_augments.HorizontalFlip(), simple_augments.Rotate270(), None]
         })
         return aug_coll.AugmentedImageCollection(*args, **kwargs)
 
@@ -38,13 +38,23 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
                 not isinstance(collection2, aug_coll.AugmentedImageCollection)):
             self.fail('object was not an AugmentedImageCollection')
         self.assertEqual(collection1.identifier, collection2.identifier)
-        self.assertEqual(collection1._inner, collection2._inner)
-        self.assertEqual(collection1._augmenters, collection2._augmenters)
+        self.assertEqual(collection1._inner.identifier, collection2._inner.identifier)
+        self.assertEqual(len(collection1._augmenters), len(collection2._augmenters))
+        for idx in range(len(collection1._augmenters)):
+            # Compare augmenters by serialized representation, we don't have a good approach here
+            if collection1._augmenters[idx] is None:
+                self.assertIsNone(collection2._augmenters[idx])
+            else:
+                self.assertIsNotNone(collection2._augmenters[idx])
+                self.assertEqual(collection1._augmenters[idx].serialize(), collection2._augmenters[idx].serialize())
 
     def create_mock_db_client(self):
         db_client = super().create_mock_db_client()
         db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
-        db_client.image_source_collection.find_one.return_value = {'_type': 'core.image_collection.ImageCollection'}
+        db_client.image_source_collection.find_one.side_effect = lambda q: {
+            '_type': 'core.image_collection.ImageCollection',
+            '_id': q['_id']
+        }
         db_client.deserialize_entity.side_effect = mock_deserialize_entity
         return db_client
 
@@ -288,7 +298,7 @@ def make_image_collection(**kwargs):
 
 def mock_deserialize_entity(s_entity):
     if s_entity['_type'] == 'core.image_collection.ImageCollection':
-        return make_image_collection()
+        return make_image_collection(id_=s_entity['_id'])
     elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.HorizontalFlip':
         return simple_augments.HorizontalFlip()
     elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.VerticalFlip':
