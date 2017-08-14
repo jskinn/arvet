@@ -61,16 +61,6 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def is_precise(self):
-        """
-        Should we use precise comparisons for projected points.
-        Some projections are inherently a little imprecise (such as rotating by 45 degrees),
-        so some floating-point error when projecting is acceptable.
-        :return:
-        """
-        return False
-
-    @abc.abstractmethod
     def get_test_projected_points(self):
         """
         Return a list of pairs of points, base point to augmented point.
@@ -97,6 +87,15 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
         :return:
         """
         return []
+
+    def is_precise(self):
+        """
+        Should we use precise comparisons for projected points.
+        Some projections are inherently a little imprecise (such as rotating by 45 degrees),
+        so some floating-point error when projecting is acceptable.
+        :return:
+        """
+        return False
 
     def test_sets_base_image_and_transformation_matrix(self):
         image = make_image()
@@ -270,7 +269,8 @@ def make_image(**kwargs):
     }
     if 'metadata' in kwargs and isinstance(kwargs['metadata'], dict):
         metadata_kwargs = du.defaults(kwargs['metadata'], metadata_kwargs)
-    kwargs = du.defaults({
+        del kwargs['metadata']
+    kwargs = du.defaults(kwargs, {
         'data': data,
         'metadata': imeta.ImageMetadata(**metadata_kwargs)
     })
