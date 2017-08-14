@@ -15,11 +15,7 @@ class AugmentedImageCollection(core.image_source.ImageSource, database.entity.En
         Create a new augmented collection, which wraps an image source and provides augmented images
         from that source. There may be multiple augmentations per image
         :param inner: The inner image source to wrap, it will be
-        :param augmenters: A list of things to perform data augmentation, include None
-        may either be callables or have an 'augment' method
-        :param default_validation_fraction: The default fraction of images to use as validation set, defaults to 0.3
-        :param loop: If true, the get methods will automatically loop the index into the valid range,
-        so get(-1) returns the last element, get(n+1) returns the first, etc.
+        :param augmenters: A list of things to perform data augmentation, or None for unchanged images
         """
         super().__init__(id_=id_, **kwargs)
         self._inner = inner
@@ -27,6 +23,7 @@ class AugmentedImageCollection(core.image_source.ImageSource, database.entity.En
                                  (hasattr(aug, 'augment') and callable(aug.augment) and
                                   hasattr(aug, 'serialize') and callable(aug.serialize)))
         self._current_image = None
+        self._current_timestamp = None
         self._aug_index = 0
 
     def __len__(self):
@@ -92,21 +89,26 @@ class AugmentedImageCollection(core.image_source.ImageSource, database.entity.En
         :return: void
         """
         self._inner.begin()
-        self._current_image = self._inner.get_next_image()
+        self._current_image, self._current_timestamp = self._inner.get_next_image()
+        if len(self._augmenters) > 1:
+            self._current_timestamp = 0
         self._aug_index = 0
 
     def get_next_image(self):
         if self.is_complete():
             return None
         im = apply_augmenter(self._current_image, self._augmenters[self._aug_index])
+        # Looping with a single augment means this is self._current_timestamp * 1 + 0 always
+        timestamp = self._current_timestamp * len(self._augmenters) + self._aug_index
         self._aug_index += 1
-        if self._aug_index >= len(self._augmenters):
+        if self._aug_index >= len(self._augmenters) and not self._inner.is_complete():
             self._aug_index = 0
-            if self._inner.is_complete():
-                self._current_image = None
+            if len(self._augmenters) > 1:
+                self._current_image, _ = self._inner.get_next_image()
+                self._current_timestamp += 1
             else:
-                self._current_image = self._inner.get_next_image()
-        return im
+                self._current_image, self._current_timestamp = self._inner.get_next_image()
+        return im, timestamp
 
     def is_complete(self):
         return self._aug_index >= len(self._augmenters) and self._inner.is_complete()
@@ -138,7 +140,9 @@ def apply_augmenter(image, augmenter):
 
 class ImageAugmenter(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
     """
-    A simple base class for
+    A simple base class for things that do image augmentation.
+    Some have properties, and we need to be able to ave and load them from the database,
+    which is why they're not just function pointers.
     """
 
     @abc.abstractmethod

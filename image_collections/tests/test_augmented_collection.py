@@ -58,6 +58,80 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
         db_client.deserialize_entity.side_effect = mock_deserialize_entity
         return db_client
 
+    def test_begin_calls_begin_on_inner(self):
+        inner = mock.create_autospec(core.image_collection.ImageCollection)
+        inner.get_next_image.return_value = (make_image(), 10)
+        subject = aug_coll.AugmentedImageCollection(inner, [None, simple_augments.HorizontalFlip()])
+        subject.begin()
+        self.assertTrue(inner.begin.called)
+
+    def test_returns_augmented_images_in_order(self):
+        img1 = make_image(data=np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+        img2 = make_image(data=np.array([[11, 12, 13], [14, 15, 16], [17, 18, 19]]))
+        collection = make_image_collection(images={1: img1, 2: img2})
+        subject = aug_coll.AugmentedImageCollection(collection, [
+            simple_augments.HorizontalFlip(), simple_augments.VerticalFlip()])
+
+        subject.begin()
+        img, _ = subject.get_next_image()
+        self.assertNPEqual([[3, 2, 1], [6, 5, 4], [9, 8, 7]], img.data)
+        img, _ = subject.get_next_image()
+        self.assertNPEqual([[7, 8, 9], [4, 5, 6], [1, 2, 3]], img.data)
+        img, _ = subject.get_next_image()
+        self.assertNPEqual([[13, 12, 11], [16, 15, 14], [19, 18, 17]], img.data)
+        img, _ = subject.get_next_image()
+        self.assertNPEqual([[17, 18, 19], [14, 15, 16], [11, 12, 13]], img.data)
+        self.assertTrue(subject.is_complete())
+
+    def test_single_null_augment_is_same_as_inner_collection(self):
+        images = {idx + np.random.uniform(-0.2, 0.2):
+                      make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
+        collection = make_image_collection(images=images)
+        subject = aug_coll.AugmentedImageCollection(collection, [None])
+
+        self.assertEqual(10, len(subject))
+        loop_count = 0
+        prev_stamp = -1
+        subject.begin()
+        while not subject.is_complete():
+            img, stamp = subject.get_next_image()
+            self.assertIn(stamp, images)
+            self.assertNPEqual(images[stamp].data, img.data)
+            self.assertGreater(stamp, prev_stamp)
+            prev_stamp = stamp
+            loop_count += 1
+        self.assertEqual(loop_count, 10)
+
+    def test_provides_index_as_stamp_if_multiple_augmenters(self):
+        images = {idx + np.random.uniform(-0.2, 0.2):
+                      make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
+        collection = make_image_collection(images=images)
+        subject = aug_coll.AugmentedImageCollection(collection, [
+            simple_augments.HorizontalFlip(), simple_augments.VerticalFlip()])
+
+        self.assertEqual(20, len(subject))
+        subject.begin()
+        for idx in range(20):
+            _, stamp = subject.get_next_image()
+            self.assertEqual(idx, stamp)
+        self.assertTrue(subject.is_complete())
+
+    def test_multiple_augmenters_makes_non_sequential(self):
+        images = {idx + np.random.uniform(-0.2, 0.2):
+                      make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
+        collection = make_image_collection(images=images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = aug_coll.AugmentedImageCollection(collection, [simple_augments.Rotate270()])
+        self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, subject.sequence_type)
+        subject = aug_coll.AugmentedImageCollection(collection, [simple_augments.Rotate270(),
+                                                                 simple_augments.Rotate90()])
+        self.assertEqual(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, subject.sequence_type)
+
+    def assertNPEqual(self, arr1, arr2):
+        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
+
+    def assertNPClose(self, arr1, arr2):
+        self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
+
 
 class ImageAugmenterContract(metaclass=abc.ABCMeta):
 
@@ -288,8 +362,9 @@ def make_image(**kwargs):
 
 
 def make_image_collection(**kwargs):
+    if 'images' not in kwargs:
+        kwargs['images'] = {1: make_image()}
     du.defaults(kwargs, {
-        'images': {1: make_image()},
         'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL,
         'id_': bson.ObjectId()
     })
