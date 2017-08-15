@@ -34,7 +34,7 @@ class HorizontalFlip(aug_coll.ImageAugmenter):
                 labelled_objects=(imeta.LabelledObject(
                     class_names=obj.class_names,
                     bounding_box=(
-                        image.metadata.width - obj.bounding_box[0] - obj.bounding_box[2],
+                        image.metadata.width - 1 - obj.bounding_box[0] - obj.bounding_box[2],
                         obj.bounding_box[1],
                         obj.bounding_box[2],
                         obj.bounding_box[3]
@@ -75,7 +75,7 @@ class VerticalFlip(aug_coll.ImageAugmenter):
                     class_names=obj.class_names,
                     bounding_box=(
                         obj.bounding_box[0],
-                        image.metadata.height - obj.bounding_box[1] - obj.bounding_box[3],
+                        image.metadata.height - 1 - obj.bounding_box[1] - obj.bounding_box[3],
                         obj.bounding_box[2],
                         obj.bounding_box[3]
                     ),
@@ -116,7 +116,7 @@ class Rotate90(aug_coll.ImageAugmenter):
                     class_names=obj.class_names,
                     bounding_box=(
                         obj.bounding_box[1],
-                        image.metadata.width - obj.bounding_box[0] - obj.bounding_box[2],
+                        image.metadata.width - 1 - obj.bounding_box[0] - obj.bounding_box[2],
                         obj.bounding_box[3],
                         obj.bounding_box[2]
                     ),
@@ -154,8 +154,8 @@ class Rotate180(aug_coll.ImageAugmenter):
                 labelled_objects=(imeta.LabelledObject(
                     class_names=obj.class_names,
                     bounding_box=(
-                        image.metadata.width - obj.bounding_box[0] - obj.bounding_box[2],
-                        image.metadata.height - obj.bounding_box[1] - obj.bounding_box[3],
+                        image.metadata.width - 1 - obj.bounding_box[0] - obj.bounding_box[2],
+                        image.metadata.height - 1 - obj.bounding_box[1] - obj.bounding_box[3],
                         obj.bounding_box[2],
                         obj.bounding_box[3]
                     ),
@@ -196,7 +196,7 @@ class Rotate270(aug_coll.ImageAugmenter):
                 labelled_objects=(imeta.LabelledObject(
                     class_names=obj.class_names,
                     bounding_box=(
-                        image.metadata.height - obj.bounding_box[1] - obj.bounding_box[3],
+                        image.metadata.height - 1 - obj.bounding_box[1] - obj.bounding_box[3],
                         obj.bounding_box[0],
                         obj.bounding_box[3],
                         obj.bounding_box[2]

@@ -142,6 +142,7 @@ class TestORBSLAM2(database.tests.test_entity.EntityContract, unittest.TestCase)
     def test_process_image_sends_image_and_depth_to_subprocess(self, mock_multiprocessing):
         mock_process = mock.create_autospec(multiprocessing.Process)
         mock_queue = mock.create_autospec(multiprocessing.queues.Queue)     # Have to be specific to get the class
+        mock_queue.qsize.return_value = 0
         mock_multiprocessing.Process.return_value = mock_process
         mock_multiprocessing.Queue.return_value = mock_queue
 

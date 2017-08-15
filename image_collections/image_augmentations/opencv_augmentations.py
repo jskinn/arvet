@@ -3,32 +3,16 @@ import cv2
 import xxhash
 import core.image
 import metadata.image_metadata as imeta
+import image_collections.augmented_collection as aug_coll
 
 
-class DataAugmenter:
-    """
-    A simple base class for augmenters defined here.
-    Mostly, it makes them callable.
-    """
-    def __call__(self, *args, **kwargs):
-        if len(args) >= 1:
-            self.augment(args[0])
-        elif 'image' in kwargs:
-            self.augment(kwargs['image'])
-        else:
-            raise TypeError("Missing 1 positional argument 'image'")
-
-    def augment(self, image):
-        pass
-
-
-class Rotate(DataAugmenter):
+class Rotate(aug_coll.ImageAugmenter):
     """
     Rotate the image about a point, by an angle.
     If you're going to do a 90 degree rotation, we have simple augmenters for that.
     """
 
-    def __init__(self, theta, origin_x=0.5, origin_y=0.5):
+    def __init__(self, theta, origin_x=0.5, origin_y=0.5, id_=None):
         """
         Create the augmenter
         :param theta: The angle to rotate the image by, in radians
@@ -37,6 +21,7 @@ class Rotate(DataAugmenter):
         :param origin_y: The y-coordinate of the point to rotate the image around, as a fraction of the image width.
         Defaults to 0.5, the image centre.
         """
+        super().__init__(id_=id_)
         self._theta = theta
         self._origin_x = origin_x
         self._origin_y = origin_y
@@ -48,12 +33,12 @@ class Rotate(DataAugmenter):
         return warp_image(image, transformation_matrix)
 
 
-class Translate(DataAugmenter):
+class Translate(aug_coll.ImageAugmenter):
     """
     Translate the image by a fraction of its resolution
     """
 
-    def __init__(self, translation_x, translation_y):
+    def __init__(self, translation_x, translation_y, id_=None):
         """
         Create the augmenter
         :param translation_x: How much to change the x image coordinate (left positive, up negative),
@@ -61,6 +46,7 @@ class Translate(DataAugmenter):
         :param translation_y: How much to change the y image coordinate (down positive, up negative),
         as a fraction of the image resolution
         """
+        super().__init__(id_=id_)
         self._translation_x = translation_x
         self._translation_y = translation_y
 
@@ -71,7 +57,7 @@ class Translate(DataAugmenter):
         return warp_image(image, transformation_matrix)
 
 
-class WarpAffine(DataAugmenter):
+class WarpAffine(aug_coll.ImageAugmenter):
     """
     Form an affine warp using 3 pairs of points, mapping from original image to warped image.
     To handle different resolutions, image points are expressed as fractions of the image size.
@@ -82,7 +68,8 @@ class WarpAffine(DataAugmenter):
     90 degree rotations, which are more efficient, use those instead where possible
     """
 
-    def __init__(self, point1, point1_prime, point2, point2_prime, point3, point3_prime):
+    def __init__(self, point1, point1_prime, point2, point2_prime, point3, point3_prime, id_=None):
+        super().__init__(id_=id_)
         self._point1 = point1
         self._point1_prime = point1_prime
         self._point2 = point2
@@ -169,10 +156,11 @@ def transform_bounding_boxes(labelled_objects, transformation_matrix):
         lower_right = (obj.bounding_box[0] + obj.bounding_box[2], obj.bounding_box[1] + obj.bounding_box[3], 1)
 
         # Project all the corners of the bounding box into the new image
-        upper_left = np.dot(transformation_matrix, upper_left)
-        upper_right = np.dot(transformation_matrix, upper_right)
-        lower_left = np.dot(transformation_matrix, lower_left)
-        lower_right = np.dot(transformation_matrix, lower_right)
+        # Rounding to the nearest integer to avoid floating point errors (pixels are discrete)
+        upper_left = np.round(np.dot(transformation_matrix, upper_left))
+        upper_right = np.round(np.dot(transformation_matrix, upper_right))
+        lower_left = np.round(np.dot(transformation_matrix, lower_left))
+        lower_right = np.round(np.dot(transformation_matrix, lower_right))
 
         # Wrap an axis-aligned bounding box around the projected box
         new_upper_left = (min(upper_left[0], upper_right[0], lower_left[0], lower_right[0]),

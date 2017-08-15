@@ -26,8 +26,8 @@ class TestHorizontalFlip(test_augmented.ImageAugmenterContract, unittest.TestCas
 
     def get_projected_bounding_boxes(self):
         return [
-            ((80, 20, 10, 10), (10, 20, 10, 10)),
-            ((10, 60, 10, 10), (80, 60, 10, 10))
+            ((80, 20, 10, 10), (9, 20, 10, 10)),
+            ((10, 60, 10, 10), (79, 60, 10, 10))
         ]
 
     def test_inverts_itself(self):
@@ -38,12 +38,17 @@ class TestHorizontalFlip(test_augmented.ImageAugmenterContract, unittest.TestCas
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 width=data.shape[1],
                 height=data.shape[0],
-                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116'
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                labelled_objects=[imeta.LabelledObject(
+                    class_names={'cup'},
+                    bounding_box=(80, 20, 10, 20)
+                )]
             )
         )
         result = self.do_augment(self.do_augment(image))
         self.assertNPEqual(result.data, data)
         self.assertNPEqual(result.metadata.affine_transformation_matrix, np.identity(3))
+        self.assertEqual((80, 20, 10, 20), result.metadata.labelled_objects[0].bounding_box)
 
 
 class TestVerticalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase):
@@ -66,8 +71,8 @@ class TestVerticalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase)
 
     def get_projected_bounding_boxes(self):
         return [
-            ((80, 20, 10, 10), (80, 70, 10, 10)),
-            ((10, 60, 10, 10), (10, 30, 10, 10))
+            ((80, 20, 10, 10), (80, 69, 10, 10)),
+            ((10, 60, 10, 10), (10, 29, 10, 10))
         ]
 
     def test_inverts_itself(self):
@@ -78,12 +83,17 @@ class TestVerticalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase)
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 width=data.shape[1],
                 height=data.shape[0],
-                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116'
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                labelled_objects=[imeta.LabelledObject(
+                    class_names={'cup'},
+                    bounding_box=(80, 20, 10, 20)
+                )]
             )
         )
         result = self.do_augment(self.do_augment(image))
         self.assertNPEqual(result.data, data)
         self.assertNPEqual(result.metadata.affine_transformation_matrix, np.identity(3))
+        self.assertEqual((80, 20, 10, 20), result.metadata.labelled_objects[0].bounding_box)
 
 
 class TestRotate90(test_augmented.ImageAugmenterContract, unittest.TestCase):
@@ -106,9 +116,30 @@ class TestRotate90(test_augmented.ImageAugmenterContract, unittest.TestCase):
 
     def get_projected_bounding_boxes(self):
         return [
-            ((80, 20, 10, 20), (20, 10, 20, 10)),
-            ((10, 60, 10, 20), (60, 80, 20, 10))
+            ((80, 20, 10, 20), (20, 9, 20, 10)),
+            ((10, 60, 10, 20), (60, 79, 20, 10))
         ]
+
+    def test_repeated_applications(self):
+        data = np.array([list(range(i, i + 100)) for i in range(100)])
+        image = core.image.Image(
+            data=data,
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                width=data.shape[1],
+                height=data.shape[0],
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                labelled_objects=[imeta.LabelledObject(
+                    class_names={'cup'},
+                    bounding_box=(80, 20, 10, 20)
+                )]
+            )
+        )
+        # Apply 4 times to rotate back to the start
+        result = self.do_augment(self.do_augment(self.do_augment(self.do_augment(image))))
+        self.assertNPEqual(result.data, data)
+        self.assertNPEqual(result.metadata.affine_transformation_matrix, np.identity(3))
+        self.assertEqual((80, 20, 10, 20), result.metadata.labelled_objects[0].bounding_box)
 
 
 class TestRotate180(test_augmented.ImageAugmenterContract, unittest.TestCase):
@@ -131,9 +162,30 @@ class TestRotate180(test_augmented.ImageAugmenterContract, unittest.TestCase):
 
     def get_projected_bounding_boxes(self):
         return [
-            ((80, 20, 10, 20), (10, 60, 10, 20)),
-            ((10, 60, 10, 20), (80, 20, 10, 20))
+            ((80, 20, 10, 20), (9, 59, 10, 20)),
+            ((10, 60, 10, 20), (79, 19, 10, 20))
         ]
+
+    def test_repeated_applications(self):
+        data = np.array([list(range(i, i + 100)) for i in range(100)])
+        image = core.image.Image(
+            data=data,
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                width=data.shape[1],
+                height=data.shape[0],
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                labelled_objects=[imeta.LabelledObject(
+                    class_names={'cup'},
+                    bounding_box=(80, 20, 10, 20)
+                )]
+            )
+        )
+        # Apply 4 times to rotate back to the start
+        result = self.do_augment(self.do_augment(self.do_augment(self.do_augment(image))))
+        self.assertNPEqual(result.data, data)
+        self.assertNPEqual(result.metadata.affine_transformation_matrix, np.identity(3))
+        self.assertEqual((80, 20, 10, 20), result.metadata.labelled_objects[0].bounding_box)
 
 
 class TestRotate270(test_augmented.ImageAugmenterContract, unittest.TestCase):
@@ -156,6 +208,27 @@ class TestRotate270(test_augmented.ImageAugmenterContract, unittest.TestCase):
 
     def get_projected_bounding_boxes(self):
         return [
-            ((80, 20, 10, 20), (60, 80, 20, 10)),
-            ((10, 60, 10, 20), (20, 10, 20, 10))
+            ((80, 20, 10, 20), (59, 80, 20, 10)),
+            ((10, 60, 10, 20), (19, 10, 20, 10))
         ]
+
+    def test_repeated_applications(self):
+        data = np.array([list(range(i, i + 100)) for i in range(100)])
+        image = core.image.Image(
+            data=data,
+            metadata=imeta.ImageMetadata(
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                width=data.shape[1],
+                height=data.shape[0],
+                hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                labelled_objects=[imeta.LabelledObject(
+                    class_names={'cup'},
+                    bounding_box=(80, 20, 10, 20)
+                )]
+            )
+        )
+        # Apply 4 times to rotate back to the start
+        result = self.do_augment(self.do_augment(self.do_augment(self.do_augment(image))))
+        self.assertNPEqual(result.data, data)
+        self.assertNPEqual(result.metadata.affine_transformation_matrix, np.identity(3))
+        self.assertEqual((80, 20, 10, 20), result.metadata.labelled_objects[0].bounding_box)
