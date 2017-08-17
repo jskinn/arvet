@@ -1,6 +1,8 @@
 import os.path
+import time
+import random
 import logging
-from yaml import dump as yaml_dump, load as yaml_load
+import yaml
 try:
     from yaml import CDumper as YamlDumper, CLoader as YamlLoader
 except ImportError:
@@ -45,12 +47,23 @@ def load_global_config(filename):
         }
     }
     if os.path.isfile(filename):
-        with open(filename, 'r') as config_file:
-            config = du.defaults(yaml_load(config_file, YamlLoader), config)
-    save_global_config(filename, config)
+        loaded_config = None
+        repeat = 1
+        while loaded_config is None and repeat <= 3:
+            with open(filename, 'r') as config_file:
+                loaded_config = yaml.load(config_file, YamlLoader)
+            if loaded_config is None:
+                # Failed to load the config file for some reason, wait and try again
+                time.sleep(random.uniform(1, 3 * repeat))
+                repeat += 1
+        if loaded_config is not None:
+            config = du.defaults(loaded_config, config)
+    else:
+        # No global configuration file, create a default one
+        save_global_config(filename, config)
     return config
 
 
 def save_global_config(filename, config):
     with open(filename, 'w+') as config_file:
-        return yaml_dump(config, config_file, YamlDumper)
+        return yaml.dump(config, config_file, YamlDumper)
