@@ -225,6 +225,25 @@ class TestDatabaseClient(unittest.TestCase):
     @mock.patch('database.client.os.makedirs', autospec=os.makedirs)
     @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
     @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
+    def test_can_configure_tasks_collection(self, mock_mongoclient, *_):
+        database_instance = mock.create_autospec(pymongo.database.Database)
+        mock_mongoclient.return_value.__getitem__.return_value = database_instance
+
+        collection_name = 'test_collection_name_' + str(random.uniform(-10000, 10000))
+        db_client = database.client.DatabaseClient({
+            'database_config': {
+                'collections': {
+                    'tasks_collection': collection_name
+                }
+            }
+        })
+        _ = db_client.tasks_collection     # Collection is retrieved lazily, so we actually have to ask for it
+        self.assertTrue(database_instance.__getitem__.called)
+        self.assertIn(mock.call(collection_name), database_instance.__getitem__.call_args_list)
+
+    @mock.patch('database.client.os.makedirs', autospec=os.makedirs)
+    @mock.patch('database.client.gridfs.GridFS', autospec=gridfs.GridFS)
+    @mock.patch('database.client.pymongo.MongoClient', autospec=pymongo.MongoClient)
     @mock.patch('database.client.importlib', autospec=importlib)
     def test_deserialize_entity_tries_to_import_module(self, mock_importlib, *_):
         database_name = 'test_database_name_' + str(random.uniform(-10000, 10000))

@@ -38,6 +38,8 @@ class DatabaseClient:
                     'trials_collection': <collection name for trial results>
                     'benchmarks_collection': <collection name for benchmarks>
                     'results_collection': <collection name for benchmark results>
+                    'experiments_collection': <collection name for experiments>
+                    'tasks_collection': <collection name for tasks>
                 }
             }
         }
@@ -64,7 +66,8 @@ class DatabaseClient:
                 'trials_collection': 'trials',
                 'benchmarks_collection': 'benchmarks',
                 'results_collection': 'results',
-                'experiments_collection': 'experiments'
+                'experiments_collection': 'experiments',
+                'tasks_collection': 'tasks'
             }
         }, modify_base=False)
 
@@ -81,6 +84,7 @@ class DatabaseClient:
         self._benchmarks_collection_name = db_config['collections']['benchmarks_collection']
         self._results_collection_name = db_config['collections']['results_collection']
         self._experiments_collection_name = db_config['collections']['experiments_collection']
+        self._tasks_collection_name = db_config['collections']['tasks_collection']
 
         self._mongo_client = pymongo.MongoClient(**conn_kwargs)
         self._database = self._mongo_client[db_name]
@@ -121,6 +125,10 @@ class DatabaseClient:
     @property
     def experiments_collection(self):
         return self._database[self._experiments_collection_name]
+
+    @property
+    def tasks_collection(self):
+        return self._database[self._tasks_collection_name]
 
     @property
     def grid_fs(self):

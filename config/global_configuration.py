@@ -29,7 +29,8 @@ def load_global_config(filename):
                 'trials_collection': 'trials',
                 'benchmarks_collection': 'benchmarks',
                 'results_collection': 'results',
-                'experiments_collection': 'experiments'
+                'experiments_collection': 'experiments',
+                'tasks_collection': 'tasks'
             }
         },
         'job_system_config': {
