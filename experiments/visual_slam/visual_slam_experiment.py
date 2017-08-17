@@ -46,7 +46,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         for path in glob.iglob(os.path.expanduser('~/Renders/Visual Realism/Experiment 1/**/**/metadata.json')):
             map_key = path.replace('.', '-')
             if map_key not in self._dataset_map:
-                if job_system.queue_import_dataset('dataset.generated.import_generated_dataset', path, self.identifier):
+                if job_system.queue_import_dataset('dataset.generated.import_generated_dataset', path, self.identifier,
+                                                   expected_duration='4:00:00'):
                     self._dataset_map[map_key] = False
                     if '$set' not in self._updates:
                         self._updates['$set'] = {}
