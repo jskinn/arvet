@@ -94,3 +94,6 @@ ENV/
 
 # Config files, are deployment specific
 config.yml
+
+# Temporary folder, for storing config files and programs that need to be read from disk
+temp/
