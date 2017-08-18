@@ -5,6 +5,7 @@ chmod -x README.md .gitignore requirements.txt
 find . -name "*.py" -exec chmod -x {} \;
 chmod +x add_initial_entities.py
 chmod +x scheduler.py
+chmod +x run_task.py
 chmod +x task_train_system.py
 chmod +x task_run_system.py
 chmod +x task_benchmark_result.py
