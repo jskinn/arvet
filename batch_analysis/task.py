@@ -212,4 +212,6 @@ class Task(database.entity.Entity, metaclass=database.entity.AbstractEntityMetac
             kwargs['node_id'] = serialized_representation['node_id']
         if 'job_id' in serialized_representation:
             kwargs['job_id'] = serialized_representation['job_id']
+        if 'result' in serialized_representation:
+            kwargs['result'] = serialized_representation['result']
         return super().deserialize(serialized_representation, db_client, **kwargs)
