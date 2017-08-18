@@ -243,7 +243,7 @@ class TaskManager:
         """
         # First, check the jobs that should already be running on this node
         all_running = self._collection.find({
-            'state': batch_analysis.task.JobState.RUNNING,
+            'state': batch_analysis.task.JobState.RUNNING.value,
             'node_id': job_system.node_id
         })
         for s_running in all_running:
@@ -254,7 +254,7 @@ class TaskManager:
                 task_entity.save_updates(self._collection)
 
         # Then, schedule all the unscheduled tasks
-        all_unscheduled = self._collection.find({'state': batch_analysis.task.JobState.UNSTARTED})
+        all_unscheduled = self._collection.find({'state': batch_analysis.task.JobState.UNSTARTED.value})
         for s_unscheduled in all_unscheduled:
             task_entity = self._db_client.deserialize_entity(s_unscheduled)
             job_id = job_system.run_task(

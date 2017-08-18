@@ -141,7 +141,7 @@ class Task(database.entity.Entity, metaclass=database.entity.AbstractEntityMetac
             self._job_id = None
             if '$set' not in self._updates:
                 self._updates['$set'] = {}
-            self._updates['$set']['state'] = JobState.UNSTARTED.value
+            self._updates['$set']['state'] = JobState.DONE.value
             self._updates['$set']['result'] = result
             if '$unset' not in self._updates:
                 self._updates['$unset'] = {}

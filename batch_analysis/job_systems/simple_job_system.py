@@ -1,9 +1,6 @@
 import logging
 import batch_analysis.job_system
-import task_import_dataset
-import task_train_system
-import task_run_system
-import task_benchmark_result
+import run_task
 
 
 class SimpleJobSystem(batch_analysis.job_system.JobSystem):
@@ -17,7 +14,18 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
     """
 
     def __init__(self, config):
+        self._node_id = config['node_id'] if 'node_id' in config else 'simple-job-system'
         self._queue = []
+
+    @property
+    def node_id(self):
+        """
+        All job systems should have a node id, controlled by the configuration.
+        The idea is that different job systems on different computers have different
+        node ids, so that we can track which system is supposed to be running which job id.
+        :return:
+        """
+        return self._node_id
 
     def can_generate_dataset(self, simulator, config):
         """
@@ -29,104 +37,36 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
         """
         return True
 
-    def queue_generate_dataset(self, simulator_id, config, experiment=None, num_cpus=1, num_gpus=0,
-                               memory_requirements='3GB', expected_duration='1:00:00'):
+    def is_job_running(self, job_id):
         """
-        Queue generating a synthetic dataset using a particular simulator and a particular configuration
-        :param simulator_id: The id of the simulator to use to generate the dataset
-        :param config: Configuration passed to the simulator to control the dataset generation
-        :param experiment: The experiment this generated dataset is associated with, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: True iff the job was successfully queued
+        Is the specified job id currently running through this job system.
+        This is used by the task manager to work out which jobs have failed without notification, to reschedule them.
+        For the simple job system, a job is "running" if it is a valid index in the queue.
+        :param job_id: The integer job id to check
+        :return: True if the job is currently running on this node
         """
-        return False
+        return 0 <= job_id < len(self._queue)
 
-    def queue_import_dataset(self, module_name, path, experiment=None, num_cpus=1, num_gpus=0,
-                             memory_requirements='3GB', expected_duration='1:00:00'):
+    def run_task(self, task_id, num_cpus=1, num_gpus=0, memory_requirements='3GB',
+                 expected_duration='1:00:00'):
         """
-        Use the job system to import a dataset
-        :param module_name: The name of the python module to use to do the import as a string.
-        It must have a function 'import_dataset', taking a directory and the database client
-        :param path: The root directory containing the dataset to import
-        :param experiment: The experiment to give the imported dataset to, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: True iff the job was queued
+        Run a particular task
+        :param task_id: The id of the task to run
+        :param num_cpus: The number of CPUs required. Ignored.
+        :param num_gpus: The number of GPUs required. Ignored.
+        :param memory_requirements: The required amount of memory. Ignored.
+        :param expected_duration: The duration given for the job to run. Ignored.
+        :return: The job id if the job has been started correctly, None if failed.
         """
-        if experiment is not None:
-            self._queue.append((task_import_dataset.main, (module_name, path, experiment)))
-        else:
-            self._queue.append((task_import_dataset.main, (module_name, path)))
-        return True
+        self._queue.append(str(task_id))
+        return len(self._queue) - 1     # Job id is the index in the queue
 
-    def queue_train_system(self, trainer_id, trainee_id, experiment=None, num_cpus=1, num_gpus=0,
-                           memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Train a system, now, in the current process
-        :param trainer_id: The id of the trainer doing the training
-        :param trainee_id: The id of the trainee being trained
-        :param experiment: The experiment associated with this run, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: void
-        """
-        if experiment is not None:
-            self._queue.append((task_train_system.main, (trainer_id, trainee_id, experiment)))
-        else:
-            self._queue.append((task_train_system.main, (trainer_id, trainee_id)))
-        return True
-
-    def queue_run_system(self, system_id, image_source_id, experiment=None, num_cpus=1, num_gpus=0,
-                               memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Run a system, now, in the current process
-        :param system_id: The id of the vision system to test
-        :param image_source_id: The id of the image source to test with
-        :param experiment: The experiment associated with this run, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: void
-        """
-        if experiment is not None:
-            self._queue.append((task_run_system.main, (system_id, image_source_id, experiment)))
-        else:
-            self._queue.append((task_run_system.main, (system_id, image_source_id)))
-        return True
-
-    def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None, num_cpus=1, num_gpus=0,
-                               memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Do a benchmark, now, in the current process.
-        :param trial_id: The id of the trial result to benchmark
-        :param benchmark_id: The id of the benchmark to use
-        :param experiment: The experiment this is associated with, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: void
-        """
-        if experiment is not None:
-            self._queue.append((task_benchmark_result.main, (trial_id, benchmark_id, experiment)))
-        else:
-            self._queue.append((task_benchmark_result.main, (trial_id, benchmark_id)))
-        return True
-
-    def push_queued_jobs(self):
+    def run_queued_jobs(self):
         """
         Actually run the jobs.
         :return: void
         """
         logging.getLogger(__name__).info("Running {0} jobs...".format(len(self._queue)))
-        for func, args in self._queue:
-            func(*args)
+        for task_id in self._queue:
+            run_task.main(task_id)
         self._queue = []

@@ -4,10 +4,7 @@ import subprocess
 import re
 import time
 import batch_analysis.job_system
-import task_import_dataset
-import task_train_system
-import task_run_system
-import task_benchmark_result
+import run_task
 
 
 # This is the template for python scripts run by the hpc
@@ -41,6 +38,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         Takes configuration parameters in a dict with the following format:
         {
+            'node_id': 'name_of_job_system_node'
             # Optional, will look for env used by current process if omitted
             'environment': 'path-to-virtualenv-activate'
             'job_location: 'folder-to-create-jobs'      # Default ~
@@ -48,6 +46,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         }
         :param config: A dict of configuration parameters
         """
+        self._node_id = config['node_id'] if 'node_id' in config else 'hpc-job-system'
         self._virtual_env = None
         if 'environment' in config:
             self._virtual_env = config['environment']
@@ -58,7 +57,16 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         self._job_folder = config['job_location'] if 'job_location' in config else '~'
         self._job_folder = os.path.expanduser(self._job_folder)
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
-        self._queued_jobs = []
+
+    @property
+    def node_id(self):
+        """
+        All job systems should have a node id, controlled by the configuration.
+        The idea is that different job systems on different computers have different
+        node ids, so that we can track which system is supposed to be running which job id.
+        :return:
+        """
+        return self._node_id
 
     def can_generate_dataset(self, simulator, config):
         """
@@ -71,135 +79,44 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         return False
 
-    def queue_generate_dataset(self, simulator_id, config, experiment=None, num_cpus=1, num_gpus=0,
-                               memory_requirements='3GB', expected_duration='1:00:00'):
+    def is_job_running(self, job_id):
         """
-        Queue generating a synthetic dataset using a particular simulator
-        and a particular configuration
-        :param simulator_id: The id of the simulator to use to generate the dataset
-        :param config: Configuration passed to the simulator to control the dataset generation
-        :param experiment: The experiment this generated dataset is associated with, if any
+        Is the specified job id currently running through this job system.
+        This is used by the task manager to work out which jobs have failed without notification, to reschedule them.
+        For the simple job system, a job is "running" if it is a valid index in the queue.
+        :param job_id: The integer job id to check
+        :return: True if the job is currently running on this node
+        """
+        result = subprocess.run(['qstat', int(job_id)], stdout=subprocess.PIPE, universal_newlines=True)
+        return 'Unknown Job Id' not in result.stdout    # TODO: Better distinguish here once we have example output
+
+    def run_task(self, task_id, num_cpus=1, num_gpus=0, memory_requirements='3GB',
+                 expected_duration='1:00:00'):
+        """
+        Run a particular task
+        :param task_id: The id of the task to run
         :param num_cpus: The number of CPUs required for the job. Default 1.
         :param num_gpus: The number of GPUs required for the job. Default 0.
         :param memory_requirements: The memory required for this job. Default 3 GB.
         :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: void
+        :return: The job id if the job has been started correctly, None if failed.
         """
-        return False
 
-    def queue_import_dataset(self, module_name, path, experiment=None, num_cpus=1, num_gpus=0,
-                             memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Create a HPC job to import an image dataset into the image dataset
-        :param module_name: The python module to use to do the import
-        :param path: The directory to import the dataset from
-        :param experiment: The experiment associated with this import, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: True iff the job was queued
-        """
-        return self.create_job('import', task_import_dataset.__file__, str(module_name), str(path), experiment,
-                               num_cpus, num_gpus, memory_requirements, expected_duration)
-
-    def queue_train_system(self, trainer_id, trainee_id, experiment=None, num_cpus=1, num_gpus=0,
-                           memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Use the job system to train a system with a particular image source.
-        Internally calls the 'run_script' function, above, with the "task_run_system" in the root of this project
-        TODO: find a better way to get the path of the script
-        :param trainer_id: The id of the trainer doing the training
-        :param trainee_id: The id of the trainee being trained
-        :param experiment: The experiment associated with this run, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: True iff the job was queued
-        """
-        return self.create_job('train', task_train_system.__file__, str(trainer_id), str(trainee_id), experiment,
-                               num_cpus, num_gpus, memory_requirements, expected_duration)
-
-    def queue_run_system(self, system_id, image_source_id, experiment=None, num_cpus=1, num_gpus=0,
-                         memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Use the job system to run a system with a particular image source.
-        Internally calls the 'run_script' function, above, with the "task_run_system" in the root of this project
-        TODO: find a better way to get the path of the script
-        :param system_id: The id of the vision system to test
-        :param image_source_id: The id of the image source to test with
-        :param experiment: The experiment associated with this run, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: True iff the job was queued
-        """
-        return self.create_job('run', task_run_system.__file__, str(system_id), str(image_source_id), experiment,
-                               num_cpus, num_gpus, memory_requirements, expected_duration)
-
-    def queue_benchmark_result(self, trial_id, benchmark_id, experiment=None, num_cpus=1, num_gpus=0,
-                               memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Use the job system to benchmark a particular trial result.
-        Uses the 'run_script' function, above
-        :param trial_id: The id of the trial result to benchmark
-        :param benchmark_id: The id of the benchmark to use
-        :param experiment: The experiment this is associated with, if any
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: True iff the job was queued
-        """
-        return self.create_job('benchmark', task_benchmark_result.__file__, str(trial_id), str(benchmark_id),
-                               experiment, num_cpus, num_gpus, memory_requirements, expected_duration)
-
-    def push_queued_jobs(self):
-        """
-        Actually add the queued jobs to the HPC job queue
-        :return:
-        """
-        for job_file in self._queued_jobs:
-            logging.getLogger(__name__).info("Submitting job file {0}".format(job_file))
-            subprocess.call(['qsub', job_file])
-
-    def create_job(self, type_, script_path, arg1, arg2, experiment=None, num_cpus=1, num_gpus=0,
-                   memory_requirements='3GB', expected_duration='1:00:00'):
-        """
-        Create a new HPC job file, ready to be submitted to the queue.
-        It's basically the same for all types of job, so we have this helper function to do all the work.
-
-        :param type_: The type of job, used in the job name
-        :param script_path: The path of the python file to run
-        :param arg1: The first argument to the script, as a string
-        :param arg2: The second argument to the script
-        :param experiment: The experiment id to use, or None if no experiment
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
-        :return: void
-        """
         # Job meta-information
-        name = "{0}-{1}".format(type_, time.time())
-        name = self._name_prefix + name.replace(' ', '-').replace('/', '-').replace('.', '-')
+        # TODO: We need better job names
+        name = self._name_prefix + "auto_task_{0}".format(time.time()).replace('.', '-')
         if not isinstance(expected_duration, str) or not re.match('^[0-9]+:[0-9]{2}:[0-9]{2}$', expected_duration):
             expected_duration = '1:00:00'
         if not isinstance(memory_requirements, str) or not re.match('^[0-9]+[TGMK]B$', memory_requirements):
             memory_requirements = '3GB'
         job_params = ""
         if num_gpus > 0:
-            job_params += GPU_ARGS_TEMPLATE.format(gpus=num_gpus)
+            job_params = GPU_ARGS_TEMPLATE.format(gpus=num_gpus)
         env = ('source ' + quote(self._virtual_env)) if self._virtual_env is not None else ''
 
         # Parameter args
-        args = quote(arg1) + ' ' + quote(arg2)  # Quotes around the args to handle spaces
-        if experiment is not None:
-            args += ' ' + str(experiment)
+        script_path = run_task.__file__
         job_file_path = os.path.join(self._job_folder, name + '.sub')
-
         with open(job_file_path, 'w+') as job_file:
             job_file.write(JOB_TEMPLATE.format(
                 name=name,
@@ -210,11 +127,22 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
                 env=env,
                 working_directory=quote(os.path.dirname(script_path)),
                 script=quote(script_path),
-                args=args
+                args=str(task_id)
             ))
-        logging.getLogger(__name__).info("Queueing {0} job in file {1}".format(type_, job_file_path))
-        self._queued_jobs.append(job_file_path)
-        return True
+
+        logging.getLogger(__name__).info("Submitting job file {0}".format(job_file))
+        result = subprocess.run(['qsub', job_file_path], stdout=subprocess.PIPE, universal_newlines=True)
+        # TODO: Get some example output, I'm parsing on guesswork here
+        job_id = re.search('(\d+)', result.stdout).group()
+        return int(job_id)
+
+    def run_queued_jobs(self):
+        """
+        Run queued jobs.
+        Since we've already sent the jobs to the PBS job system, don't do anything.
+        :return:
+        """
+        pass
 
 
 def quote(string):

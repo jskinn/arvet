@@ -606,7 +606,7 @@ class TestHPCJobSystem(unittest.TestCase):
             subject.queue_run_system(system_id, image_source_id)
             subject.queue_benchmark_result(trial_id, benchmark_id)
         self.assertFalse(mock_subprocess.call.called)
-        subject.push_queued_jobs()
+        subject.run_queued_jobs()
         self.assertEqual(3, mock_subprocess.call.call_count)
         self.assertIn(mock.call(['qsub', os.path.expanduser("~/train-123456789.sub")]),
                       mock_subprocess.call.call_args_list)

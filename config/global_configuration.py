@@ -34,7 +34,8 @@ def load_global_config(filename):
             }
         },
         'job_system_config': {
-            'job_system': 'simple'
+            'job_system': 'simple',
+            'node_id': 'unknown-job-system'
         },
         'logging': {    # Default logging configuration
             'version': 1,
