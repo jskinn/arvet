@@ -83,7 +83,17 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         Is the specified job id currently running through this job system.
         This is used by the task manager to work out which jobs have failed without notification, to reschedule them.
-        For the simple job system, a job is "running" if it is a valid index in the queue.
+        For the HPC, a job is valid based on the output of the command 'qstat'
+        A running job id produced output like:
+        Job id            Name             User              Time Use S Queue
+        ----------------  ---------------- ----------------  -------- - -----
+        2315056.pbs       jrs_auto_task_1  n9520864                 0 Q quick
+
+        whereas a non-running job produces:
+        qstat: Unknown Job Id 2315.pbs
+        and an invalid job:
+        qstat: illegally formed job identifier: 231512525
+
         :param job_id: The integer job id to check
         :return: True if the job is currently running on this node
         """
@@ -130,7 +140,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
                 args=str(task_id)
             ))
 
-        logging.getLogger(__name__).info("Submitting job file {0}".format(job_file))
+        logging.getLogger(__name__).info("Submitting job file {0}".format(job_file_path))
         result = subprocess.run(['qsub', job_file_path], stdout=subprocess.PIPE, universal_newlines=True)
         # TODO: Get some example output, I'm parsing on guesswork here
         job_id = re.search('(\d+)', result.stdout).group()
