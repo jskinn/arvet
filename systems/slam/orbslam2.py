@@ -343,6 +343,7 @@ def nested_to_dotted(data):
 
 def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, resolution):
     import orbslam2
+    import logging
     import trials.slam.tracking_state
 
     sensor_mode = orbslam2.Sensor.RGBD
@@ -353,7 +354,7 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
 
     tracking_stats = []
     orbslam_system = orbslam2.System(vocab_file, settings_file, resolution[0], resolution[1], sensor_mode)
-    orbslam_system.set_use_viewer(True)
+    orbslam_system.set_use_viewer(False)
     orbslam_system.initialize()
     output_queue.put(True)  # Tell the parent process we've set-up correctly and are ready to go.
 

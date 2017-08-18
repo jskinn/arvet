@@ -22,6 +22,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         self._orbslam_rgbd = orbslam_rgbd_system
         self._benchmark_rpe = benchmark_rpe
         self._benchmark_trajectory_drift = benchmark_trajectory_drift
+        self._datasets = set()
 
     def do_imports(self, task_manager, db_client):
         """
@@ -31,7 +32,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         # Import existing datasets
-        datasets = set()
         for path in glob.iglob(os.path.expanduser('~/Renders/Visual Realism/Experiment 1/**/**/metadata.json')):
             import_dataset_task = task_manager.get_import_dataset_task(
                 module_name='dataset.generated.import_generated_dataset',
@@ -43,7 +43,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             )
             if import_dataset_task.is_finished:
                 # TODO: Map out the datasets by world, trajectory, and quality change. Needs data structure
-                datasets.add(import_dataset_task.result)
+                self._datasets.add(import_dataset_task.result)
             else:
                 task_manager.do_task(import_dataset_task)
 
@@ -76,7 +76,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 vocabulary_file='/opt/ORBSLAM2/Vocabulary/ORBvoc.txt',
                 settings={}, mode=orbslam2.SensorMode.RGBD, resolution=(1280, 720)
             ))
-            self._set_property('orbslam_stereo', self._orbslam_rgbd)
+            self._set_property('orbslam_rgbd', self._orbslam_rgbd)
 
         # Create and store the benchmarks for camera trajectories
         # Just using the default settings for now
@@ -100,7 +100,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def schedule_tasks(self, task_manager, db_client):
         # TODO: Flatten the map of image sources to a list we can loop over
-        test_image_sources = []
+        test_image_sources = [dh.load_object(db_client, db_client.image_source_collection, source_id)
+                              for source_id in self._datasets]
         systems = [
             dh.load_object(db_client, db_client.system_collection, self._libviso_system),
             dh.load_object(db_client, db_client.system_collection, self._orbslam_monocular),
