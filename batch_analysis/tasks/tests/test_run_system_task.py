@@ -16,6 +16,7 @@ class TestRunSystemTask(database.tests.test_entity.EntityContract, unittest.Test
         kwargs = du.defaults(kwargs, {
             'system_id': bson.ObjectId(),
             'image_source_id': bson.ObjectId(),
+            'repeat': np.random.randint(0, 1000),
             'state': batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
             'num_gpus': np.random.randint(0, 1000),
@@ -41,6 +42,7 @@ class TestRunSystemTask(database.tests.test_entity.EntityContract, unittest.Test
         self.assertEqual(task1.identifier, task2.identifier)
         self.assertEqual(task1.system, task2.system)
         self.assertEqual(task1.image_source, task2.image_source)
+        self.assertEqual(task1._repeat, task2._repeat)
         self.assertEqual(task1._state, task2._state)
         self.assertEqual(task1.node_id, task2.node_id)
         self.assertEqual(task1.job_id, task2.job_id)

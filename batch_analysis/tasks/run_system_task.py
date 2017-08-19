@@ -5,10 +5,19 @@ class RunSystemTask(batch_analysis.task.Task):
     """
     A task for running a system with an image source. Result will be a trial result id.
     """
-    def __init__(self, system_id, image_source_id, *args, **kwargs):
+    def __init__(self, system_id, image_source_id, repeat=0, *args, **kwargs):
+        """
+        Create a run system task
+        :param system_id: The system to run
+        :param image_source_id: The image
+        :param repeat: The number repetition of this combination, so that we can run the same combination more than once
+        :param args: Args passed to the Task constructor
+        :param kwargs: Kwargs passed to the Task constructor
+        """
         super().__init__(*args, **kwargs)
         self._system = system_id
         self._image_source = image_source_id
+        self._repeat = repeat
 
     @property
     def system(self):
@@ -62,6 +71,7 @@ class RunSystemTask(batch_analysis.task.Task):
         serialized = super().serialize()
         serialized['system_id'] = self.system
         serialized['image_source_id'] = self.image_source
+        serialized['repeat'] = self._repeat
         return serialized
 
     @classmethod
@@ -70,4 +80,6 @@ class RunSystemTask(batch_analysis.task.Task):
             kwargs['system_id'] = serialized_representation['system_id']
         if 'image_source_id' in serialized_representation:
             kwargs['image_source_id'] = serialized_representation['image_source_id']
+        if 'repeat' in serialized_representation:
+            kwargs['repeat'] = serialized_representation['repeat']
         return super().deserialize(serialized_representation, db_client, **kwargs)

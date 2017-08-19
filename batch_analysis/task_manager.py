@@ -86,7 +86,7 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_run_system_task(self, system_id, image_source_id, num_cpus=1, num_gpus=0,
+    def get_run_system_task(self, system_id, image_source_id, repeat=0, num_cpus=1, num_gpus=0,
                             memory_requirements='3GB', expected_duration='1:00:00'):
         """
         Get a task to run a system.
@@ -99,13 +99,18 @@ class TaskManager:
         :param expected_duration: The expected time this job will take. Default 1 hour.
         :return: A RunSystemTask
         """
-        existing = self._collection.find_one({'system_id': system_id, 'image_source_id': image_source_id})
+        existing = self._collection.find_one({
+            'system_id': system_id,
+            'image_source_id': image_source_id,
+            'repeat': repeat
+        })
         if existing is not None:
             return self._db_client.deserialize_entity(existing)
         else:
             return run_system_task.RunSystemTask(
                 system_id=system_id,
                 image_source_id=image_source_id,
+                repeat=repeat,
                 num_cpus=num_cpus,
                 num_gpus=num_gpus,
                 memory_requirements=memory_requirements,
