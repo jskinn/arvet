@@ -1,5 +1,3 @@
-import os
-import os.path
 import xxhash
 import numpy as np
 import copy
@@ -12,10 +10,12 @@ import core.image
 
 class ImageEntity(core.image.Image, database.entity.Entity):
 
-    def __init__(self, data_id=None, depth_id=None, labels_id=None, world_normals_id=None, **kwargs):
+    def __init__(self, data_id=None, depth_id=None, ground_truth_depth_id=None, labels_id=None, world_normals_id=None,
+                 **kwargs):
         super().__init__(**kwargs)
         self._data_id = data_id
         self._depth_id = depth_id
+        self._gt_depth_id = ground_truth_depth_id
         self._labels_id = labels_id
         self._world_normals_id = world_normals_id
 
@@ -32,6 +32,9 @@ class ImageEntity(core.image.Image, database.entity.Entity):
             self._data_id = db_client.grid_fs.put(pickle.dumps(self.data, protocol=pickle.HIGHEST_PROTOCOL))
         if self.depth_data is not None and (force_update or self._depth_id is None):
             self._depth_id = db_client.grid_fs.put(pickle.dumps(self.depth_data, protocol=pickle.HIGHEST_PROTOCOL))
+        if self.ground_truth_depth_data is not None and (force_update or self._gt_depth_id is None):
+            self._gt_depth_id = db_client.grid_fs.put(pickle.dumps(self.ground_truth_depth_data,
+                                                                   protocol=pickle.HIGHEST_PROTOCOL))
         if self.labels_data is not None and (force_update or self._labels_id is None):
             self._labels_id = db_client.grid_fs.put(pickle.dumps(self.labels_data, protocol=pickle.HIGHEST_PROTOCOL))
         if self.world_normals_data is not None and (force_update or self._world_normals_id is None):
@@ -57,6 +60,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         serialized['metadata'] = self.metadata.serialize()
         serialized['additional_metadata'] = copy.deepcopy(self.additional_metadata)
         serialized['depth_data'] = self._depth_id
+        serialized['ground_truth_depth_data'] = self._gt_depth_id
         serialized['labels_data'] = self._labels_id
         serialized['world_normals_data'] = self._world_normals_id
         return serialized
@@ -76,6 +80,11 @@ class ImageEntity(core.image.Image, database.entity.Entity):
             kwargs['depth_id'] = serialized_representation['depth_data']
             if kwargs['depth_id'] is not None:
                 kwargs['depth_data'] = pickle.loads(db_client.grid_fs.get(kwargs['depth_id']).read())
+        if 'ground_truth_depth_data' in serialized_representation:
+            kwargs['ground_truth_depth_id'] = serialized_representation['ground_truth_depth_data']
+            if kwargs['ground_truth_depth_id'] is not None:
+                kwargs['ground_truth_depth_data'] = pickle.loads(db_client.grid_fs.get(
+                    kwargs['ground_truth_depth_id']).read())
         if 'labels_data' in serialized_representation:
             kwargs['labels_id'] = serialized_representation['labels_data']
             if kwargs['labels_id'] is not None:
@@ -89,16 +98,20 @@ class ImageEntity(core.image.Image, database.entity.Entity):
 
 class StereoImageEntity(core.image.StereoImage, ImageEntity):
 
-    def __init__(self, left_data_id=None, left_depth_id=None, left_labels_id=None, left_world_normals_id=None,
-                 right_data_id=None, right_depth_id=None, right_labels_id=None, right_world_normals_id=None, **kwargs):
-        # Fiddle arguments ot make the left one the base
+    def __init__(self, left_data_id=None, left_depth_id=None, left_ground_truth_depth_id=None,
+                 left_labels_id=None, left_world_normals_id=None,
+                 right_data_id=None, right_depth_id=None, right_ground_truth_depth_id=None,
+                 right_labels_id=None, right_world_normals_id=None, **kwargs):
+        # Fiddle arguments to make the left one the base
         super().__init__(data_id=left_data_id,
                          depth_id=left_depth_id,
+                         ground_truth_depth_id=left_ground_truth_depth_id,
                          labels_id=left_labels_id,
                          world_normals_id=left_world_normals_id,
                          **kwargs)
         self._right_data_id = right_data_id
         self._right_depth_id = right_depth_id
+        self._right_gt_depth_id = right_ground_truth_depth_id
         self._right_labels_id = right_labels_id
         self._right_world_normals_id = right_world_normals_id
 
@@ -119,6 +132,9 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         if self.right_depth_data is not None and (force_update or self._right_depth_id is None):
             self._right_depth_id = db_client.grid_fs.put(pickle.dumps(self.right_depth_data,
                                                                       protocol=pickle.HIGHEST_PROTOCOL))
+        if self.right_ground_truth_depth_data is not None and (force_update or self._right_gt_depth_id is None):
+            self._right_gt_depth_id = db_client.grid_fs.put(pickle.dumps(self.right_ground_truth_depth_data,
+                                                                         protocol=pickle.HIGHEST_PROTOCOL))
         if self.right_labels_data is not None and (force_update or self._right_labels_id is None):
             self._right_labels_id = db_client.grid_fs.put(pickle.dumps(self.right_labels_data,
                                                                        protocol=pickle.HIGHEST_PROTOCOL))
@@ -137,13 +153,14 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
         serialized = super().serialize()
 
         # fiddle the serialized version for left and right images
-        fiddle_keys = ['data', 'depth_data', 'labels_data', 'world_normals_data']
+        fiddle_keys = ['data', 'depth_data', 'ground_truth_depth_data', 'labels_data', 'world_normals_data']
         for key in fiddle_keys:
             serialized['left_' + key] = serialized[key]
             del serialized[key]
 
         serialized['right_data'] = self._right_data_id
         serialized['right_depth_data'] = self._right_depth_id
+        serialized['right_ground_truth_depth_data'] = self._right_gt_depth_id
         serialized['right_labels_data'] = self._right_labels_id
         serialized['right_world_normals_data'] = self._right_world_normals_id
         return serialized
@@ -159,6 +176,11 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
             kwargs['left_depth_id'] = serialized_representation['left_depth_data']
             if kwargs['left_depth_id'] is not None:
                 kwargs['left_depth_data'] = pickle.loads(db_client.grid_fs.get(kwargs['left_depth_id']).read())
+        if 'left_ground_truth_depth_data' in serialized_representation:
+            kwargs['left_ground_truth_depth_id'] = serialized_representation['left_ground_truth_depth_data']
+            if kwargs['left_ground_truth_depth_id'] is not None:
+                kwargs['left_ground_truth_depth_data'] = pickle.loads(db_client.grid_fs.get(
+                    kwargs['left_ground_truth_depth_id']).read())
         if 'left_labels_data' in serialized_representation:
             kwargs['left_labels_id'] = serialized_representation['left_labels_data']
             if kwargs['left_labels_id'] is not None:
@@ -177,6 +199,11 @@ class StereoImageEntity(core.image.StereoImage, ImageEntity):
             kwargs['right_depth_id'] = serialized_representation['right_depth_data']
             if kwargs['right_depth_id'] is not None:
                 kwargs['right_depth_data'] = pickle.loads(db_client.grid_fs.get(kwargs['right_depth_id']).read())
+        if 'right_ground_truth_depth_data' in serialized_representation:
+            kwargs['right_ground_truth_depth_id'] = serialized_representation['right_ground_truth_depth_data']
+            if kwargs['right_ground_truth_depth_id'] is not None:
+                kwargs['right_ground_truth_depth_data'] = pickle.loads(db_client.grid_fs.get(
+                    kwargs['right_ground_truth_depth_id']).read())
         if 'right_labels_data' in serialized_representation:
             kwargs['right_labels_id'] = serialized_representation['right_labels_data']
             if kwargs['right_labels_id'] is not None:
@@ -206,9 +233,11 @@ def image_to_entity(image):
                                  metadata=image.metadata,
                                  additional_metadata=image.additional_metadata,
                                  left_depth_data=image.left_depth_data,
+                                 left_ground_truth_depth_data=image.left_ground_truth_depth_data,
                                  left_labels_data=image.left_labels_data,
                                  left_world_normals_data=image.left_world_normals_data,
                                  right_depth_data=image.right_depth_data,
+                                 right_ground_truth_depth_data=image.right_ground_truth_depth_data,
                                  right_labels_data=image.right_labels_data,
                                  right_world_normals_data=image.right_world_normals_data)
     elif isinstance(image, core.image.Image):
@@ -216,6 +245,7 @@ def image_to_entity(image):
                            metadata=image.metadata,
                            additional_metadata=image.additional_metadata,
                            depth_data=image.depth_data,
+                           ground_truth_depth_data=image.ground_truth_depth_data,
                            labels_data=image.labels_data,
                            world_normals_data=image.world_normals_data)
     else:
@@ -239,7 +269,7 @@ def save_image(db_client, image):
     existing_query = image.serialize()
 
     # Don't look at the GridFS links when determining if the image exists, only use metadata.
-    delete_keys = ['data', 'depth_data', 'labels_data', 'world_normals_data']
+    delete_keys = ['data', 'depth_data', 'ground_truth_depth_data', 'labels_data', 'world_normals_data']
     for key in delete_keys:
         if key in existing_query:
             del existing_query[key]

@@ -5,12 +5,14 @@ import metadata.image_metadata as imeta
 class Image:
 
     def __init__(self, data, metadata, additional_metadata=None,
-                 depth_data=None, labels_data=None, world_normals_data=None, **kwargs):
+                 depth_data=None, ground_truth_depth_data=None,
+                 labels_data=None, world_normals_data=None, **kwargs):
         super().__init__(**kwargs)  # The warning here is false, this passes arguments to other constructors for MI
         self._data = data
         self._metadata = (metadata if isinstance(metadata, imeta.ImageMetadata)
                           else imeta.ImageMetadata.deserialize(metadata))
         self._depth_data = depth_data
+        self._gt_depth_data = ground_truth_depth_data
         self._labels_data = labels_data
         self._world_normals_data = world_normals_data
         if additional_metadata is None:
@@ -98,6 +100,15 @@ class Image:
         return self._depth_data
 
     @property
+    def ground_truth_depth_data(self):
+        """
+        The ground-truth depth image, from simulation.
+        This is distinct from depth data, which will have noise added for simulated images.
+        :return: A numpy array, or None if ground-truth depth data is unavailable
+        """
+        return self._gt_depth_data
+
+    @property
     def labels_data(self):
         """
         Get the image labels
@@ -123,19 +134,23 @@ class StereoImage(Image):
 
     def __init__(self, left_data, right_data,
                  metadata, additional_metadata=None,
-                 left_depth_data=None, left_labels_data=None, left_world_normals_data=None,
-                 right_depth_data=None, right_labels_data=None, right_world_normals_data=None, **kwargs):
+                 left_depth_data=None, left_ground_truth_depth_data=None,
+                 left_labels_data=None, left_world_normals_data=None,
+                 right_depth_data=None, right_ground_truth_depth_data=None,
+                 right_labels_data=None, right_world_normals_data=None, **kwargs):
         # Fiddle the arguments to go to the parents, those not listed here will be passed straight through.
         super().__init__(
             data=left_data,
             metadata=metadata,
             additional_metadata=additional_metadata,
             depth_data=left_depth_data,
+            ground_truth_depth_data=left_ground_truth_depth_data,
             labels_data=left_labels_data,
             world_normals_data=left_world_normals_data,
             **kwargs)
         self._right_data = right_data
         self._right_depth_data = right_depth_data
+        self._right_gt_depth_data = right_ground_truth_depth_data
         self._right_labels_data = right_labels_data
         self._right_world_normals_data = right_world_normals_data
 
@@ -241,6 +256,23 @@ class StereoImage(Image):
         :return: A numpy array, or None if no depth data is available.
         """
         return self._right_depth_data
+
+    @property
+    def left_ground_truth_depth_data(self):
+        """
+        The left ground-truth depth image.
+        This is the same as ground_truth_depth_data.
+        :return: A numpy array, or None if no depth data is available.
+        """
+        return self.ground_truth_depth_data
+
+    @property
+    def right_ground_truth_depth_data(self):
+        """
+        The right ground-truth depth image.
+        :return: A numpy array, or None if no depth data is available.
+        """
+        return self._right_gt_depth_data
 
     @property
     def left_labels_data(self):

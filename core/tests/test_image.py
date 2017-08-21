@@ -10,7 +10,7 @@ class TestImage(unittest.TestCase):
 
     def setUp(self):
         trans = tf.Transform((1, 2, 3), (0.5, 0.5, -0.5, -0.5))
-        metadata = imeta.ImageMetadata(
+        self.metadata = imeta.ImageMetadata(
             hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
             source_type=imeta.ImageSourceType.SYNTHETIC,
             height=600,
@@ -32,10 +32,10 @@ class TestImage(unittest.TestCase):
         self.image_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.image = im.Image(
             data=self.image_data,
-            metadata=metadata)
+            metadata=self.metadata)
 
         trans = tf.Transform((4, 5, 6), (0.5, -0.5, 0.5, -0.5))
-        metadata = imeta.ImageMetadata(
+        self.full_metadata = imeta.ImageMetadata(
             hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
             source_type=imeta.ImageSourceType.SYNTHETIC,
             height=600,
@@ -56,14 +56,16 @@ class TestImage(unittest.TestCase):
             ), average_scene_depth=90.12)
         self.full_image_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_image_depth = np.asarray(np.random.uniform(0, 255, (32, 32)), dtype='uint8')
+        self.full_image_gt_depth = np.asarray(np.random.uniform(0, 255, (32, 32)), dtype='uint8')
         self.full_image_labels = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_image_normals = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_image = im.Image(
             data=self.full_image_data,
             depth_data=self.full_image_depth,
+            ground_truth_depth_data=self.full_image_gt_depth,
             labels_data=self.full_image_labels,
             world_normals_data=self.full_image_normals,
-            metadata=metadata,
+            metadata=self.full_metadata,
             additional_metadata={
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -86,17 +88,25 @@ class TestImage(unittest.TestCase):
         self.assertTrue(np.array_equal(self.image.camera_orientation, np.array([0.5, 0.5, -0.5, -0.5])))
         self.assertTrue(np.array_equal(self.full_image.camera_orientation, np.array([0.5, -0.5, 0.5, -0.5])))
 
-    def test_depth_filename(self):
+    def test_depth_data(self):
         self.assertEqual(self.image.depth_data, None)
         self.assertTrue(np.array_equal(self.full_image.depth_data, self.full_image_depth))
 
-    def test_labels_filename(self):
+    def test_ground_truth_depth_data(self):
+        self.assertEqual(self.image.ground_truth_depth_data, None)
+        self.assertTrue(np.array_equal(self.full_image.ground_truth_depth_data, self.full_image_gt_depth))
+
+    def test_labels_data(self):
         self.assertEqual(self.image.labels_data, None)
         self.assertTrue(np.array_equal(self.full_image.labels_data, self.full_image_labels))
 
-    def test_world_normals_filename(self):
+    def test_world_normals_data(self):
         self.assertEqual(self.image.world_normals_data, None)
         self.assertTrue(np.array_equal(self.full_image.world_normals_data, self.full_image_normals))
+
+    def test_metadata(self):
+        self.assertEqual(self.image.metadata, self.metadata)
+        self.assertEqual(self.full_image.metadata, self.full_metadata)
 
     def test_additional_metadata(self):
         self.assertEqual(self.image.additional_metadata, {})
@@ -122,7 +132,7 @@ class TestStereoImage(unittest.TestCase):
         self.right_pose = tf.Transform(location=self.left_pose.find_independent((0, 0, 15)),
                                        rotation=self.left_pose.rotation_quat(w_first=False),
                                        w_first=False)
-        metadata = imeta.ImageMetadata(
+        self.metadata = imeta.ImageMetadata(
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
             source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
             camera_pose=self.left_pose, right_camera_pose=self.right_pose,
@@ -143,13 +153,13 @@ class TestStereoImage(unittest.TestCase):
         self.right_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.image = im.StereoImage(left_data=self.left_data,
                                     right_data=self.right_data,
-                                    metadata=metadata)
+                                    metadata=self.metadata)
 
         self.full_left_pose = tf.Transform((4, 5, 6), (-0.5, 0.5, -0.5, 0.5))
         self.full_right_pose = tf.Transform(location=self.left_pose.find_independent((0, 0, 15)),
                                             rotation=self.left_pose.rotation_quat(w_first=False),
                                             w_first=False)
-        metadata = imeta.ImageMetadata(
+        self.full_metadata = imeta.ImageMetadata(
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
             source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
             camera_pose=self.full_left_pose, right_camera_pose=self.full_right_pose,
@@ -167,6 +177,8 @@ class TestStereoImage(unittest.TestCase):
             ), average_scene_depth=90.12)
         self.full_left_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
         self.full_right_data = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
+        self.left_gt_depth = np.asarray(np.random.uniform(0, 255, (32, 32)), dtype='uint8')
+        self.right_gt_depth = np.asarray(np.random.uniform(0, 255, (32, 32)), dtype='uint8')
         self.left_depth = np.asarray(np.random.uniform(0, 255, (32, 32)), dtype='uint8')
         self.right_depth = np.asarray(np.random.uniform(0, 255, (32, 32)), dtype='uint8')
         self.left_labels = np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
@@ -178,11 +190,13 @@ class TestStereoImage(unittest.TestCase):
             right_data=self.full_right_data,
             left_depth_data=self.left_depth,
             right_depth_data=self.right_depth,
+            left_ground_truth_depth_data=self.left_gt_depth,
+            right_ground_truth_depth_data=self.right_gt_depth,
             left_labels_data=self.left_labels,
             right_labels_data=self.right_labels,
             left_world_normals_data=self.left_normals,
             right_world_normals_data=self.right_normals,
-            metadata=metadata,
+            metadata=self.full_metadata,
             additional_metadata={
                 'Source': 'Generated',
                 'Resolution': {'width': 1280, 'height': 720},
@@ -193,7 +207,7 @@ class TestStereoImage(unittest.TestCase):
             }
         )
 
-    def test_filename(self):
+    def test_data(self):
         self.assertNPEqual(self.image.left_data, self.left_data)
         self.assertNPEqual(self.image.right_data, self.right_data)
         self.assertNPEqual(self.full_image.left_data, self.full_left_data)
@@ -211,23 +225,33 @@ class TestStereoImage(unittest.TestCase):
         self.assertNPEqual(self.full_image.left_camera_orientation, np.array([-0.5, 0.5, -0.5, 0.5]))
         self.assertNPEqual(self.full_image.right_camera_orientation, self.full_right_pose.rotation_quat(w_first=False))
 
-    def test_depth_filename(self):
+    def test_depth_data(self):
         self.assertEqual(self.image.left_depth_data, None)
         self.assertEqual(self.image.right_depth_data, None)
         self.assertNPEqual(self.full_image.left_depth_data, self.left_depth)
         self.assertNPEqual(self.full_image.right_depth_data, self.right_depth)
 
-    def test_labels_filename(self):
+    def test_ground_truth_depth_data(self):
+        self.assertEqual(self.image.left_ground_truth_depth_data, None)
+        self.assertEqual(self.image.right_ground_truth_depth_data, None)
+        self.assertNPEqual(self.full_image.left_ground_truth_depth_data, self.left_gt_depth)
+        self.assertNPEqual(self.full_image.right_ground_truth_depth_data, self.right_gt_depth)
+
+    def test_labels_data(self):
         self.assertEqual(self.image.left_labels_data, None)
         self.assertEqual(self.image.right_labels_data, None)
         self.assertNPEqual(self.full_image.left_labels_data, self.left_labels)
         self.assertNPEqual(self.full_image.right_labels_data, self.right_labels)
 
-    def test_world_normals_filename(self):
+    def test_world_normals_data(self):
         self.assertEqual(self.image.left_world_normals_data, None)
         self.assertEqual(self.image.right_world_normals_data, None)
         self.assertNPEqual(self.full_image.left_world_normals_data, self.left_normals)
         self.assertNPEqual(self.full_image.right_world_normals_data, self.right_normals)
+
+    def test_metadata(self):
+        self.assertEqual(self.image.metadata, self.metadata)
+        self.assertEqual(self.full_image.metadata, self.full_metadata)
 
     def test_additional_metadata(self):
         self.assertEqual(self.image.additional_metadata, {})

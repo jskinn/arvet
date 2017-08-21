@@ -30,10 +30,11 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.data_map = [
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8')
         ]
 
     def get_class(self):
@@ -69,10 +70,12 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
             },
             'depth_data': self.data_map[1],
             'depth_id': 1,
-            'labels_data': self.data_map[2],
-            'labels_id': 2,
-            'world_normals_data': self.data_map[3],
-            'world_normals_id': 3
+            'ground_truth_depth_data': self.data_map[2],
+            'ground_truth_depth_id': 2,
+            'labels_data': self.data_map[3],
+            'labels_id': 3,
+            'world_normals_data': self.data_map[4],
+            'world_normals_id': 4
         })
         return ie.ImageEntity(*args, **kwargs)
 
@@ -97,6 +100,7 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertTrue(np.array_equal(image1.data, image2.data))
         self.assertEqual(image1.camera_pose, image2.camera_pose)
         self.assertTrue(np.array_equal(image1.depth_data, image2.depth_data))
+        self.assertTrue(np.array_equal(image1.ground_truth_depth_data, image2.ground_truth_depth_data))
         self.assertTrue(np.array_equal(image1.labels_data, image2.labels_data))
         self.assertTrue(np.array_equal(image1.world_normals_data, image2.world_normals_data))
         self.assertEqual(image1.additional_metadata, image2.additional_metadata)
@@ -127,9 +131,10 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertFalse(mock_db_client.grid_fs.get.called)
         EntityClass.deserialize(s_entity, mock_db_client)
         self.assertTrue(mock_db_client.grid_fs.get.called)
-        self.assertEqual(4, mock_db_client.grid_fs.get.call_count)
+        self.assertEqual(5, mock_db_client.grid_fs.get.call_count)
         self.assertIn(mock.call(s_entity['data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['depth_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['ground_truth_depth_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['labels_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['world_normals_data']), mock_db_client.grid_fs.get.call_args_list)
 
@@ -139,6 +144,7 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         entity = self.make_instance(id_=12345)
         s_entity = entity.serialize()
         s_entity['depth_data'] = None
+        s_entity['ground_truth_depth_data'] = None
         s_entity['labels_data'] = None
         s_entity['world_normals_data'] = None
 
@@ -166,14 +172,16 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         mock_db_client = self.create_mock_db_client()
         entity = self.make_instance(data_id=None,
                                     depth_id=None,
+                                    ground_truth_depth_id=None,
                                     labels_id=None,
                                     world_normals_id=None)
-        ids = [i for i in range(400, 800, 100)]
+        ids = [i for i in range(400, 900, 100)]
         mock_db_client.grid_fs.put.side_effect = ids
         entity.save_image_data(mock_db_client)
         s_entity = entity.serialize()
         self.assertIn(s_entity['data'], ids)
         self.assertIn(s_entity['depth_data'], ids)
+        self.assertIn(s_entity['ground_truth_depth_data'], ids)
         self.assertIn(s_entity['labels_data'], ids)
         self.assertIn(s_entity['world_normals_data'], ids)
 
@@ -183,14 +191,16 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.data_map = [
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8'),
-            np.asarray(np.random.uniform(0, 255, (32, 32, 3)), dtype='uint8')
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            np.random.randint(0, 255, (32, 32, 3), dtype='uint8')
         ]
 
     def get_class(self):
@@ -202,18 +212,22 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
             'left_data_id': 0,
             'left_depth_data': self.data_map[1],
             'left_depth_id': 1,
-            'left_labels_data': self.data_map[2],
-            'left_labels_id': 2,
-            'left_world_normals_data': self.data_map[3],
-            'left_world_normals_id': 3,
-            'right_data': self.data_map[4],
-            'right_data_id': 4,
-            'right_depth_data': self.data_map[5],
-            'right_depth_id': 5,
-            'right_labels_data': self.data_map[6],
-            'right_labels_id': 6,
-            'right_world_normals_data': self.data_map[7],
-            'right_world_normals_id': 7,
+            'left_ground_truth_depth_data': self.data_map[2],
+            'left_ground_truth_depth_id': 2,
+            'left_labels_data': self.data_map[3],
+            'left_labels_id': 3,
+            'left_world_normals_data': self.data_map[4],
+            'left_world_normals_id': 4,
+            'right_data': self.data_map[5],
+            'right_data_id': 5,
+            'right_depth_data': self.data_map[6],
+            'right_depth_id': 6,
+            'right_ground_truth_depth_data': self.data_map[7],
+            'right_ground_truth_depth_id': 7,
+            'right_labels_data': self.data_map[8],
+            'right_labels_id': 8,
+            'right_world_normals_data': self.data_map[9],
+            'right_world_normals_id': 9,
             'metadata': imeta.ImageMetadata(
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
@@ -265,9 +279,11 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(image1.left_camera_pose, image2.left_camera_pose)
         self.assertEqual(image1.right_camera_pose, image2.right_camera_pose)
         self.assertTrue(np.array_equal(image1.left_depth_data, image2.left_depth_data))
+        self.assertTrue(np.array_equal(image1.left_ground_truth_depth_data, image2.left_ground_truth_depth_data))
         self.assertTrue(np.array_equal(image1.left_labels_data, image2.left_labels_data))
         self.assertTrue(np.array_equal(image1.left_world_normals_data, image2.left_world_normals_data))
         self.assertTrue(np.array_equal(image1.right_depth_data, image2.right_depth_data))
+        self.assertTrue(np.array_equal(image1.right_ground_truth_depth_data, image2.right_ground_truth_depth_data))
         self.assertTrue(np.array_equal(image1.right_labels_data, image2.right_labels_data))
         self.assertTrue(np.array_equal(image1.right_world_normals_data, image2.right_world_normals_data))
         self.assertEqual(image1.additional_metadata, image2.additional_metadata)
@@ -306,14 +322,16 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertFalse(mock_db_client.grid_fs.get.called)
         EntityClass.deserialize(s_entity, mock_db_client)
         self.assertTrue(mock_db_client.grid_fs.get.called)
-        self.assertEqual(8, mock_db_client.grid_fs.get.call_count)
+        self.assertEqual(10, mock_db_client.grid_fs.get.call_count)
         self.assertIn(mock.call(s_entity['left_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['left_depth_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['left_ground_truth_depth_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['left_labels_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['left_world_normals_data']), mock_db_client.grid_fs.get.call_args_list)
 
         self.assertIn(mock.call(s_entity['right_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['right_depth_data']), mock_db_client.grid_fs.get.call_args_list)
+        self.assertIn(mock.call(s_entity['right_ground_truth_depth_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['right_labels_data']), mock_db_client.grid_fs.get.call_args_list)
         self.assertIn(mock.call(s_entity['right_world_normals_data']), mock_db_client.grid_fs.get.call_args_list)
 
@@ -323,9 +341,11 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         entity = self.make_instance(id_=12345)
         s_entity = entity.serialize()
         s_entity['left_depth_data'] = None
+        s_entity['left_ground_truth_depth_data'] = None
         s_entity['left_labels_data'] = None
         s_entity['left_world_normals_data'] = None
         s_entity['right_depth_data'] = None
+        s_entity['right_ground_truth_depth_data'] = None
         s_entity['right_labels_data'] = None
         s_entity['right_world_normals_data'] = None
 
@@ -337,15 +357,17 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         mock_db_client = self.create_mock_db_client()
         entity = self.make_instance(left_data_id=None,
                                     left_depth_id=None,
+                                    left_ground_truth_depth_id=None,
                                     left_labels_id=None,
                                     left_world_normals_id=None,
                                     right_data_id=None,
                                     right_depth_id=None,
+                                    right_ground_truth_depth_id=None,
                                     right_labels_id=None,
                                     right_world_normals_id=None)
         entity.save_image_data(mock_db_client)
         self.assertTrue(mock_db_client.grid_fs.put.called)
-        self.assertEqual(8, mock_db_client.grid_fs.put.call_count)
+        self.assertEqual(10, mock_db_client.grid_fs.put.call_count)
 
     def test_save_image_data_does_not_store_data_if_already_stored(self):
         mock_db_client = self.create_mock_db_client()
@@ -357,22 +379,26 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         mock_db_client = self.create_mock_db_client()
         entity = self.make_instance(left_data_id=None,
                                     left_depth_id=None,
+                                    left_ground_truth_depth_id=None,
                                     left_labels_id=None,
                                     left_world_normals_id=None,
                                     right_data_id=None,
                                     right_depth_id=None,
+                                    right_ground_truth_depth_id=None,
                                     right_labels_id=None,
                                     right_world_normals_id=None)
-        ids = [i for i in range(100, 900, 100)]  # the above ids are 0-3, these are definitely different
+        ids = [i for i in range(100, 1100, 100)]  # the above ids are 0-9, these are definitely different
         mock_db_client.grid_fs.put.side_effect = ids
         entity.save_image_data(mock_db_client)
         s_entity = entity.serialize()
         self.assertIn(s_entity['left_data'], ids)
         self.assertIn(s_entity['left_depth_data'], ids)
+        self.assertIn(s_entity['left_ground_truth_depth_data'], ids)
         self.assertIn(s_entity['left_labels_data'], ids)
         self.assertIn(s_entity['left_world_normals_data'], ids)
         self.assertIn(s_entity['right_data'], ids)
         self.assertIn(s_entity['right_depth_data'], ids)
+        self.assertIn(s_entity['right_ground_truth_depth_data'], ids)
         self.assertIn(s_entity['right_labels_data'], ids)
         self.assertIn(s_entity['right_world_normals_data'], ids)
 
@@ -451,8 +477,12 @@ class TestSaveImage(unittest.TestCase):
             data_id=0,
             depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             depth_id=1,
+            ground_truth_depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            ground_truth_depth_id=2,
             labels_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
-            labels_id=2,
+            labels_id=3,
+            world_normals_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            world_normals_id=4,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                                          source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         ie.save_image(self.mock_db_client, image)
@@ -475,6 +505,18 @@ class TestSaveImage(unittest.TestCase):
             left_depth_id=2,
             right_depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             right_depth_id=3,
+            left_ground_truth_depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            left_ground_truth_depth_id=4,
+            right_ground_truth_depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            right_ground_truth_depth_id=5,
+            left_labels_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            left_labels_id=6,
+            right_labels_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            right_labels_id=7,
+            left_world_normals_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            left_world_normals_id=8,
+            right_world_normals_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
+            right_world_normals_id=9,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                                          source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
         ie.save_image(self.mock_db_client, image)
@@ -483,10 +525,12 @@ class TestSaveImage(unittest.TestCase):
         self.assertNotIn('_id', existing_query)
         self.assertNotIn('left_data', existing_query)
         self.assertNotIn('left_depth_data', existing_query)
+        self.assertNotIn('left_ground_truth_depth_data', existing_query)
         self.assertNotIn('left_labels_data', existing_query)
         self.assertNotIn('left_world_normals_data', existing_query)
         self.assertNotIn('right_data', existing_query)
         self.assertNotIn('right_depth_data', existing_query)
+        self.assertNotIn('right_ground_truth_depth_data', existing_query)
         self.assertNotIn('right_labels_data', existing_query)
         self.assertNotIn('right_world_normals_data', existing_query)
 
