@@ -3,7 +3,7 @@ import batch_analysis.task
 
 class ImportDatasetTask(batch_analysis.task.Task):
     """
-    A task for importing a dataset. Result will be an image source id.
+    A task for importing a dataset. Result will be an image source id or list of image source ids.
     """
     def __init__(self, module_name, path, *args, **kwargs):
         super().__init__(*args, **kwargs)
