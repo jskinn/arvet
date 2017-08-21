@@ -134,6 +134,9 @@ class CombinatorialSampleController(simulation.controller.Controller):
         """
         return self._simulator is not None and self._simulator.is_stored_in_database
 
+    def get_camera_intrinsics(self):
+        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None
+
     def begin(self):
         """
         Start producing images.

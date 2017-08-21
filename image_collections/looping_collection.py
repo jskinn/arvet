@@ -64,19 +64,8 @@ class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
     def supports_random_access(self):
         return self._inner.supports_random_access
 
-    def get(self, index):
-        """
-        Get the image at a particular index.
-        :param index:
-        :return:
-        """
-        if not self.supports_random_access:
-            raise ValueError("This collection does not support random access")
-        elif 0 <= index < len(self):
-            index = index % len(self._inner)
-            return self._inner[index]
-        else:
-            raise IndexError("Index {0} is out of range".format(index))
+    def get_camera_intrinsics(self):
+        return self._inner.get_camera_intrinsics()
 
     def begin(self):
         """
@@ -96,6 +85,20 @@ class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
             if self._current_loop_count < self._repeats:
                 self._inner.begin()
         return img, timestamp
+
+    def get(self, index):
+        """
+        Get the image at a particular index.
+        :param index:
+        :return:
+        """
+        if not self.supports_random_access:
+            raise ValueError("This collection does not support random access")
+        elif 0 <= index < len(self):
+            index = index % len(self._inner)
+            return self._inner[index]
+        else:
+            raise IndexError("Index {0} is out of range".format(index))
 
     def is_complete(self):
         return self._inner.is_complete() and self._current_loop_count >= self._repeats

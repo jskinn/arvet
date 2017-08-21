@@ -153,8 +153,8 @@ class ImageMetadata:
         self._width = int(width)
         self._camera_pose = camera_pose
         self._right_camera_pose = right_camera_pose
-        self._camera_intrinsics = tuple(intrinsics) if intrinsics is not None else None
-        self._right_camera_intrinsics = tuple(right_intrinsics) if right_intrinsics is not None else None
+        self._camera_intrinsics = intrinsics
+        self._right_camera_intrinsics = right_intrinsics
         self._fov = float(fov) if fov is not None else None
         self._focal_distance = float(focal_distance) if focal_distance is not None else None
         self._aperture = float(aperture) if aperture is not None else None
@@ -271,17 +271,6 @@ class ImageMetadata:
         return self._camera_intrinsics
 
     @property
-    def intrinsic_matrix(self):
-        """
-        Get the 3x3 camera intrinsic matrix
-        :return:
-        """
-        fx, fy, cx, cy = self.camera_intrinsics
-        return np.array([[fx, 0, cx],
-                         [0, fy, cy],
-                         [0, 0, 1]])
-
-    @property
     def right_camera_intrinsics(self):
         """
         If this is a stereo image, a tuple containing the right camera intrinsics, fx, fy, cx, cy.
@@ -289,17 +278,6 @@ class ImageMetadata:
         :return:
         """
         return self._right_camera_intrinsics
-
-    @property
-    def right_intrinsic_matrix(self):
-        """
-        Get the 3x3 camera intrinsic matrix
-        :return:
-        """
-        fx, fy, cx, cy = self.right_camera_intrinsics
-        return np.array([[fx, 0, cx],
-                         [0, fy, cy],
-                         [0, 0, 1]])
 
     @property
     def fov(self):

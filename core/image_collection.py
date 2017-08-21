@@ -187,6 +187,16 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         """
         return True
 
+    def get_camera_intrinsics(self):
+        """
+        Get the camera intrinisics for this image collection.
+        At the moment it assumes it is the same for all images,
+        and just reads it from the first.
+        When I have effective metadata aggregation, read it from that.
+        :return:
+        """
+        return self._images[0].metadata.camera_intrinsics
+
     def validate(self):
         """
         The image sequence is valid iff all the contained images are valid

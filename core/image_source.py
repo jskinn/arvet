@@ -92,6 +92,15 @@ class ImageSource(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def get_camera_intrinsics(self):
+        """
+        Get the intrinsics of the camera in this image source.
+        This allows systems to use the correct calibration.
+        :return: A metadata.camera_intrinsics.CameraIntrinsics object
+        """
+        pass
+
+    @abc.abstractmethod
     def begin(self):
         """
         Start producing images.

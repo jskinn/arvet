@@ -67,6 +67,9 @@ class AugmentedImageCollection(core.image_source.ImageSource, database.entity.En
     def supports_random_access(self):
         return self._inner.supports_random_access
 
+    def get_camera_intrinsics(self):
+        return self._inner.get_camera_intrinsics()
+
     def get(self, index):
         """
         Get the image at a particular index

@@ -3,6 +3,7 @@ import unittest.mock as mock
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import core.image
 
@@ -124,8 +125,8 @@ class TestImageMetadata(unittest.TestCase):
             'width': 800,
             'camera_pose': tf.Transform((1, 3, 4), (0.2, 0.8, 0.2, -0.7)),
             'right_camera_pose': tf.Transform((-10, -20, -30), (0.9, -0.7, 0.5, -0.3)),
-            'intrinsics': (700, 700, 400, 300),
-            'right_intrinsics': (700, 710, 400, 300),
+            'intrinsics': cam_intr.CameraIntrinsics(700, 700, 400, 300),
+            'right_intrinsics': cam_intr.CameraIntrinsics(700, 710, 400, 300),
             'fov': 90,
             'focal_distance': 5,
             'aperture': 22,
@@ -223,8 +224,8 @@ class TestImageMetadata(unittest.TestCase):
             'width': [1280],
             'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
-            'intrinsics': [(900, 910, 640, 360)],
-            'right_intrinsics': [(900, 890, 640, 360)],
+            'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 640, 360)],
+            'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 640, 360)],
             'fov': [30],
             'focal_distance': [22],
             'aperture': [1.2],
@@ -330,8 +331,8 @@ class TestImageMetadata(unittest.TestCase):
             'width': [1280],
             'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
-            'intrinsics': [(900, 910, 640, 360)],
-            'right_intrinsics': [(900, 890, 640, 360)],
+            'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 640, 360)],
+            'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 640, 360)],
             'fov': [30],
             'focal_distance': [22],
             'aperture': [1.2],
@@ -440,8 +441,8 @@ class TestImageMetadata(unittest.TestCase):
             'width': [1280],
             'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
-            'intrinsics': [(900, 910, 640, 360)],
-            'right_intrinsics': [(900, 890, 640, 360)],
+            'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 640, 360)],
+            'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 640, 360)],
             'fov': [30],
             'focal_distance': [22],
             'aperture': [1.2],

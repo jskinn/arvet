@@ -12,6 +12,7 @@ import core.sequence_type
 import dataset.image_collection_builder
 import dataset.generated.metadata_patch as metadata_patch
 import metadata.image_metadata as imeta
+import metadata.camera_intrinsics as intrins
 import util.dict_utils as du
 import util.unreal_transform as ue_tf
 
@@ -99,7 +100,7 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     cx = im_data.shape[0] / 2
     cy = im_data.shape[1] / 2
     focal_length = cx / np.tan(np.pi / 4)   # Calculate from horizontal size, np.pi / 4 (rad) = 90 / 2 deg = fov / 2
-    camera_intrinsics = (focal_length, focal_length, cx, cy)
+    camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length, cx, cy)
     image_metadata = imeta.ImageMetadata(
         hash_=xxhash.xxh64(np.ascontiguousarray(im_data)).digest(),
         source_type=imeta.ImageSourceType.SYNTHETIC,

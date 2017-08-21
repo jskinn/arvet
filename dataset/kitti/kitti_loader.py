@@ -5,6 +5,7 @@ import pykitti
 import metadata.image_metadata as imeta
 import util.transform as tf
 import core.image_entity
+import metadata.camera_intrinsics as intrins
 import dataset.image_collection_builder
 
 
@@ -47,8 +48,10 @@ def import_dataset(root_folder, db_client):
         # dataset.gray:       Generator to load monochrome stereo pairs (cam0, cam1)
         # dataset.rgb:        Generator to load RGB stereo pairs (cam2, cam3)
         # dataset.velo:       Generator to load velodyne scans as [x,y,z,reflectance]
-        calibration_matrix = data.calib.K_cam2
-        right_calibration_matrix = data.calib.K_cam3
+        camera_intrinsics = intrins.CameraIntrinsics(fx=data.calib.K_cam2[0, 0], fy=data.calib.K_cam2[1, 1],
+                                                     cx=data.calib.K_cam2[2, 0], cy=data.calib.K_cam2[2, 1])
+        right_camera_intrinsics = intrins.CameraIntrinsics(fx=data.calib.K_cam3[0, 0], fy=data.calib.K_cam3[1, 1],
+                                                           cx=data.calib.K_cam3[2, 0], cy=data.calib.K_cam3[2, 1])
         for left_image, right_image, timestamp, pose in zip(data.cam2, data.cam3, data.timestamps, data.poses):
             camera_pose = make_camera_pose(pose)
             # camera pose is for cam0, we want cam2, which is 6cm (0.06m) to the left
@@ -66,10 +69,8 @@ def import_dataset(root_folder, db_client):
                     right_camera_pose=right_camera_pose,
                     height=left_image.shape[0],
                     width=left_image.shape[1],
-                    intrinsics=(calibration_matrix[0,0], calibration_matrix[1,1],
-                                calibration_matrix[2,0], calibration_matrix[2,1]),
-                    right_intrinsics=(right_calibration_matrix[0, 0], right_calibration_matrix[1, 1],
-                                      right_calibration_matrix[2, 0], right_calibration_matrix[2, 1]),
+                    intrinsics=camera_intrinsics,
+                    right_intrinsics=right_camera_intrinsics,
                     source_type=imeta.ImageSourceType.REAL_WORLD,
                     environment_type=imeta.EnvironmentType.OUTDOOR_URBAN,
                     light_level=imeta.LightingLevel.WELL_LIT,
