@@ -193,6 +193,7 @@ class ImageMetadata:
                 self.camera_pose == other.camera_pose and
                 self.right_camera_pose == other.right_camera_pose and
                 self.camera_intrinsics == other.camera_intrinsics and
+                self.right_camera_intrinsics == other.right_camera_intrinsics and
                 self.fov == other.fov and
                 self.focal_distance == other.focal_distance and
                 self.aperture == other.aperture and
@@ -211,7 +212,8 @@ class ImageMetadata:
     def __hash__(self):
         return hash((self.hash, self.source_type, self.environment_type, self.light_level, self.time_of_day,
                      self.height, self.width, self.camera_pose, self.right_camera_pose, self.camera_intrinsics,
-                     self.fov, self.focal_distance, self.aperture, self.simulation_world, self.lighting_model,
+                     self.right_camera_intrinsics, self.fov, self.focal_distance, self.aperture,
+                     self.simulation_world, self.lighting_model,
                      self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
                      self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth,
                      hash(self.base_image), tuple(tuple(row) for row in self.affine_transformation_matrix)) +
@@ -286,7 +288,7 @@ class ImageMetadata:
         If you want them in matrix form, use right_intrinsic_matrix.
         :return:
         """
-        return self._camera_intrinsics
+        return self._right_camera_intrinsics
 
     @property
     def right_intrinsic_matrix(self):
