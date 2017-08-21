@@ -137,7 +137,7 @@ class ImageMetadata:
     """
 
     def __init__(self, source_type, height, width, hash_, camera_pose=None, right_camera_pose=None, intrinsics=None,
-                 fov=None, focal_distance=None, aperture=None,
+                 right_intrinsics=None, fov=None, focal_distance=None, aperture=None,
                  environment_type=None, light_level=None, time_of_day=None,
                  simulation_world=None, lighting_model=None, texture_mipmap_bias=None, normal_maps_enabled=True,
                  roughness_enabled=None, geometry_decimation=None, procedural_generation_seed=None,
@@ -154,6 +154,7 @@ class ImageMetadata:
         self._camera_pose = camera_pose
         self._right_camera_pose = right_camera_pose
         self._camera_intrinsics = tuple(intrinsics) if intrinsics is not None else None
+        self._right_camera_intrinsics = tuple(right_intrinsics) if right_intrinsics is not None else None
         self._fov = float(fov) if fov is not None else None
         self._focal_distance = float(focal_distance) if focal_distance is not None else None
         self._aperture = float(aperture) if aperture is not None else None
@@ -279,6 +280,26 @@ class ImageMetadata:
                          [0, 0, 1]])
 
     @property
+    def right_camera_intrinsics(self):
+        """
+        If this is a stereo image, a tuple containing the right camera intrinsics, fx, fy, cx, cy.
+        If you want them in matrix form, use right_intrinsic_matrix.
+        :return:
+        """
+        return self._camera_intrinsics
+
+    @property
+    def right_intrinsic_matrix(self):
+        """
+        Get the 3x3 camera intrinsic matrix
+        :return:
+        """
+        fx, fy, cx, cy = self.right_camera_intrinsics
+        return np.array([[fx, 0, cx],
+                         [0, fy, cy],
+                         [0, 0, 1]])
+
+    @property
     def fov(self):
         return self._fov
 
@@ -370,6 +391,7 @@ class ImageMetadata:
             'camera_pose': self.camera_pose,
             'right_camera_pose': self.right_camera_pose,
             'intrinsics': self.camera_intrinsics,
+            'right_intrinsics': self.right_camera_intrinsics,
             'environment_type': self.environment_type,
             'light_level': self.light_level,
             'time_of_day': self.time_of_day,
@@ -407,6 +429,7 @@ class ImageMetadata:
             'camera_pose': self.camera_pose.serialize() if self.camera_pose is not None else None,
             'right_camera_pose': self.right_camera_pose.serialize() if self.right_camera_pose is not None else None,
             'intrinsics': self.camera_intrinsics,
+            'right_intrinsics': self.right_camera_intrinsics,
             'height': self.height,
             'width': self.width,
             'fov': self.fov,
@@ -433,7 +456,8 @@ class ImageMetadata:
     def deserialize(cls, serialized):
         kwargs = {}
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width',
-                            'intrinsics', 'fov', 'focal_distance', 'aperture', 'simulation_world', 'lighting_model',
+                            'intrinsics', 'right_intrinsics', 'fov', 'focal_distance', 'aperture',
+                            'simulation_world', 'lighting_model',
                             'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
         for key in direct_copy_keys:
