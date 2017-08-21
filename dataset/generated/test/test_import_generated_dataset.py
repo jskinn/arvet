@@ -55,12 +55,12 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                                {'W': 1, 'X': 0, 'Y': 0, 'Z': 0})
         self.assertIsInstance(transform, util.transform.Transform)
 
-    def test_parse_transform_corrects_coordinates(self):
+    def test_parse_transform_corrects_coordinates_and_changes_scale_to_meters(self):
         rot = tf3d.quaternions.axangle2quat((1, -2, 4), -np.pi / 6)
         transform = import_gen.parse_transform({'X': 113, 'Y': -127, 'Z': 79},
                                                {'W': rot[0], 'X': rot[1], 'Y': rot[2], 'Z': rot[3]})
 
-        self.assertNPEqual((113, 127, 79), transform.location)
+        self.assertNPEqual((1.13, 1.27, 0.79), transform.location)
         self.assertNPEqual(tf3d.quaternions.axangle2quat((1, 2, 4), np.pi / 6),
                            transform.rotation_quat(w_first=True),
                            approx=0.0000000000000001)
@@ -239,7 +239,7 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                                    }
                                                })
         self.assertIsInstance(image, core.image_entity.ImageEntity)
-        self.assertNPEqual((-22, -13, 4), image.metadata.camera_pose.location)
+        self.assertNPEqual((-0.22, -0.13, 0.04), image.metadata.camera_pose.location)
         self.assertNPEqual((0.5, 0.5, 0.5, -0.5), image.metadata.camera_pose.rotation_quat(True),
                            approx=0.000000000000001)
         self.assertNPEqual(im_data, image.data)
@@ -293,10 +293,10 @@ class TestImportGeneratedDataset(unittest.TestCase):
                                                           }
                                                       })
         self.assertIsInstance(stereo_image, core.image_entity.StereoImageEntity)
-        self.assertNPEqual((-22, -13, 4), stereo_image.metadata.camera_pose.location)
+        self.assertNPEqual((-0.22, -0.13, 0.04), stereo_image.metadata.camera_pose.location)
         self.assertNPEqual((0.5, 0.5, 0.5, -0.5), stereo_image.metadata.camera_pose.rotation_quat(True),
                            approx=0.000000000000001)
-        self.assertNPEqual((-22, -13, 4), stereo_image.metadata.right_camera_pose.location)
+        self.assertNPEqual((-0.22, -0.13, 0.04), stereo_image.metadata.right_camera_pose.location)
         self.assertNPEqual((0.5, 0.5, 0.5, -0.5), stereo_image.metadata.right_camera_pose.rotation_quat(True),
                            approx=0.000000000000001)
         self.assertNPEqual(im_data, stereo_image.left_data)
