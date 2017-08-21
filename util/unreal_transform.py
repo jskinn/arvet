@@ -308,7 +308,7 @@ def transform_to_unreal(pose):
     :return: An UnrealTransform object.
     """
     if isinstance(pose, mytf.Transform):
-        location = (pose.location[0], -pose.location[1], pose.location[2])
+        location = (100 * pose.location[0], -100 * pose.location[1], 100 * pose.location[2])
         rotation = pose.rotation_quat(w_first=True)
         # Invert Y axis to go to quaternion in unreal frame
         rotation = (rotation[0], rotation[1], -rotation[2], rotation[3])
@@ -319,7 +319,7 @@ def transform_to_unreal(pose):
         #rotation = np.array([rotation[2], rotation[1], rotation[0]])
         #return UnrealTransform(location=location, rotation=rotation * _TODEG)
         return UnrealTransform(location=location, rotation=quat2euler(rotation[0], rotation[1], rotation[2], rotation[3]))
-    return pose[0], -pose[1], pose[2]
+    return 100 * pose[0], -100 * pose[1], 100 *pose[2]
 
 
 def transform_from_unreal(pose):
@@ -330,7 +330,7 @@ def transform_from_unreal(pose):
     :return: A point or Transform object, depending on the parameter
     """
     if isinstance(pose, UnrealTransform):
-        location = (pose.location[0], -pose.location[1], pose.location[2])
+        location = (pose.location[0] / 100, -pose.location[1] / 100, pose.location[2] / 100)
         #rotation = tf.taitbryan.euler2quat(pose.yaw * _TORAD, pose.pitch * _TORAD, pose.roll * _TORAD)
         rotation = euler2quat(pose.roll, pose.pitch, pose.yaw)
         # Invert the direction of rotation to go to a right-handed coordinate frame
@@ -340,4 +340,4 @@ def transform_from_unreal(pose):
 
 
         return mytf.Transform(location=location, rotation=rotation, w_first=True)
-    return pose[0], -pose[1], pose[2]
+    return pose[0] / 100, -pose[1] / 100, pose[2] / 100

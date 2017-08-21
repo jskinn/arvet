@@ -61,9 +61,9 @@ def parse_transform(location, rotation):
     :param rotation: dict containing W, Z, Y, and Z
     :return: a Transform object, in a sane coordinate frame and scaled to meters
     """
-    ue_camera_pose = ue_tf.UnrealTransform(location=(location['X'] / 100,
-                                                     location['Y'] / 100,
-                                                     location['Z'] / 100),
+    ue_camera_pose = ue_tf.UnrealTransform(location=(location['X'],
+                                                     location['Y'],
+                                                     location['Z']),
                                            rotation=ue_tf.quat2euler(
                                                w=rotation['W'],
                                                x=rotation['X'],
