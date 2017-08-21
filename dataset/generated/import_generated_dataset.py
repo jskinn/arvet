@@ -59,11 +59,11 @@ def parse_transform(location, rotation):
     Handles changing the coordinate frame from Unreal space to a conventional coordinate frame.
     :param location: dict containing X, Y, and Z
     :param rotation: dict containing W, Z, Y, and Z
-    :return: a Transform object, in a sane coordinate frame
+    :return: a Transform object, in a sane coordinate frame and scaled to meters
     """
-    ue_camera_pose = ue_tf.UnrealTransform(location=(location['X'],
-                                                     location['Y'],
-                                                     location['Z']),
+    ue_camera_pose = ue_tf.UnrealTransform(location=(location['X'] / 100,
+                                                     location['Y'] / 100,
+                                                     location['Z'] / 100),
                                            rotation=ue_tf.quat2euler(
                                                w=rotation['W'],
                                                x=rotation['X'],
@@ -96,6 +96,10 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     :param right_camera_pose: The pose of the right stereo camera, if available
     :return:
     """
+    cx = im_data.shape[0] / 2
+    cy = im_data.shape[1] / 2
+    focal_length = cx / np.tan(np.pi / 4)   # Calculate from horizontal size, np.pi / 4 (rad) = 90 / 2 deg = fov / 2
+    camera_intrinsics = (focal_length, focal_length, cx, cy)
     image_metadata = imeta.ImageMetadata(
         hash_=xxhash.xxh64(np.ascontiguousarray(im_data)).digest(),
         source_type=imeta.ImageSourceType.SYNTHETIC,
@@ -106,7 +110,9 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
         environment_type=imeta.EnvironmentType.INDOOR,
         light_level=imeta.LightingLevel.EVENLY_LIT,
         time_of_day=imeta.TimeOfDay.DAY,
-        fov=90,
+        intrinsics=camera_intrinsics,
+        right_intrinsics=camera_intrinsics if right_camera_pose is not None else None,
+        fov=90,     # checked, this is definitely 90 degrees in all generated data
         focal_distance=None,
         aperture=None,
         simulation_world=metadata['World Name'],
