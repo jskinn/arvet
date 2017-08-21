@@ -136,8 +136,9 @@ class ImageMetadata:
     Instances of this class are associated with Image objects
     """
 
-    def __init__(self, source_type, height, width, hash_, camera_pose=None, right_camera_pose=None,
-                 environment_type=None, light_level=None, time_of_day=None, fov=None, focal_length=None, aperture=None,
+    def __init__(self, source_type, height, width, hash_, camera_pose=None, right_camera_pose=None, intrinsics=None,
+                 fov=None, focal_distance=None, aperture=None,
+                 environment_type=None, light_level=None, time_of_day=None,
                  simulation_world=None, lighting_model=None, texture_mipmap_bias=None, normal_maps_enabled=True,
                  roughness_enabled=None, geometry_decimation=None, procedural_generation_seed=None,
                  labelled_objects=None, average_scene_depth=None, base_image=None, transformation_matrix=None):
@@ -152,8 +153,9 @@ class ImageMetadata:
         self._width = int(width)
         self._camera_pose = camera_pose
         self._right_camera_pose = right_camera_pose
+        self._camera_intrinsics = tuple(intrinsics) if intrinsics is not None else None
         self._fov = float(fov) if fov is not None else None
-        self._focal_length = float(focal_length) if focal_length is not None else None
+        self._focal_distance = float(focal_distance) if focal_distance is not None else None
         self._aperture = float(aperture) if aperture is not None else None
 
         # Computer graphics settings, for measuring image quality
@@ -189,8 +191,9 @@ class ImageMetadata:
                 self.width == other.width and
                 self.camera_pose == other.camera_pose and
                 self.right_camera_pose == other.right_camera_pose and
+                self.camera_intrinsics == other.camera_intrinsics and
                 self.fov == other.fov and
-                self.focal_length == other.focal_length and
+                self.focal_distance == other.focal_distance and
                 self.aperture == other.aperture and
                 self.simulation_world == other.simulation_world and
                 self.lighting_model == other.lighting_model and
@@ -206,8 +209,8 @@ class ImageMetadata:
 
     def __hash__(self):
         return hash((self.hash, self.source_type, self.environment_type, self.light_level, self.time_of_day,
-                     self.height, self.width, self.camera_pose, self.right_camera_pose, self.fov, self.focal_length,
-                     self.aperture, self.simulation_world, self.lighting_model,
+                     self.height, self.width, self.camera_pose, self.right_camera_pose, self.camera_intrinsics,
+                     self.fov, self.focal_distance, self.aperture, self.simulation_world, self.lighting_model,
                      self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
                      self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth,
                      hash(self.base_image), tuple(tuple(row) for row in self.affine_transformation_matrix)) +
@@ -256,12 +259,37 @@ class ImageMetadata:
         return self._right_camera_pose
 
     @property
+    def camera_intrinsics(self):
+        """
+        A tuple containing the camera intrinsics, fx, fy, cx, cy.
+        If you want them in matrix form, use intrinsic_matrix.
+        :return:
+        """
+        return self._camera_intrinsics
+
+    @property
+    def intrinsic_matrix(self):
+        """
+        Get the 3x3 camera intrinsic matrix
+        :return:
+        """
+        fx, fy, cx, cy = self.camera_intrinsics
+        return np.array([[fx, 0, cx],
+                         [0, fy, cy],
+                         [0, 0, 1]])
+
+    @property
     def fov(self):
         return self._fov
 
     @property
-    def focal_length(self):
-        return self._focal_length
+    def focal_distance(self):
+        """
+        The distance to the in-focus field of the camera lens.
+        The distance from the camera at which an object is in focus.
+        :return:
+        """
+        return self._focal_distance
 
     @property
     def aperture(self):
@@ -341,11 +369,12 @@ class ImageMetadata:
             'width': self.width,
             'camera_pose': self.camera_pose,
             'right_camera_pose': self.right_camera_pose,
+            'intrinsics': self.camera_intrinsics,
             'environment_type': self.environment_type,
             'light_level': self.light_level,
             'time_of_day': self.time_of_day,
             'fov': self.fov,
-            'focal_length': self.focal_length,
+            'focal_distance': self.focal_distance,
             'aperture': self.aperture,
             'simulation_world': self.simulation_world,
             'lighting_model': self.lighting_model,
@@ -377,10 +406,11 @@ class ImageMetadata:
 
             'camera_pose': self.camera_pose.serialize() if self.camera_pose is not None else None,
             'right_camera_pose': self.right_camera_pose.serialize() if self.right_camera_pose is not None else None,
+            'intrinsics': self.camera_intrinsics,
             'height': self.height,
             'width': self.width,
             'fov': self.fov,
-            'focal_length': self.focal_length,
+            'focal_distance': self.focal_distance,
             'aperture': self.aperture,
 
             'simulation_world': self.simulation_world,
@@ -403,7 +433,7 @@ class ImageMetadata:
     def deserialize(cls, serialized):
         kwargs = {}
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width',
-                            'fov', 'focal_length', 'aperture', 'simulation_world', 'lighting_model',
+                            'intrinsics', 'fov', 'focal_distance', 'aperture', 'simulation_world', 'lighting_model',
                             'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
         for key in direct_copy_keys:

@@ -22,7 +22,7 @@ def make_image(index=1, **kwargs):
                                      rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -59,7 +59,7 @@ def make_stereo_image(index=1, **kwargs):
                                      rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -181,7 +181,7 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
                                                                   rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
                                          environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                                          light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                                         fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+                                         fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
                                          lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
                                          normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
                                          procedural_generation_seed=16234, labelled_objects=[],

@@ -302,7 +302,7 @@ class StereoImage(Image):
             'light_level': lm.light_level if lm.light_level is not None else rm.light_level,
             'time_of_day': lm.time_of_day if lm.time_of_day is not None else rm.time_of_day,
             'fov': lm.fov if lm.fov is not None else rm.fov,
-            'focal_length': lm.focal_length if lm.focal_length is not None else rm.focal_length,
+            'focal_distance': lm.focal_distance if lm.focal_distance is not None else rm.focal_distance,
             'aperture': lm.aperture if lm.aperture is not None else rm.aperture,
             'simulation_world': lm.simulation_world if lm.simulation_world is not None else rm.simulation_world,
             'lighting_model': lm.lighting_model if lm.lighting_model is not None else rm.lighting_model,

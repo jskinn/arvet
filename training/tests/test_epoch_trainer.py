@@ -242,7 +242,7 @@ def make_image(**kwargs):
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
             fov=np.random.randint(10, 90),
-            focal_length=np.random.uniform(10, 10000),
+            focal_distance=np.random.uniform(10, 10000),
             aperture=np.random.uniform(1, 22),
             simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT,

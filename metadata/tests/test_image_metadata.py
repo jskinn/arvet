@@ -124,8 +124,9 @@ class TestImageMetadata(unittest.TestCase):
             'width': 800,
             'camera_pose': tf.Transform((1, 3, 4), (0.2, 0.8, 0.2, -0.7)),
             'right_camera_pose': tf.Transform((-10, -20, -30), (0.9, -0.7, 0.5, -0.3)),
+            'intrinsics': (700, 700, 400, 300),
             'fov': 90,
-            'focal_length': 5,
+            'focal_distance': 5,
             'aperture': 22,
 
             'simulation_world': 'TestSimulationWorld',
@@ -221,8 +222,9 @@ class TestImageMetadata(unittest.TestCase):
             'width': [1280],
             'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
+            'intrinsics': [(900, 910, 640, 360)],
             'fov': [30],
-            'focal_length': [22],
+            'focal_distance': [22],
             'aperture': [1.2],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
@@ -326,8 +328,9 @@ class TestImageMetadata(unittest.TestCase):
             'width': [1280],
             'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
+            'intrinsics': [(900, 910, 640, 360)],
             'fov': [30],
-            'focal_length': [22],
+            'focal_distance': [22],
             'aperture': [1.2],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
@@ -434,8 +437,9 @@ class TestImageMetadata(unittest.TestCase):
             'width': [1280],
             'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
+            'intrinsics': [(900, 910, 640, 360)],
             'fov': [30],
-            'focal_length': [22],
+            'focal_distance': [22],
             'aperture': [1.2],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
@@ -571,16 +575,21 @@ class TestImageMetadata(unittest.TestCase):
                     self.assertNotEqual(a.right_camera_pose, b.right_camera_pose)
                 else:
                     self.assertEqual(a.right_camera_pose, b.right_camera_pose)
+                if key == 'intrinsics':
+                    self.assertEqual(val, b.camera_intrinsics)
+                    self.assertNotEqual(a.camera_intrinsics, b.camera_intrinsics)
+                else:
+                    self.assertEqual(a.camera_intrinsics, b.camera_intrinsics)
                 if key == 'fov':
                     self.assertEqual(val, b.fov)
                     self.assertNotEqual(a.fov, b.fov)
                 else:
                     self.assertEqual(a.fov, b.fov)
-                if key == 'focal_length':
-                    self.assertEqual(val, b.focal_length)
-                    self.assertNotEqual(a.focal_length, b.focal_length)
+                if key == 'focal_distance':
+                    self.assertEqual(val, b.focal_distance)
+                    self.assertNotEqual(a.focal_distance, b.focal_distance)
                 else:
-                    self.assertEqual(a.focal_length, b.focal_length)
+                    self.assertEqual(a.focal_distance, b.focal_distance)
                 if key == 'aperture':
                     self.assertEqual(val, b.aperture)
                     self.assertNotEqual(a.aperture, b.aperture)
@@ -646,8 +655,9 @@ class TestImageMetadata(unittest.TestCase):
         self.assertEqual(metadata1.width, metadata2.width)
         self.assertEqual(metadata1.camera_pose, metadata2.camera_pose)
         self.assertEqual(metadata1.right_camera_pose, metadata2.right_camera_pose)
+        self.assertEqual(metadata1.camera_intrinsics, metadata2.camera_intrinsics)
         self.assertEqual(metadata1.fov, metadata2.fov)
-        self.assertEqual(metadata1.focal_length, metadata2.focal_length)
+        self.assertEqual(metadata1.focal_distance, metadata2.focal_distance)
         self.assertEqual(metadata1.aperture, metadata2.aperture)
         self.assertEqual(metadata1.simulation_world, metadata2.simulation_world)
         self.assertEqual(metadata1.lighting_model, metadata2.lighting_model)

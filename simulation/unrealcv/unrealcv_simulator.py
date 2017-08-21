@@ -394,7 +394,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
             right_camera_pose=right_camera_pose,
             environment_type=self._metadata['environment_type'],
             light_level=self._metadata['light_level'], time_of_day=self._metadata['time_of_day'],
-            fov=fov, focal_length=focus_length, aperture=aperture,
+            fov=fov, focal_distance=focus_length, aperture=aperture,
             simulation_world=self._metadata['simulation_world'],
             lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
             texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,

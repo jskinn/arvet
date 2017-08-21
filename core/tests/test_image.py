@@ -19,7 +19,7 @@ class TestImage(unittest.TestCase):
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -44,7 +44,7 @@ class TestImage(unittest.TestCase):
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -128,7 +128,7 @@ class TestStereoImage(unittest.TestCase):
             camera_pose=self.left_pose, right_camera_pose=self.right_pose,
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -155,7 +155,7 @@ class TestStereoImage(unittest.TestCase):
             camera_pose=self.full_left_pose, right_camera_pose=self.full_right_pose,
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -282,7 +282,7 @@ class TestStereoImage(unittest.TestCase):
             camera_pose=left_pose, right_camera_pose=right_pose,
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_length=5, aperture=22, simulation_world='TestSimulationWorld',
+            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(

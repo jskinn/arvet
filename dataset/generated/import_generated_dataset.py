@@ -107,7 +107,7 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
         light_level=imeta.LightingLevel.EVENLY_LIT,
         time_of_day=imeta.TimeOfDay.DAY,
         fov=90,
-        focal_length=None,
+        focal_distance=None,
         aperture=None,
         simulation_world=metadata['World Name'],
         lighting_model=imeta.LightingModel.LIT,

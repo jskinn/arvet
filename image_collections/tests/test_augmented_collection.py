@@ -232,7 +232,7 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
                 camera_pose=tf.Transform((1, 3, 4), (0.2, 0.8, 0.2, -0.7)),
                 right_camera_pose=tf.Transform((-10, -20, -30), (0.9, -0.7, 0.5, -0.3)),
                 fov=90,
-                focal_length=5,
+                focal_distance=5,
                 aperture=22,
 
                 simulation_world='TestSimulationWorld',
@@ -280,7 +280,7 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
         self.assertEqual(result.metadata.camera_pose, image.metadata.camera_pose)
         self.assertEqual(result.metadata.right_camera_pose, image.metadata.right_camera_pose)
         self.assertEqual(result.metadata.fov, image.metadata.fov)
-        self.assertEqual(result.metadata.focal_length, image.metadata.focal_length)
+        self.assertEqual(result.metadata.focal_distance, image.metadata.focal_distance)
         self.assertEqual(result.metadata.aperture, image.metadata.aperture)
         self.assertEqual(result.metadata.simulation_world, image.metadata.simulation_world)
         self.assertEqual(result.metadata.lighting_model, image.metadata.lighting_model)
