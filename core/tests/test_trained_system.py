@@ -94,6 +94,9 @@ class MockTrainedSystem(core.trained_system.TrainedVisionSystem):
     def is_image_source_appropriate(self, image_source):
         return True
 
+    def set_camera_intrinsics(self, camera_intrinsics):
+        pass
+
     def start_trial(self, sequence_type):
         pass
 

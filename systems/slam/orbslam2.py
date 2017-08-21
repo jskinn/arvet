@@ -125,6 +125,17 @@ class ORBSLAM2(core.system.VisionSystem):
             (self._mode == SensorMode.STEREO and image_source.is_stereo_available) or
             (self._mode == SensorMode.RGBD and image_source.is_depth_available)))
 
+    def set_camera_intrinsics(self, camera_intrinsics):
+        self._orbslam_settings['fx'] = camera_intrinsics.fx
+        self._orbslam_settings['fy'] = camera_intrinsics.fy
+        self._orbslam_settings['cx'] = camera_intrinsics.cx
+        self._orbslam_settings['cy'] = camera_intrinsics.cy
+        self._orbslam_settings['k1'] = camera_intrinsics.k1
+        self._orbslam_settings['k2'] = camera_intrinsics.k2
+        self._orbslam_settings['k3'] = camera_intrinsics.k3
+        self._orbslam_settings['p1'] = camera_intrinsics.p1
+        self._orbslam_settings['p2'] = camera_intrinsics.p2
+
     def start_trial(self, sequence_type):
         """
         Start a trial with this system.
@@ -165,7 +176,6 @@ class ORBSLAM2(core.system.VisionSystem):
             self._output_queue = None
             self._gt_trajectory = None
         return started
-
 
     def process_image(self, image, timestamp):
         """

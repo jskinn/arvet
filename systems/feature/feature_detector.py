@@ -67,6 +67,15 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         """
         return image_source.is_stored_in_database()
 
+    def set_camera_intrinsics(self, camera_intrinsics):
+        """
+        Set the camera intrinsics. Feature detectors don't need them.
+        TODO: Use the camera matrix to transform points between images for benchmarking
+        :param camera_intrinsics:
+        :return:
+        """
+        pass
+
     def start_trial(self, sequence_type):
         """
         Start a trial for a feature detector

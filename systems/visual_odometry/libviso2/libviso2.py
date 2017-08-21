@@ -14,7 +14,7 @@ class LibVisOSystem(core.system.VisionSystem):
     Class to run LibVisO2 as a vision system.
     """
 
-    def __init__(self, focal_distance=1, cu=640, cv=360, base=30, id_=None):
+    def __init__(self, focal_distance=1, cu=640, cv=360, base=0.3, id_=None):
         super().__init__(id_=id_)
         self._camera_settings = None
         self._focal_distance = float(focal_distance)
@@ -32,11 +32,13 @@ class LibVisOSystem(core.system.VisionSystem):
     def is_deterministic(self):
         return True
 
-    def set_camera_calibration(self, focal_distance=1, cu=640, cv=360, base=30):
-        self._focal_distance = float(focal_distance)
-        self._cu = float(cu)
-        self._cv = float(cv)
-        self._base = float(base)
+    def set_camera_intrinsics(self, camera_intrinsics):
+        self._focal_distance = float(camera_intrinsics.fx)
+        self._cu = float(camera_intrinsics.cx)
+        self._cv = float(camera_intrinsics.cy)
+
+    def set_stereo_baseline(self, baseline):
+        self._base = float(baseline)
 
     def start_trial(self, sequence_type):
         if not sequence_type == core.sequence_type.ImageSequenceType.SEQUENTIAL:

@@ -30,7 +30,6 @@ class RunSystemTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import runners.trial_runner
         import util.database_helpers as dh
 
         system = dh.load_object(db_client, db_client.system_collection, self.system)
@@ -52,7 +51,7 @@ class RunSystemTask(batch_analysis.task.Task):
                 system.__module__ + '.' + system.__class__.__name__,
                 self.image_source))
             try:
-                trial_result = runners.trial_runner.run_system_with_source(system, image_source)
+                trial_result = run_system_with_source(system, image_source)
             except Exception:
                 trial_result = None
             if trial_result is None:
@@ -83,3 +82,23 @@ class RunSystemTask(batch_analysis.task.Task):
         if 'repeat' in serialized_representation:
             kwargs['repeat'] = serialized_representation['repeat']
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+
+def run_system_with_source(system, image_source):
+    """
+    Run a given vision system with a given image source.
+    This is the structure for how image sources and vision systems should be interacted with.
+    Both should already be set up and configured.
+    :param system: The system to run.
+    :param image_source: The image source to get images from
+    :return: The TrialResult storing the results of the run. Save it to the database, or None if there's a problem.
+    """
+    if system.is_image_source_appropriate(image_source):
+        system.set_camera_intrinsics(image_source.get_camera_intrinsics())
+        system.start_trial(image_source.sequence_type)
+        image_source.begin()
+        while not image_source.is_complete():
+            image, timestamp = image_source.get_next_image()
+            system.process_image(image, timestamp)
+        return system.finish_trial()
+    return None
