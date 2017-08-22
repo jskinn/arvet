@@ -7,6 +7,7 @@ import pickle
 import bson.objectid
 import util.dict_utils as du
 import util.transform as tf
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import database.client
 import database.tests.test_entity as entity_test
@@ -48,6 +49,7 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
                 camera_pose=tf.Transform(location=(1, 2, 3), rotation=(4, 5, 6, 7)),
+                intrinsics=cam_intr.CameraIntrinsics(0.277, 0.305, 0.5, 0.5),
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
                 fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
@@ -233,6 +235,8 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
                 source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
                 camera_pose=tf.Transform(location=(1, 2, 3), rotation=(4, 5, 6, 7)),
                 right_camera_pose=tf.Transform(location=(8, 9, 10), rotation=(11, 12, 13, 14)),
+                intrinsics=cam_intr.CameraIntrinsics(0.2927, 0.67, 0.5, 0.5),
+                right_intrinsics=cam_intr.CameraIntrinsics(0.277, 0.305, 0.5, 0.5),
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
                 fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',

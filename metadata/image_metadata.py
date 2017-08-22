@@ -2,6 +2,7 @@ import enum
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
+import metadata.camera_intrinsics as cam_intr
 
 
 class ImageSourceType(enum.Enum):
@@ -408,8 +409,9 @@ class ImageMetadata:
 
             'camera_pose': self.camera_pose.serialize() if self.camera_pose is not None else None,
             'right_camera_pose': self.right_camera_pose.serialize() if self.right_camera_pose is not None else None,
-            'intrinsics': self.camera_intrinsics,
-            'right_intrinsics': self.right_camera_intrinsics,
+            'intrinsics': self.camera_intrinsics.serialize() if self.camera_intrinsics is not None else None,
+            'right_intrinsics': (self.right_camera_intrinsics.serialize()
+                                 if self.right_camera_intrinsics is not None else None),
             'height': self.height,
             'width': self.width,
             'fov': self.fov,
@@ -436,8 +438,7 @@ class ImageMetadata:
     def deserialize(cls, serialized):
         kwargs = {}
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width',
-                            'intrinsics', 'right_intrinsics', 'fov', 'focal_distance', 'aperture',
-                            'simulation_world', 'lighting_model',
+                            'fov', 'focal_distance', 'aperture', 'simulation_world', 'lighting_model',
                             'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
         for key in direct_copy_keys:
@@ -449,6 +450,10 @@ class ImageMetadata:
             kwargs['camera_pose'] = tf.Transform.deserialize(serialized['camera_pose'])
         if 'right_camera_pose' in serialized and serialized['right_camera_pose'] is not None:
             kwargs['right_camera_pose'] = tf.Transform.deserialize(serialized['right_camera_pose'])
+        if 'intrinsics' in serialized and serialized['intrinsics'] is not None:
+            kwargs['intrinsics'] = cam_intr.CameraIntrinsics.deserialize(serialized['intrinsics'])
+        if 'right_intrinsics' in serialized and serialized['right_intrinsics'] is not None:
+            kwargs['right_intrinsics'] = cam_intr.CameraIntrinsics.deserialize(serialized['right_intrinsics'])
         if 'labelled_objects' in serialized:
             kwargs['labelled_objects'] = tuple(LabelledObject.deserialize(s_obj)
                                                for s_obj in serialized['labelled_objects'])

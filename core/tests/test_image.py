@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import core.image as im
 
@@ -16,6 +17,7 @@ class TestImage(unittest.TestCase):
             height=600,
             width=800,
             camera_pose=trans,
+            intrinsics=cam_intr.CameraIntrinsics(0.277, 0.305, 0.5, 0.5),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
@@ -41,6 +43,7 @@ class TestImage(unittest.TestCase):
             height=600,
             width=800,
             camera_pose=trans,
+            intrinsics=cam_intr.CameraIntrinsics(0.612, 0.6482, 0.5, 0.5),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
@@ -136,6 +139,8 @@ class TestStereoImage(unittest.TestCase):
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
             source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
             camera_pose=self.left_pose, right_camera_pose=self.right_pose,
+            intrinsics=cam_intr.CameraIntrinsics(0.654, 0.619, 0.5, 0.5),
+            right_intrinsics=cam_intr.CameraIntrinsics(0.129, 0.37, 0.5, 0.5),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
             fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',

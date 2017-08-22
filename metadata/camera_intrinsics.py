@@ -105,3 +105,41 @@ class CameraIntrinsics:
         return np.array([[self.fx, self.s, self.cx],
                          [0, self.fy, self.cy],
                          [0, 0, 1]])
+
+    def serialize(self):
+        return {
+            'fx': self.fx,
+            'fy': self.fy,
+            'cx': self.cx,
+            'cy': self.cy,
+            'skew': self.s,
+            'k1': self.k1,
+            'k2': self.k2,
+            'k3': self.k3,
+            'p1': self.p1,
+            'p2': self.p2
+        }
+
+    @classmethod
+    def deserialize(cls, serialized_representation, **kwargs):
+        if 'fx' in serialized_representation:
+            kwargs['fx'] = serialized_representation['fx']
+        if 'fy' in serialized_representation:
+            kwargs['fy'] = serialized_representation['fy']
+        if 'cx' in serialized_representation:
+            kwargs['cx'] = serialized_representation['cx']
+        if 'cy' in serialized_representation:
+            kwargs['cy'] = serialized_representation['cy']
+        if 'skew' in serialized_representation:
+            kwargs['skew'] = serialized_representation['skew']
+        if 'k1' in serialized_representation:
+            kwargs['k1'] = serialized_representation['k1']
+        if 'k2' in serialized_representation:
+            kwargs['k2'] = serialized_representation['k2']
+        if 'k3' in serialized_representation:
+            kwargs['k3'] = serialized_representation['k3']
+        if 'p1' in serialized_representation:
+            kwargs['p1'] = serialized_representation['p1']
+        if 'p2' in serialized_representation:
+            kwargs['p2'] = serialized_representation['p2']
+        return cls(**kwargs)
