@@ -68,14 +68,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Import the systems under test for this experiment.
         # They are: libviso2, orbslam2
         if self._libviso_system is None:
-            self._libviso_system = dh.add_unique(db_client.system_collection, libviso2.LibVisOSystem(
-                # TODO: Get accurate camera focal information.
-                # Alternately, get this ground truth from the image source when it is run.
-                focal_distance=1,
-                cu=640,
-                cv=360,
-                base=30
-            ))
+            self._libviso_system = dh.add_unique(db_client.system_collection, libviso2.LibVisOSystem())
             self._set_property('libviso', self._libviso_system)
         # ORBSLAM2 - 12 variants for parameter sweep
         settings_list = [

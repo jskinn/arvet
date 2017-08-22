@@ -67,6 +67,9 @@ class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
     def get_camera_intrinsics(self):
         return self._inner.get_camera_intrinsics()
 
+    def get_stereo_baseline(self):
+        return self._inner.get_stereo_baseline()
+
     def begin(self):
         """
         Start all the image sources, we're ready to start returning images.

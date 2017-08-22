@@ -1,4 +1,5 @@
 import abc
+import numpy as np
 import logging
 import database.entity
 import core.image
@@ -196,6 +197,16 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return:
         """
         return self._images[0].metadata.camera_intrinsics
+
+    def get_stereo_baseline(self):
+        """
+        Get the distance between the stereo cameras, or None if the images in this collection are not stereo.
+        :return:
+        """
+        if not self.is_stereo_available or not isinstance(self._images[0], core.image.StereoImage):
+            return None
+        dist = self._images[0].left_camera_location - self._images[0].right_camera_location
+        return np.linalg.norm(dist)
 
     def validate(self):
         """

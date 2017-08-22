@@ -43,10 +43,11 @@ class ORBSLAM2(core.system.VisionSystem):
         self._orbslam_settings = du.defaults({}, settings, {
             'Camera': {
                 # Camera calibration and distortion parameters (OpenCV)
-                'fx': 928.1191957,
-                'fy': 931.23612997,
-                'cx': 480.38174413,
-                'cy': 272.89477381,
+                # Most of these get overridden with the camera intrinsics at the start of the run.
+                'fx': 900,
+                'fy': 900,
+                'cx': 480,
+                'cy': 272,
 
                 'k1': -0.1488979,
                 'k2': 1.34554205,
@@ -57,7 +58,11 @@ class ORBSLAM2(core.system.VisionSystem):
                 # Camera frames per second
                 'fps': 30.0,
 
+                # stereo baseline times fx
+                'bf': 387.5744,
+
                 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+                # All the images in this system will be RGB order
                 'RGB': 1,
             },
             'ORBextractor': {
@@ -126,15 +131,20 @@ class ORBSLAM2(core.system.VisionSystem):
             (self._mode == SensorMode.RGBD and image_source.is_depth_available)))
 
     def set_camera_intrinsics(self, camera_intrinsics):
-        self._orbslam_settings['fx'] = camera_intrinsics.fx
-        self._orbslam_settings['fy'] = camera_intrinsics.fy
-        self._orbslam_settings['cx'] = camera_intrinsics.cx
-        self._orbslam_settings['cy'] = camera_intrinsics.cy
-        self._orbslam_settings['k1'] = camera_intrinsics.k1
-        self._orbslam_settings['k2'] = camera_intrinsics.k2
-        self._orbslam_settings['k3'] = camera_intrinsics.k3
-        self._orbslam_settings['p1'] = camera_intrinsics.p1
-        self._orbslam_settings['p2'] = camera_intrinsics.p2
+        if self._child_process is None:
+            # TODO: fx, fy, cx and cy need to scale with the resolution
+            self._orbslam_settings['fx'] = camera_intrinsics.fx
+            self._orbslam_settings['fy'] = camera_intrinsics.fy
+            self._orbslam_settings['cx'] = camera_intrinsics.cx
+            self._orbslam_settings['cy'] = camera_intrinsics.cy
+            self._orbslam_settings['k1'] = camera_intrinsics.k1
+            self._orbslam_settings['k2'] = camera_intrinsics.k2
+            self._orbslam_settings['k3'] = camera_intrinsics.k3
+            self._orbslam_settings['p1'] = camera_intrinsics.p1
+            self._orbslam_settings['p2'] = camera_intrinsics.p2
+
+    def set_stereo_baseline(self, baseline):
+        self._base = float(baseline)
 
     def start_trial(self, sequence_type):
         """
@@ -185,12 +195,13 @@ class ORBSLAM2(core.system.VisionSystem):
         :param timestamp: A timestamp or index associated with this image. Sometimes None.
         :return: void
         """
-        # Wait here, to throttle the input rate to the queue, and prevent it from growing too large
-        delay_time = 0
-        while self._input_queue.qsize() > 10 and delay_time < 10:
-            time.sleep(1)
-            delay_time += 1
         if self._input_queue is not None:
+            # Wait here, to throttle the input rate to the queue, and prevent it from growing too large
+            delay_time = 0
+            while self._input_queue.qsize() > 10 and delay_time < 10:
+                time.sleep(1)
+                delay_time += 1
+
             # Send different input based on the running mode
             if self._mode == SensorMode.MONOCULAR:
                 self._input_queue.put((np.copy(image.data), None, timestamp))

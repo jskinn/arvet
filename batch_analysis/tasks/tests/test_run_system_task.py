@@ -66,6 +66,7 @@ class TestTrialRunner(unittest.TestCase):
         self._system.finish_trial.return_value = self._trial_result
 
         self._image_source = mock.create_autospec(core.image_source.ImageSource)
+        self._image_source.get_stereo_baseline.return_value = None
         self._image_source._image_count = 0
         self._image_source._image = mock.Mock()
 
@@ -98,14 +99,15 @@ class TestTrialRunner(unittest.TestCase):
     def test_run_system_calls_iteration_functions_in_order(self):
         task.run_system_with_source(self._system, self._image_source)
         mock_calls = self._image_source.mock_calls
-        # get_camera_intrinsics; begin; 10 pairs of  is complete and get image; final is complete
-        self.assertEqual(23, len(mock_calls))
+        # get_camera_intrinsics; get_stereo_baseline; begin; 10 pairs of  is complete and get image; final is complete
+        self.assertEqual(24, len(mock_calls))
         self.assertEqual('get_camera_intrinsics', mock_calls[0][0])
-        self.assertEqual('begin', mock_calls[1][0])
+        self.assertEqual('get_stereo_baseline', mock_calls[1][0])
+        self.assertEqual('begin', mock_calls[2][0])
         for i in range(10):
-            self.assertEqual('is_complete', mock_calls[2 + 2 * i][0])
-            self.assertEqual('get_next_image', mock_calls[3 + 2 * i][0])
-        self.assertEqual('is_complete', mock_calls[22][0])
+            self.assertEqual('is_complete', mock_calls[3 + 2 * i][0])
+            self.assertEqual('get_next_image', mock_calls[4 + 2 * i][0])
+        self.assertEqual('is_complete', mock_calls[23][0])
 
     def test_run_system_returns_trial_result(self):
         result = task.run_system_with_source(self._system, self._image_source)

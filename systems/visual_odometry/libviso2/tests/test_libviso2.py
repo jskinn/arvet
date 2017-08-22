@@ -14,16 +14,17 @@ class TestLibVisO(database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'focal_distance': 1,
-            'cu': 640,
-            'cv': 360,
-            'base': 30
+            'focal_distance': 700,
+            'cu': 400,
+            'cv': 300,
+            'base': 0.6
         })
         return viso.LibVisOSystem(*args, **kwargs)
 
     def assert_models_equal(self, system1, system2):
         """
         Helper to assert that two viso systems are equal
+        Libviso2 systems don't have any persistent configuration, so they're all equal with the same id.
         :param system1:
         :param system2:
         :return:
@@ -32,10 +33,6 @@ class TestLibVisO(database.tests.test_entity.EntityContract, unittest.TestCase):
                 not isinstance(system2, viso.LibVisOSystem)):
             self.fail('object was not a LibVisOSystem')
         self.assertEqual(system1.identifier, system2.identifier)
-        self.assertEqual(system1._focal_distance, system2._focal_distance)
-        self.assertEqual(system1._cu, system2._cu)
-        self.assertEqual(system1._cv, system2._cv)
-        self.assertEqual(system1._base, system2._base)
 
 
 class TestMakeRelativePose(unittest.TestCase):

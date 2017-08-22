@@ -43,6 +43,15 @@ class VisionSystem(database.entity.Entity, metaclass=database.entity.AbstractEnt
         """
         pass
 
+    def set_stereo_baseline(self, baseline):
+        """
+        Set the stereo baseline for stereo systems.
+        Other systems don't need to override this, it will do nothing.
+        :param baseline: The distance between the stereo cameras, as a float
+        :return:
+        """
+        pass
+
     @abc.abstractmethod
     def start_trial(self, sequence_type):
         """

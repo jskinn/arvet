@@ -100,6 +100,14 @@ class ImageSource(metaclass=abc.ABCMeta):
         """
         pass
 
+    def get_stereo_baseline(self):
+        """
+        If this image source is producing stereo images, return the stereo baseline.
+        Otherwise, return None.
+        :return:
+        """
+        return None
+
     @abc.abstractmethod
     def begin(self):
         """

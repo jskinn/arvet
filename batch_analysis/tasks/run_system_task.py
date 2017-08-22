@@ -95,6 +95,9 @@ def run_system_with_source(system, image_source):
     """
     if system.is_image_source_appropriate(image_source):
         system.set_camera_intrinsics(image_source.get_camera_intrinsics())
+        stereo_baseline = image_source.get_stereo_baseline()
+        if stereo_baseline is not None:
+            system.set_stereo_baseline(stereo_baseline)
         system.start_trial(image_source.sequence_type)
         image_source.begin()
         while not image_source.is_complete():
