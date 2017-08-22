@@ -110,7 +110,7 @@ class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
         serialized = super().serialize()
         serialized['inner'] = self._inner.identifier
         serialized['repeats'] = self._repeats
-        serialized['type_override'] = self._type_override
+        serialized['type_override'] = self._type_override.value
         return serialized
 
     @classmethod

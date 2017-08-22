@@ -49,7 +49,6 @@ def import_dataset(root_folder, db_client):
         # dataset.rgb:        Generator to load RGB stereo pairs (cam2, cam3)
         # dataset.velo:       Generator to load velodyne scans as [x,y,z,reflectance]
         for left_image, right_image, timestamp, pose in zip(data.cam2, data.cam3, data.timestamps, data.poses):
-            height, width = left_image.shape
             camera_pose = make_camera_pose(pose)
             # camera pose is for cam0, we want cam2, which is 6cm (0.06m) to the left
             camera_pose = camera_pose.find_independent(tf.Transform(location=(0, 0.06, 0), rotation=(0, 0, 0, 1),

@@ -17,11 +17,13 @@ class TestVisualSlamExperiment(entity_test.EntityContract, unittest.TestCase):
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'libviso_system': oid.ObjectId(),
-            'orbslam_monocular_system': oid.ObjectId(),
-            'orbslam_stereo_system': oid.ObjectId(),
-            'orbslam_rgbd_system': oid.ObjectId(),
+            'orbslam_systems': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
             'benchmark_rpe': oid.ObjectId(),
-            'benchmark_trajectory_drift': oid.ObjectId()
+            'benchmark_trajectory_drift': oid.ObjectId(),
+            'datasets': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
+            'base_datasets': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
+            'trial_list': [(oid.ObjectId(), oid.ObjectId(), oid.ObjectId())],
+            'result_list': [(oid.ObjectId(), oid.ObjectId(), oid.ObjectId(), oid.ObjectId())]
         })
         return vse.VisualSlamExperiment(*args, **kwargs)
 
@@ -37,11 +39,13 @@ class TestVisualSlamExperiment(entity_test.EntityContract, unittest.TestCase):
             self.fail('object was not a VisualSlamExperiment')
         self.assertEqual(experiment1.identifier, experiment2.identifier)
         self.assertEqual(experiment1._libviso_system, experiment2._libviso_system)
-        self.assertEqual(experiment1._orbslam_monocular, experiment2._orbslam_monocular)
-        self.assertEqual(experiment1._orbslam_stereo, experiment2._orbslam_stereo)
-        self.assertEqual(experiment1._orbslam_rgbd, experiment2._orbslam_rgbd)
+        self.assertEqual(experiment1._orbslam_systems, experiment2._orbslam_systems)
         self.assertEqual(experiment1._benchmark_rpe, experiment2._benchmark_rpe)
         self.assertEqual(experiment1._benchmark_trajectory_drift, experiment2._benchmark_trajectory_drift)
+        self.assertEqual(experiment1._datasets, experiment2._datasets)
+        self.assertEqual(experiment1._base_datasets, experiment2._base_datasets)
+        self.assertEqual(experiment1._trial_list, experiment2._trial_list)
+        self.assertEqual(experiment1._result_list, experiment2._result_list)
 
     def test_constructor_works_with_minimal_arguments(self):
         vse.VisualSlamExperiment()

@@ -17,16 +17,15 @@ import image_collections.looping_collection
 
 class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
-    def __init__(self, libviso_system=None, orbslam_map=None, benchmark_rpe=None, benchmark_trajectory_drift=None,
-                 datasets=None, looped_datasets=None, trajectory_map=None, trial_list=None, result_list=None, id_=None):
+    def __init__(self, libviso_system=None, orbslam_systems=None, benchmark_rpe=None, benchmark_trajectory_drift=None,
+                 datasets=None, base_datasets=None, trial_list=None, result_list=None, id_=None):
         super().__init__(id_=id_)
         self._libviso_system = libviso_system
-        self._orbslam_map = orbslam_map if orbslam_map is not None else {}
+        self._orbslam_systems = set(orbslam_systems) if orbslam_systems is not None else set()
         self._benchmark_rpe = benchmark_rpe
         self._benchmark_trajectory_drift = benchmark_trajectory_drift
         self._datasets = set(datasets) if datasets is not None else set()
-        self._looped_datasets = set(looped_datasets) if looped_datasets is not None else set()
-        self._trajectory_map = trajectory_map if trajectory_map is not None else []
+        self._base_datasets = set(base_datasets) if base_datasets is not None else set()
         self._trial_list = trial_list if trial_list is not None else []
         self._result_list = result_list if result_list is not None else []
         self._image_source_cache = {}
@@ -49,21 +48,44 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 expected_duration='4:00:00'
             )
             if import_dataset_task.is_finished:
-                if import_dataset_task.result not in self._datasets:
-                    imported_ids = import_dataset_task.result
-                    if not isinstance(import_dataset_task.result, list):
-                        imported_ids = [imported_ids]
-                    for imported_id in imported_ids:
-                        self._datasets.add(imported_id)
+                imported_ids = import_dataset_task.result
+                if not isinstance(import_dataset_task.result, list):
+                    imported_ids = [imported_ids]
+                for imported_id in imported_ids:
+                    if imported_id not in self._datasets:
+                        self._base_datasets.add(imported_id)
+                        self._add_to_set('base_datasets', {imported_id})
                         image_source = self._load_image_source(db_client, imported_id)
-                        self._looped_datasets.add(dh.add_unique(
+                        looped_id = dh.add_unique(
                             db_client.image_source_collection,
                             image_collections.looping_collection.LoopingCollection(
                                 image_source, 3, core.sequence_type.ImageSequenceType.SEQUENTIAL
                             )
-                        ))
+                        )
+                        self._datasets.add(looped_id)
+                        self._add_to_set('datasets', {looped_id})
             else:
                 task_manager.do_task(import_dataset_task)
+
+        # Import KITTI dataset
+        import_dataset_task = task_manager.get_import_dataset_task(
+            module_name='dataset.kitti.kitti_loader',
+            path=os.path.join('/media', 'john', 'Storage', 'datasets', 'KITTI', 'dataset'),
+            num_cpus=1,
+            num_gpus=0,
+            memory_requirements='3GB',
+            expected_duration='4:00:00'
+        )
+        if import_dataset_task.is_finished:
+            imported_ids = import_dataset_task.result
+            if not isinstance(import_dataset_task.result, list):
+                imported_ids = [imported_ids]
+            for imported_id in imported_ids:
+                if imported_id not in self._datasets:
+                    self._datasets.add(imported_id)
+                    self._add_to_set('datasets', {imported_id})
+        else:
+            task_manager.do_task(import_dataset_task)
 
         # Import the systems under test for this experiment.
         # They are: libviso2, orbslam2
@@ -78,10 +100,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             for scale_factor in {1.2}
             for resolution in {(1280, 720), (640, 480)}
         ]
-        for settings in settings_list:
-            settings_key = (settings[0].value, settings[1], settings[2], settings[3][0], settings[3][1])
-            if settings_key not in self._orbslam_map:
-                self._orbslam_map[settings_key] = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
+        if len(self._orbslam_systems) < len(settings_list):
+            for settings in settings_list:
+                orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
                     vocabulary_file='/opt/ORBSLAM2/Vocabulary/ORBvoc.txt',
                     mode=settings[0],
                     settings={
@@ -91,6 +112,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         }
                     }, resolution=settings[3]
                 ))
+                self._orbslam_systems.add(orbslam_id)
+                self._add_to_set('orbslam_systems', {orbslam_id})
 
         # Create and store the benchmarks for camera trajectories
         # Just using the default settings for now
@@ -116,7 +139,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         libviso_system = dh.load_object(db_client, db_client.system_collection, self._libviso_system)
         orbslam_systems = [
             dh.load_object(db_client, db_client.system_collection, system_id)
-            for system_key, system_id in self._orbslam_map.items()
+            for system_id in self._orbslam_systems
         ]
         benchmarks = [
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_rpe),
@@ -124,7 +147,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         ]
 
         # Schedule trials
-        for image_source_id in self._looped_datasets:
+        for image_source_id in self._datasets:
             image_source = self._load_image_source(db_client, image_source_id)
             # Libviso2
             if libviso_system.is_image_source_appropriate(image_source):
@@ -140,7 +163,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             found = True
                             break
                     if not found:
-                        self._trial_list.append((image_source_id, self._libviso_system, task.result))
+                        trial_tuple = (image_source_id, self._libviso_system, task.result)
+                        self._trial_list.append(trial_tuple)
+                        self._add_to_list('trial_list', [trial_tuple])
                 else:
                     task_manager.do_task(task)
 
@@ -148,7 +173,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             for orbslam_system in orbslam_systems:
                 if orbslam_system.is_image_source_appropriate(image_source):
                     task = task_manager.get_run_system_task(
-                        system_id=libviso_system.identifier,
+                        system_id=orbslam_system.identifier,
                         image_source_id=image_source.identifier,
                         expected_duration='4:00:00'
                     )
@@ -159,7 +184,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 found = True
                                 break
                         if not found:
-                            self._trial_list.append((image_source_id, orbslam_system.identifier, task.result))
+                            trial_tuple = (image_source_id, orbslam_system.identifier, task.result)
+                            self._trial_list.append(trial_tuple)
+                            self._add_to_list('trial_list', [trial_tuple])
                     else:
                         task_manager.do_task(task)
 
@@ -180,7 +207,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 found = True
                                 break
                         if not found:
-                            self._result_list.append((image_source_id, system_id, trial_result_id, task.result))
+                            result_tuple = (image_source_id, system_id, trial_result_id, task.result)
+                            self._result_list.append(result_tuple)
+                            self._add_to_list('result_list', [result_tuple])
                     else:
                         task_manager.do_task(task)
 
@@ -194,18 +223,19 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Step 1: Group trials and results by trajectory, and by each image quality
 
 
-        trials_by_trajectory = [[] for _ in range(len(self._trajectory_map))]
-        results_by_trajectory = [[] for _ in range(len(self._trajectory_map))]
+        trajectory_map = []
+        trials_by_trajectory = []
+        results_by_trajectory = []
 
         for image_source_id, system_id, trial_result_id in self._trial_list:
             image_source = self._load_image_source(db_client, image_source_id)
-            metadata_key = self._make_metadata_key(image_source)
+            metadata_key = self._make_metadata_key(image_source, trajectory_map)
             trials_by_trajectory[metadata_key[0]].append(
                 dh.load_object(db_client, db_client.trials_collection, trial_result_id)
             )
         for image_source_id, system_id, trial_result_id, benchmark_result_id in self._result_list:
             image_source = self._load_image_source(db_client, image_source_id)
-            metadata_key = self._make_metadata_key(image_source)
+            metadata_key = self._make_metadata_key(image_source, trajectory_map)
             results_by_trajectory[metadata_key[0]].append(
                 dh.load_object(db_client, db_client.trials_collection, benchmark_result_id)
             )
@@ -249,27 +279,28 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                                                        image_source_id)
         return self._image_source_cache[image_source_id]
 
-    def _get_trajectory_id(self, trajectory):
+    def _get_trajectory_id(self, trajectory, trajectory_map):
         """
         Get an id number in the trajectory map matching the given trajectory.
         If there are no matching trajectories, store it in the map and return the new index
         :param trajectory: A trajectory, as timestamps to poses
         :return: Integer trajectory id which is the index to the trajectory map
         """
-        for idx, mapped_trajectory in enumerate(self._trajectory_map):
+        for idx, mapped_trajectory in enumerate(trajectory_map):
             if are_matching_trajectories(trajectory, mapped_trajectory):
                 return idx
-        self._trajectory_map.append(trajectory)
-        return len(self._trajectory_map) - 1
+        trajectory_map.append(trajectory)
+        return len(trajectory_map) - 1
 
-    def _make_metadata_key(self, dataset):
+    def _make_metadata_key(self, dataset, trajectory_map):
         """
         Make a vector of the properties we care about for associating results from a dataset
         :param dataset: The image collection
+        :param trajectory_map: A collection of existing trajectories, for grouping
         :return:
         """
         trajectory = extract_trajectory(dataset)
-        trajectory_id = self._get_trajectory_id(trajectory)
+        trajectory_id = self._get_trajectory_id(trajectory, trajectory_map)
         first_image = dataset.get(0)
         return (
             trajectory_id,
@@ -283,13 +314,11 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
     def serialize(self):
         serialized = super().serialize()
         serialized['libviso'] = self._libviso_system
-        serialized['orbslam_map'] = self._orbslam_map
+        serialized['orbslam_systems'] = list(self._orbslam_systems)
         serialized['benchmark_rpe'] = self._benchmark_rpe
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
         serialized['datasets'] = list(self._datasets)
-        serialized['looped_datasets'] = list(self._looped_datasets)
-        serialized['trajectory_map'] = [[(stamp, pose.serialize()) for stamp, pose in traj]
-                                        for traj in self._trajectory_map]
+        serialized['base_datasets'] = list(self._base_datasets)
         serialized['trial_list'] = self._trial_list
         serialized['result_list'] = self._result_list
         return serialized
@@ -298,18 +327,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'libviso' in serialized_representation:
             kwargs['libviso_system'] = serialized_representation['libviso']
-        if 'orbslam_map' in serialized_representation:
-            kwargs['orbslam_map'] = serialized_representation['orbslam_map']
+        if 'orbslam_systems' in serialized_representation:
+            kwargs['orbslam_systems'] = serialized_representation['orbslam_systems']
         if 'benchmark_rpe' in serialized_representation:
             kwargs['benchmark_rpe'] = serialized_representation['benchmark_rpe']
         if 'benchmark_trajectory_drift' in serialized_representation:
             kwargs['benchmark_trajectory_drift'] = serialized_representation['benchmark_trajectory_drift']
         if 'datasets' in serialized_representation:
             kwargs['datasets'] = serialized_representation['datasets']
-        if 'looped_datasets' in serialized_representation:
-            kwargs['looped_datasets'] = serialized_representation['looped_datasets']
-        if 'trajectory_map' in serialized_representation:
-            kwargs['trajectory_map'] = serialized_representation['trajectory_map']
+        if 'base_datasets' in serialized_representation:
+            kwargs['base_datasets'] = serialized_representation['base_datasets']
         if 'trial_list' in serialized_representation:
             kwargs['trial_list'] = serialized_representation['trial_list']
         if 'result_list' in serialized_representation:

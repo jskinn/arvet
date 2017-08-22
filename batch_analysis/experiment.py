@@ -78,6 +78,21 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
             self._updates['$set'] = {}
         self._updates['$set'][serialized_key] = new_value
 
+    def _add_to_list(self, serialized_key, new_elements):
+        """
+        Helper to append new elements to a list key
+        :param serialized_key: The serialized key
+        :param new_elements: A collection of new elements to add to the end of the list
+        :return:
+        """
+        if len(new_elements) > 0:
+            if '$push' not in self._updates:
+                self._updates['$push'] = {}
+            if serialized_key in self._updates['$push']:
+                self._updates['$push'][serialized_key]['$each'] += list(new_elements)
+            else:
+                self._updates['$push'][serialized_key] = {'$each': list(new_elements)}
+
     def _add_to_set(self, serialized_key, new_elements):
         """
         Helper to collect changes to a set property on the object,
