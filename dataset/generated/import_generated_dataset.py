@@ -97,9 +97,19 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     :param right_camera_pose: The pose of the right stereo camera, if available
     :return:
     """
-    # Calculate focal length from fov, np.pi / 4 (rad) = 90 / 2 deg = fov / 2
+
+    # Calculate focal length from fov, np.pi / 4 (rad) = 90 / 2 (deg) = fov / 2
+    # this is the horizontal field of view,
     focal_length = 1 / (2 * np.tan(np.pi / 4))
-    camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length, 0.5, 0.5)
+
+    # In unreal 4, field of view is whichever is the larger dimension
+    # See: https://answers.unrealengine.com/questions/36550/perspective-camera-and-field-of-view.html
+    if im_data.shape[1] > im_data.shape[0]:     # Wider than tall, fov is horizontal FOV
+        camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length * (im_data.shape[1] / im_data.shape[0]),
+                                                     0.5, 0.5)
+    else: # Taller than wide, fov is vertical fov
+        camera_intrinsics = intrins.CameraIntrinsics(focal_length * (im_data.shape[0] / im_data.shape[1]), focal_length,
+                                                     0.5, 0.5)
     image_metadata = imeta.ImageMetadata(
         hash_=xxhash.xxh64(np.ascontiguousarray(im_data)).digest(),
         source_type=imeta.ImageSourceType.SYNTHETIC,
