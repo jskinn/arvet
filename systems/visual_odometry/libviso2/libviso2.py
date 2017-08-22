@@ -33,11 +33,21 @@ class LibVisOSystem(core.system.VisionSystem):
         return True
 
     def set_camera_intrinsics(self, camera_intrinsics):
+        """
+        Set the camera intrinisics for libviso2
+        :param camera_intrinsics:
+        :return:
+        """
         self._focal_distance = float(camera_intrinsics.fx)
         self._cu = float(camera_intrinsics.cx)
         self._cv = float(camera_intrinsics.cy)
 
     def set_stereo_baseline(self, baseline):
+        """
+        Set the stereo baseline
+        :param baseline:
+        :return:
+        """
         self._base = float(baseline)
 
     def start_trial(self, sequence_type):

@@ -97,10 +97,9 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     :param right_camera_pose: The pose of the right stereo camera, if available
     :return:
     """
-    cx = im_data.shape[0] / 2
-    cy = im_data.shape[1] / 2
-    focal_length = cx / np.tan(np.pi / 4)   # Calculate from horizontal size, np.pi / 4 (rad) = 90 / 2 deg = fov / 2
-    camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length, cx, cy)
+    # Calculate focal length from fov, np.pi / 4 (rad) = 90 / 2 deg = fov / 2
+    focal_length = 1 / (2 * np.tan(np.pi / 4))
+    camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length, 0.5, 0.5)
     image_metadata = imeta.ImageMetadata(
         hash_=xxhash.xxh64(np.ascontiguousarray(im_data)).digest(),
         source_type=imeta.ImageSourceType.SYNTHETIC,

@@ -7,11 +7,15 @@ class CameraIntrinsics:
 
     def __init__(self, fx, fy, cx, cy, skew=0, k1=0, k2=0, k3=0, p1=0, p2=0):
         """
-        Create a set of camera intrinsics information
-        :param fx: The x focal length. Should be same as fy
-        :param fy: The y focal length. Should be same as fx
-        :param cx: Principal point x coordinate
-        :param cy: Principal point y coordinate
+        Create a set of camera intrinsics information.
+        Basic intrinsics are fractions of the image height and width.
+        This loses aspect ratio information, but that is preserved in the image height and width.
+        These intrinsics should therefore be consistent regardless of scaled image resolution.
+        (I think that's valid?)
+        :param fx: The x focal length, as a fraction of the image width. Should be same as fy
+        :param fy: The y focal length, as a fraction of the image height. Should be same as fx
+        :param cx: Principal point x coordinate, as a fraction of the image width
+        :param cy: Principal point y coordinate, as a fraction of the image height
         :param skew: Pixel skew, for non-square pixels. Default 0
         :param k1: Camera radial distortion k1. Default 0
         :param k2: Camera radial distortion k2. Default 0
@@ -49,6 +53,11 @@ class CameraIntrinsics:
 
     @property
     def fx(self):
+        """
+        Get the x focal length.
+        Multiply this by the width of the image to get the traditional focal length
+        :return:
+        """
         return self._fx
 
     @property

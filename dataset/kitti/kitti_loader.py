@@ -48,11 +48,8 @@ def import_dataset(root_folder, db_client):
         # dataset.gray:       Generator to load monochrome stereo pairs (cam0, cam1)
         # dataset.rgb:        Generator to load RGB stereo pairs (cam2, cam3)
         # dataset.velo:       Generator to load velodyne scans as [x,y,z,reflectance]
-        camera_intrinsics = intrins.CameraIntrinsics(fx=data.calib.K_cam2[0, 0], fy=data.calib.K_cam2[1, 1],
-                                                     cx=data.calib.K_cam2[2, 0], cy=data.calib.K_cam2[2, 1])
-        right_camera_intrinsics = intrins.CameraIntrinsics(fx=data.calib.K_cam3[0, 0], fy=data.calib.K_cam3[1, 1],
-                                                           cx=data.calib.K_cam3[2, 0], cy=data.calib.K_cam3[2, 1])
         for left_image, right_image, timestamp, pose in zip(data.cam2, data.cam3, data.timestamps, data.poses):
+            height, width = left_image.shape
             camera_pose = make_camera_pose(pose)
             # camera pose is for cam0, we want cam2, which is 6cm (0.06m) to the left
             camera_pose = camera_pose.find_independent(tf.Transform(location=(0, 0.06, 0), rotation=(0, 0, 0, 1),
@@ -60,6 +57,16 @@ def import_dataset(root_folder, db_client):
             # Stereo offset is 0.54m (http://www.cvlibs.net/datasets/kitti/setup.php)
             right_camera_pose = camera_pose.find_independent(tf.Transform(location=(0, -0.54, 0), rotation=(0, 0, 0, 1),
                                                                           w_first=False))
+            camera_intrinsics = intrins.CameraIntrinsics(
+                fx=data.calib.K_cam2[0, 0] / left_image.shape[1],
+                fy=data.calib.K_cam2[1, 1] / left_image.shape[0],
+                cx=data.calib.K_cam2[2, 0] / left_image.shape[1],
+                cy=data.calib.K_cam2[2, 1] / left_image.shape[0])
+            right_camera_intrinsics = intrins.CameraIntrinsics(
+                fx=data.calib.K_cam3[0, 0] / right_image.shape[1],
+                fy=data.calib.K_cam3[1, 1] / right_image.shape[0],
+                cx=data.calib.K_cam3[2, 0] / right_image.shape[1],
+                cy=data.calib.K_cam3[2, 1] / right_image.shape[0])
             builder.add_image(image=core.image_entity.StereoImageEntity(
                 left_data=left_image,
                 right_data=right_image,

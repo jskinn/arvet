@@ -131,20 +131,32 @@ class ORBSLAM2(core.system.VisionSystem):
             (self._mode == SensorMode.RGBD and image_source.is_depth_available)))
 
     def set_camera_intrinsics(self, camera_intrinsics):
+        """
+        Set the intrinsics of the camera using
+        :param camera_intrinsics: A metadata.camera_intrinsics.CameraIntriniscs object
+        :return:
+        """
         if self._child_process is None:
-            # TODO: fx, fy, cx and cy need to scale with the resolution
-            self._orbslam_settings['fx'] = camera_intrinsics.fx
-            self._orbslam_settings['fy'] = camera_intrinsics.fy
-            self._orbslam_settings['cx'] = camera_intrinsics.cx
-            self._orbslam_settings['cy'] = camera_intrinsics.cy
-            self._orbslam_settings['k1'] = camera_intrinsics.k1
-            self._orbslam_settings['k2'] = camera_intrinsics.k2
-            self._orbslam_settings['k3'] = camera_intrinsics.k3
-            self._orbslam_settings['p1'] = camera_intrinsics.p1
-            self._orbslam_settings['p2'] = camera_intrinsics.p2
+            new_fx = camera_intrinsics.fx * self._resolution[0]
+            self._orbslam_settings['Camera']['bf'] = (new_fx * self._orbslam_settings['Camera']['bf']
+                                                      / self._orbslam_settings['Camera']['fx'])
+            self._orbslam_settings['Camera']['fx'] = new_fx
+            self._orbslam_settings['Camera']['fy'] = camera_intrinsics.fy * self._resolution[1]
+            self._orbslam_settings['Camera']['cx'] = camera_intrinsics.cx * self._resolution[0]
+            self._orbslam_settings['Camera']['cy'] = camera_intrinsics.cy * self._resolution[1]
+            self._orbslam_settings['Camera']['k1'] = camera_intrinsics.k1
+            self._orbslam_settings['Camera']['k2'] = camera_intrinsics.k2
+            self._orbslam_settings['Camera']['k3'] = camera_intrinsics.k3
+            self._orbslam_settings['Camera']['p1'] = camera_intrinsics.p1
+            self._orbslam_settings['Camera']['p2'] = camera_intrinsics.p2
 
     def set_stereo_baseline(self, baseline):
-        self._base = float(baseline)
+        """
+        Set the stereo baseline configuration.
+        :param baseline:
+        :return:
+        """
+        self._orbslam_settings['Camera']['bf'] = float(baseline) * self._orbslam_settings['Camera']['fx']
 
     def start_trial(self, sequence_type):
         """
