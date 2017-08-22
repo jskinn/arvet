@@ -86,12 +86,12 @@ def sanitize_additional_metadata(metadata):
     return metadata
 
 
-def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camera_pose=None):
+def build_image_metadata(im_data, ground_truth_depth_data, camera_pose, metadata, right_camera_pose=None):
     """
     Construct an image metadata object from the reference images and a metadata dict.
     Should delete the keys it uses from the metadata, so that the remaining values are  'additional metadata'
     :param im_data: The image data
-    :param depth_data: Ground-truth depth, if available.
+    :param ground_truth_depth_data: Ground-truth depth, if available.
     :param metadata: The metadata dict
     :param camera_pose: The camera pose
     :param right_camera_pose: The pose of the right stereo camera, if available
@@ -107,7 +107,7 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
     if im_data.shape[1] > im_data.shape[0]:     # Wider than tall, fov is horizontal FOV
         camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length * (im_data.shape[1] / im_data.shape[0]),
                                                      0.5, 0.5)
-    else: # Taller than wide, fov is vertical fov
+    else:    # Taller than wide, fov is vertical fov
         camera_intrinsics = intrins.CameraIntrinsics(focal_length * (im_data.shape[0] / im_data.shape[1]), focal_length,
                                                      0.5, 0.5)
     image_metadata = imeta.ImageMetadata(
@@ -133,7 +133,7 @@ def build_image_metadata(im_data, depth_data, camera_pose, metadata, right_camer
         geometry_decimation=int(metadata['Geometry Detail']['Forced LOD level']),
         procedural_generation_seed=int(metadata['World Information']['Camera Path']['Path Generation']['Random Seed']),
         labelled_objects=[],
-        average_scene_depth=np.mean(depth_data) if depth_data is not None else None
+        average_scene_depth=np.mean(ground_truth_depth_data) if ground_truth_depth_data is not None else None
     )
     for key in {'World Name', 'Material Properties', 'Geometry Detail'}:
         del metadata[key]
@@ -202,8 +202,8 @@ def import_image_object(base_path, filename_format, mappings, index_padding,
     if image_data is None:
         # Base image was none when we didn't expect it, fail loading this image.
         return None
-    depth_data = read_image_file(generate_image_filename(stereo_pass=0, render_pass='SceneDepthWorldUnits',
-                                                         **path_kwargs))
+    ground_truth_depth_data = read_image_file(generate_image_filename(stereo_pass=0, render_pass='SceneDepthWorldUnits',
+                                                                      **path_kwargs))
     # TODO: Need to check these render pass names
     labels_data = read_image_file(generate_image_filename(stereo_pass=0, render_pass='ObjectMask', **path_kwargs))
     world_normals_data = read_image_file(generate_image_filename(stereo_pass=0, render_pass='WorldNormals',
@@ -217,9 +217,9 @@ def import_image_object(base_path, filename_format, mappings, index_padding,
 
         return core.image_entity.ImageEntity(
             data=image_data,
-            metadata=build_image_metadata(image_data, depth_data, camera_pose, metadata),
+            metadata=build_image_metadata(image_data, ground_truth_depth_data, camera_pose, metadata),
             additional_metadata=sanitize_additional_metadata(metadata),
-            depth_data=depth_data,
+            ground_truth_depth_data=ground_truth_depth_data,
             labels_data=labels_data,
             world_normals_data=world_normals_data
         )
@@ -234,8 +234,9 @@ def import_image_object(base_path, filename_format, mappings, index_padding,
 
         # Read the component images
         right_image_data = read_image_file(right_image_filename)
-        right_depth_data = read_image_file(generate_image_filename(stereo_pass=1, render_pass='SceneDepthWorldUnits',
-                                                                   **path_kwargs))
+        right_ground_truth_depth_data = read_image_file(generate_image_filename(stereo_pass=1,
+                                                                                render_pass='SceneDepthWorldUnits',
+                                                                                **path_kwargs))
         # TODO: Need to check these render pass names
         right_labels_data = read_image_file(generate_image_filename(stereo_pass=1, render_pass='ObjectMask',
                                                                     **path_kwargs))
@@ -244,14 +245,15 @@ def import_image_object(base_path, filename_format, mappings, index_padding,
 
         du.defaults(metadata, right_metadata, dataset_metadata)
         return core.image_entity.StereoImageEntity(
-            metadata=build_image_metadata(image_data, depth_data, camera_pose, metadata, right_camera_pose),
+            metadata=build_image_metadata(image_data, ground_truth_depth_data, camera_pose,
+                                          metadata, right_camera_pose),
             additional_metadata=sanitize_additional_metadata(metadata),
             left_data=image_data,
-            left_depth_data=depth_data,
+            left_ground_truth_depth_data=ground_truth_depth_data,
             left_labels_data=labels_data,
             left_world_normals_data=world_normals_data,
             right_data=right_image_data,
-            right_depth_data=right_depth_data,
+            right_ground_truth_depth_data=right_ground_truth_depth_data,
             right_labels_data=right_labels_data,
             right_world_normals_data=right_world_normals_data
         )
