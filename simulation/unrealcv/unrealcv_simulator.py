@@ -510,26 +510,33 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                                                              width=self._resolution[0],
                                                              height=self._resolution[1]))
 
-    def _request_image(self, viewmode):
+    def _request_image(self, viewmode, datatype=cv2.IMREAD_COLOR):
         filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
-        data = cv2.imread(filename)
+        data = cv2.imread(filename, datatype)
         os.remove(filename)     # Clean up after ourselves, now that we have the image data
-        return np.ascontiguousarray(data[:, :, ::-1], dtype='uint8')
+        if len(data.shape) == 3:
+            # Its a color image, rearrange the channels, because opencv
+            return data[:, :, ::-1]
+        else:
+            return data
 
     def _get_image(self):
         if self._client is not None:
             if self._lit_mode:
-                image_data = self._request_image('lit')
+                image_data = self._request_image('lit', cv2.IMREAD_COLOR)
             else:
-                image_data = self._request_image('unlit')
+                image_data = self._request_image('unlit', cv2.IMREAD_COLOR)
+            image_data = np.ascontiguousarray(image_data)
             depth_data = None
             labels_data = None
             world_normals_data = None
 
             if self.is_depth_available:
-                depth_data = self._request_image('depth')
+                depth_data = self._request_image('depth', cv2.IMREAD_UNCHANGED)
+                # TODO: Scale the depth correctly to meters
+                depth_data = np.asarray(depth_data, dtype=np.float32)
             if self.is_per_pixel_labels_available:
-                labels_data = self._request_image('object_mask')
+                labels_data = self._request_image('object_mask', cv2.IMREAD_COLOR)
             if self.is_normals_available:
                 world_normals_data = self._request_image('normal')
 
