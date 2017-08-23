@@ -1,7 +1,7 @@
 import copy
 
 
-def load_object(db_client, collection, id_):
+def load_object(db_client, collection, id_, **kwargs):
     """
     Shorthand helper for pulling a single entity from the database.
     This just saves us creating temporaries for serialized objects all the time,
@@ -10,13 +10,14 @@ def load_object(db_client, collection, id_):
     :param db_client: The database client, for deserializing the entity
     :param collection: The collection to load from
     :param id_: The id of the object to load
+    :param kwargs: Additional keword arguments passed to deserialize, optional.
     :return: The deserialized object, or None if it doesn't exist
     """
     if db_client is None or collection is None or id_ is None:
         return None
     s_object = collection.find_one({'_id': id_})
     if s_object is not None:
-        return db_client.deserialize_entity(s_object)
+        return db_client.deserialize_entity(s_object, **kwargs)
     return None
 
 

@@ -138,7 +138,15 @@ class DatabaseClient:
     def temp_folder(self):
         return self._temp_folder
 
-    def deserialize_entity(self, s_entity):
+    def deserialize_entity(self, s_entity, **kwargs):
+        """
+        Deserialize an entity, using the type to work out what module it's in,
+        importing as necessary, and then using the entity registry to find a matching type.
+        This should be able to blindly deserialize any entity declared at the top level of any module.
+        :param s_entity: The serialize
+        :param kwargs: Additional arguments passed to deserialize
+        :return:
+        """
         type_name = s_entity['_type']
         module_ = type_name.rpartition('.')[0]
         if module_ is not '' and module_ not in sys.modules:
@@ -150,5 +158,5 @@ class DatabaseClient:
                 pass
         entity_type = database.entity_registry.get_entity_type(type_name)
         if entity_type:
-            return entity_type.deserialize(s_entity, self)
+            return entity_type.deserialize(s_entity, self, **kwargs)
         raise ValueError("Could not deserialize entity type: {0}, make sure it's imported".format(type_name))

@@ -30,10 +30,10 @@ class RunSystemTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dh
+        import util.database_helpers as dbhelp
 
-        system = dh.load_object(db_client, db_client.system_collection, self.system)
-        image_source = dh.load_object(db_client, db_client.image_source_collection, self.image_source)
+        system = dbhelp.load_object(db_client, db_client.system_collection, self.system)
+        image_source = dbhelp.load_object(db_client, db_client.image_source_collection, self.image_source)
 
         if system is None:
             logging.getLogger(__name__).error("Could not deserialize system {0}".format(self.system))
