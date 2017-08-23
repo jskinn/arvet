@@ -1,69 +1,112 @@
 import os
+import time
+import subprocess
 import xxhash
 import numpy as np
 import cv2
 import unrealcv
 
 import core.image as im
+import database.entity
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import simulation.simulator
 import util.dict_utils as du
 import util.unreal_transform as uetf
 
 
-class UnrealCVSimulator(simulation.simulator.Simulator):
+TEMPLATE_UNREALCV_SETTINGS = """
+[UnrealCV.Core]
+Port={port}
+Width={width}
+Height={height}
 
-    def __init__(self, config=None):
+"""
+
+
+class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
+
+    def __init__(self, executable_path, config=None, id_=None):
         """
         Create an unrealcv simulator with a bunch of configuration.
-        :param config: Simulator configuration
+        :param executable_path: The path to the simulator executable, which will be started with this image source
+        :param config: Simulator configuration, this can change dynamically, see generate_dataset_task
         """
+        super().__init__(id_=id_)
         if config is None:
             config = {}
         du.defaults(config, {
-            'stereo_offset': 0,  # unreal units
+            # Simulation execution config
+            'stereo_offset': 0,  # meters
             'provide_rgb': True,
             'provide_depth': False,
             'provide_labels': False,
             'provide_world_normals': False,
 
+            # Simulator settings
+            'resolution': {'width': 1280, 'height': 720},
+            'fov': 90,
+            'depth_of_field_enabled': True,
+            'focus_distance': None,     # None indicates autofocus
+            'aperture': 2.2,
+            #'exposure': None,           # None indicates histogram auto-exposure. Not implemented yet.
+
+            # Quality settings
+            'lit_mode': True,
+            'texture_mipmap_bias': 0,
+            'normal_maps_enabled': True,
+            'roughness_enabled': True,
+            'geometry_decimation': 0,
+
             # Simulation server config
             'host': 'localhost',
             'port': 9000,
 
-            'metadata': {}
+            # Simulation metadata, provided as kwargs to ImageMetadata
+            'metadata': {
+                'environment_type': imeta.EnvironmentType.INDOOR,
+                'light_level': imeta.LightingLevel.EVENLY_LIT,
+                'time_of_day': imeta.TimeOfDay.DAY,
+                'simulation_world': 'UnrealWorld'
+            }
         })
-        # Simulation metadata, provided as kwargs to ImageMetadata
-        du.defaults(config['metadata'], {
-            'environment_type': imeta.EnvironmentType.INDOOR,
-            'light_level': imeta.LightingLevel.EVENLY_LIT,
-            'time_of_day': imeta.TimeOfDay.DAY,
-            'simulation_world': 'UnrealWorld'
-        })
+        self._executable = str(executable_path)
 
         self._stereo_offset = float(config['stereo_offset'])
         self._provide_depth = bool(config['provide_depth'])
         self._provide_labels = bool(config['provide_labels'])
         self._provide_world_normals = bool(config['provide_world_normals'])
 
+        self._resolution = (config['resolution']['width'], config['resolution']['height'])
+        self._fov = float(config['fov'])
+        self._use_dof = bool(config['depth_of_field_enabled'])
+        self._focus_distance = float(config['focus_distance']) if config['focus_distance'] is not None else None
+        self._aperture = float(config['aperture'])
+        #self._exposure = float(config['exposure']) if config['exposure'] is not None else None
+
+        self._lit_mode = bool(config['lit_mode'])
+        self._texture_mipmap_bias = int(config['texture_mipmap_bias'])
+        self._normal_maps_enabled = bool(config['normal_maps_enabled'])
+        self._roughness_enabled = bool(config['roughness_enabled'])
+        self._geometry_decimation = int(config['geometry_decimation'])
+
         self._host = str(config['host'])
         self._port = int(config['port'])
 
+        # These are the valid image metadata kwargs, barring the once we set explicitly from the sim,
+        # or are configured elsewhere, like the camera settings and quality settings
         self._metadata = {
             'environment_type': imeta.EnvironmentType(config['metadata']['environment_type']),
             'light_level': imeta.LightingLevel(config['metadata']['light_level']),
             'time_of_day': imeta.TimeOfDay(config['metadata']['time_of_day']),
             'simulation_world': str(config['metadata']['simulation_world'])
         }
+        # Any other kwargs will be set as additional metadata
         self._additional_metadata = {k: v for k, v in config['metadata'].items() if k not in self._metadata}
 
         self._client = None
+        self._simulator_process = None
         self._current_pose = None
-        self._fov = None
-        self._focus_distance = None
-        self._aperture = None
-        self._lit_mode = (bool(config['metadata']['lit']) if 'metadata' in config and
-                                                             'lit' in config['metadata'] else True)
 
     @property
     def is_depth_available(self):
@@ -115,6 +158,25 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         """
         return False
 
+    def get_camera_intrinsics(self):
+        """
+        Get the current camera intrinsics from the simulator, based on its fov and aspect ratio
+        :return:
+        """
+        rad_fov = np.pi * self.field_of_view / 180
+        focal_length = 1 / (2 * np.tan(rad_fov / 4))
+
+        # In unreal 4, field of view is whichever is the larger dimension
+        # See: https://answers.unrealengine.com/questions/36550/perspective-camera-and-field-of-view.html
+        if self._resolution[0] > self._resolution[1]:  # Wider than tall, fov is horizontal FOV
+            return cam_intr.CameraIntrinsics(focal_length,
+                                             focal_length * (self._resolution[0] / self._resolution[1]),
+                                             0.5, 0.5)
+        else:  # Taller than wide, fov is vertical fov
+            return cam_intr.CameraIntrinsics(focal_length * (self._resolution[1] / self._resolution[0]),
+                                             focal_length,
+                                             0.5, 0.5)
+
     def begin(self):
         """
         Start producing images.
@@ -123,17 +185,68 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         Return False if there is a problem starting the source.
         :return: True iff the simulator has started correctly.
         """
-        # TODO: Launch external process running the simulator
+        # Start the simulator process
+        if self._simulator_process is None and self._host == 'localhost':
+            if self._client is not None:
+                # Stop the client to free up the port
+                self._client.disconnect()
+                self._client = None
+            self._store_config()
+            self._simulator_process = subprocess.Popen(self._executable)
+            # Wait for the UnrealCV server to start, pulling lines from stdout to check
+            time.sleep(2)   # Wait, we can't capture some of the output right now
+#            while self._simulator_process.poll() is not None:
+#                line = self._simulator_process.stdout.readline()
+#                if 'listening on port {0}'.format(self._port) in line.lower():
+#                    # Server has started, break
+#                    break
+
+        # Create and connect the client
         if self._client is None:
             self._client = unrealcv.Client((self._host, self._port))
-        if self._client.isconnected():
-            return True
-        conn = self._client.connect()
-        if conn:
-            # TODO: Read the
-            self._fov = 90
-            self._focus_distance = -1
-            self._aperture = -1
+        if not self._client.isconnected():
+            # Try and connect to the server 3 times, waiting 2s between tries
+            for _ in range(10):
+                self._client.connect()
+                if self._client.isconnected():
+                    break
+                else:
+                    time.sleep(2)
+            if not self._client.isconnected():
+                # Cannot connect to the server, shutdown completely.
+                self.shutdown()
+
+        # Set camera state from configuration
+        if self._client is not None and self._client.isconnected():
+            # Set camera properties
+            self.set_field_of_view(self._fov)
+            self.set_fstop(self._aperture)
+            self.set_enable_dof(self._use_dof)
+            if self._use_dof:   # Don't bother setting dof properties if dof is disabled
+                if self._focus_distance is None:
+                    self.set_autofocus(True)
+                else:
+                    self.set_focus_distance(self._focus_distance)
+
+            # Set quality settings
+            self._client.request("vset /quality/texture-mipmap-bias {0}".format(self._texture_mipmap_bias))
+            self._client.request("vset /quality/normal-maps-enabled {0}".format(int(self._normal_maps_enabled)))
+            self._client.request("vset /quality/roughness-enabled {0}".format(int(self._roughness_enabled)))
+            self._client.request("vset /quality/geometry-decimation {0}".format(self._geometry_decimation))
+
+            # Get the initial camera pose, which will be set by playerstart in the level
+            location = self._client.request("vget /camera/0/location")
+            location = location.split(' ')
+            if len(location) == 3:
+                rotation = self._client.request("vget /camera/0/rotation")
+                rotation = rotation.split(' ')
+                if len(rotation) == 3:
+                    ue_trans = uetf.UnrealTransform(
+                        location=(float(location[0]), float(location[1]), float(location[2])),
+                        # Reorder to roll, pitch, yaw, Unrealcv order is pitch, yaw, roll
+                        rotation=(float(rotation[2]), float(rotation[0]), float(location[1])))
+                    self._current_pose = uetf.transform_from_unreal(ue_trans)
+        return self._client is not None and self._client.isconnected()
 
     def get_next_image(self):
         """
@@ -164,12 +277,23 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         If it becomes more common, move it into image_source
         :return:
         """
-        # TODO: Stop the external process.
-        self._client.disconnect()
+        # Disconnect the client first
+        if self._client is not None:
+            self._client.disconnect()
+            self._client = None
+        # Stop the subprocess if it is running
+        if self._simulator_process is not None:
+            self._simulator_process.terminate()
+            try:
+                self._simulator_process.wait(100)
+            except subprocess.TimeoutExpired:
+                try:
+                    self._simulator_process.kill()
+                except OSError:
+                    pass
+            self._simulator_process = None
+
         self._current_pose = None
-        self._fov = None
-        self._focus_distance = None
-        self._aperture = None
 
     @property
     def current_pose(self):
@@ -208,11 +332,31 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :param fov:
         :return:
         """
+        self._fov = float(fov)
         if self._client is not None:
-            self._client.request("vset /camera/0/fov {0}".format(float(fov)))
+            self._client.request("vset /camera/0/fov {0}".format(self._fov))
+
+    def set_enable_dof(self, enable=True):
+        """
+        Set whether this simulator uses depth of field
+        If true, we will mimic lens behaviour by blurring at different depths.
+        Otherwise, this camera is a perfect pinhole camera, and is in-focus at all depths.
+        :param enable: Whether depth of field is enabled. Default True.
+        :return: void
+        """
+        self._use_dof = bool(enable)
+        if self._client is not None:
+            if self._use_dof:
+                self._client.request("vset /camera/0/enable-dof 1")
+            else:
+                self._client.request("vset /camera/0/enable-dof 0")
 
     @property
     def focus_distance(self):
+        """
+        Get the focus distance, that is, the distance from the camera at which the world is in focus, in cm.
+        :return:
+        """
         if self._focus_distance is not None and self._focus_distance >= 0:
             return self._focus_distance
         elif self._client is not None:
@@ -226,8 +370,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         :param focus_distance:
         :return:
         """
+        self._focus_distance = focus_distance
         if self._client is not None:
-            self._focus_distance = focus_distance
             self._client.request("vset /camera/0/autofocus 0")
             self._client.request("vset /camera/0/focus-distance {0}".format(float(focus_distance)))
 
@@ -243,6 +387,10 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
 
     @property
     def fstop(self):
+        """
+        Get the aperture or FStop settings from the simulator.
+        :return:
+        """
         if self._aperture is not None and self._aperture > 0:
             return self._aperture
         elif self._aperture is not None:
@@ -258,14 +406,6 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         if self._client is not None:
             self._aperture = float(fstop)
             self._client.request("vset /camera/0/fstop {0}".format(float(fstop)))
-
-    def get_camera_matrix(self):
-        """
-        Get the camera matrix for this simulator.
-        TODO: get it correctly from unrealcv
-        :return: The camera matrix as a numpy array
-        """
-        return np.identity(3)
 
     def get_object_pose(self, object_name):
         """
@@ -288,10 +428,43 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
         return None
 
     def num_visible_objects(self):
+        """
+        Get the number of visible labelled objects.
+        This is useful when generating object detection datasets, so we can skip frames where we don't see anything
+        important.
+        :return:
+        """
         if self._client is not None:
             result = self._client.request('vget /object/num_visible')
             return int(result)
         return 0
+
+    def validate(self):
+        valid = super().validate()
+        return valid
+
+    def serialize(self):
+        serialized = super().serialize()
+        serialized['executable'] = self._executable
+        return serialized
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'executable' in serialized_representation:
+            kwargs['executable_path'] = serialized_representation['executable']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
+
+    def _store_config(self):
+        """
+        Save the configuration information for the simulator into a config file where the simulator will read it.
+        This makes sure we're connecting on the right port, and generating the desired resolution.
+        :return: void
+        """
+        if self._host == 'localhost' and self._executable is not None:
+            with open(os.path.join(os.path.dirname(self._executable), 'unrealcv.ini'), 'w') as file:
+                file.write(TEMPLATE_UNREALCV_SETTINGS.format(port=self._port,
+                                                             width=self._resolution[0],
+                                                             height=self._resolution[1]))
 
     def _request_image(self, viewmode):
         filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
@@ -365,6 +538,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
             fov = self._client.request('vget /camera/0/fov')
             focus_length = self._client.request('vget /camera/0/focus-distance')
             aperture = self._client.request('vget /camera/0/fstop')
+        camera_intrinsics = self.get_camera_intrinsics()
 
         labelled_objects = []
         if label_data is not None:
@@ -392,6 +566,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator):
             source_type=imeta.ImageSourceType.SYNTHETIC, height=im_data.shape[0], width=im_data.shape[1],
             camera_pose=camera_pose,
             right_camera_pose=right_camera_pose,
+            intrinsics=camera_intrinsics, right_intrinsics=camera_intrinsics,
             environment_type=self._metadata['environment_type'],
             light_level=self._metadata['light_level'], time_of_day=self._metadata['time_of_day'],
             fov=fov, focal_distance=focus_length, aperture=aperture,

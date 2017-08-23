@@ -106,13 +106,6 @@ class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractmethod
-    def get_camera_matrix(self):
-        """
-        Get the current camera matrix of the current camera
-        :return:
-        """
-
     @property
     def supports_random_access(self):
         """
