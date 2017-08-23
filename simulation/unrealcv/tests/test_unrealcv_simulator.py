@@ -10,7 +10,9 @@ import cv2
 import unrealcv
 
 import core.image
+import database.tests.test_entity
 import simulation.unrealcv.unrealcv_simulator as uecvsim
+import util.dict_utils as du
 import util.transform as tf
 import util.unreal_transform as uetf
 
@@ -22,7 +24,31 @@ class ClientPatch(unrealcv.Client):
     isconnected = unrealcv.BaseClient.isconnected
 
 
-class TestUnrealCVSimulator(unittest.TestCase):
+class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.TestCase):
+
+    def get_class(self):
+        return uecvsim.UnrealCVSimulator
+
+    def make_instance(self, *args, **kwargs):
+        kwargs = du.defaults(kwargs, {
+            'executable_path': 'temp/test_project/test.sh',
+            'config': {}
+        })
+        return uecvsim.UnrealCVSimulator(*args, **kwargs)
+
+    def assert_models_equal(self, trial_result1, trial_result2):
+        """
+        Helper to assert that two SLAM trial results models are equal
+        :param trial_result1:
+        :param trial_result2:
+        :return:
+        """
+        if (not isinstance(trial_result1, uecvsim.UnrealCVSimulator) or
+                not isinstance(trial_result2, uecvsim.UnrealCVSimulator)):
+            self.fail('object was not a ORBSLAM2')
+        self.assertEqual(trial_result1.identifier, trial_result2.identifier)
+        self.assertEqual(trial_result1._executable, trial_result2._executable)
+        # We're not comparing config, because we expect it to be set when the system is run
 
     def test_can_configure_stereo(self):
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'stereo_offset': 1})
