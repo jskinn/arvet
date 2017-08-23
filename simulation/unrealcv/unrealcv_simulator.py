@@ -322,6 +322,33 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                                                                               pose.yaw,
                                                                               pose.roll))
 
+    def move_camera_to(self, pose):
+        """
+        Move the camera to a given pose, colliding with objects and stopping if blocked.
+        :param pose:
+        :return:
+        """
+        if self._client is not None:
+            if isinstance(pose, uetf.UnrealTransform):
+                self._current_pose = uetf.transform_from_unreal(pose)
+            else:
+                self._current_pose = pose
+            pose = uetf.transform_to_unreal(pose)
+            self._client.request("vset /camera/0/moveto {0} {1} {2}".format(pose.location[0],
+                                                                            pose.location[1],
+                                                                            pose.location[2]))
+            self._client.request("vset /camera/0/rotation {0} {1} {2}".format(pose.pitch,
+                                                                              pose.yaw,
+                                                                              pose.roll))
+            # Re-extract the location from the sim, because we might not have made it to the desired location
+            location = self._client.request("vget /camera/0/location")
+            location = location.split(' ')
+            if len(location) == 3:
+                pose = uetf.UnrealTransform(
+                    location=(float(location[0]), float(location[1]), float(location[2])),
+                    rotation=pose.euler)
+            self._current_pose = uetf.transform_from_unreal(pose)
+
     def get_obstacle_avoidance_force(self, radius=1):
         """
         Get a force for obstacle avoidance.

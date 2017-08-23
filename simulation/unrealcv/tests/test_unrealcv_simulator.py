@@ -165,7 +165,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
                       mock_client_instance.request.call_args_list)
         self.assertIn(mock.call("vset /camera/0/enable-dof 1"), mock_client_instance.request.call_args_list)
         self.assertIn(mock.call("vset /camera/0/autofocus 0"), mock_client_instance.request.call_args_list)
-        self.assertIn(mock.call("vset /camera/0/focus-distance {0}".format(focus_distance)),
+        self.assertIn(mock.call("vset /camera/0/focus-distance {0}".format(focus_distance * 100)),
                       mock_client_instance.request.call_args_list)
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
@@ -389,8 +389,8 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
         subject.begin()
 
-        subject.set_focus_distance(190.43)
-        self.assertIn(mock.call("vset /camera/0/focus-distance 190.43"), mock_client_instance.request.call_args_list)
+        subject.set_focus_distance(19.043)     # Distance is in meters
+        self.assertIn(mock.call("vset /camera/0/focus-distance 1904.3"), mock_client_instance.request.call_args_list)
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)

@@ -40,6 +40,15 @@ class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def move_camera_to(self, pose):
+        """
+        Move the camera to a given pose, colliding with objects and stopping if blocked.
+        :param pose: The destination pose
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
     def get_obstacle_avoidance_force(self, radius=1):
         """
         Get a force for obstacle avoidance.

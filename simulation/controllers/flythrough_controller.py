@@ -1,22 +1,22 @@
 import numpy as np
 import transforms3d as tf3d
 import core.sequence_type
+import database.entity
 import util.transform as tf
 import simulation.simulator
 import simulation.controller
 
 
-class FlythroughSampleController(simulation.controller.Controller):
+class FlythroughController(simulation.controller.Controller, database.entity.Entity):
     """
     A controller that lazily flys around the level avoiding objects.
     This produces sequential image data
     """
 
-    def __init__(self, radius=0.5, max_speed=0.2, max_turn_angle=np.pi / 36, avoidance_radius=1, avoidance_scale=1,
-                 length=1000, seconds_per_frame=1):
+    def __init__(self, max_speed=0.2, max_turn_angle=np.pi / 36, avoidance_radius=1, avoidance_scale=1,
+                 length=1000, seconds_per_frame=1, id_=None):
         """
         Create The controller, with some some settings
-        :param radius: The radius of the camera, for collision detection, in meters. Default 0.5
         :param max_speed: The maximum speed of the camera, in meters per frame. Default 0.2
         :param max_turn_angle: The maximum turn angle per frame, in radians. Default pi / 36 == 5 degrees
         :param avoidance_radius: The radius within which to perform obstacle avoidance
@@ -24,7 +24,7 @@ class FlythroughSampleController(simulation.controller.Controller):
         Default 1000.
         :param seconds_per_frame: The number of seconds passed for each frame, for scaling the timesteps. Default 1.
         """
-        self._radius = float(radius)
+        super().__init__(id_=id_)
         self._max_speed = float(max_speed)
         self._max_turn_angle = float(max_turn_angle)
         self._avoidance_radius = float(avoidance_radius)
@@ -174,7 +174,7 @@ class FlythroughSampleController(simulation.controller.Controller):
                 self._velocity = self._velocity * self._max_speed / new_speed
 
             # Set the new position
-            self._simulator.set_camera_pose(tf.Transform(location=new_location, rotation=new_rotation, w_first=True))
+            self._simulator.move_camera_to(tf.Transform(location=new_location, rotation=new_rotation, w_first=True))
 
             # Get the next image from the camera
             image = self._simulator.get_next_image()
@@ -211,6 +211,36 @@ class FlythroughSampleController(simulation.controller.Controller):
         """
         if self.can_control_simulator(simulator):
             self._simulator = simulator
+
+    def validate(self):
+        valid = super().validate()
+        return valid
+
+    def serialize(self):
+        serialized = super().serialize()
+        serialized['max_speed'] = self._max_speed
+        serialized['max_turn_angle'] = self._max_turn_angle
+        serialized['avoidance_radius'] = self._avoidance_radius
+        serialized['avoidance_scale'] = self._avoidance_scale
+        serialized['length'] = self._length
+        serialized['seconds_per_frame'] = self._seconds_per_frame
+        return serialized
+
+    @classmethod
+    def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'max_speed' in serialized_representation:
+            kwargs['max_speed'] = serialized_representation['max_speed']
+        if 'max_turn_angle' in serialized_representation:
+            kwargs['max_turn_angle'] = serialized_representation['max_turn_angle']
+        if 'avoidance_radius' in serialized_representation:
+            kwargs['avoidance_radius'] = serialized_representation['avoidance_radius']
+        if 'avoidance_scale' in serialized_representation:
+            kwargs['avoidance_scale'] = serialized_representation['avoidance_scale']
+        if 'length' in serialized_representation:
+            kwargs['length'] = serialized_representation['length']
+        if 'seconds_per_frame' in serialized_representation:
+            kwargs['seconds_per_frame'] = serialized_representation['seconds_per_frame']
+        return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
 def change_orientation_toward(quat1, quat2, max_theta):
