@@ -39,6 +39,18 @@ class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def get_obstacle_avoidance_force(self, radius=1):
+        """
+        Get a force for obstacle avoidance.
+        The simulator should get all objects within the given radius,
+        and provide a net force away from all the objects, scaled by the distance to the objects.
+
+        :param radius: Distance to detect objects, in meters
+        :return: A repulsive force vector, as a numpy array
+        """
+        pass
+
     @property
     @abc.abstractmethod
     def field_of_view(self):

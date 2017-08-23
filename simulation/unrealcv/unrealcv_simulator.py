@@ -322,6 +322,23 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                                                                               pose.yaw,
                                                                               pose.roll))
 
+    def get_obstacle_avoidance_force(self, radius=1):
+        """
+        Get a force for obstacle avoidance.
+        The simulator should get all objects within the given radius,
+        and provide a net force away from all the objects, scaled by the distance to the objects.
+
+        :param radius: Distance to detect objects, in meters
+        :return: A repulsive force vector, as a numpy array
+        """
+        if self._client is not None:
+            force = self._client.request("vget /camera/0/avoid {0}".format(radius * 100))
+            force = force.split(' ')
+            if len(force) == 3:
+                force = np.array([float(force[0]), float(force[1]), float(force[2])])
+                return uetf.transform_from_unreal(force)
+        return np.array([0, 0, 0])
+
     @property
     def field_of_view(self):
         return self._fov
@@ -360,7 +377,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         if self._focus_distance is not None and self._focus_distance >= 0:
             return self._focus_distance
         elif self._client is not None:
-            return float(self._client.request("vget /camera/0/fov"))
+            return float(self._client.request("vget /camera/0/fov")) / 100
         return None
 
     def set_focus_distance(self, focus_distance):
@@ -370,10 +387,10 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         :param focus_distance:
         :return:
         """
-        self._focus_distance = focus_distance
+        self._focus_distance = float(focus_distance)
         if self._client is not None:
             self._client.request("vset /camera/0/autofocus 0")
-            self._client.request("vset /camera/0/focus-distance {0}".format(float(focus_distance)))
+            self._client.request("vset /camera/0/focus-distance {0}".format(float(focus_distance) * 100))
 
     def set_autofocus(self, autofocus):
         """
