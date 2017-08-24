@@ -20,8 +20,10 @@ class TestVisualSlamExperiment(entity_test.EntityContract, unittest.TestCase):
             'orbslam_systems': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
             'benchmark_rpe': oid.ObjectId(),
             'benchmark_trajectory_drift': oid.ObjectId(),
-            'datasets': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
-            'base_datasets': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
+            'simulators': [oid.ObjectId(), oid.ObjectId()],
+            'flythrough_controller': oid.ObjectId(),
+            'trajectory_groups': [vse.TrajectoryGroup(oid.ObjectId(), {}, oid.ObjectId())],
+            'real_world_datasets': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
             'trial_list': [(oid.ObjectId(), oid.ObjectId(), oid.ObjectId())],
             'result_list': [(oid.ObjectId(), oid.ObjectId(), oid.ObjectId(), oid.ObjectId())]
         })
@@ -42,10 +44,18 @@ class TestVisualSlamExperiment(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(experiment1._orbslam_systems, experiment2._orbslam_systems)
         self.assertEqual(experiment1._benchmark_rpe, experiment2._benchmark_rpe)
         self.assertEqual(experiment1._benchmark_trajectory_drift, experiment2._benchmark_trajectory_drift)
-        self.assertEqual(experiment1._datasets, experiment2._datasets)
-        self.assertEqual(experiment1._base_datasets, experiment2._base_datasets)
+        self.assertEqual(experiment1._flythrough_controller, experiment2._flythrough_controller)
+        self.assertEqual(experiment1._real_world_datasets, experiment2._real_world_datasets)
         self.assertEqual(experiment1._trial_list, experiment2._trial_list)
         self.assertEqual(experiment1._result_list, experiment2._result_list)
+        self.assertEqual(len(experiment1._trajectory_groups), len(experiment2._trajectory_groups))
+        for group1 in experiment1._trajectory_groups:
+            found = False
+            for group2 in experiment2._trajectory_groups:
+                if group1 == group2:
+                    found = True
+                    break
+            self.assertTrue(found, "Could not trajectory group")
 
     def test_constructor_works_with_minimal_arguments(self):
         vse.VisualSlamExperiment()

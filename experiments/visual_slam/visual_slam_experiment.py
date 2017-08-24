@@ -1,34 +1,178 @@
 import os
-import glob
+import bson
 import numpy as np
 import pandas
 import matplotlib.pyplot as pyplot
 from mpl_toolkits.mplot3d import Axes3D     # Necessary for 3D plots
 import util.database_helpers as dh
 import util.associate
+import util.transform as tf
+import util.dict_utils as du
 import core.sequence_type
+import metadata.image_metadata as imeta
 import batch_analysis.experiment
 import systems.visual_odometry.libviso2.libviso2 as libviso2
 import systems.slam.orbslam2 as orbslam2
 import benchmarks.rpe.relative_pose_error as rpe
 import benchmarks.trajectory_drift.trajectory_drift as traj_drift
-import image_collections.looping_collection
+import simulation.unrealcv.unrealcv_simulator as uecv_sim
+import simulation.controllers.flythrough_controller as fly_cont
+import simulation.controllers.trajectory_follow_controller as follow_cont
+
+
+class TrajectoryGroup:
+
+    def __init__(self, simulator_id, default_simulator_config, max_quality_id,
+                 controller_id=None, quality_variations=None):
+        self.simulator_id = simulator_id
+        self.default_simulator_config = default_simulator_config
+        self.max_quality_id = max_quality_id
+        self.follow_controller_id = controller_id
+        self.quality_variations = quality_variations if quality_variations is not None else []
+
+    def __eq__(self, other):
+        if isinstance(other, TrajectoryGroup):
+            return (self.simulator_id == other.simulator_id and
+                    self.default_simulator_config == other.default_simulator_config and
+                    self.max_quality_id == other.max_quality_id and
+                    self.follow_controller_id == other.follow_controller_id and
+                    self.quality_variations == other.quality_variations)
+        return NotImplemented
+
+    def get_all_dataset_ids(self):
+        """
+        Get all the image dataset ids in this trajectory group.
+        Used for marshalling trials.
+        :return:
+        """
+        datasets = {variation['dataset'] for variation in self.quality_variations}
+        datasets.add(self.max_quality_id)
+        return datasets
+
+    def do_imports(self, task_manager, db_client):
+        """
+        Do imports and dataset generation for this trajectory group.
+        Will create a controller, and then generate reduced quality synthetic datasets.
+        :param task_manager:
+        :param db_client:
+        :return: True if part of the group has changed, and it needs to be re-saved
+        """
+        changed = False
+        # First, make a follow controller for the base dataset if we don't have one.
+        # This will be used to generate reduced-quality datasets following the same trajectory
+        # as the root dataset
+        if self.follow_controller_id is None:
+            trajectory = get_trajectory_for_image_source(db_client, self.max_quality_id)
+            self.follow_controller_id = dh.add_unique(db_client.image_source_collection,
+                                                      follow_cont.TrajectoryFollowController(
+                                                          trajectory=trajectory,
+                                                          sequence_type=core.sequence_type.ImageSequenceType.SEQUENTIAL
+                                                      ))
+            changed = True
+        # Next, schedule reduced quality dataset generation for each desired config
+        # These are all the quality variations we're going to do for now.
+        for config in [{
+            'resolution': {'width': 256, 'height': 144}  # Extremely low res
+        }, {
+            'fov': 15   # Narrow field of view
+        }, {
+            'depth_of_field_enabled': False   # No dof
+        }, {
+            'lit_mode': False  # Unlit
+        }, {
+            'texture_mipmap_bias': 8  # No textures
+        }, {
+            'normal_maps_enabled': False,  # No normal maps
+        }, {
+            'roughness_enabled': False  # No reflections
+        }, {
+            'geometry_decimation': 4,   # Simple geometry
+        }, {
+            # low quality
+            'depth_of_field_enabled': False,
+            'lit_mode': False,
+            'texture_mipmap_bias': 8,
+            'normal_maps_enabled': False,
+            'roughness_enabled': False,
+            'geometry_decimation': 4,
+        }, {
+            # absolute minimum quality - yall got any more of them pixels
+            'resolution': {'width': 256, 'height': 144},
+            'fov': 15,
+            'depth_of_field_enabled': False,
+            'lit_mode': False,
+            'texture_mipmap_bias': 8,
+            'normal_maps_enabled': False,
+            'roughness_enabled': False,
+            'geometry_decimation': 4,
+        }]:
+            # check for an existing run using this config
+            found = False
+            for variation in self.quality_variations:
+                if variation['config'] == config:
+                    found = True
+                    break
+            # Schedule generation of quality variations that don't exist yet
+            if not found:
+                generate_dataset_task = task_manager.get_generate_dataset_task(
+                    controller_id=self.follow_controller_id,
+                    simulator_id=self.simulator_id,
+                    simulator_config=du.defaults(config, self.default_simulator_config),
+                    num_cpus=1,
+                    num_gpus=0,
+                    memory_requirements='3GB',
+                    expected_duration='4:00:00'
+                )
+                if generate_dataset_task.is_finished:
+                    result_ids = generate_dataset_task.result
+                    if isinstance(result_ids, bson.ObjectId):  # we got a single id
+                        result_ids = [result_ids]
+                    for result_id in result_ids:
+                        self.quality_variations.append({
+                            'config': config,
+                            'dataset': result_id
+                        })
+                        changed = True
+                else:
+                    task_manager.do_task(generate_dataset_task)
+        return changed
+
+    def serialize(self):
+        return {
+            'simulator_id': self.simulator_id,
+            'default_simulator_config': self.default_simulator_config,
+            'max_quality_id': self.max_quality_id,
+            'controller_id': self.follow_controller_id,
+            'quality_variations': self.quality_variations
+        }
+
+    @classmethod
+    def deserialize(cls, serialized_representation):
+        return cls(
+            simulator_id=serialized_representation['simulator_id'],
+            default_simulator_config=serialized_representation['default_simulator_config'],
+            max_quality_id=serialized_representation['max_quality_id'],
+            controller_id=serialized_representation['controller_id'],
+            quality_variations=serialized_representation['quality_variations']
+        )
 
 
 class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def __init__(self, libviso_system=None, orbslam_systems=None, benchmark_rpe=None, benchmark_trajectory_drift=None,
-                 datasets=None, base_datasets=None, trial_list=None, result_list=None, id_=None):
+                 simulators=None, flythrough_controller=None, trajectory_groups=None,
+                 real_world_datasets=None, trial_list=None, result_list=None, id_=None):
         super().__init__(id_=id_)
         self._libviso_system = libviso_system
         self._orbslam_systems = set(orbslam_systems) if orbslam_systems is not None else set()
         self._benchmark_rpe = benchmark_rpe
         self._benchmark_trajectory_drift = benchmark_trajectory_drift
-        self._datasets = set(datasets) if datasets is not None else set()
-        self._base_datasets = set(base_datasets) if base_datasets is not None else set()
+        self._simulators = set(simulators) if simulators is not None else set()
+        self._flythrough_controller = flythrough_controller
+        self._trajectory_groups = trajectory_groups if trajectory_groups is not None else {}
+        self._real_world_datasets = set(real_world_datasets) if real_world_datasets is not None else set()
         self._trial_list = trial_list if trial_list is not None else []
         self._result_list = result_list if result_list is not None else []
-        self._image_source_cache = {}
 
     def do_imports(self, task_manager, db_client):
         """
@@ -37,36 +181,94 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param db_client: The database client, for saving declared objects too small to need a task
         :return:
         """
-        # Import existing datasets
-        for path in glob.iglob(os.path.expanduser('~/Renders/Visual Realism/Experiment 1/**/**/metadata.json')):
-            import_dataset_task = task_manager.get_import_dataset_task(
-                module_name='dataset.generated.import_generated_dataset',
-                path=path,
-                num_cpus=1,
-                num_gpus=0,
-                memory_requirements='3GB',
-                expected_duration='4:00:00'
+        # --------- SYNTHETIC DATASETS -----------
+        # Add simulators explicitly, they have different metadata, so we can't just search
+        for exe, world_name, environment_type, light_level, time_of_day in [
+            (
+                '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             )
-            if import_dataset_task.is_finished:
-                imported_ids = import_dataset_task.result
-                if not isinstance(import_dataset_task.result, list):
-                    imported_ids = [imported_ids]
-                for imported_id in imported_ids:
-                    if imported_id not in self._datasets:
-                        self._base_datasets.add(imported_id)
-                        self._add_to_set('base_datasets', {imported_id})
-                        image_source = self._load_image_source(db_client, imported_id)
-                        looped_id = dh.add_unique(
-                            db_client.image_source_collection,
-                            image_collections.looping_collection.LoopingCollection(
-                                image_source, 3, core.sequence_type.ImageSequenceType.SEQUENTIAL
-                            )
-                        )
-                        self._datasets.add(looped_id)
-                        self._add_to_set('datasets', {looped_id})
-            else:
-                task_manager.do_task(import_dataset_task)
+        ]:
+            sim_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
+                executable_path=exe,
+                world_name=world_name,
+                environment_type=environment_type,
+                light_level=light_level,
+                time_of_day=time_of_day
+            ))
+            self._simulators.add(sim_id)
+            self._add_to_set('simulators', {sim_id})
 
+        # Add controllers
+        if self._flythrough_controller is None:
+            self._flythrough_controller = dh.add_unique(db_client.image_source_collection,
+                                                        fly_cont.FlythroughController(
+
+                                                        ))
+            self._set_property('flythrough_controller', self._flythrough_controller)
+
+        # Generate max-quality flythroughs
+        trajectories_per_environment = 3
+        for simulator_id in self._simulators:
+            for repeat in range(trajectories_per_environment):
+                # Default, maximum quality settings. We override specific settings in the quality group
+                simulator_config = {
+                    # Simulation execution config
+                    'stereo_offset': 0.15,  # meters
+                    'provide_rgb': True,
+                    'provide_depth': True,
+                    'provide_labels': False,
+                    'provide_world_normals': False,
+
+                    # Simulator settings - No clear maximum, but these are the best we'll use
+                    'resolution': {'width': 1280, 'height': 720},
+                    'fov': 90,
+                    'depth_of_field_enabled': True,
+                    'focus_distance': None,
+                    'aperture': 2.2,
+
+                    # Quality settings - Maximum quality
+                    'lit_mode': True,
+                    'texture_mipmap_bias': 0,
+                    'normal_maps_enabled': True,
+                    'roughness_enabled': True,
+                    'geometry_decimation': 0,
+
+                    # Simulation server config
+                    'host': 'localhost',
+                    'port': 9000,
+                }
+                generate_dataset_task = task_manager.get_generate_dataset_task(
+                    controller_id=self._flythrough_controller,
+                    simulator_id=simulator_id,
+                    simulator_config=simulator_config,
+                    repeat=repeat,
+                    num_cpus=1,
+                    num_gpus=0,
+                    memory_requirements='3GB',
+                    expected_duration='4:00:00'
+                )
+                if generate_dataset_task.is_finished:
+                    result_ids = generate_dataset_task.result
+                    if isinstance(result_ids, bson.ObjectId):   # we got a single id
+                        result_ids = [result_ids]
+                    for result_id in result_ids:
+                        self._trajectory_groups[result_id] = TrajectoryGroup(
+                            simulator_id=simulator_id,
+                            default_simulator_config=simulator_config,
+                            max_quality_id=result_id)
+                        self._set_property('trajectory_groups.{0}'.format(result_id),
+                                           self._trajectory_groups[result_id].serialize())
+                else:
+                    task_manager.do_task(generate_dataset_task)
+
+        # Schedule dataset generation for lower-quality datasets in each trajectory group
+        for trajectory_group in self._trajectory_groups.values():
+            if trajectory_group.do_imports(task_manager, db_client):
+                self._set_property('trajectory_groups.{0}'.format(trajectory_group.max_quality_id),
+                                   trajectory_group.serialize())
+
+        # --------- REAL WORLD DATASETS -----------
         # Import KITTI dataset
         import_dataset_task = task_manager.get_import_dataset_task(
             module_name='dataset.kitti.kitti_loader',
@@ -81,12 +283,13 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             if not isinstance(import_dataset_task.result, list):
                 imported_ids = [imported_ids]
             for imported_id in imported_ids:
-                if imported_id not in self._datasets:
-                    self._datasets.add(imported_id)
-                    self._add_to_set('datasets', {imported_id})
+                if imported_id not in self._real_world_datasets:
+                    self._real_world_datasets.add(imported_id)
+                    self._add_to_set('real_world_datasets', {imported_id})
         else:
             task_manager.do_task(import_dataset_task)
 
+        # --------- SYSTEMS -----------
         # Import the systems under test for this experiment.
         # They are: libviso2, orbslam2
         if self._libviso_system is None:
@@ -115,6 +318,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 self._orbslam_systems.add(orbslam_id)
                 self._add_to_set('orbslam_systems', {orbslam_id})
 
+        # --------- BENCHMARKS -----------
         # Create and store the benchmarks for camera trajectories
         # Just using the default settings for now
         if self._benchmark_rpe is None:
@@ -145,9 +349,12 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_rpe),
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_trajectory_drift)
         ]
+        datasets = set(self._real_world_datasets)
+        for group in self._trajectory_groups:
+            datasets = datasets | group.get_all_dataset_ids()
 
         # Schedule trials
-        for image_source_id in self._datasets:
+        for image_source_id in datasets:
             image_source = self._load_image_source(db_client, image_source_id)
             # Libviso2
             if libviso_system.is_image_source_appropriate(image_source):
@@ -317,8 +524,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         serialized['orbslam_systems'] = list(self._orbslam_systems)
         serialized['benchmark_rpe'] = self._benchmark_rpe
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
-        serialized['datasets'] = list(self._datasets)
-        serialized['base_datasets'] = list(self._base_datasets)
+        serialized['simulators'] = list(self._simulators)
+        serialized['flythrough_controller'] = self._flythrough_controller
+        serialized['trajectory_groups'] = [group.serialize() for group in self._trajectory_groups]
+        serialized['real_world_datasets'] = list(self._real_world_datasets)
         serialized['trial_list'] = self._trial_list
         serialized['result_list'] = self._result_list
         return serialized
@@ -333,15 +542,41 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             kwargs['benchmark_rpe'] = serialized_representation['benchmark_rpe']
         if 'benchmark_trajectory_drift' in serialized_representation:
             kwargs['benchmark_trajectory_drift'] = serialized_representation['benchmark_trajectory_drift']
-        if 'datasets' in serialized_representation:
-            kwargs['datasets'] = serialized_representation['datasets']
-        if 'base_datasets' in serialized_representation:
-            kwargs['base_datasets'] = serialized_representation['base_datasets']
+        if 'simulators' in serialized_representation:
+            kwargs['simulators'] = serialized_representation['simulators']
+        if 'flythrough_controller' in serialized_representation:
+            kwargs['flythrough_controller'] = serialized_representation['flythrough_controller']
+        if 'trajectory_groups' in serialized_representation:
+            kwargs['trajectory_groups'] = [TrajectoryGroup.deserialize(s_group)
+                                           for s_group in serialized_representation['trajectory_groups']]
+        if 'real_world_datasets' in serialized_representation:
+            kwargs['real_world_datasets'] = serialized_representation['real_world_datasets']
         if 'trial_list' in serialized_representation:
             kwargs['trial_list'] = serialized_representation['trial_list']
         if 'result_list' in serialized_representation:
             kwargs['result_list'] = serialized_representation['result_list']
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+
+def get_trajectory_for_image_source(db_client, image_collection_id):
+    """
+    Image collections are too large for us to load into memory here,
+    but we need to be able to do logic on their trajectores.
+    This utility uses the database to get just the trajectory for a given image collection.
+    Only works for image collections, due to their database structure.
+    :param db_client: The database client
+    :param image_collection_id: The id of the image collection to load
+    :return: A trajectory, a map of timestamp to camera pose. Ignores right-camera for stereo
+    """
+    images = db_client.image_source_collection.find_one({'_id': image_collection_id, '$exists': {'images': True}},
+                                                        {'images': True})
+    trajectory = {}
+    if images is not None:
+        for timestamp, image_id in images:
+            position_result = db_client.images.find({'_id': image_id}, {'metadata.camera_pose': True})
+            if position_result is not None:
+                trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata.camera_pose'])
+    return trajectory
 
 
 def extract_trajectory(image_source):
