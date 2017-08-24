@@ -26,7 +26,8 @@ Height={height}
 
 class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
-    def __init__(self, executable_path, config=None, id_=None):
+    def __init__(self, executable_path, world_name, environment_type=imeta.EnvironmentType.INDOOR,
+                 light_level=imeta.LightingLevel.EVENLY_LIT, time_of_day=imeta.TimeOfDay.DAY, config=None, id_=None):
         """
         Create an unrealcv simulator with a bunch of configuration.
         :param executable_path: The path to the simulator executable, which will be started with this image source
@@ -62,16 +63,17 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             'host': 'localhost',
             'port': 9000,
 
-            # Simulation metadata, provided as kwargs to ImageMetadata
-            'metadata': {
-                'environment_type': imeta.EnvironmentType.INDOOR,
-                'light_level': imeta.LightingLevel.EVENLY_LIT,
-                'time_of_day': imeta.TimeOfDay.DAY,
-                'simulation_world': 'UnrealWorld'
-            }
+            # Additional metadata that will be added to each image
+            'metadata': {}
         })
+        # Constant settings, these are saved to the database
         self._executable = str(executable_path)
+        self._world_name = str(world_name)
+        self._environment_type = imeta.EnvironmentType(environment_type)
+        self._light_level = imeta.LightingLevel(light_level)
+        self._time_of_day = imeta.TimeOfDay(time_of_day)
 
+        # Configuration loaded at run time, and specified in GenerateDatasetTask
         self._stereo_offset = float(config['stereo_offset'])
         self._provide_depth = bool(config['provide_depth'])
         self._provide_labels = bool(config['provide_labels'])
@@ -93,16 +95,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         self._host = str(config['host'])
         self._port = int(config['port'])
 
-        # These are the valid image metadata kwargs, barring the once we set explicitly from the sim,
-        # or are configured elsewhere, like the camera settings and quality settings
-        self._metadata = {
-            'environment_type': imeta.EnvironmentType(config['metadata']['environment_type']),
-            'light_level': imeta.LightingLevel(config['metadata']['light_level']),
-            'time_of_day': imeta.TimeOfDay(config['metadata']['time_of_day']),
-            'simulation_world': str(config['metadata']['simulation_world'])
-        }
-        # Any other kwargs will be set as additional metadata
-        self._additional_metadata = {k: v for k, v in config['metadata'].items() if k not in self._metadata}
+        # Additional metatada included in the config
+        self._additional_metadata = dict(config['metadata'])
 
         self._client = None
         self._simulator_process = None
@@ -490,12 +484,24 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
     def serialize(self):
         serialized = super().serialize()
         serialized['executable'] = self._executable
+        serialized['world_name'] = self._world_name
+        serialized['environment_type'] = self._environment_type.value
+        serialized['light_level'] = self._light_level.value
+        serialized['time_of_day'] = self._time_of_day.value
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'executable' in serialized_representation:
             kwargs['executable_path'] = serialized_representation['executable']
+        if 'world_name' in serialized_representation:
+            kwargs['world_name'] = serialized_representation['world_name']
+        if 'environment_type' in serialized_representation:
+            kwargs['environment_type'] = serialized_representation['environment_type']
+        if 'light_level' in serialized_representation:
+            kwargs['light_level'] = serialized_representation['light_level']
+        if 'time_of_day' in serialized_representation:
+            kwargs['time_of_day'] = serialized_representation['time_of_day']
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
     def _store_config(self):
@@ -618,10 +624,10 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             camera_pose=camera_pose,
             right_camera_pose=right_camera_pose,
             intrinsics=camera_intrinsics, right_intrinsics=camera_intrinsics,
-            environment_type=self._metadata['environment_type'],
-            light_level=self._metadata['light_level'], time_of_day=self._metadata['time_of_day'],
+            environment_type=self._environment_type,
+            light_level=self._light_level, time_of_day=self._time_of_day,
             fov=fov, focal_distance=focus_length, aperture=aperture,
-            simulation_world=self._metadata['simulation_world'],
+            simulation_world=self._world_name,
             lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
             texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,
             geometry_decimation=None, procedural_generation_seed=None,

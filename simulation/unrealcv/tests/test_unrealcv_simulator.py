@@ -11,6 +11,7 @@ import unrealcv
 
 import core.image
 import database.tests.test_entity
+import metadata.image_metadata as imeta
 import simulation.unrealcv.unrealcv_simulator as uecvsim
 import util.dict_utils as du
 import util.transform as tf
@@ -31,51 +32,61 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'executable_path': 'temp/test_project/test.sh',
+            'executable_path': 'temp/test_project/test-{0}.sh'.format(np.random.randint(0, 1000)),
+            'world_name': 'sim_world_{0}'.format(np.random.randint(0, 1000)),
+            'environment_type': imeta.EnvironmentType(np.random.randint(0, 4)),
+            'light_level': imeta.LightingLevel(np.random.randint(0, 6)),
+            'time_of_day': imeta.TimeOfDay(np.random.randint(0, 6)),
             'config': {}
         })
         return uecvsim.UnrealCVSimulator(*args, **kwargs)
 
-    def assert_models_equal(self, trial_result1, trial_result2):
+    def assert_models_equal(self, simulator1, simulator2):
         """
         Helper to assert that two SLAM trial results models are equal
-        :param trial_result1:
-        :param trial_result2:
+        :param simulator1:
+        :param simulator2:
         :return:
         """
-        if (not isinstance(trial_result1, uecvsim.UnrealCVSimulator) or
-                not isinstance(trial_result2, uecvsim.UnrealCVSimulator)):
+        if (not isinstance(simulator1, uecvsim.UnrealCVSimulator) or
+                not isinstance(simulator2, uecvsim.UnrealCVSimulator)):
             self.fail('object was not a ORBSLAM2')
-        self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1._executable, trial_result2._executable)
+        self.assertEqual(simulator1.identifier, simulator2.identifier)
+        self.assertEqual(simulator1._executable, simulator2._executable)
+        self.assertEqual(simulator1._world_name, simulator2._world_name)
+        self.assertEqual(simulator1._environment_type, simulator2._environment_type)
+        self.assertEqual(simulator1._light_level, simulator2._light_level)
+        self.assertEqual(simulator1._time_of_day, simulator2._time_of_day)
         # We're not comparing config, because we expect it to be set when the system is run
 
     def test_can_configure_stereo(self):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'stereo_offset': 1})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'stereo_offset': 1})
         self.assertTrue(subject.is_stereo_available)
 
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'stereo_offset': 0})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'stereo_offset': 0})
         self.assertFalse(subject.is_stereo_available)
 
     def test_can_configure_depth(self):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_depth': True})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_depth': True})
         self.assertTrue(subject.is_depth_available)
 
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_depth': False})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_depth': False})
         self.assertFalse(subject.is_depth_available)
 
     def test_can_configure_labels(self):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_labels': True})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_labels': True})
         self.assertTrue(subject.is_labels_available)
 
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_labels': False})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_labels': False})
         self.assertFalse(subject.is_labels_available)
 
     def test_can_configure_world_normals(self):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_world_normals': True})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world',
+                                            config={'provide_world_normals': True})
         self.assertTrue(subject.is_normals_available)
 
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_world_normals': False})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world',
+                                            config={'provide_world_normals': False})
         self.assertFalse(subject.is_normals_available)
 
     @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
@@ -86,7 +97,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         port = np.random.randint(0, 1000)
         width = np.random.randint(10, 1000)
         height = np.random.randint(10, 1000)
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
             'port': port,
             'resolution': {'width': width, 'height': height},
         })
@@ -109,7 +120,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
     @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
     def test_begin_starts_simulator(self, mock_subprocess, *_):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
         self.assertTrue(mock_subprocess.Popen.called)
         self.assertEqual(mock.call('temp/test_project/test.sh'), mock_subprocess.Popen.call_args)
@@ -120,7 +131,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
     @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
     @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_creates_client(self, mock_client, *_):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
         self.assertTrue(mock_client.called)
         self.assertEqual(mock_client.call_args, mock.call(('localhost', 9000)))
@@ -135,7 +146,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_client_instance.isconnected.return_value = False
         mock_client.return_value = mock_client_instance
 
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
         self.assertTrue(mock_client_instance.connect.called)
 
@@ -152,7 +163,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         fov = np.random.uniform(1, 90)
         focus_distance = np.random.uniform(0, 10000)
         aperture = np.random.uniform(1, 24)
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
             'fov': fov,
             'depth_of_field_enabled': True,
             'focus_distance': focus_distance,
@@ -182,7 +193,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         normal_maps_enabled = np.random.randint(0, 2)
         roughness_enabled = np.random.randint(0, 2)
         geometry_decimation = np.random.randint(0, 15)
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
             'texture_mipmap_bias': texture_mipmap_bias,
             'normal_maps_enabled': bool(normal_maps_enabled),
             'roughness_enabled': bool(roughness_enabled),
@@ -200,7 +211,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
                       mock_client_instance.request.call_args_list)
 
     def test_get_next_image_returns_none_if_unstarted(self, *_):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         result = subject.get_next_image()
         self.assertEqual(2, len(result))
         self.assertIsNone(result[0])
@@ -216,7 +227,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
         mock_client_instance.request.called = False
@@ -234,7 +245,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_depth': True})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_depth': True})
         subject.begin()
 
         mock_client_instance.request.called = False
@@ -252,7 +263,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_labels': True})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_labels': True})
         subject.begin()
 
         mock_client_instance.request.called = False
@@ -270,7 +281,8 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {'provide_world_normals': True})
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world',
+                                            config={'provide_world_normals': True})
         subject.begin()
 
         mock_client_instance.request.called = False
@@ -287,7 +299,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
     def test_get_next_image_returns_image_and_none(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client.return_value = make_mock_unrealcv_client()
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
         result = subject.get_next_image()
         self.assertEqual(2, len(result))
@@ -301,7 +313,8 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
     @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
     @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_cleans_up_image_files(self, mock_client, mock_cv2, mock_os_remove, *_):
-        mock_cv2.imread.side_effect = lambda x: make_mock_image('object_mask') if 'label' in x else make_mock_image(x)
+        mock_cv2.imread.side_effect = (lambda x, _=None: make_mock_image('object_mask')
+                                       if 'label' in x else make_mock_image(x))
         filenames = {
             'vget /camera/0/lit': '/tmp/001.png',
             'vget /camera/0/depth': '/tmp/001.depth.png',
@@ -312,7 +325,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_client_instance.request.side_effect = (lambda x: filenames[x] if x in filenames
                                                     else mock_unrealcv_request(x))
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', {
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
             'provide_depth': True,
             'provide_labels': True,
             'provide_world_normals': True
@@ -332,7 +345,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
         pose = tf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
@@ -371,7 +384,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
         subject.set_field_of_view(30.23)
@@ -386,7 +399,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
         subject.set_focus_distance(19.043)     # Distance is in meters
@@ -401,7 +414,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
         subject.set_fstop(22.23)
@@ -432,7 +445,7 @@ def mock_unrealcv_request(request):
     return None
 
 
-def make_mock_image(filename):
+def make_mock_image(filename, _=None):
     if re.match('object_mask', filename):
         mask = np.zeros((64, 64, 3), dtype='uint8')
         mask[12:34, 17:22] = np.random.randint(0, 255, 3)
