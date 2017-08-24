@@ -1,5 +1,6 @@
 import batch_analysis.task
 import batch_analysis.tasks.import_dataset_task as import_dataset_task
+import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
 import batch_analysis.tasks.train_system_task as train_system_task
 import batch_analysis.tasks.run_system_task as run_system_task
 import batch_analysis.tasks.benchmark_trial_task as benchmark_task
@@ -60,6 +61,40 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
+    def get_generate_dataset_task(self, controller_id, simulator_id, simulator_config, repeat=0, num_cpus=1, num_gpus=0,
+                                  memory_requirements='3GB', expected_duration='1:00:00'):
+        """
+        Get a task to generate a synthetic dataset.
+        Generate dataset tasks are unique to particular combinations of controller, simulator and config,
+        so that the same controller can generate different datasets with the same simulator.
+        This is further enabled by the repeat parameter.
+        Most of the parameters are resources requirements passed to the job system.
+        :param controller_id: The id of the controller to use
+        :param simulator_id: The id of the simulator to use
+        :param simulator_config: configuration parameters passed to the simulator at run time.
+        :param repeat: The repeat of this trial, so we can run the same system more than once.
+        :param num_cpus: The number of CPUs required for the job. Default 1.
+        :param num_gpus: The number of GPUs required for the job. Default 0.
+        :param memory_requirements: The memory required for this job. Default 3 GB.
+        :param expected_duration: The expected time this job will take. Default 1 hour.
+        :return: An ImportDatasetTask containing the task state.
+        """
+        existing = self._collection.find_one({'controller_id': controller_id, 'simulator_id': simulator_id,
+                                              'simulator_config': simulator_config, 'repeat': repeat})
+        if existing is not None:
+            return self._db_client.deserialize_entity(existing)
+        else:
+            return generate_dataset_task.GenerateDatasetTask(
+                controller_id=controller_id,
+                simulator_id=simulator_id,
+                simulator_config=simulator_config,
+                repeat=repeat,
+                num_cpus=num_cpus,
+                num_gpus=num_gpus,
+                memory_requirements=memory_requirements,
+                expected_duration=expected_duration
+            )
+
     def get_train_system_task(self, trainer_id, trainee_id, num_cpus=1, num_gpus=0,
                               memory_requirements='3GB', expected_duration='1:00:00'):
         """
@@ -93,6 +128,7 @@ class TaskManager:
         Most of the parameters are resources requirements passed to the job system.
         :param system_id: The id of the vision system to test
         :param image_source_id: The id of the image source to test with
+        :param repeat: The repeat of this trial, so we can run the same system more than once.
         :param num_cpus: The number of CPUs required for the job. Default 1.
         :param num_gpus: The number of GPUs required for the job. Default 0.
         :param memory_requirements: The memory required for this job. Default 3 GB.

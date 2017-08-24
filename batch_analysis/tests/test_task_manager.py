@@ -6,6 +6,7 @@ import database.client
 import batch_analysis.task_manager as manager
 
 import batch_analysis.tasks.import_dataset_task as import_dataset_task
+import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
 import batch_analysis.tasks.train_system_task as train_system_task
 import batch_analysis.tasks.run_system_task as run_system_task
 import batch_analysis.tasks.benchmark_trial_task as benchmark_task
@@ -54,6 +55,56 @@ class TestTaskManager(unittest.TestCase):
         path = '/tmp/dataset/thisisadataset'
         result = subject.get_import_dataset_task(module_name, path)
         self.assertIsInstance(result, import_dataset_task.ImportDatasetTask)
+        self.assertIsNone(result.identifier)
+
+    def test_get_generate_dataset_task_checks_for_existing_task(self):
+        mock_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        subject = manager.TaskManager(mock_collection, mock_db_client)
+        controller_id = bson.ObjectId()
+        simulator_id = bson.ObjectId()
+        simulator_config = {
+            'stereo_offset': 0.15,
+            'provide_rgb': True,
+            'provide_depth': True,
+            'provide_labels': False,
+            'provide_world_normals': False
+        }
+        repeat = 170
+        subject.get_generate_dataset_task(controller_id, simulator_id, simulator_config, repeat)
+
+        self.assertTrue(mock_collection.find_one.called)
+        query = mock_collection.find_one.call_args[0][0]
+        self.assertIn('controller_id', query)
+        self.assertEqual(controller_id, query['controller_id'])
+        self.assertIn('simulator_id', query)
+        self.assertEqual(simulator_id, query['simulator_id'])
+        self.assertIn('simulator_config', query)
+        self.assertEqual(simulator_config, query['simulator_config'])
+        self.assertIn('repeat', query)
+        self.assertEqual(repeat, query['repeat'])
+
+    def test_get_generate_dataset_task_returns_deserialized_existing(self):
+        s_task = {'_type': 'GenerateDatasetTask', '_id': bson.ObjectId()}
+        mock_entity = mock.MagicMock()
+        mock_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_collection.find_one.return_value = s_task
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client.deserialize_entity.return_value = mock_entity
+        subject = manager.TaskManager(mock_collection, mock_db_client)
+
+        result = subject.get_generate_dataset_task(bson.ObjectId(), bson.ObjectId(), {'provide_rgb': True})
+        self.assertTrue(mock_db_client.deserialize_entity.called)
+        self.assertEqual(s_task, mock_db_client.deserialize_entity.call_args[0][0])
+        self.assertEqual(mock_entity, result)
+
+    def test_get_generate_dataset_task_returns_new_instance_if_no_existing(self):
+        mock_collection = mock.create_autospec(pymongo.collection.Collection)
+        mock_collection.find_one.return_value = None
+        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        subject = manager.TaskManager(mock_collection, mock_db_client)
+        result = subject.get_generate_dataset_task(bson.ObjectId(), bson.ObjectId(), {'provide_rgb': True})
+        self.assertIsInstance(result, generate_dataset_task.GenerateDatasetTask)
         self.assertIsNone(result.identifier)
 
     def test_get_train_system_task_checks_for_existing_task(self):

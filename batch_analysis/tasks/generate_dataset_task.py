@@ -5,11 +5,12 @@ class GenerateDatasetTask(batch_analysis.task.Task):
     """
     A task for generating a dataset. Result will be an image source id or list of image source ids.
     """
-    def __init__(self, controller_id, simulator_id, simulator_config, *args, **kwargs):
+    def __init__(self, controller_id, simulator_id, simulator_config, repeat=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._controller_id = controller_id
         self._simulator_id = simulator_id
         self._simulator_config = simulator_config
+        self._repeat = repeat
 
     @property
     def controller_id(self):
@@ -69,6 +70,7 @@ class GenerateDatasetTask(batch_analysis.task.Task):
         serialized['controller_id'] = self.controller_id
         serialized['simulator_id'] = self.simulator_id
         serialized['simulator_config'] = self.simulator_config
+        serialized['repeat'] = self._repeat
         return serialized
 
     @classmethod
@@ -79,4 +81,6 @@ class GenerateDatasetTask(batch_analysis.task.Task):
             kwargs['simulator_id'] = serialized_representation['simulator_id']
         if 'simulator_config' in serialized_representation:
             kwargs['simulator_config'] = serialized_representation['simulator_config']
+        if 'repeat' in serialized_representation:
+            kwargs['repeat'] = serialized_representation['repeat']
         return super().deserialize(serialized_representation, db_client, **kwargs)
