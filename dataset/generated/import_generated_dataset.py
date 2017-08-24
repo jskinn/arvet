@@ -122,7 +122,7 @@ def build_image_metadata(im_data, ground_truth_depth_data, camera_pose, metadata
         time_of_day=imeta.TimeOfDay.DAY,
         intrinsics=camera_intrinsics,
         right_intrinsics=camera_intrinsics if right_camera_pose is not None else None,
-        fov=90,     # checked, this is definitely 90 degrees in all generated data
+        fov=np.pi / 2,     # checked, this is definitely 90 degrees in all generated data
         focal_distance=None,
         aperture=None,
         simulation_world=metadata['World Name'],

@@ -66,6 +66,13 @@ def import_dataset(root_folder, db_client):
                 fy=data.calib.K_cam3[1, 1] / right_image.shape[0],
                 cx=data.calib.K_cam3[2, 0] / right_image.shape[1],
                 cy=data.calib.K_cam3[2, 1] / right_image.shape[0])
+            # Focal distance and sensor horizontal distance form a triangle,
+            # with tan(fov) = sensor width / focal distance
+            # We take the largest width from the principal point as the opposite edge, to produce the largest angle
+            horizontal_fov = np.arctan2(max(data.calib.K_cam2[0, 2], left_image.shape[1] - data.calib.K_cam2[0, 2]),
+                                        data.calib.K_cam2[0, 0])
+            vertical_fov = np.arctan2(max(data.calib.K_cam2[1, 2], left_image.shape[0] - data.calib.K_cam2[1, 2]),
+                                      data.calib.K_cam2[1, 1])
             builder.add_image(image=core.image_entity.StereoImageEntity(
                 left_data=left_image,
                 right_data=right_image,
@@ -77,6 +84,7 @@ def import_dataset(root_folder, db_client):
                     width=left_image.shape[1],
                     intrinsics=camera_intrinsics,
                     right_intrinsics=right_camera_intrinsics,
+                    fov=max(horizontal_fov, vertical_fov),
                     source_type=imeta.ImageSourceType.REAL_WORLD,
                     environment_type=imeta.EnvironmentType.OUTDOOR_URBAN,
                     light_level=imeta.LightingLevel.WELL_LIT,
