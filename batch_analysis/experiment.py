@@ -109,6 +109,6 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         if len(new_elements) > 0:
             if '$addToSet' not in self._updates:
                 self._updates['$addToSet'] = {}
-            existing = (set(self._updates['$addToSet'][serialized_key])
+            existing = (set(self._updates['$addToSet'][serialized_key]['$each'])
                         if serialized_key in self._updates['$addToSet'] else set())
             self._updates['$addToSet'][serialized_key] = {'$each': list(set(new_elements) | existing)}
