@@ -547,7 +547,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                 depth_data = self._request_image('depth', cv2.IMREAD_COLOR)
                 # I've encoded the depth into all three channels, Red is depth / 65536, green depth on 256,
                 # and blue raw depth. Green and blue channels loop within their ranges, red clamps.
-                depth_data /= 255   # Back to floats
+                depth_data = np.asarray(depth_data, dtype=np.float32) / 255   # Back to floats
                 depth_data = np.sum(depth_data * (65536, 256, 1), axis=2)   # Rescale the channels and combine.
                 # We now have depth in unreal world units, ie, centimenters. Convert to meters.
                 depth_data /= 100
@@ -601,13 +601,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         return None
 
     def _make_metadata(self, im_data, depth_data, label_data, camera_pose, right_camera_pose=None):
-        fov = None
-        focus_length = None
-        aperture = None
-        if self._client is not None:
-            fov = self._client.request('vget /camera/0/fov')
-            focus_length = self._client.request('vget /camera/0/focus-distance')
-            aperture = self._client.request('vget /camera/0/fstop')
+        fov = self._fov
+        focus_length = self._focus_distance
+        aperture = self._aperture
+        # if self._client is not None:
+        #     fov = self._client.request('vget /camera/0/fov')
+        #     focus_length = self._client.request('vget /camera/0/focus-distance')
+        #     aperture = self._client.request('vget /camera/0/fstop')
         camera_intrinsics = self.get_camera_intrinsics()
 
         labelled_objects = []
