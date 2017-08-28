@@ -233,6 +233,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     'normal_maps_enabled': True,
                     'roughness_enabled': True,
                     'geometry_decimation': 0,
+                    'depth_noise_quality': 1,
 
                     # Simulation server config
                     'host': 'localhost',
