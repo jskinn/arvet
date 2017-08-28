@@ -136,8 +136,8 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         self._velocity = self._max_speed * self._velocity / np.linalg.norm(self._velocity)
 
         # Set the initial facing direction to point in a random direction
-        pose_mat = self._simulator.current_pose
-        forward = self.np.random.uniform((-1, -1, 0), (1, 1, 0), 3)
+        pose_mat = self._simulator.current_pose.transform_matrix
+        forward = np.random.uniform((-1, -1, 0), (1, 1, 0), 3)
         forward = forward / np.linalg.norm(forward)
         up = (0, 0, 1)
         left = np.cross(up, forward)
@@ -169,7 +169,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
 
             # Find the direction we want to be looking, that is, the direction we're moving
             forward = self._velocity / np.linalg.norm(self._velocity)
-            up = current_pose.up
+            up = (0, 0, 1)
             left = np.cross(up, forward)
             up = np.cross(forward, left)
             rot_mat = np.array([forward, left, up])
@@ -177,7 +177,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
                                                      tf3d.quaternions.mat2quat(rot_mat), self._max_turn_angle)
 
             # Modify the velocity
-            self._velocity += np.random.normal(0, 2, 3)  # Add some noise for random movement
+            self._velocity += np.random.normal(0, 0.15 * self._max_speed, 3)  # Add some noise for random movement
             self._velocity += (self._avoidance_scale *
                                self._simulator.get_obstacle_avoidance_force(self._avoidance_radius))
             new_speed = np.linalg.norm(self._velocity)
@@ -188,7 +188,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
             self._simulator.move_camera_to(tf.Transform(location=new_location, rotation=new_rotation, w_first=True))
 
             # Get the next image from the camera
-            image = self._simulator.get_next_image()
+            image, _ = self._simulator.get_next_image()
             timestamp = self._seconds_per_frame * self._current_index
             self._current_index += 1
             return image, timestamp
