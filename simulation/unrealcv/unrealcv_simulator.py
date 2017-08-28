@@ -13,6 +13,7 @@ import metadata.image_metadata as imeta
 import simulation.simulator
 import simulation.depth_noise
 import util.dict_utils as du
+import util.transform as tf
 import util.unreal_transform as uetf
 
 
@@ -404,7 +405,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         if self._focus_distance is not None and self._focus_distance >= 0:
             return self._focus_distance
         elif self._client is not None:
-            return float(self._client.request("vget /camera/0/fov")) / 100
+            self._focus_distance = float(self._client.request("vget /camera/0/focus-distance")) / 100
+            return self._focus_distance
         return None
 
     def set_focus_distance(self, focus_distance):
@@ -426,8 +428,9 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         :return:
         """
         if self._client is not None:
-            self._focus_distance = -1
             self._client.request("vset /camera/0/autofocus {0}".format(int(bool(autofocus))))
+            if bool(autofocus):
+                self._focus_distance = -1
 
     @property
     def fstop(self):
@@ -558,7 +561,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
             if self.is_stereo_available:
                 cached_pose = self.current_pose
-                right_pose = self.current_pose.find_independent((0, -1 * self._stereo_offset, 0))
+                right_relative_pose = tf.Transform((0, -1 * self._stereo_offset, 0))
+                right_pose = self.current_pose.find_independent(right_relative_pose)
                 self.set_camera_pose(right_pose)
 
                 if self._lit_mode:
@@ -571,21 +575,27 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
                 if self.is_depth_available:
                     right_depth = self._request_image('depth')
+                    # This is the same as for the base depth, above.
+                    right_depth = np.asarray(right_depth, dtype=np.float32) / 255
+                    right_depth = np.sum(right_depth * (65536, 256, 1), axis=2)
+                    # Convert to meters.
+                    right_depth /= 100
                 if self.is_per_pixel_labels_available:
                     right_labels = self._request_image('object_mask')
                 if self.is_normals_available:
                     right_world_normals = self._request_image('normal')
 
+                # Reset the camera pose, so that we don't drift right
+                self.set_camera_pose(cached_pose)
+
                 return im.StereoImage(left_data=image_data,
                                       right_data=right_image_data,
-                                      left_camera_pose=cached_pose,
-                                      right_camera_pose=right_pose,
                                       metadata=self._make_metadata(image_data, depth_data, labels_data,
                                                                    cached_pose, right_pose),
                                       additional_metadata=self._additional_metadata,
                                       left_depth_data=simulation.depth_noise.generate_depth_noise(
                                           depth_data, right_depth, self.get_camera_intrinsics(),
-                                          (0, -1 * self._stereo_offset, 0), self._depth_noise_quality),
+                                          right_relative_pose, self._depth_noise_quality),
                                       left_ground_truth_depth_data=depth_data,
                                       left_labels_data=labels_data,
                                       left_world_normals_data=world_normals_data,
