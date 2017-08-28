@@ -187,6 +187,15 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             (
                 '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
                 'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
+            ), (
+                '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
+            ), (
+                '/media/john/Storage/simulators/AIUE_V01_003/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
+            ), (
+                '/media/john/Storage/simulators/AIUE_V01_004/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             )
         ]:
             sim_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
