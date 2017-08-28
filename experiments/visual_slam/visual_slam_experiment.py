@@ -189,13 +189,13 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             ), (
                 '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
+                'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             ), (
                 '/media/john/Storage/simulators/AIUE_V01_003/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
+                'AIUE_V01_003', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             ), (
                 '/media/john/Storage/simulators/AIUE_V01_004/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
+                'AIUE_V01_004', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             )
         ]:
             sim_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
@@ -212,7 +212,12 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if self._flythrough_controller is None:
             self._flythrough_controller = dh.add_unique(db_client.image_source_collection,
                                                         fly_cont.FlythroughController(
-
+                                                            max_speed=0.2,
+                                                            max_turn_angle=np.pi / 36,
+                                                            avoidance_radius=1,
+                                                            avoidance_scale=1,
+                                                            length=100,
+                                                            seconds_per_frame=1/10
                                                         ))
             self._set_property('flythrough_controller', self._flythrough_controller)
 
