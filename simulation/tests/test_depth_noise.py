@@ -9,10 +9,11 @@ import simulation.depth_noise as depth_noise
 class TestDepthNoise(unittest.TestCase):
 
     def test_gaussian_noise(self):
-        ground_truth_depth = make_test_image()
-        noisy_depth = depth_noise.naive_gaussian_noise(ground_truth_depth)
+        #ground_truth_depth = make_test_image()
+        #noisy_depth = depth_noise.naive_gaussian_noise(ground_truth_depth)
         #cv2.imshow('test fixed', noisy_depth / np.max(noisy_depth))
         #cv2.waitKey(0)
+        pass
 
     def test_kinect_noise(self):
         ground_truth_depth_left, ground_truth_depth_right = get_test_images()
@@ -21,8 +22,8 @@ class TestDepthNoise(unittest.TestCase):
             focal_length,
             focal_length * (ground_truth_depth_left.shape[1] / ground_truth_depth_left.shape[0]),
             0.5, 0.5)
-        noisy_depth = depth_noise.kinect_depth_stereo_matrix_model(ground_truth_depth_left, ground_truth_depth_right, camera_intrinsics)
-        cv2.imshow('test depth linear', noisy_depth / 4)
+        noisy_depth = depth_noise.kinect_depth_model(ground_truth_depth_left, ground_truth_depth_right, camera_intrinsics)
+        cv2.imshow('test depth linear', noisy_depth / np.max(noisy_depth))
         cv2.waitKey(0)
 
 
@@ -38,8 +39,10 @@ def get_test_image(suffix):
         return make_test_image()
     else:
         depth_image = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-        depth_image = np.asarray(depth_image[:,:,0], dtype=np.float32) / 100
-        return depth_image
+        depth_image = np.asarray(depth_image, dtype=np.float32) / 255  # Back to floats
+        depth_image = np.sum(depth_image * (1, 256, 65536, 0), axis=2)  # Rescale the channels and combine.
+        # We now have depth in unreal world units, ie, centimenters. Convert to meters.
+        return depth_image / 100
 
 
 def make_test_image():
