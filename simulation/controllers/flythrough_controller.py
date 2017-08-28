@@ -132,7 +132,18 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
             return False
         self._simulator.begin()
         self._current_index = 0
-        self._velocity = np.array((self._max_speed, 0, 0), dtype=np.float32)
+        self._velocity = np.random.uniform((-1, -1, 0), (1, 1, 0), 3)
+        self._velocity = self._max_speed * self._velocity / np.linalg.norm(self._velocity)
+
+        # Set the initial facing direction to point in a random direction
+        pose_mat = self._simulator.current_pose
+        forward = self.np.random.uniform((-1, -1, 0), (1, 1, 0), 3)
+        forward = forward / np.linalg.norm(forward)
+        up = (0, 0, 1)
+        left = np.cross(up, forward)
+        up = np.cross(forward, left)
+        pose_mat[0:3, 0:3] = np.array([forward, left, up])
+        self._simulator.set_camera_pose(tf.Transform(pose_mat))
 
     def get(self, index):
         """
