@@ -11,6 +11,7 @@ import database.entity
 import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import simulation.simulator
+import simulation.depth_noise
 import util.dict_utils as du
 import util.unreal_transform as uetf
 
@@ -58,6 +59,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             'normal_maps_enabled': True,
             'roughness_enabled': True,
             'geometry_decimation': 0,
+            'depth_noise_quality': 1,
 
             # Simulation server config
             'host': 'localhost',
@@ -91,6 +93,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         self._normal_maps_enabled = bool(config['normal_maps_enabled'])
         self._roughness_enabled = bool(config['roughness_enabled'])
         self._geometry_decimation = int(config['geometry_decimation'])
+        self._depth_noise_quality = int(config['depth_noise_quality'])
 
         self._host = str(config['host'])
         self._port = int(config['port'])
@@ -343,17 +346,20 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                     rotation=pose.euler)
             self._current_pose = uetf.transform_from_unreal(pose)
 
-    def get_obstacle_avoidance_force(self, radius=1):
+    def get_obstacle_avoidance_force(self, radius=1, velocity=(1, 0, 0)):
         """
         Get a force for obstacle avoidance.
         The simulator should get all objects within the given radius,
         and provide a net force away from all the objects, scaled by the distance to the objects.
 
         :param radius: Distance to detect objects, in meters
+        :param velocity: The current velocity of the camera, for predicting collisions.
         :return: A repulsive force vector, as a numpy array
         """
         if self._client is not None:
-            force = self._client.request("vget /camera/0/avoid {0}".format(radius * 100))
+            velocity = uetf.transform_to_unreal(velocity)
+            force = self._client.request("vget /camera/0/avoid {0} {1} {2} {3}".format(
+                radius * 100, velocity[0], velocity[1], velocity[2]))
             force = force.split(' ')
             if len(force) == 3:
                 force = np.array([float(force[0]), float(force[1]), float(force[2])])
@@ -538,9 +544,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             world_normals_data = None
 
             if self.is_depth_available:
-                depth_data = self._request_image('depth', cv2.IMREAD_UNCHANGED)
-                # TODO: Scale the depth correctly to meters
-                depth_data = np.asarray(depth_data, dtype=np.float32)
+                depth_data = self._request_image('depth', cv2.IMREAD_COLOR)
+                # I've encoded the depth into all three channels, Red is depth / 65536, green depth on 256,
+                # and blue raw depth. Green and blue channels loop within their ranges, red clamps.
+                depth_data /= 255   # Back to floats
+                depth_data = np.sum(depth_data * (65536, 256, 1), axis=2)   # Rescale the channels and combine.
+                # We now have depth in unreal world units, ie, centimenters. Convert to meters.
+                depth_data /= 100
             if self.is_per_pixel_labels_available:
                 labels_data = self._request_image('object_mask', cv2.IMREAD_COLOR)
             if self.is_normals_available:
@@ -548,7 +558,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
             if self.is_stereo_available:
                 cached_pose = self.current_pose
-                right_pose = self.current_pose.find_independent((0, 0, self._stereo_offset))
+                right_pose = self.current_pose.find_independent((0, -1 * self._stereo_offset, 0))
                 self.set_camera_pose(right_pose)
 
                 if self._lit_mode:
@@ -573,10 +583,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                                       metadata=self._make_metadata(image_data, depth_data, labels_data,
                                                                    cached_pose, right_pose),
                                       additional_metadata=self._additional_metadata,
-                                      left_depth_data=depth_data,
+                                      left_depth_data=simulation.depth_noise.generate_depth_noise(
+                                          depth_data, right_depth, self.get_camera_intrinsics(),
+                                          (0, -1 * self._stereo_offset, 0), self._depth_noise_quality),
+                                      left_ground_truth_depth_data=depth_data,
                                       left_labels_data=labels_data,
                                       left_world_normals_data=world_normals_data,
-                                      right_depth_data=right_depth,
+                                      right_ground_truth_depth_data=right_depth,
                                       right_labels_data=right_labels,
                                       right_world_normals_data=right_world_normals)
             return im.Image(data=image_data,
