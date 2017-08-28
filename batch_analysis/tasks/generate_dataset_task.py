@@ -24,6 +24,10 @@ class GenerateDatasetTask(batch_analysis.task.Task):
     def simulator_config(self):
         return self._simulator_config
 
+    @property
+    def repeat(self):
+        return self._repeat
+
     def run_task(self, db_client):
         import logging
         import traceback

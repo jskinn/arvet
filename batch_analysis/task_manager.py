@@ -253,6 +253,11 @@ class TaskManager:
             if isinstance(task, import_dataset_task.ImportDatasetTask):
                 existing_query['module_name'] = task.module_name
                 existing_query['path'] = task.path
+            elif isinstance(task, generate_dataset_task.GenerateDatasetTask):
+                existing_query['controller_id'] = task.controller_id
+                existing_query['simulator_id'] = task.simulator_id
+                existing_query['simulator_config'] = task.simulator_config
+                existing_query['repeat'] = task.repeat
             elif isinstance(task, train_system_task.TrainSystemTask):
                 existing_query['trainer_id'] = task.trainer
                 existing_query['trainee_id'] = task.trainee
