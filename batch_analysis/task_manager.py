@@ -1,3 +1,5 @@
+import copy
+import util.database_helpers as dh
 import batch_analysis.task
 import batch_analysis.tasks.import_dataset_task as import_dataset_task
 import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
@@ -79,8 +81,9 @@ class TaskManager:
         :param expected_duration: The expected time this job will take. Default 1 hour.
         :return: An ImportDatasetTask containing the task state.
         """
-        existing = self._collection.find_one({'controller_id': controller_id, 'simulator_id': simulator_id,
-                                              'simulator_config': simulator_config, 'repeat': repeat})
+        existing = self._collection.find_one(dh.query_to_dot_notation({
+            'controller_id': controller_id, 'simulator_id': simulator_id,
+            'simulator_config': copy.deepcopy(simulator_config), 'repeat': repeat}))
         if existing is not None:
             return self._db_client.deserialize_entity(existing)
         else:
@@ -256,8 +259,9 @@ class TaskManager:
             elif isinstance(task, generate_dataset_task.GenerateDatasetTask):
                 existing_query['controller_id'] = task.controller_id
                 existing_query['simulator_id'] = task.simulator_id
-                existing_query['simulator_config'] = task.simulator_config
+                existing_query['simulator_config'] = copy.deepcopy(task.simulator_config)
                 existing_query['repeat'] = task.repeat
+                existing_query = dh.query_to_dot_notation(existing_query)
             elif isinstance(task, train_system_task.TrainSystemTask):
                 existing_query['trainer_id'] = task.trainer
                 existing_query['trainee_id'] = task.trainee
