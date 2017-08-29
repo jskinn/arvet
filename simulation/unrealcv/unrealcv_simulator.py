@@ -190,7 +190,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                 self._client.disconnect()
                 self._client = None
             self._store_config()
-            self._simulator_process = subprocess.Popen(self._executable)
+            self._simulator_process = subprocess.Popen(self._executable, stdout=subprocess.DEVNULL)
             # Wait for the UnrealCV server to start, pulling lines from stdout to check
             time.sleep(2)   # Wait, we can't capture some of the output right now
 #            while self._simulator_process.poll() is not None:
