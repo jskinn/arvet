@@ -39,8 +39,8 @@ def get_test_image(suffix):
         return make_test_image()
     else:
         depth_image = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-        depth_image = np.asarray(depth_image, dtype=np.float32) / 255  # Back to floats
-        depth_image = np.sum(depth_image * (1, 256, 65536, 0), axis=2)  # Rescale the channels and combine.
+        depth_image = np.asarray(depth_image, dtype=np.float32)  # Back to floats
+        depth_image = np.sum(depth_image * (1/255, 1, 255, 0), axis=2)  # Rescale the channels and combine.
         # We now have depth in unreal world units, ie, centimenters. Convert to meters.
         return depth_image / 100
 

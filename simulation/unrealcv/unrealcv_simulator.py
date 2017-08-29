@@ -550,8 +550,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                 depth_data = self._request_image('depth', cv2.IMREAD_COLOR)
                 # I've encoded the depth into all three channels, Red is depth / 65536, green depth on 256,
                 # and blue raw depth. Green and blue channels loop within their ranges, red clamps.
-                depth_data = np.asarray(depth_data, dtype=np.float32) / 255   # Back to floats
-                depth_data = np.sum(depth_data * (65536, 256, 1), axis=2)   # Rescale the channels and combine.
+                depth_data = np.asarray(depth_data, dtype=np.float32)   # Back to floats
+                depth_data = np.sum(depth_data * (255, 1, 1/255), axis=2)   # Rescale the channels and combine.
                 # We now have depth in unreal world units, ie, centimenters. Convert to meters.
                 depth_data /= 100
             if self.is_per_pixel_labels_available:

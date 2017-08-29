@@ -81,7 +81,7 @@ def kinect_depth_model(ground_truth_depth_left, ground_truth_depth_right, camera
     np.multiply(left_depth_points, output_depth, out=output_depth)
 
     # Step 4: Clipping planes - Set to 0 where too close or too far
-    output_depth = np.where((output_depth > 0.0) & (output_depth < 4.0), output_depth, 0.0)
+    output_depth = np.where((output_depth > 0.8) & (output_depth < 4.0), output_depth, 0.0)
 
     # Step 5: Shadows
     # Project the depth points from the right depth image onto the left depth image
