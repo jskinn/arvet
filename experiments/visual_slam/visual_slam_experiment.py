@@ -601,10 +601,10 @@ def extract_trajectory(image_source):
     :return: The ground-truth camera trajectory, as a dict of timestamp to pose
     """
     trajectory = {}
-    image_source.begin()
-    while not image_source.is_complete():
-        image, timestamp = image_source.get_next_image()
-        trajectory[timestamp] = image.metadata.camera_pose
+    with image_source:
+        while not image_source.is_complete():
+            image, timestamp = image_source.get_next_image()
+            trajectory[timestamp] = image.metadata.camera_pose
     return trajectory
 
 

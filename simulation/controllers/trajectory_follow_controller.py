@@ -170,6 +170,14 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
         """
         return self._current_index >= len(self)
 
+    def shutdown(self):
+        """
+        Shut down the controller, also shutting down the simulator.
+        :return:
+        """
+        if self._simulator is not None:
+            self._simulator.shutdown()
+
     def can_control_simulator(self, simulator):
         """
         Can this controller control the given simulator.

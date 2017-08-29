@@ -119,6 +119,13 @@ class AugmentedImageCollection(core.image_source.ImageSource, database.entity.En
     def is_complete(self):
         return self._aug_index >= len(self._augmenters) and self._inner.is_complete()
 
+    def shutdown(self):
+        """
+        Forward the shutdown command to the inner image source.
+        :return:
+        """
+        self._inner.shutdown()
+
     def serialize(self):
         serialized = super().serialize()
         serialized['inner'] = self._inner.identifier

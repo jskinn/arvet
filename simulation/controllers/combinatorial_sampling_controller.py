@@ -207,6 +207,15 @@ class CombinatorialSampleController(simulation.controller.Controller):
         """
         return self._current_index is None or self._current_index >= len(self)
 
+    def shutdown(self):
+        """
+        Shut down the controller and the inner simulator
+        :return:
+        """
+        if self._simulator is not None:
+            self._simulator.shutdown()
+            self._current_index = 0
+
     def can_control_simulator(self, simulator):
         """
         Can this controller control the given simulator.

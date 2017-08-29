@@ -99,9 +99,9 @@ def run_system_with_source(system, image_source):
         if stereo_baseline is not None:
             system.set_stereo_baseline(stereo_baseline)
         system.start_trial(image_source.sequence_type)
-        image_source.begin()
-        while not image_source.is_complete():
-            image, timestamp = image_source.get_next_image()
-            system.process_image(image, timestamp)
+        with image_source:
+            while not image_source.is_complete():
+                image, timestamp = image_source.get_next_image()
+                system.process_image(image, timestamp)
         return system.finish_trial()
     return None

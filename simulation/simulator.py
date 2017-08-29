@@ -117,16 +117,6 @@ class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractmethod
-    def shutdown(self):
-        """
-        Shut down the simulator.
-        At the moment, this is less relevant for other image source types.
-        If it becomes more common, move it into image_source
-        :return:
-        """
-        pass
-
     @property
     def supports_random_access(self):
         """

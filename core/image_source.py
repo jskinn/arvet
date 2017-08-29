@@ -6,8 +6,42 @@ class ImageSource(metaclass=abc.ABCMeta):
     An abstract class representing a place to get images from.
     This generalizes datasets from previous versions,
     and simulators, the big addition of this iteration.
+
+    The new usage structure for image sources is the with statement, i.e.:
+    ```
+    with image_source:
+        while not image_source.is_complete():
+            image, timestamp = image_source.get_next_image()
+    ```
+    This allows us to cleanly startup and shutdown the image source (for simulators).
+
     TODO: We need more ways to interrogate the image source for information about it.
     """
+
+    def __enter__(self):
+        """
+        Start up the image source.
+        This calls begin, you shouldn't need to override it, put all setup in begin
+        TODO: Make this return an iterator or handle, so usage becomes:
+        ```
+        with image_source as iter:
+            for image, timestamp in iter:
+                <do stuff>
+        ```
+        :return:
+        """
+        self.begin()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Shut down the image source.
+        This calls shutdown
+        :param exc_type:
+        :param exc_val:
+        :param exc_tb:
+        :return:
+        """
+        self.shutdown()
 
     @property
     @abc.abstractmethod
@@ -112,9 +146,11 @@ class ImageSource(metaclass=abc.ABCMeta):
     def begin(self):
         """
         Start producing images.
-        This will trigger any necessary startup code,
-        and will allow get_next_image to be called.
+        This will trigger any necessary startup code, and will allow get_next_image to be called.
         Return False if there is a problem starting the source.
+
+        This will be called automatically by
+
         :return: True iff we have successfully started iteration
         """
         return False
@@ -152,3 +188,15 @@ class ImageSource(metaclass=abc.ABCMeta):
         :return: True if there are more images to get, false otherwise.
         """
         return False
+
+    def shutdown(self):
+        """
+        Once were finished with the image source, perform any necessary cleanup operations,
+        such as shutting down simulators or closing file handles.
+        This is used for graceful exit in the event of an exception.
+        This will be called automatically from __exit__(),
+        if you're wrapping an inner image source, you need to call the inner shutdown.
+        Overriding this is optional.
+        :return:
+        """
+        pass

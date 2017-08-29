@@ -5,6 +5,7 @@ class ImageSampler:
     """
     A wrapper for multiple image sources that allows random access,
     which performs sampling, training-validation segregation, and data augmentation.
+    TODO: Replace this, it should be an image source as well.
     """
 
     def __init__(self, image_sources, augmenters=None, default_validation_fraction=0.3, loop=False):
@@ -129,6 +130,14 @@ class ImageSampler:
             image_source.begin()
         if shuffle:
             self.shuffle()
+
+    def shutdown(self):
+        """
+        Shut down the image sources
+        :return:
+        """
+        for image_source in self._image_sources:
+            image_source.shutdown()
 
     def _get_by_settings(self, source_idx, idx, augmenter_idx):
         """

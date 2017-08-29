@@ -205,6 +205,14 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         """
         return self._current_index >= self._length
 
+    def shutdown(self):
+        """
+        Shut down the controller and the inner simulator
+        :return:
+        """
+        if self._simulator is not None:
+            self._simulator.shutdown()
+
     def can_control_simulator(self, simulator):
         """
         Can this controller control the given simulator.

@@ -59,13 +59,13 @@ class ImageCollectionBuilder:
         if (len(self._image_ids) > 0 or
                 image_source.sequence_type == core.sequence_type.ImageSequenceType.NON_SEQUENTIAL):
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-        image_source.begin()
-        while not image_source.is_complete():
-            image, timestamp = image_source.get_next_image()
-            if timestamp is not None:
-                timestamp += offset
-            if not callable(filter_function) or filter_function(image):
-                self.add_image(image, timestamp)
+        with image_source:
+            while not image_source.is_complete():
+                image, timestamp = image_source.get_next_image()
+                if timestamp is not None:
+                    timestamp += offset
+                if not callable(filter_function) or filter_function(image):
+                    self.add_image(image, timestamp)
 
     def save(self):
         """

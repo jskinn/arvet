@@ -106,6 +106,13 @@ class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
     def is_complete(self):
         return self._inner.is_complete() and self._current_loop_count >= self._repeats
 
+    def shutdown(self):
+        """
+        Forward the shutdown command to the inner image source.
+        :return:
+        """
+        self._inner.shutdown()
+
     def serialize(self):
         serialized = super().serialize()
         serialized['inner'] = self._inner.identifier
