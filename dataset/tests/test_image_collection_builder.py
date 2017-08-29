@@ -14,12 +14,18 @@ import metadata.image_metadata as imeta
 import dataset.image_collection_builder
 
 
-class MockImageSource:
+class MockImageSource(core.image_source.ImageSource):
     sequence_type = core.sequence_type.ImageSequenceType.SEQUENTIAL
 
     def __init__(self, images):
         self.images = images
         self.index = 0
+
+    def __enter__(self):
+        super().__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        super().__exit__(exc_type, exc_val, exc_tb)
 
     def begin(self):
         self.index = 0
@@ -32,6 +38,40 @@ class MockImageSource:
         timestamp = self.index / 30
         self.index += 1
         return image, timestamp
+
+    @property
+    def is_stored_in_database(self):
+        return False
+
+    @property
+    def is_labels_available(self):
+        return False
+
+    @property
+    def is_normals_available(self):
+        return False
+
+    def get(self, index):
+        return None
+
+    def get_camera_intrinsics(self):
+        return None
+
+    @property
+    def is_per_pixel_labels_available(self):
+        return False
+
+    @property
+    def is_depth_available(self):
+        return False
+
+    @property
+    def is_stereo_available(self):
+        return False
+
+    @property
+    def supports_random_access(self):
+        return False
 
 
 def make_image(*args, **kwargs):
@@ -104,19 +144,21 @@ class TestImageCollectionBuilder(unittest.TestCase):
     def test_add_from_image_source_loops_over_image_source(self):
         inner_image_source = MockImageSource([make_image()])
         mock_image_source = mock.Mock(wraps=inner_image_source, spec_set=inner_image_source)
+        mock_image_source.__enter__ = mock.Mock(wraps=inner_image_source.__enter__)
+        mock_image_source.__exit__ = mock.Mock(wraps=inner_image_source.__exit__)
 
         subject = dataset.image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
-        self.assertEqual('begin', mock_image_source.method_calls[0][0])
-        self.assertEqual('is_complete', mock_image_source.method_calls[1][0])
-        self.assertEqual('get_next_image', mock_image_source.method_calls[2][0])
-        self.assertEqual('is_complete', mock_image_source.method_calls[3][0])
+        self.assertEqual('__enter__', mock_image_source.mock_calls[0][0])
+        self.assertEqual('is_complete', mock_image_source.mock_calls[1][0])
+        self.assertEqual('get_next_image', mock_image_source.mock_calls[2][0])
+        self.assertEqual('is_complete', mock_image_source.mock_calls[3][0])
+        self.assertEqual('__exit__', mock_image_source.mock_calls[4][0])
 
     def test_add_from_image_source_can_offset_timestamps(self):
         img_ids = [bson.ObjectId for _ in range(2)]
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
-        inner_image_source = MockImageSource([make_image(id_=img_id) for img_id in img_ids])
-        mock_image_source = mock.Mock(wraps=inner_image_source, spec_set=inner_image_source)
+        mock_image_source = MockImageSource([make_image(id_=img_id) for img_id in img_ids])
 
         subject = dataset.image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
@@ -135,8 +177,7 @@ class TestImageCollectionBuilder(unittest.TestCase):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
         self.mock_db_client.image_collection.insert.side_effect = ids
         self.mock_db_client.image_source_collection.find_one.return_value = {'_id': bson.ObjectId()}
-        inner_image_source = MockImageSource([make_image() for _ in range(4)])
-        mock_image_source = mock.Mock(wraps=inner_image_source, spec_set=inner_image_source)
+        mock_image_source = MockImageSource([make_image() for _ in range(4)])
 
         subject = dataset.image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
@@ -156,8 +197,7 @@ class TestImageCollectionBuilder(unittest.TestCase):
         ids = [bson.ObjectId() for _ in range(4)]
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
         self.mock_db_client.image_collection.insert.side_effect = ids
-        inner_image_source = MockImageSource([make_image() for _ in range(4)])
-        mock_image_source = mock.Mock(wraps=inner_image_source, spec_set=inner_image_source)
+        mock_image_source = MockImageSource([make_image() for _ in range(4)])
 
         subject = dataset.image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
@@ -175,8 +215,7 @@ class TestImageCollectionBuilder(unittest.TestCase):
     def test_adding_from_non_sequential_source_makes_sequence_non_sequential(self):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
         self.mock_db_client.image_collection.insert.side_effect = [bson.ObjectId() for _ in range(4)]
-        inner_image_source = MockImageSource([make_image() for _ in range(4)])
-        mock_image_source = mock.Mock(wraps=inner_image_source, spec_set=inner_image_source)
+        mock_image_source = MockImageSource([make_image() for _ in range(4)])
         mock_image_source.sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
         subject = dataset.image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
@@ -188,8 +227,7 @@ class TestImageCollectionBuilder(unittest.TestCase):
     def test_adding_from_multiple_sources_makes_sequence_non_sequential(self):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 8
         self.mock_db_client.image_collection.insert.side_effect = [bson.ObjectId() for _ in range(8)]
-        inner_image_source = MockImageSource([make_image() for _ in range(4)])
-        mock_image_source = mock.Mock(wraps=inner_image_source, spec_set=inner_image_source)
+        mock_image_source = MockImageSource([make_image() for _ in range(4)])
 
         subject = dataset.image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)

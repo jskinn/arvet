@@ -100,14 +100,15 @@ class TestTrialRunner(unittest.TestCase):
         task.run_system_with_source(self._system, self._image_source)
         mock_calls = self._image_source.mock_calls
         # get_camera_intrinsics; get_stereo_baseline; begin; 10 pairs of  is complete and get image; final is complete
-        self.assertEqual(24, len(mock_calls))
+        self.assertEqual(25, len(mock_calls))
         self.assertEqual('get_camera_intrinsics', mock_calls[0][0])
         self.assertEqual('get_stereo_baseline', mock_calls[1][0])
-        self.assertEqual('begin', mock_calls[2][0])
+        self.assertEqual('__enter__', mock_calls[2][0])
         for i in range(10):
             self.assertEqual('is_complete', mock_calls[3 + 2 * i][0])
             self.assertEqual('get_next_image', mock_calls[4 + 2 * i][0])
         self.assertEqual('is_complete', mock_calls[23][0])
+        self.assertEqual('__exit__', mock_calls[24][0])
 
     def test_run_system_returns_trial_result(self):
         result = task.run_system_with_source(self._system, self._image_source)
