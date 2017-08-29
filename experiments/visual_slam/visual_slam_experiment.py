@@ -8,7 +8,9 @@ import util.database_helpers as dh
 import util.associate
 import util.transform as tf
 import util.dict_utils as du
+import core.image_source
 import core.sequence_type
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import batch_analysis.experiment
 import systems.visual_odometry.libviso2.libviso2 as libviso2
@@ -173,6 +175,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         self._real_world_datasets = set(real_world_datasets) if real_world_datasets is not None else set()
         self._trial_list = trial_list if trial_list is not None else []
         self._result_list = result_list if result_list is not None else []
+        self._placeholder_image_collections = {}
 
     def do_imports(self, task_manager, db_client):
         """
@@ -443,8 +446,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         # Step 1: Group trials and results by trajectory, and by each image quality
-
-
         trajectory_map = []
         trials_by_trajectory = []
         results_by_trajectory = []
@@ -496,10 +497,38 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         pyplot.show()
 
     def _load_image_source(self, db_client, image_source_id):
-        if image_source_id not in self._image_source_cache:
-            self._image_source_cache[image_source_id] = dh.load_object(db_client, db_client.image_source_collection,
-                                                                       image_source_id)
-        return self._image_source_cache[image_source_id]
+        if image_source_id not in self._placeholder_image_collections:
+            s_image_collection = db_client.image_source_collection.find_one({'_id': image_source_id})
+            image_ids = [img_id for _, img_id in s_image_collection['images']]
+            self._placeholder_image_collections[image_source_id] = PlaceholderImageCollection(
+                is_labels_available=db_client.images_collection.find({
+                    '_id': {'$in': image_ids},
+                    'metadata.labelled_objects': {'$or': {'$exists': False, '$size': 0}}
+                }).count() <= 0,
+                is_per_pixel_labels_available=db_client.images_collection.find({
+                    '_id': {'$in': image_ids},
+                    'labels_data': {'$or': {'$exists': False, '$eq': None}},
+                    'left_labels_data': {'$or': {'$exists': False, '$eq': None}}
+                }).count() <= 0,
+                is_normals_available=db_client.images_collection.find({
+                    '_id': {'$in': image_ids},
+                    'world_normals_data': {'$or': {'$exists': False, '$eq': None}},
+                    'left_world_normals_data': {'$or': {'$exists': False, '$eq': None}}
+                }).count() <= 0,
+                is_depth_available=db_client.images_collection.find({
+                    '_id': {'$in': image_ids},
+                    'depth_data': {'$or': {'$exists': False, '$eq': None}},
+                    'left_depth_data': {'$or': {'$exists': False, '$eq': None}}
+                }).count() <= 0,
+                is_stereo_available=db_client.images_collection.find({
+                    '_id': {'$in': image_ids},
+                    'right_data': {'$or': {'$exists': False, '$eq': None}}
+                }).count() <= 0,
+                sequence_type=(core.sequence_type.ImageSequenceType.SEQUENTIAL
+                               if s_image_collection['sequence_type'] == 'SEQ'
+                               else core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
+            )
+        return self._placeholder_image_collections[image_source_id]
 
     def _get_trajectory_id(self, trajectory, trajectory_map):
         """
@@ -571,6 +600,70 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if 'result_list' in serialized_representation:
             kwargs['result_list'] = serialized_representation['result_list']
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+
+class PlaceholderImageCollection(core.image_source.ImageSource):
+    """
+    A placeholder for an image collection which doesn't actually have any images,
+    but will give the same answers to things like is_stored_in_database and is_labels_available.
+    Used for preliminary checking if an image collection is appropriate
+    """
+
+    def __init__(self, is_labels_available, is_per_pixel_labels_available, is_normals_available,
+                 is_depth_available, is_stereo_available, sequence_type):
+        self._is_labels_available = is_labels_available
+        self._is_per_pixel_labels_available = is_per_pixel_labels_available
+        self._is_normals_available = is_normals_available
+        self._is_depth_available = is_depth_available
+        self._is_stereo_available = is_stereo_available
+        self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
+
+    @property
+    def is_stored_in_database(self):
+        return True
+
+    @property
+    def is_labels_available(self):
+        return self._is_labels_available
+
+    @property
+    def is_per_pixel_labels_available(self):
+        return self._is_per_pixel_labels_available
+
+    @property
+    def is_normals_available(self):
+        return self._is_normals_available
+
+    @property
+    def is_depth_available(self):
+        return self._is_depth_available
+
+    @property
+    def is_stereo_available(self):
+        return self._is_stereo_available
+
+    @property
+    def supports_random_access(self):
+        return True
+
+    def get_camera_intrinsics(self):
+        return cam_intr.CameraIntrinsics(fx=1, fy=1, cx=0.5, cy=0.5)
+
+    @property
+    def sequence_type(self):
+        return self._sequence_type
+
+    def get_next_image(self):
+        return None, None
+
+    def begin(self):
+        pass
+
+    def get(self, index):
+        return None
+
+    def is_complete(self):
+        return True
 
 
 def get_trajectory_for_image_source(db_client, image_collection_id):
