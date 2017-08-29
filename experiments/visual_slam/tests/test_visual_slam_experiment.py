@@ -22,7 +22,8 @@ class TestVisualSlamExperiment(entity_test.EntityContract, unittest.TestCase):
             'benchmark_trajectory_drift': oid.ObjectId(),
             'simulators': [oid.ObjectId(), oid.ObjectId()],
             'flythrough_controller': oid.ObjectId(),
-            'trajectory_groups': [vse.TrajectoryGroup(oid.ObjectId(), {}, oid.ObjectId())],
+            'trajectory_groups': {oid.ObjectId(): vse.TrajectoryGroup(oid.ObjectId(), {}, oid.ObjectId())
+                                  for _ in range(2)},
             'real_world_datasets': [oid.ObjectId(), oid.ObjectId(), oid.ObjectId()],
             'trial_list': [(oid.ObjectId(), oid.ObjectId(), oid.ObjectId())],
             'result_list': [(oid.ObjectId(), oid.ObjectId(), oid.ObjectId(), oid.ObjectId())]

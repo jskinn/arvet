@@ -368,7 +368,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_trajectory_drift)
         ]
         datasets = set(self._real_world_datasets)
-        for group in self._trajectory_groups:
+        for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
 
         # Schedule trials
@@ -570,7 +570,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
         serialized['simulators'] = list(self._simulators)
         serialized['flythrough_controller'] = self._flythrough_controller
-        serialized['trajectory_groups'] = [group.serialize() for group in self._trajectory_groups]
+        serialized['trajectory_groups'] = {str(max_id): group.serialize()
+                                           for max_id, group in self._trajectory_groups.items()}
         serialized['real_world_datasets'] = list(self._real_world_datasets)
         serialized['trial_list'] = self._trial_list
         serialized['result_list'] = self._result_list
@@ -591,8 +592,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if 'flythrough_controller' in serialized_representation:
             kwargs['flythrough_controller'] = serialized_representation['flythrough_controller']
         if 'trajectory_groups' in serialized_representation:
-            kwargs['trajectory_groups'] = [TrajectoryGroup.deserialize(s_group)
-                                           for s_group in serialized_representation['trajectory_groups']]
+            kwargs['trajectory_groups'] = {bson.ObjectId(max_id): TrajectoryGroup.deserialize(s_group)
+                                           for max_id, s_group in
+                                           serialized_representation['trajectory_groups'].items()}
         if 'real_world_datasets' in serialized_representation:
             kwargs['real_world_datasets'] = serialized_representation['real_world_datasets']
         if 'trial_list' in serialized_representation:
