@@ -271,12 +271,13 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     if isinstance(result_ids, bson.ObjectId):   # we got a single id
                         result_ids = [result_ids]
                     for result_id in result_ids:
-                        self._trajectory_groups[result_id] = TrajectoryGroup(
-                            simulator_id=simulator_id,
-                            default_simulator_config=simulator_config,
-                            max_quality_id=result_id)
-                        self._set_property('trajectory_groups.{0}'.format(result_id),
-                                           self._trajectory_groups[result_id].serialize())
+                        if result_id not in self._trajectory_groups:
+                            self._trajectory_groups[result_id] = TrajectoryGroup(
+                                simulator_id=simulator_id,
+                                default_simulator_config=simulator_config,
+                                max_quality_id=result_id)
+                            self._set_property('trajectory_groups.{0}'.format(result_id),
+                                               self._trajectory_groups[result_id].serialize())
                 else:
                     task_manager.do_task(generate_dataset_task)
 
@@ -501,28 +502,29 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             s_image_collection = db_client.image_source_collection.find_one({'_id': image_source_id})
             image_ids = [img_id for _, img_id in s_image_collection['images']]
             self._placeholder_image_collections[image_source_id] = PlaceholderImageCollection(
-                is_labels_available=db_client.images_collection.find({
+                id_=s_image_collection['_id'],
+                is_labels_available=db_client.image_collection.find({
                     '_id': {'$in': image_ids},
-                    'metadata.labelled_objects': {'$or': {'$exists': False, '$size': 0}}
+                    'metadata.labelled_objects': {'$in': [[], None]}
                 }).count() <= 0,
-                is_per_pixel_labels_available=db_client.images_collection.find({
+                is_per_pixel_labels_available=db_client.image_collection.find({
                     '_id': {'$in': image_ids},
-                    'labels_data': {'$or': {'$exists': False, '$eq': None}},
-                    'left_labels_data': {'$or': {'$exists': False, '$eq': None}}
+                    'labels_data': None,
+                    'left_labels_data': None
                 }).count() <= 0,
-                is_normals_available=db_client.images_collection.find({
+                is_normals_available=db_client.image_collection.find({
                     '_id': {'$in': image_ids},
-                    'world_normals_data': {'$or': {'$exists': False, '$eq': None}},
-                    'left_world_normals_data': {'$or': {'$exists': False, '$eq': None}}
+                    'world_normals_data': None,
+                    'left_world_normals_data': None
                 }).count() <= 0,
-                is_depth_available=db_client.images_collection.find({
+                is_depth_available=db_client.image_collection.find({
                     '_id': {'$in': image_ids},
-                    'depth_data': {'$or': {'$exists': False, '$eq': None}},
-                    'left_depth_data': {'$or': {'$exists': False, '$eq': None}}
+                    'depth_data': None,
+                    'left_depth_data': None
                 }).count() <= 0,
-                is_stereo_available=db_client.images_collection.find({
+                is_stereo_available=db_client.image_collection.find({
                     '_id': {'$in': image_ids},
-                    'right_data': {'$or': {'$exists': False, '$eq': None}}
+                    'right_data': None
                 }).count() <= 0,
                 sequence_type=(core.sequence_type.ImageSequenceType.SEQUENTIAL
                                if s_image_collection['sequence_type'] == 'SEQ'
@@ -611,14 +613,19 @@ class PlaceholderImageCollection(core.image_source.ImageSource):
     Used for preliminary checking if an image collection is appropriate
     """
 
-    def __init__(self, is_labels_available, is_per_pixel_labels_available, is_normals_available,
+    def __init__(self, id_, is_labels_available, is_per_pixel_labels_available, is_normals_available,
                  is_depth_available, is_stereo_available, sequence_type):
+        self._id = id_
         self._is_labels_available = is_labels_available
         self._is_per_pixel_labels_available = is_per_pixel_labels_available
         self._is_normals_available = is_normals_available
         self._is_depth_available = is_depth_available
         self._is_stereo_available = is_stereo_available
         self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
+
+    @property
+    def identifier(self):
+        return self._id
 
     @property
     def is_stored_in_database(self):
@@ -678,14 +685,14 @@ def get_trajectory_for_image_source(db_client, image_collection_id):
     :param image_collection_id: The id of the image collection to load
     :return: A trajectory, a map of timestamp to camera pose. Ignores right-camera for stereo
     """
-    images = db_client.image_source_collection.find_one({'_id': image_collection_id, '$exists': {'images': True}},
+    images = db_client.image_source_collection.find_one({'_id': image_collection_id, 'images': {'$exists': True}},
                                                         {'images': True})
     trajectory = {}
     if images is not None:
-        for timestamp, image_id in images:
-            position_result = db_client.images.find({'_id': image_id}, {'metadata.camera_pose': True})
+        for timestamp, image_id in images['images']:
+            position_result = db_client.image_collection.find_one({'_id': image_id}, {'metadata.camera_pose': True})
             if position_result is not None:
-                trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata.camera_pose'])
+                trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
     return trajectory
 
 
