@@ -64,6 +64,9 @@ class GenerateDatasetTask(batch_analysis.task.Task):
                         self.simulator_id, self.controller_id, traceback.format_exc()
                     ))
             if dataset_id is None:
+                logging.getLogger(__name__).error(
+                    "Failed to generate dataset from simulator {0} with controller {1}: Dataset was null".format(
+                        self.simulator_id, self.controller_id))
                 self.mark_job_failed()
             else:
                 self.mark_job_complete(dataset_id)
