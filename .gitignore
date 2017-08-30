@@ -97,3 +97,6 @@ config.yml
 
 # Temporary folder, for storing config files and programs that need to be read from disk
 temp/
+
+# Job outputs
+jrs_auto_task*
