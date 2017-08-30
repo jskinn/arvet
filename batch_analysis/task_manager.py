@@ -1,5 +1,6 @@
 import copy
 import util.database_helpers as dh
+import util.dict_utils as du
 import batch_analysis.task
 import batch_analysis.tasks.import_dataset_task as import_dataset_task
 import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
@@ -26,7 +27,7 @@ class TaskManager:
     Everything else in the task behaviour is an implementation detail of TaskManager, and shouldn't be relied on.
     """
 
-    def __init__(self, task_collection, db_client):
+    def __init__(self, task_collection, db_client, config=None):
         """
         Create the task manager, wrapping a collection of tasks
         :param task_collection: The collection containing the tasks
@@ -35,6 +36,30 @@ class TaskManager:
         self._collection = task_collection
         self._db_client = db_client
         self._pending_tasks = []
+
+        # configuration keys, to avoid misspellings
+        if config is not None and 'task_config' in config:
+            task_config = dict(config['task_config'])
+        else:
+            task_config = {}
+
+        # Default configuration. Also serves as an exemplar configuration argument
+        du.defaults(task_config, {
+            'allow_generate_dataset': True,
+            'allow_import_dataset': True,
+            'allow_train_system': True,
+            'allow_run_system': True,
+            'allow_benchmark': True,
+            'allow_trial_comparison': True,
+            'allow_benchmark_comparison': True
+        })
+        self._allow_generate_dataset = bool(task_config['allow_generate_dataset'])
+        self._allow_import_dataset = bool(task_config['allow_import_dataset'])
+        self._allow_train_system = bool(task_config['allow_train_system'])
+        self._allow_run_system = bool(task_config['allow_run_system'])
+        self._allow_benchmark = bool(task_config['allow_benchmark'])
+        self._allow_trial_comparison = bool(task_config['allow_trial_comparison'])
+        self._allow_benchmark_comparison = bool(task_config['allow_benchmark_comparison'])
 
     def get_import_dataset_task(self, module_name, path, num_cpus=1, num_gpus=0,
                                 memory_requirements='3GB', expected_duration='1:00:00'):
@@ -251,37 +276,45 @@ class TaskManager:
         :return: void
         """
         if isinstance(task, batch_analysis.task.Task) and task.identifier is None and task.is_unstarted:
+            allow = False
             existing_query = {}
             # Each different task type has a different set of properties that identify it.
             if isinstance(task, import_dataset_task.ImportDatasetTask):
                 existing_query['module_name'] = task.module_name
                 existing_query['path'] = task.path
+                allow = self._allow_import_dataset
             elif isinstance(task, generate_dataset_task.GenerateDatasetTask):
                 existing_query['controller_id'] = task.controller_id
                 existing_query['simulator_id'] = task.simulator_id
                 existing_query['simulator_config'] = copy.deepcopy(task.simulator_config)
                 existing_query['repeat'] = task.repeat
                 existing_query = dh.query_to_dot_notation(existing_query)
+                allow = self._allow_generate_dataset
             elif isinstance(task, train_system_task.TrainSystemTask):
                 existing_query['trainer_id'] = task.trainer
                 existing_query['trainee_id'] = task.trainee
+                allow = self._allow_train_system
             elif isinstance(task, run_system_task.RunSystemTask):
                 existing_query['system_id'] = task.system
                 existing_query['image_source_id'] = task.image_source
+                allow = self._allow_run_system
             elif isinstance(task, benchmark_task.BenchmarkTrialTask):
                 existing_query['trial_result_id'] = task.trial_result
                 existing_query['benchmark_id'] = task.benchmark
+                allow = self._allow_benchmark
             elif isinstance(task, compare_trials_task.CompareTrialTask):
                 existing_query['trial_result1_id'] = task.trial_result1
                 existing_query['trial_result2_id'] = task.trial_result2
                 existing_query['comparison_id'] = task.comparison
+                allow = self._allow_trial_comparison
             elif isinstance(task, compare_benchmarks_task.CompareBenchmarksTask):
                 existing_query['benchmark_result1_id'] = task.benchmark_result1
                 existing_query['benchmark_result2_id'] = task.benchmark_result2
                 existing_query['comparison_id'] = task.comparison
+                allow = self._allow_benchmark_comparison
 
             # Make sure none of this task already exists
-            if existing_query != {} and self._collection.find(existing_query).limit(1).count() == 0:
+            if allow and existing_query != {} and self._collection.find(existing_query).limit(1).count() == 0:
                 task.save_updates(self._collection)
 
     def schedule_tasks(self, job_system):

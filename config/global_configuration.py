@@ -33,6 +33,15 @@ def load_global_config(filename):
                 'tasks_collection': 'tasks'
             }
         },
+        'task_config': {
+            'allow_generate_dataset': True,
+            'allow_import_dataset': True,
+            'allow_train_system': True,
+            'allow_run_system': True,
+            'allow_benchmark': True,
+            'allow_trial_comparison': True,
+            'allow_benchmark_comparison': True
+        },
         'job_system_config': {
             'job_system': 'simple',
             'node_id': 'unknown-job-system'

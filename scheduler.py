@@ -17,7 +17,7 @@ def main():
     logging.config.dictConfig(config['logging'])
     log = logging.getLogger(__name__)
     db_client = database.client.DatabaseClient(config=config)
-    task_manager = batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client)
+    task_manager = batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
 
     log.info("Scheduling experiments...")
     experiment_ids = db_client.experiments_collection.find({}, {'_id': True})
