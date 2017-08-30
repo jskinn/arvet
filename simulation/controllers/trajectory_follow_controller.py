@@ -139,7 +139,7 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
         """
         if self._simulator is not None and index in self._trajectory:
             self._simulator.set_camera_pose(self._trajectory[index])
-            image = self._simulator.get_next_image()
+            image, _ = self._simulator.get_next_image()
             return image, index
         return None, None
 
