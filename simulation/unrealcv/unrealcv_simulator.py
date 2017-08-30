@@ -25,6 +25,40 @@ Height={height}
 
 """
 
+# Make sure we only EVER have 1 simulator process, because otherwise we'll confuse our connections.
+_simulator_process = None
+
+
+def start_simulator(path):
+    """
+    Internal use only. Start up an UnrealCV simulator at the given location.
+    Stops any existing simulator.
+    :param path:
+    :return:
+    """
+    global _simulator_process
+    if _simulator_process is not None:
+        stop_simulator()
+    _simulator_process = subprocess.Popen(path, stdout=subprocess.DEVNULL)
+
+
+def stop_simulator():
+    """
+    Internal use only. Stop the UnrealCV simulator.
+    :return:
+    """
+    global _simulator_process
+    if _simulator_process is not None:
+        _simulator_process.terminate()
+        try:
+            _simulator_process.wait(100)
+        except subprocess.TimeoutExpired:
+            try:
+                _simulator_process.kill()
+            except OSError:
+                pass
+        _simulator_process = None
+
 
 class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
@@ -103,7 +137,6 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         self._additional_metadata = dict(config['metadata'])
 
         self._client = None
-        self._simulator_process = None
         self._current_pose = None
 
     @property
@@ -184,13 +217,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         :return: True iff the simulator has started correctly.
         """
         # Start the simulator process
-        if self._simulator_process is None and self._host == 'localhost':
+        if self._host == 'localhost':
             if self._client is not None:
                 # Stop the client to free up the port
                 self._client.disconnect()
                 self._client = None
             self._store_config()
-            self._simulator_process = subprocess.Popen(self._executable, stdout=subprocess.DEVNULL)
+            start_simulator(self._executable)
             # Wait for the UnrealCV server to start, pulling lines from stdout to check
             time.sleep(2)   # Wait, we can't capture some of the output right now
 #            while self._simulator_process.poll() is not None:
@@ -280,17 +313,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             self._client.disconnect()
             self._client = None
         # Stop the subprocess if it is running
-        if self._simulator_process is not None:
-            self._simulator_process.terminate()
-            try:
-                self._simulator_process.wait(100)
-            except subprocess.TimeoutExpired:
-                try:
-                    self._simulator_process.kill()
-                except OSError:
-                    pass
-            self._simulator_process = None
-
+        stop_simulator()
         self._current_pose = None
 
     @property
