@@ -291,11 +291,11 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Import KITTI dataset
         import_dataset_task = task_manager.get_import_dataset_task(
             module_name='dataset.kitti.kitti_loader',
-            path=os.path.join('/media', 'john', 'Storage', 'datasets', 'KITTI', 'dataset'),
+            path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
             num_cpus=1,
             num_gpus=0,
             memory_requirements='3GB',
-            expected_duration='4:00:00'
+            expected_duration='72:00:00'
         )
         if import_dataset_task.is_finished:
             imported_ids = import_dataset_task.result
