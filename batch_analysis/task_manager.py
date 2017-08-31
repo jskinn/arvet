@@ -276,45 +276,37 @@ class TaskManager:
         :return: void
         """
         if isinstance(task, batch_analysis.task.Task) and task.identifier is None and task.is_unstarted:
-            allow = False
             existing_query = {}
             # Each different task type has a different set of properties that identify it.
             if isinstance(task, import_dataset_task.ImportDatasetTask):
                 existing_query['module_name'] = task.module_name
                 existing_query['path'] = task.path
-                allow = self._allow_import_dataset
             elif isinstance(task, generate_dataset_task.GenerateDatasetTask):
                 existing_query['controller_id'] = task.controller_id
                 existing_query['simulator_id'] = task.simulator_id
                 existing_query['simulator_config'] = copy.deepcopy(task.simulator_config)
                 existing_query['repeat'] = task.repeat
                 existing_query = dh.query_to_dot_notation(existing_query)
-                allow = self._allow_generate_dataset
             elif isinstance(task, train_system_task.TrainSystemTask):
                 existing_query['trainer_id'] = task.trainer
                 existing_query['trainee_id'] = task.trainee
-                allow = self._allow_train_system
             elif isinstance(task, run_system_task.RunSystemTask):
                 existing_query['system_id'] = task.system
                 existing_query['image_source_id'] = task.image_source
-                allow = self._allow_run_system
             elif isinstance(task, benchmark_task.BenchmarkTrialTask):
                 existing_query['trial_result_id'] = task.trial_result
                 existing_query['benchmark_id'] = task.benchmark
-                allow = self._allow_benchmark
             elif isinstance(task, compare_trials_task.CompareTrialTask):
                 existing_query['trial_result1_id'] = task.trial_result1
                 existing_query['trial_result2_id'] = task.trial_result2
                 existing_query['comparison_id'] = task.comparison
-                allow = self._allow_trial_comparison
             elif isinstance(task, compare_benchmarks_task.CompareBenchmarksTask):
                 existing_query['benchmark_result1_id'] = task.benchmark_result1
                 existing_query['benchmark_result2_id'] = task.benchmark_result2
                 existing_query['comparison_id'] = task.comparison
-                allow = self._allow_benchmark_comparison
 
             # Make sure none of this task already exists
-            if allow and existing_query != {} and self._collection.find(existing_query).limit(1).count() == 0:
+            if existing_query != {} and self._collection.find(existing_query).limit(1).count() == 0:
                 task.save_updates(self._collection)
 
     def schedule_tasks(self, job_system):
@@ -336,16 +328,23 @@ class TaskManager:
                 task_entity.mark_job_failed()
                 task_entity.save_updates(self._collection)
 
-        # Then, schedule all the unscheduled tasks
+        # Then, schedule all the unscheduled tasks that we are configured to allow
         all_unscheduled = self._collection.find({'state': batch_analysis.task.JobState.UNSTARTED.value})
         for s_unscheduled in all_unscheduled:
             task_entity = self._db_client.deserialize_entity(s_unscheduled)
-            job_id = job_system.run_task(
-                task_id=task_entity.identifier,
-                num_cpus=task_entity.num_cpus,
-                num_gpus=task_entity.num_gpus,
-                memory_requirements=task_entity.memory_requirements,
-                expected_duration=task_entity.expected_duration
-            )
-            task_entity.mark_job_started(job_system.node_id, job_id)
-            task_entity.save_updates(self._collection)
+            if ((isinstance(task_entity, import_dataset_task.ImportDatasetTask) and self._allow_import_dataset) or
+                    (isinstance(task_entity, generate_dataset_task.GenerateDatasetTask) and self._allow_generate_dataset) or
+                    (isinstance(task_entity, train_system_task.TrainSystemTask) and self._allow_train_system) or
+                    (isinstance(task_entity, run_system_task.RunSystemTask) and self._allow_run_system) or
+                    (isinstance(task_entity, benchmark_task.BenchmarkTrialTask) and self._allow_benchmark) or
+                    (isinstance(task_entity, compare_trials_task.CompareTrialTask) and self._allow_trial_comparison) or
+                    (isinstance(task_entity, compare_benchmarks_task.CompareBenchmarksTask) and self._allow_benchmark_comparison)):
+                job_id = job_system.run_task(
+                    task_id=task_entity.identifier,
+                    num_cpus=task_entity.num_cpus,
+                    num_gpus=task_entity.num_gpus,
+                    memory_requirements=task_entity.memory_requirements,
+                    expected_duration=task_entity.expected_duration
+                )
+                task_entity.mark_job_started(job_system.node_id, job_id)
+                task_entity.save_updates(self._collection)
