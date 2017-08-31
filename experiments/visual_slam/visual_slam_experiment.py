@@ -1,9 +1,6 @@
 import os
 import bson
 import numpy as np
-import pandas
-import matplotlib.pyplot as pyplot
-from mpl_toolkits.mplot3d import Axes3D     # Necessary for 3D plots
 import util.database_helpers as dh
 import util.associate
 import util.transform as tf
@@ -446,6 +443,11 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param db_client:
         :return:
         """
+        # Plotting imports are here only
+        import pandas
+        import matplotlib.pyplot as pyplot
+        from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
+
         # Step 1: Group trials and results by trajectory, and by each image quality
         trajectory_map = []
         trials_by_trajectory = []
