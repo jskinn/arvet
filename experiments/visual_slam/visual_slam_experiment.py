@@ -106,10 +106,6 @@ class TrajectoryGroup:
         #    'geometry_decimation': 4,
         #}]:
         for config in [{
-            'resolution': {'width': 64, 'height': 48}  # Extremely low res
-        }, {
-            'fov': 15  # Narrow field of view
-        }, {
             # low quality
             'depth_of_field_enabled': False,
             'lit_mode': False,
@@ -225,12 +221,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if self._flythrough_controller is None:
             self._flythrough_controller = dh.add_unique(db_client.image_source_collection,
                                                         fly_cont.FlythroughController(
-                                                            max_speed=0.2,
-                                                            max_turn_angle=np.pi / 36,
+                                                            max_speed=0.5,
+                                                            acceleration=0.1,
+                                                            acceleration_noise=0.01,
+                                                            max_turn_angle=np.pi / 72,
                                                             avoidance_radius=1,
                                                             avoidance_scale=1,
-                                                            length=100,
-                                                            seconds_per_frame=1/10
+                                                            length=1000,
+                                                            seconds_per_frame=0.1
                                                         ))
             self._set_property('flythrough_controller', self._flythrough_controller)
 
@@ -243,7 +241,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     # Simulation execution config
                     'stereo_offset': 0.15,  # meters
                     'provide_rgb': True,
-                    'provide_depth': True,
+                    'provide_depth': False,
                     'provide_labels': False,
                     'provide_world_normals': False,
 

@@ -13,8 +13,8 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
     This produces sequential image data
     """
 
-    def __init__(self, max_speed=0.2, max_turn_angle=np.pi / 36, avoidance_radius=1, avoidance_scale=1,
-                 length=1000, seconds_per_frame=1, id_=None):
+    def __init__(self, max_speed=0.2, acceleration=0.1, max_turn_angle=np.pi / 36, avoidance_radius=1, avoidance_scale=1,
+                 length=1000, seconds_per_frame=1, acceleration_noise=0.1, id_=None):
         """
         Create The controller, with some some settings
         :param max_speed: The maximum speed of the camera, in meters per frame. Default 0.2
@@ -26,11 +26,13 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         """
         super().__init__(id_=id_)
         self._max_speed = float(max_speed)
+        self._acceleration = float(acceleration)
         self._max_turn_angle = float(max_turn_angle)
         self._avoidance_radius = float(avoidance_radius)
         self._avoidance_scale = float(avoidance_scale)
         self._length = int(length)
         self._seconds_per_frame = float(seconds_per_frame)
+        self._acceleration_noise = float(acceleration_noise)
         self._current_index = 0
         self._velocity = None
         self._simulator = None
@@ -135,15 +137,16 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         self._velocity = np.random.uniform((-1, -1, 0), (1, 1, 0), 3)
         self._velocity = self._max_speed * self._velocity / np.linalg.norm(self._velocity)
 
-        # Set the initial facing direction to point in a random direction
-        pose_mat = self._simulator.current_pose.transform_matrix
-        forward = np.random.uniform((-1, -1, 0), (1, 1, 0), 3)
-        forward = forward / np.linalg.norm(forward)
-        up = (0, 0, 1)
-        left = np.cross(up, forward)
-        up = np.cross(forward, left)
-        pose_mat[0:3, 0:3] = np.array([forward, left, up])
-        self._simulator.set_camera_pose(tf.Transform(pose_mat))
+        # Set the initial facing direction to point in a random direction and random reachable location
+        for _ in range(4):
+            self._simulator.move_camera_to(
+                tf.Transform(location=self._simulator.current_pose.location +
+                                      (np.random.randint(-1000, 1000), np.random.randint(-1000, 1000), 0)))
+        self._simulator.move_camera_to(
+            tf.Transform(location=self._simulator.current_pose.location +
+                                  (np.random.randint(-1000, 1000), np.random.randint(-1000, 1000), 0),
+                         rotation=tf3d.quaternions.axangle2quat((0, 0, 1), np.random.uniform(-np.pi, np.pi)),
+                         w_first=True))
 
     def get(self, index):
         """
@@ -165,10 +168,13 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         if self._simulator is not None:
             # Choose a new camera pose
             current_pose = self._simulator.current_pose
-            new_location = current_pose.location + self._velocity
+            new_location = current_pose.location + self._seconds_per_frame * self._velocity
 
             # Find the direction we want to be looking, that is, the direction we're moving
-            forward = self._velocity / np.linalg.norm(self._velocity)
+            if np.any(self._velocity):
+                forward = self._velocity / np.linalg.norm(self._velocity)
+            else:
+                forward = current_pose.forward
             up = (0, 0, 1)
             left = np.cross(up, forward)
             up = np.cross(forward, left)
@@ -177,15 +183,30 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
                                                      tf3d.quaternions.mat2quat(rot_mat), self._max_turn_angle)
 
             # Modify the velocity
-            self._velocity += np.random.normal(0, 0.15 * self._max_speed, 3)  # Add some noise for random movement
-            self._velocity += (self._avoidance_scale *
-                               self._simulator.get_obstacle_avoidance_force(self._avoidance_radius))
+            # Accelerate in the direction we're currently moving, with some noise for random movement
+            acceleration = np.zeros(3)
+            while not any(acceleration):
+                acceleration = (self._velocity + np.random.normal(0, self._acceleration_noise, 3))
+            acceleration = self._acceleration * (acceleration / np.linalg.norm(acceleration))
+            self._velocity += self._seconds_per_frame * acceleration
+            # obstacle avoidance, should be mostly 0?
+            self._velocity += (100 * self._avoidance_scale * self._seconds_per_frame *
+                               self._simulator.get_obstacle_avoidance_force(100 * self._avoidance_radius, 100 * self._velocity))
+
+            # Cap the max speed
             new_speed = np.linalg.norm(self._velocity)
             if new_speed > self._max_speed:
                 self._velocity = self._velocity * self._max_speed / new_speed
 
-            # Set the new position
+            # Set the new position, stopping dead if we hit something
             self._simulator.move_camera_to(tf.Transform(location=new_location, rotation=new_rotation, w_first=True))
+            diff = new_location - self._simulator.current_pose.location
+
+            # Collision detection: Flip turn around and go left
+            if np.dot(diff, diff) > 0.001:
+                print('hit something')
+                self._velocity = self._max_speed * left - self._velocity
+                self._velocity = self._max_speed * self._velocity / np.linalg.norm(self._velocity)
 
             # Get the next image from the camera
             image, _ = self._simulator.get_next_image()
@@ -238,17 +259,21 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
     def serialize(self):
         serialized = super().serialize()
         serialized['max_speed'] = self._max_speed
+        serialized['acceleration'] = self._acceleration
         serialized['max_turn_angle'] = self._max_turn_angle
         serialized['avoidance_radius'] = self._avoidance_radius
         serialized['avoidance_scale'] = self._avoidance_scale
         serialized['length'] = self._length
         serialized['seconds_per_frame'] = self._seconds_per_frame
+        serialized['acceleration_noise'] = self._acceleration_noise
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'max_speed' in serialized_representation:
             kwargs['max_speed'] = serialized_representation['max_speed']
+        if 'acceleration' in serialized_representation:
+            kwargs['acceleration'] = serialized_representation['acceleration']
         if 'max_turn_angle' in serialized_representation:
             kwargs['max_turn_angle'] = serialized_representation['max_turn_angle']
         if 'avoidance_radius' in serialized_representation:
@@ -259,6 +284,8 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
             kwargs['length'] = serialized_representation['length']
         if 'seconds_per_frame' in serialized_representation:
             kwargs['seconds_per_frame'] = serialized_representation['seconds_per_frame']
+        if 'acceleration_noise' in serialized_representation:
+            kwargs['acceleration_noise'] = serialized_representation['acceleration_noise']
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
