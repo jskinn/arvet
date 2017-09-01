@@ -566,17 +566,18 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                 image_data = self._request_image('unlit', cv2.IMREAD_COLOR)
             image_data = np.ascontiguousarray(image_data)
             depth_data = None
+            ground_truth_depth_data = None
             labels_data = None
             world_normals_data = None
 
             if self.is_depth_available:
-                depth_data = self._request_image('depth', cv2.IMREAD_COLOR)
+                ground_truth_depth_data = self._request_image('depth', cv2.IMREAD_COLOR)
                 # I've encoded the depth into all three channels, Red is depth / 65536, green depth on 256,
                 # and blue raw depth. Green and blue channels loop within their ranges, red clamps.
-                depth_data = np.asarray(depth_data, dtype=np.float32)   # Back to floats
-                depth_data = np.sum(depth_data * (255, 1, 1/255), axis=2)   # Rescale the channels and combine.
+                ground_truth_depth_data = np.asarray(ground_truth_depth_data, dtype=np.float32)   # Back to floats
+                ground_truth_depth_data = np.sum(ground_truth_depth_data * (255, 1, 1/255), axis=2)   # Rescale the channels and combine.
                 # We now have depth in unreal world units, ie, centimenters. Convert to meters.
-                depth_data /= 100
+                ground_truth_depth_data /= 100
             if self.is_per_pixel_labels_available:
                 labels_data = self._request_image('object_mask', cv2.IMREAD_COLOR)
             if self.is_normals_available:
@@ -592,17 +593,23 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                     right_image_data = self._request_image('lit')
                 else:
                     right_image_data = self._request_image('unlit')
-                right_depth = None
+                right_ground_truth_depth_data = None
                 right_labels = None
                 right_world_normals = None
 
                 if self.is_depth_available:
-                    right_depth = self._request_image('depth')
+                    right_ground_truth_depth_data = self._request_image('depth')
                     # This is the same as for the base depth, above.
-                    right_depth = np.asarray(right_depth, dtype=np.float32) / 255
-                    right_depth = np.sum(right_depth * (65536, 256, 1), axis=2)
+                    right_ground_truth_depth_data = np.asarray(right_ground_truth_depth_data, dtype=np.float32) / 255
+                    right_ground_truth_depth_data = np.sum(right_ground_truth_depth_data * (65536, 256, 1), axis=2)
                     # Convert to meters.
-                    right_depth /= 100
+                    right_ground_truth_depth_data /= 100
+                    depth_data = simulation.depth_noise.generate_depth_noise(
+                        ground_truth_depth_data,
+                        right_ground_truth_depth_data,
+                        self.get_camera_intrinsics(),
+                        right_relative_pose,
+                        self._depth_noise_quality)
                 if self.is_per_pixel_labels_available:
                     right_labels = self._request_image('object_mask')
                 if self.is_normals_available:
@@ -613,22 +620,21 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
                 return im.StereoImage(left_data=image_data,
                                       right_data=right_image_data,
-                                      metadata=self._make_metadata(image_data, depth_data, labels_data,
+                                      metadata=self._make_metadata(image_data, ground_truth_depth_data, labels_data,
                                                                    cached_pose, right_pose),
                                       additional_metadata=self._additional_metadata,
-                                      left_depth_data=simulation.depth_noise.generate_depth_noise(
-                                          depth_data, right_depth, self.get_camera_intrinsics(),
-                                          right_relative_pose, self._depth_noise_quality),
-                                      left_ground_truth_depth_data=depth_data,
+                                      left_depth_data=depth_data,
+                                      left_ground_truth_depth_data=ground_truth_depth_data,
                                       left_labels_data=labels_data,
                                       left_world_normals_data=world_normals_data,
-                                      right_ground_truth_depth_data=right_depth,
+                                      right_ground_truth_depth_data=right_ground_truth_depth_data,
                                       right_labels_data=right_labels,
                                       right_world_normals_data=right_world_normals)
             return im.Image(data=image_data,
-                            metadata=self._make_metadata(image_data, depth_data, labels_data, self.current_pose),
+                            metadata=self._make_metadata(image_data, ground_truth_depth_data, labels_data, self.current_pose),
                             additional_metadata=self._additional_metadata,
                             depth_data=depth_data,
+                            ground_truth_depth_data=ground_truth_depth_data,
                             labels_data=labels_data,
                             world_normals_data=world_normals_data)
         return None
