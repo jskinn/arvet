@@ -1,4 +1,5 @@
 import os.path
+import numpy as np
 import xxhash
 import cv2
 import util.associate
@@ -178,6 +179,11 @@ def import_dataset(root_folder, db_client):
     for timestamp, image_file, camera_pose, depth_file in all_metadata:
         rgb_data = cv2.imread(os.path.join(root_folder, image_file), cv2.IMREAD_COLOR)
         depth_data = cv2.imread(os.path.join(root_folder, depth_path), cv2.IMREAD_UNCHANGED)
+        camera_intrinsics = get_camera_intrinsics()
+        horizontal_fov = np.arctan2(rgb_data.shape[1] * max(camera_intrinsics.cx, 1 - camera_intrinsics.cx),
+                                    camera_intrinsics.fx)
+        vertical_fov = np.arctan2(rgb_data.shape[0] * max(camera_intrinsics.cy, 1 - camera_intrinsics.cy),
+                                  camera_intrinsics.fy)
         builder.add_image(image=core.image_entity.ImageEntity(
             data=rgb_data[:, :, ::-1],
             depth_data=depth_data,
@@ -187,6 +193,7 @@ def import_dataset(root_folder, db_client):
                 height=rgb_data.shape[0],
                 width=rgb_data.shape[1],
                 intrinsics=get_camera_intrinsics(root_folder),
+                fov=max(horizontal_fov, vertical_fov),
                 source_type=imeta.ImageSourceType.REAL_WORLD,
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT,
