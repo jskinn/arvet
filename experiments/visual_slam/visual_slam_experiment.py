@@ -70,34 +70,47 @@ class TrajectoryGroup:
             changed = True
         # Next, schedule reduced quality dataset generation for each desired config
         # These are all the quality variations we're going to do for now.
+        #for config in [{
+        #    'resolution': {'width': 256, 'height': 144}  # Extremely low res
+        #}, {
+        #    'fov': 15   # Narrow field of view
+        #}, {
+        #    'depth_of_field_enabled': False   # No dof
+        #}, {
+        #    'lit_mode': False  # Unlit
+        #}, {
+        #    'texture_mipmap_bias': 8  # No textures
+        #}, {
+        #    'normal_maps_enabled': False,  # No normal maps
+        #}, {
+        #    'roughness_enabled': False  # No reflections
+        #}, {
+        #    'geometry_decimation': 4,   # Simple geometry
+        #}, {
+        #    # low quality
+        #    'depth_of_field_enabled': False,
+        #    'lit_mode': False,
+        #    'texture_mipmap_bias': 8,
+        #    'normal_maps_enabled': False,
+        #    'roughness_enabled': False,
+        #    'geometry_decimation': 4,
+        #}, {
+        #    # absolute minimum quality - yall got any more of them pixels
+        #    'resolution': {'width': 256, 'height': 144},
+        #    'fov': 15,
+        #    'depth_of_field_enabled': False,
+        #    'lit_mode': False,
+        #    'texture_mipmap_bias': 8,
+        #    'normal_maps_enabled': False,
+        #    'roughness_enabled': False,
+        #    'geometry_decimation': 4,
+        #}]:
         for config in [{
-            'resolution': {'width': 256, 'height': 144}  # Extremely low res
+            'resolution': {'width': 64, 'height': 48}  # Extremely low res
         }, {
-            'fov': 15   # Narrow field of view
-        }, {
-            'depth_of_field_enabled': False   # No dof
-        }, {
-            'lit_mode': False  # Unlit
-        }, {
-            'texture_mipmap_bias': 8  # No textures
-        }, {
-            'normal_maps_enabled': False,  # No normal maps
-        }, {
-            'roughness_enabled': False  # No reflections
-        }, {
-            'geometry_decimation': 4,   # Simple geometry
+            'fov': 15  # Narrow field of view
         }, {
             # low quality
-            'depth_of_field_enabled': False,
-            'lit_mode': False,
-            'texture_mipmap_bias': 8,
-            'normal_maps_enabled': False,
-            'roughness_enabled': False,
-            'geometry_decimation': 4,
-        }, {
-            # absolute minimum quality - yall got any more of them pixels
-            'resolution': {'width': 256, 'height': 144},
-            'fov': 15,
             'depth_of_field_enabled': False,
             'lit_mode': False,
             'texture_mipmap_bias': 8,
@@ -235,7 +248,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     'provide_world_normals': False,
 
                     # Simulator settings - No clear maximum, but these are the best we'll use
-                    'resolution': {'width': 1280, 'height': 720},
+                    'resolution': {'width': 640, 'height': 480},
                     'fov': 90,
                     'depth_of_field_enabled': True,
                     'focus_distance': None,
