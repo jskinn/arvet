@@ -1,7 +1,7 @@
 import unittest
 import util.dict_utils as du
 import database.tests.test_entity
-import systems.feature.sift.orb_detector as orb_detector
+import systems.feature.detectors.orb_detector as orb_detector
 import systems.feature.tests.test_feature_detector
 
 
@@ -29,7 +29,7 @@ class TestSiftDetector(database.tests.test_entity.EntityContract,
 
     def assert_models_equal(self, detector1, detector2):
         """
-        Helper to assert that two sift detectors are equal
+        Helper to assert that two detectors detectors are equal
         :param detector1: ORBDetector
         :param detector2: ORBDetector
         :return:

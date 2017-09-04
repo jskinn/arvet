@@ -92,7 +92,6 @@ class ORBDetector(systems.feature.feature_detector.FeatureDetector):
         Make the SIFT detector for this system.
         :return:
         """
-        #return cv2.ORB_create()
         return cv2.ORB_create(
             nfeatures=self.num_features,
             scaleFactor=self.scale_factor,
