@@ -65,7 +65,7 @@ class FeatureDetector(core.system.VisionSystem, metaclass=abc.ABCMeta):
         :return: True iff the particular dataset is appropriate for this vision system.
         :rtype: bool
         """
-        return image_source.is_stored_in_database()
+        return image_source.is_stored_in_database
 
     def set_camera_intrinsics(self, camera_intrinsics):
         """

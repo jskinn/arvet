@@ -34,7 +34,7 @@ class FeatureDetectionComparison(core.trial_comparison.TrialComparison):
                 (point_dist(point1, point2), point1, point2)
                 for point1 in points1
                 for point2 in points2
-                if point_dist(point1, point2) < self._acceptable_radius)
+                if point_dist(point1, point2) < self._acceptable_radius * self._acceptable_radius)
             point_matches[image_id] = []
             for match in potential_matches:
                 coords1 = match[1].pt
@@ -102,6 +102,7 @@ class FeatureDetectionComparisonResult(core.trial_comparison.TrialComparisonResu
     def get_for_image(self, image_id):
         if image_id in self._point_matches and image_id in self._missing_trial and image_id in self._missing_reference:
             return self._point_matches[image_id], self._missing_trial[image_id], self._missing_reference[image_id]
+        return None, None, None
 
     def serialize(self):
         serialized = super().serialize()
