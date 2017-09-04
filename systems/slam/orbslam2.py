@@ -106,6 +106,10 @@ class ORBSLAM2(core.system.VisionSystem):
         self._gt_trajectory = None
 
     @property
+    def mode(self):
+        return self._mode
+
+    @property
     def is_deterministic(self):
         """
         Is the visual system deterministic.
