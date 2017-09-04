@@ -11,12 +11,15 @@ import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import batch_analysis.experiment
 import dataset.tum.tum_manager
+import systems.feature.detectors.sift_detector as sift_detector
+import systems.feature.detectors.orb_detector as orb_detector
 import systems.visual_odometry.libviso2.libviso2 as libviso2
 import systems.slam.orbslam2 as orbslam2
 import benchmarks.rpe.relative_pose_error as rpe
 import benchmarks.ate.absolute_trajectory_error as ate
 import benchmarks.trajectory_drift.trajectory_drift as traj_drift
 import benchmarks.tracking.tracking_benchmark as tracking_benchmark
+import benchmarks.feature.detection_comparison as detection_comparison
 import simulation.unrealcv.unrealcv_simulator as uecv_sim
 import simulation.controllers.flythrough_controller as fly_cont
 import simulation.controllers.trajectory_follow_controller as follow_cont
@@ -114,7 +117,7 @@ class TrajectoryGroup:
             'texture_mipmap_bias': 8,
             'normal_maps_enabled': False,
             'roughness_enabled': False,
-            'geometry_decimation': 4,
+            'geometry_decimation': 2,
         }]:
             # check for an existing run using this config
             found = False
@@ -169,12 +172,14 @@ class TrajectoryGroup:
 
 class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
-    def __init__(self, libviso_system=None, orbslam_systems=None,
+    def __init__(self, feature_detectors=None, libviso_system=None, orbslam_systems=None,
                  tum_manager=None, real_world_datasets=None,
+                 benchmark_feature_diff=None,
                  benchmark_rpe=None, benchmark_ate=None, benchmark_trajectory_drift=None, benchmark_tracking=None,
                  simulators=None, flythrough_controller=None, trajectory_groups=None,
                  trial_list=None, result_list=None, id_=None):
         super().__init__(id_=id_)
+        self._feature_detectors = feature_detectors if feature_detectors is not None else {}
         self._libviso_system = libviso_system
         self._orbslam_systems = set(orbslam_systems) if orbslam_systems is not None else set()
         self._kitti_datasets = set(real_world_datasets) if real_world_datasets is not None else set()
@@ -187,6 +192,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 'rgbd_dataset_freiburg2_xyz': True,
                 'rgbd_dataset_freiburg2_rpy': True
             })
+        self._benchmark_feature_diff = benchmark_feature_diff
         self._benchmark_rpe = benchmark_rpe
         self._benchmark_ate = benchmark_ate
         self._benchmark_trajectory_drift = benchmark_trajectory_drift
@@ -336,10 +342,34 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # --------- SYSTEMS -----------
         # Import the systems under test for this experiment.
-        # They are: libviso2, orbslam2
+        # They are: sundry feature detectors, libviso2, orbslam2
+
+        # Feature detectors
+        if 'SIFT detector' not in self._feature_detectors:
+            self._feature_detectors['SIFT detector'] = dh.add_unique(
+                db_client.system_collection, sift_detector.SiftDetector({
+                    'num_features': 0,
+                    'num_octave_layers': 4,
+                    'contrast_threshold': 0.04,
+                    'edge_threshold': 10,
+                    'sigma': 1.6
+                }))
+        if 'ORB detector' not in self._feature_detectors:
+            self._feature_detectors['ORB detector'] = dh.add_unique(
+                db_client.system_collection, orb_detector.ORBDetector({
+                    'num_features': 1000,
+                    'scale_factor': 1.2,
+                    'num_levels': 8,
+                    'edge_threshold': 31,
+                    'patch_size': 31,
+                    'fast_threshold': 20
+                }))
+
+        # LIBVISO2
         if self._libviso_system is None:
             self._libviso_system = dh.add_unique(db_client.system_collection, libviso2.LibVisOSystem())
             self._set_property('libviso', self._libviso_system)
+
         # ORBSLAM2 - 12 variants for parameter sweep
         settings_list = [
             (sensor_mode, n_features, scale_factor, resolution)
@@ -366,6 +396,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # --------- BENCHMARKS -----------
         # Create and store the benchmarks for camera trajectories
         # Just using the default settings for now
+        if self._benchmark_feature_diff is None:
+            self._benchmark_feature_diff = dh.add_unique(
+                db_client.benchmarks_collection, detection_comparison.FeatureDetectionComparison(acceptable_radius=4))
+            self._set_property('benchmark_feature_diff', self._benchmark_feature_diff)
         if self._benchmark_rpe is None:
             self._benchmark_rpe = dh.add_unique(db_client.benchmarks_collection, rpe.BenchmarkRPE(
                 max_pairs=10000,
@@ -410,9 +444,79 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
 
+        # Feature Detectors
+        for feature_detector_id in self._feature_detectors.values():
+            detector = dh.load_object(db_client, db_client.system_collection, feature_detector_id)
+
+            # Run the feature detector on each image source in each trajectory group
+            for group in self._trajectory_groups.values():
+                image_source = self._load_image_source(db_client, group.max_quality_id)
+                max_quality_trial = None
+                task = task_manager.get_run_system_task(
+                    system_id=feature_detector_id,
+                    image_source_id=image_source.identifier,
+                    expected_duration='2:00:00'
+                )
+                if not task.is_finished:
+                    task_manager.do_task(task)
+                else:
+                    max_quality_trial = task.result
+                    found = False
+                    for _, _, trial_result_id in self._trial_list:
+                        if trial_result_id == task.result:
+                            found = True
+                            break
+                    if not found:
+                        trial_tuple = (group.max_quality_id, feature_detector_id, task.result)
+                        self._trial_list.append(trial_tuple)
+                        self._add_to_list('trial_list', [trial_tuple])
+
+                for variation in group.quality_variations:
+                    image_source = self._load_image_source(db_client, variation['dataset'])
+                    task = task_manager.get_run_system_task(
+                        system_id=feature_detector_id,
+                        image_source_id=image_source.identifier,
+                        expected_duration='2:00:00'
+                    )
+                    if not task.is_finished:
+                        task_manager.do_task(task)
+                    else:
+                        found = False
+                        for _, _, trial_result_id in self._trial_list:
+                            if trial_result_id == task.result:
+                                found = True
+                                break
+                        if not found:
+                            trial_tuple = (group.max_quality_id, feature_detector_id, task.result)
+                            self._trial_list.append(trial_tuple)
+                            self._add_to_list('trial_list', [trial_tuple])
+
+                        # Task is complete, perform comparison benchmark
+                        if max_quality_trial is not None:
+                            benchmark_task = task_manager.get_trial_comparison_task(
+                                trial_result1_id=task.result,
+                                trial_result2_id=max_quality_trial,
+                                comparison_id=self._benchmark_feature_diff
+                            )
+                            if benchmark_task.is_finished:
+                                found = False
+                                for _, _, _, _, benchmark_result_id in self._result_list:
+                                    if benchmark_result_id == benchmark_task.result:
+                                        found = True
+                                        break
+                                if not found:
+                                    result_tuple = (variation['dataset'], feature_detector_id, task.result,
+                                                    self._benchmark_feature_diff, benchmark_task.result)
+                                    self._result_list.append(result_tuple)
+                                    self._add_to_list('result_list', [result_tuple])
+                            else:
+                                task_manager.do_task(benchmark_task)
+
+
         # Schedule trials
         for image_source_id in datasets:
             image_source = self._load_image_source(db_client, image_source_id)
+
             # Libviso2
             if libviso_system.is_image_source_appropriate(image_source):
                 task = task_manager.get_run_system_task(
@@ -717,8 +821,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def serialize(self):
         serialized = super().serialize()
+        serialized['feature_detectors'] = self._feature_detectors
         serialized['libviso'] = self._libviso_system
         serialized['orbslam_systems'] = list(self._orbslam_systems)
+        serialized['benchmark_feature_diff'] = self._benchmark_feature_diff
         serialized['benchmark_rpe'] = self._benchmark_rpe
         serialized['benchmark_ate'] = self._benchmark_ate
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
@@ -735,10 +841,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'feature_detectors' in serialized_representation:
+            kwargs['feature_detectors'] = serialized_representation['feature_detectors']
         if 'libviso' in serialized_representation:
             kwargs['libviso_system'] = serialized_representation['libviso']
         if 'orbslam_systems' in serialized_representation:
             kwargs['orbslam_systems'] = serialized_representation['orbslam_systems']
+        if 'benchmark_feature_diff' in serialized_representation:
+            kwargs['benchmark_feature_diff'] = serialized_representation['benchmark_feature_diff']
         if 'benchmark_rpe' in serialized_representation:
             kwargs['benchmark_rpe'] = serialized_representation['benchmark_rpe']
         if 'benchmark_ate' in serialized_representation:

@@ -1,4 +1,5 @@
 import abc
+import collections
 import database.entity
 
 
@@ -85,13 +86,18 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         :param new_elements: A collection of new elements to add to the end of the list
         :return:
         """
+        if not isinstance(new_elements, list):
+            if isinstance(new_elements, collections.Iterable):
+                new_elements = list(new_elements)
+            else:
+                new_elements = [new_elements]
         if len(new_elements) > 0:
             if '$push' not in self._updates:
                 self._updates['$push'] = {}
             if serialized_key in self._updates['$push']:
-                self._updates['$push'][serialized_key]['$each'] += list(new_elements)
+                self._updates['$push'][serialized_key]['$each'] += new_elements
             else:
-                self._updates['$push'][serialized_key] = {'$each': list(new_elements)}
+                self._updates['$push'][serialized_key] = {'$each': new_elements}
 
     def _add_to_set(self, serialized_key, new_elements):
         """
@@ -106,9 +112,14 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         :param new_elements: New elements to be stored in the set
         :return: void
         """
+        if not isinstance(new_elements, set):
+            if isinstance(new_elements, collections.Iterable):
+                new_elements = set(new_elements)
+            else:
+                new_elements = {new_elements}
         if len(new_elements) > 0:
             if '$addToSet' not in self._updates:
                 self._updates['$addToSet'] = {}
             existing = (set(self._updates['$addToSet'][serialized_key]['$each'])
                         if serialized_key in self._updates['$addToSet'] else set())
-            self._updates['$addToSet'][serialized_key] = {'$each': list(set(new_elements) | existing)}
+            self._updates['$addToSet'][serialized_key] = {'$each': list(new_elements | existing)}

@@ -46,7 +46,7 @@ class TestVisualSlamExperiment(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(experiment1._benchmark_rpe, experiment2._benchmark_rpe)
         self.assertEqual(experiment1._benchmark_trajectory_drift, experiment2._benchmark_trajectory_drift)
         self.assertEqual(experiment1._flythrough_controller, experiment2._flythrough_controller)
-        self.assertEqual(experiment1._real_world_datasets, experiment2._real_world_datasets)
+        self.assertEqual(experiment1._kitti_datasets, experiment2._kitti_datasets)
         self.assertEqual(experiment1._trial_list, experiment2._trial_list)
         self.assertEqual(experiment1._result_list, experiment2._result_list)
         self.assertEqual(len(experiment1._trajectory_groups), len(experiment2._trajectory_groups))
