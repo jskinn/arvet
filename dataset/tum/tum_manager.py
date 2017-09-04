@@ -56,7 +56,7 @@ class TUMManager:
         return None
 
     def do_imports(self, root_folder, task_manager):
-        to_import = {dataset_name for dataset_name, do_import in self._config.values()
+        to_import = {dataset_name for dataset_name, do_import in self._config.items()
                      if bool(do_import) and (dataset_name not in self._config or self._config[dataset_name] is None)}
         for dataset_folder in to_import:
             try:
