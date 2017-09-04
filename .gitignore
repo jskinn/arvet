@@ -100,3 +100,6 @@ temp/
 
 # Job outputs
 jrs_auto_task*
+
+# Profile statistics
+*.stats
