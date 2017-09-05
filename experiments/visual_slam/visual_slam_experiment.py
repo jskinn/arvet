@@ -268,7 +268,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 time_of_day=time_of_day
             ))
             self._simulators[world_name] = sim_id
-            self._add_to_set('simulators', (world_name, sim_id))
+            self._set_property('simulators.{}'.format(world_name), sim_id)
 
         # Add controllers
         if self._flythrough_controller is None:
@@ -364,7 +364,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     'edge_threshold': 10,
                     'sigma': 1.6
                 }))
-            self._add_to_set('feature_detectors', {('SIFT detector', self._feature_detectors['SIFT detector'])})
+            self._set_property('feature_detectors.SIFT detector', self._feature_detectors['SIFT detector'])
         if 'ORB detector' not in self._feature_detectors:
             self._feature_detectors['ORB detector'] = dh.add_unique(
                 db_client.system_collection, orb_detector.ORBDetector({
@@ -375,7 +375,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     'patch_size': 31,
                     'fast_threshold': 20
                 }))
-            self._add_to_set('feature_detectors', {('ORB detector', self._feature_detectors['ORB detector'])})
+            self._set_property('feature_detectors.ORB detector', self._feature_detectors['ORB detector'])
 
         # LIBVISO2
         if self._libviso_system is None:
@@ -406,7 +406,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     }, resolution=settings[2]
                 ))
                 self._orbslam_systems[name] = orbslam_id
-                self._add_to_set('orbslam_systems', {(name, orbslam_id)})
+                self._set_property('orbslam_systems.{}'.format(name), orbslam_id)
 
         # --------- BENCHMARKS -----------
         # Create and store the benchmarks for camera trajectories
@@ -514,7 +514,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         libviso_system = dh.load_object(db_client, db_client.system_collection, self._libviso_system)
         orbslam_systems = [
             dh.load_object(db_client, db_client.system_collection, system_id)
-            for system_id in self._orbslam_systems
+            for system_id in self._orbslam_systems.values()
         ]
         benchmarks = [
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_rpe),
@@ -542,6 +542,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     task_manager.do_task(task)
                 else:
                     system_trials.add(task.result)
+                    if self._libviso_system not in self._trial_map:
+                        self._trial_map[self._libviso_system] = {}
                     self._trial_map[self._libviso_system][image_source_id] = task.result
                     self._set_property('trial_map.{0}.{1}'.format(self._libviso_system, image_source_id), task.result)
 
@@ -558,6 +560,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         task_manager.do_task(task)
                     else:
                         system_trials.add(task.result)
+                        if orbslam_system.identifier not in self._trial_map:
+                            self._trial_map[orbslam_system.identifier] = {}
                         self._trial_map[orbslam_system.identifier][image_source_id] = task.result
                         self._set_property('trial_map.{0}.{1}'.format(orbslam_system.identifier, image_source_id),
                                            task.result)
@@ -855,16 +859,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
     def serialize(self):
         serialized = super().serialize()
         # Systems
-        serialized['feature_detectors'] = [(name, id_) for name, id_ in self._feature_detectors.items()]
+        serialized['feature_detectors'] = self._feature_detectors
         serialized['libviso'] = self._libviso_system
-        serialized['orbslam_systems'] = [(name, id_) for name, id_ in self._orbslam_systems.items()]
+        serialized['orbslam_systems'] = self._orbslam_systems
 
         # Real-world datasets
         serialized['kitti_datasets'] = list(self._kitti_datasets)
         serialized['tum_datasets'] = self._tum_manager.serialize()
 
         # Generated Datasets
-        serialized['simulators'] = [(name, id_) for name, id_ in self._simulators.items()]
+        serialized['simulators'] = self._simulators
         serialized['flythrough_controller'] = self._flythrough_controller
         serialized['trajectory_groups'] = {str(max_id): group.serialize()
                                            for max_id, group in self._trajectory_groups.items()}
@@ -880,18 +884,18 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         serialized['trial_map'] = {str(sys_id): {str(source_id): trial_id for source_id, trial_id in inner_map.items()}
                                    for sys_id, inner_map in self._trial_map.items()}
         serialized['result_map'] = {str(trial_id): {str(bench_id): res_id for bench_id, res_id in inner_map.items()}
-                                   for trial_id, inner_map in self._result_map.items()}
+                                    for trial_id, inner_map in self._result_map.items()}
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         # Systems
         if 'feature_detectors' in serialized_representation:
-            kwargs['feature_detectors'] = {name: id_ for name, id_ in serialized_representation['feature_detectors']}
+            kwargs['feature_detectors'] = serialized_representation['feature_detectors']
         if 'libviso' in serialized_representation:
             kwargs['libviso_system'] = serialized_representation['libviso']
         if 'orbslam_systems' in serialized_representation:
-            kwargs['orbslam_systems'] = {name: id_ for name, id_ in serialized_representation['orbslam_systems']}
+            kwargs['orbslam_systems'] = serialized_representation['orbslam_systems']
 
         # Real-world datasets
         if 'kitti_datasets' in serialized_representation:
@@ -902,7 +906,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # Generated datasets
         if 'simulators' in serialized_representation:
-            kwargs['simulators'] = {name: id_ for name, id_ in serialized_representation['simulators']}
+            kwargs['simulators'] = serialized_representation['simulators']
         if 'flythrough_controller' in serialized_representation:
             kwargs['flythrough_controller'] = serialized_representation['flythrough_controller']
         if 'trajectory_groups' in serialized_representation:
@@ -930,7 +934,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if 'result_map' in serialized_representation:
             kwargs['result_map'] = {bson.ObjectId(trial_id): {bson.ObjectId(bench_id): res_id
                                                               for bench_id, res_id in inner_map.items()}
-                                   for trial_id, inner_map in serialized_representation['result_map'].items()}
+                                    for trial_id, inner_map in serialized_representation['result_map'].items()}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
