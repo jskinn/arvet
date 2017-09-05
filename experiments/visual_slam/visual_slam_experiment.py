@@ -128,7 +128,7 @@ class TrajectoryGroup:
                 generate_dataset_task = task_manager.get_generate_dataset_task(
                     controller_id=self.follow_controller_id,
                     simulator_id=self.simulator_id,
-                    simulator_config=du.defaults(config, self.default_simulator_config),
+                    simulator_config=du.defaults({}, config, self.default_simulator_config),
                     num_cpus=1,
                     num_gpus=0,
                     memory_requirements='3GB',
