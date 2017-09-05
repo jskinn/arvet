@@ -11,7 +11,7 @@ class FeatureDetectionComparison(core.trial_comparison.TrialComparison):
         self._acceptable_radius = acceptable_radius
 
     def is_trial_appropriate(self, trial_result):
-        return isinstance(detector_result.FeatureDetectorResult, trial_result)
+        return isinstance(trial_result, detector_result.FeatureDetectorResult)
 
     def compare_trial_results(self, trial_result, reference_trial_result):
         if not isinstance(trial_result, detector_result.FeatureDetectorResult):
