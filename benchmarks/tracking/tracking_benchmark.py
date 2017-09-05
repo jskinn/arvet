@@ -146,6 +146,7 @@ class TrackingBenchmark(core.benchmark.Benchmark):
                                                                            trial_result_id=trial_result.identifier,
                                                                            lost_intervals=lost_intervals,
                                                                            total_distance=total_distance,
-                                                                           total_time=timestamps[-1],
+                                                                           total_time=(timestamps[-1] - timestamps[0]
+                                                                                       if len(timestamps) > 1 else 0),
                                                                            total_frames=len(timestamps),
                                                                            settings=self.get_settings())
