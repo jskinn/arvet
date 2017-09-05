@@ -1,9 +1,12 @@
 import pickle
 import bson
+import numpy as np
 import core.sequence_type
 import database.entity
 import simulation.simulator
 import simulation.controller
+import util.transform as tf
+import util.associate
 
 
 class TrajectoryFollowController(simulation.controller.Controller, database.entity.Entity):
@@ -13,14 +16,16 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
     This produces either sequential image data.
     """
 
-    def __init__(self, trajectory, sequence_type, id_=None):
+    def __init__(self, trajectory, sequence_type, trajectory_source=None, id_=None):
         """
         Create The controller, with some some settings
         :param trajectory: The trajectory the camera will follow
+        :param trajectory_source: The ID of the root image source that this trajectory is following. For uniqueness.
         :param sequence_type: The sequence type produced by following this trajectory.
         """
         super().__init__(id_=id_)
         self._trajectory = trajectory
+        self._trajectory_source = trajectory_source
         self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
         self._timestamps = sorted(trajectory.keys())
         self._current_index = 0
@@ -31,6 +36,14 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
 
     def __getitem__(self, item):
         return self.get(item)
+
+    @property
+    def trajectory(self):
+        return self._trajectory
+
+    @property
+    def trajectory_source(self):
+        return self._trajectory_source
 
     @property
     def sequence_type(self):
@@ -203,6 +216,7 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
     def serialize(self):
         serialized = super().serialize()
         serialized['trajectory'] = bson.Binary(pickle.dumps(self._trajectory, protocol=pickle.HIGHEST_PROTOCOL))
+        serialized['trajectory_source'] = self._trajectory_source
         serialized['sequence_type'] = self._sequence_type.value
         return serialized
 
@@ -210,6 +224,78 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
     def deserialize(cls, serialized_representation, db_client, **kwargs):
         if 'trajectory' in serialized_representation:
             kwargs['trajectory'] = pickle.loads(serialized_representation['trajectory'])
+        if 'trajectory_source' in serialized_representation:
+            kwargs['trajectory_source'] = serialized_representation['trajectory_source']
         if 'sequence_type' in serialized_representation:
             kwargs['sequence_type'] = serialized_representation['sequence_type']
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+
+def create_follow_controller(db_client, image_collection_id, sequence_type):
+    """
+    Create and save an new trajectory follow controller following a given image collection.
+    checking for uniqueness. Due to the trajectories, this is harder than it seems.
+    :param db_client: The database client, to
+    :param image_collection_id:
+    :param sequence_type: The sequence type to create. This is a hack, should use the value from the collection.
+    :return:
+    """
+    # First, look for an existing controller indexed against this image collection
+    existing = db_client.image_source_collection.find_one({
+        '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__,
+        'trajectory_source': image_collection_id
+    }, {'_id': True})
+    if existing is not None:
+        return existing['_id']
+    # No direct controller, look for one which has the same trajectory.
+    trajectory = get_trajectory_for_image_source(db_client, image_collection_id)
+    if len(trajectory) <= 0:
+        return None
+    existing = db_client.image_source_collection.find({
+        '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__,})
+    for s_follow_controller in existing:
+        controller = TrajectoryFollowController.deserialize(s_follow_controller, db_client)
+        matches = util.associate.associate(trajectory, controller.trajectory, max_difference=0.1, offset=0)
+        if len(matches) < len(trajectory):
+            continue
+        ok = True
+        for stamp1, stamp2 in matches:
+            pose1 = trajectory[stamp1]
+            pose2 = controller.trajectory[stamp2]
+            trans_diff = pose1.location - pose2.location
+            rot_diff = pose1.rotation_quat(w_first=True) - pose2.rotation_quat(w_first=True)
+            if np.dot(trans_diff, trans_diff) > 0.01 or np.dot(rot_diff, rot_diff) > 0.01:
+                ok = False
+                break
+        if ok:
+            # Got a controller
+            if controller.trajectory_source is None:
+                db_client.image_source_collection.update({'_id': controller.identifier},
+                                                         {'$set': {'trajectory_source': image_collection_id}})
+            return controller.identifier
+    # Couldn't find an existing one, make a new one.
+    controller = TrajectoryFollowController(trajectory=trajectory,
+                                            trajectory_source=image_collection_id,
+                                            sequence_type=sequence_type)
+    return db_client.image_source_collection.insert(controller.serialize())
+
+
+def get_trajectory_for_image_source(db_client, image_collection_id):
+    """
+    Image collections are too large for us to load into memory here,
+    but we need to be able to do logic on their trajectores.
+    This utility uses the database to get just the trajectory for a given image collection.
+    Only works for image collections, due to their database structure.
+    :param db_client: The database client
+    :param image_collection_id: The id of the image collection to load
+    :return: A trajectory, a map of timestamp to camera pose. Ignores right-camera for stereo
+    """
+    images = db_client.image_source_collection.find_one({'_id': image_collection_id, 'images': {'$exists': True}},
+                                                        {'images': True})
+    trajectory = {}
+    if images is not None:
+        for timestamp, image_id in images['images']:
+            position_result = db_client.image_collection.find_one({'_id': image_id}, {'metadata.camera_pose': True})
+            if position_result is not None:
+                trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
+    return trajectory

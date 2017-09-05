@@ -69,12 +69,8 @@ class TrajectoryGroup:
         # This will be used to generate reduced-quality datasets following the same trajectory
         # as the root dataset
         if self.follow_controller_id is None:
-            trajectory = get_trajectory_for_image_source(db_client, self.max_quality_id)
-            self.follow_controller_id = dh.add_unique(db_client.image_source_collection,
-                                                      follow_cont.TrajectoryFollowController(
-                                                          trajectory=trajectory,
-                                                          sequence_type=core.sequence_type.ImageSequenceType.SEQUENTIAL
-                                                      ))
+            self.follow_controller_id = follow_cont.create_follow_controller(
+                db_client, self.max_quality_id, sequence_type=core.sequence_type.ImageSequenceType.SEQUENTIAL)
             changed = True
         # Next, schedule reduced quality dataset generation for each desired config
         # These are all the quality variations we're going to do for now.
