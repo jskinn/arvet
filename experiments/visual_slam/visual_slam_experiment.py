@@ -588,16 +588,19 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
-        # Step 1 - Plot graphs for image features
-        self._plot_feature_graphs(db_client)
+        # Step 1 - Show some aggregate statistics on image feature detection
+        self._plot_feature_changes(db_client)
 
-        # Step 2 - Trajectory visualization: For each system and each trajectory, plot the different paths
+        # Step 2 - Plot the changes for each image
+        self._plot_per_image_feature_changes(db_client)
+
+        # Step 3 - Trajectory visualization: For each system and each trajectory, plot the different paths
         self._plot_trajectories(db_client)
 
-        # Step 3 - Aggregation: For each benchmark, compare real-world and different qualities
+        # Step 4 - Aggregation: For each benchmark, compare real-world and different qualities
         self._plot_aggregate_performance(db_client)
 
-        # Step 4 - detailed analysis of performance vs time for each trajectory
+        # Step 5 - detailed analysis of performance vs time for each trajectory
         self._plot_performance_vs_time(db_client)
 
         # final figure configuration, and show the figures
@@ -640,7 +643,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             )
         return self._placeholder_image_collections[image_source_id]
 
-    def _plot_feature_graphs(self, db_client):
+    def _plot_feature_changes(self, db_client):
         """
         Plot new vs missing features for each feature detector type
         :param db_client:
@@ -663,7 +666,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         continue
                     trial_result_id = self._trial_map[detector_id][variation['dataset']]
                     if (trial_result_id in self._result_map and
-                                self._benchmark_feature_diff in self._result_map[trial_result_id]):
+                            self._benchmark_feature_diff in self._result_map[trial_result_id]):
                         benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
                         benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
                         for image_changes in benchmark_result.changes:
@@ -693,8 +696,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.plot(x, y, 'o')
 
             # Step 1a - Show some outstanding example images
-            for name, points in [('{} few lost points'.format(detector_name), highest_iou_points),
-                                 ('{} many lost points'.format(detector_name), most_missing_points)]:
+            for name, points in [('{0} highest IoU ({1})'.format(detector_name, highest_iou), highest_iou_points),
+                                 ('{0} most lost points ({1})'.format(detector_name, most_missing),
+                                  most_missing_points)]:
                 if points is not None:
                     image_id, matches, missing_trial, missing_reference = points
                     image = dh.load_object(db_client, db_client.image_collection, image_id)
@@ -704,6 +708,48 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     ax.imshow(image.data)
                     ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
                     ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
+
+    def _plot_per_image_feature_changes(self, db_client):
+        """
+        Plot the changes in detected features for all the images.
+        This illustrates the size of the intersection between the high and low quality detected features.
+        :param db_client:
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
+        for detector_name, detector_id in self._feature_detectors.items():
+            if detector_id not in self._trial_map:
+                continue
+            changes = []
+            for trajectory_group in self._trajectory_groups.values():
+                for variation in trajectory_group.quality_variations:
+                    if variation['dataset'] not in self._trial_map[detector_id]:
+                        continue
+                    trial_result_id = self._trial_map[detector_id][variation['dataset']]
+                    if (trial_result_id in self._result_map and
+                            self._benchmark_feature_diff in self._result_map[trial_result_id]):
+                        benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
+                        benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
+                        for image_changes in benchmark_result.changes:
+                            changes.append((
+                                len(image_changes['point_matches']),
+                                len(image_changes['point_matches']) + len(image_changes['new_trial_points']),
+                                -1 * len(image_changes['missing_reference_points'])
+                            ))
+
+            changes.sort(key=lambda d: d[1] - d[2])
+            x = np.arange(len(changes))
+            changes = np.array(changes)
+
+            # TODO: These need to be area plots
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("Number of changes for {0}".format(detector_name))
+            ax = figure.add_subplot(111)
+            ax.set_xlabel('new features')
+            ax.set_ylabel('missing features')
+            ax.plot(x, changes[:, 0], 'b-', label='matching features')
+            ax.plot(x, changes[:, 1], 'g-', label='low-quality features')
+            ax.plot(x, changes[:, 2], 'r-', label='high-quality features')
 
     def _plot_trajectories(self, db_client):
         """
@@ -733,7 +779,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             # For each system variation over this trajectory
             for system_id, system_name in systems:
                 if (system_id not in self._trial_map or
-                            trajectory_group.max_quality_id not in self._trial_map[system_id]):
+                        trajectory_group.max_quality_id not in self._trial_map[system_id]):
                     # Skip systems that have not run on this trajectory group
                     continue
 
@@ -815,7 +861,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         if variation['dataset'] in self._trial_map[system_id]:
                             trial_result_id = self._trial_map[system_id][variation['dataset']]
                             if (trial_result_id in self._result_map and
-                                        benchmark_id in self._result_map[trial_result_id]):
+                                    benchmark_id in self._result_map[trial_result_id]):
                                 benchmark_result = dh.load_object(db_client, db_client.results_collection,
                                                                   self._result_map[trial_result_id][benchmark_id])
                                 min_quality_results += values_list_getter(benchmark_result)
