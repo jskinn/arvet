@@ -11,7 +11,7 @@ import trials.feature_detection.feature_detector_result as detector_result
 import benchmarks.feature.detection_comparison as detection_comp
 
 
-class TestATEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
+class TestFeatureDetectionComparison(entity_test.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return detection_comp.FeatureDetectionComparison
@@ -60,7 +60,7 @@ class TestATEBenchmarkComparison(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(trial_result2.identifier, comparison_result.reference_trial_result)
 
 
-class TestATEBenchmarkComparisonResult(entity_test.EntityContract, unittest.TestCase):
+class TestFeatureDetectionComparisonResult(entity_test.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return detection_comp.FeatureDetectionComparisonResult
@@ -70,13 +70,13 @@ class TestATEBenchmarkComparisonResult(entity_test.EntityContract, unittest.Test
             'benchmark_id': bson.ObjectId(),
             'trial_result_id': bson.ObjectId(),
             'reference_id': bson.ObjectId(),
-            'point_matches': {bson.ObjectId(): [((p[0], p[1]), (p[2], p[3]))
-                                                for p in np.random.randint(0, 300, (10, 4))]
-                              for _ in range(3)},
-            'missing_trial': {bson.ObjectId(): [(p[0], p[1]) for p in np.random.randint(0, 300, (10, 2))]
-                              for _ in range(3)},
-            'missing_reference': {bson.ObjectId(): [(p[0], p[1]) for p in np.random.randint(0, 300, (10, 2))]
-                                  for _ in range(3)}
+            'feature_changes': [{
+                'trial_image_id': bson.ObjectId(),
+                'reference_image_id': bson.ObjectId(),
+                'point_matches': [((p[0], p[1]), (p[2], p[3])) for p in np.random.randint(0, 300, (10, 4))],
+                'new_trial_points': [(p[0], p[1]) for p in np.random.randint(0, 300, (10, 2))],
+                'missing_reference_points': [(p[0], p[1]) for p in np.random.randint(0, 300, (10, 2))]
+            } for _ in range(3)]
         })
         return detection_comp.FeatureDetectionComparisonResult(*args, **kwargs)
 
@@ -95,6 +95,4 @@ class TestATEBenchmarkComparisonResult(entity_test.EntityContract, unittest.Test
         self.assertEqual(benchmark1.benchmark, benchmark2.benchmark)
         self.assertEqual(benchmark1.trial_result, benchmark2.trial_result)
         self.assertEqual(benchmark1.reference_trial_result, benchmark2.reference_trial_result)
-        self.assertEqual(benchmark1._point_matches, benchmark2._point_matches)
-        self.assertEqual(benchmark1._missing_trial, benchmark2._missing_trial)
-        self.assertEqual(benchmark1._missing_reference, benchmark2._missing_reference)
+        self.assertEqual(benchmark1._feature_changes, benchmark2._feature_changes)

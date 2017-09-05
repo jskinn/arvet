@@ -592,7 +592,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
 
         # Step 1 - Feature detection: Plot the number of new vs missing features for each detector type
-        for detector_name, detector_id in self._feature_detectors.values():
+        for detector_name, detector_id in self._feature_detectors.items():
             if detector_id not in self._trial_map:
                 continue
             # Track outstanding images
@@ -602,26 +602,33 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             lowest_iou = 1
             x = []
             y = []
-            for trajectory_group in self._trajectory_groups:
+            for trajectory_group in self._trajectory_groups.values():
                 for variation in trajectory_group.quality_variations:
                     if variation['dataset'] not in self._trial_map[detector_id]:
                         continue
                     trial_result_id = self._trial_map[detector_id][variation['dataset']]
-                    if (trial_result_id not in self._result_map or
-                            self._benchmark_feature_diff not in self._result_map[trial_result_id]):
+                    if (trial_result_id in self._result_map and
+                            self._benchmark_feature_diff in self._result_map[trial_result_id]):
                         benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
                         benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
-                        for image_id in benchmark_result.get_image_ids():
-                            matches, missing_trial, missing_reference = benchmark_result.get_for_image(image_id)
-                            x.append(len(missing_trial))
-                            y.append(len(missing_reference))
-                            iou = len(matches) / (len(matches) + len(missing_trial) + len(missing_reference))
+                        for image_changes in benchmark_result.changes:
+                            x.append(len(image_changes['new_trial_points']))
+                            y.append(len(image_changes['missing_reference_points']))
+                            iou = len(image_changes['point_matches']) / (len(image_changes['point_matches']) +
+                                                                         len(image_changes['new_trial_points']) +
+                                                                         len(image_changes['missing_reference_points']))
                             if iou > highest_iou:
                                 highest_iou = iou
-                                highest_iou_points = (image_id, matches, missing_trial, missing_reference)
+                                highest_iou_points = (image_changes['trial_image_id'],
+                                                      image_changes['point_matches'],
+                                                      image_changes['new_trial_points'],
+                                                      image_changes['missing_reference_points'])
                             if iou < lowest_iou:
                                 lowest_iou = iou
-                                lowest_iou_points = (image_id, matches, missing_trial, missing_reference)
+                                lowest_iou_points = (image_changes['trial_image_id'],
+                                                     image_changes['point_matches'],
+                                                     image_changes['new_trial_points'],
+                                                     image_changes['missing_reference_points'])
 
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Number of changes for {0}".format(detector_name))
@@ -643,13 +650,19 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
                     ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
 
+        # final figure configuration, and show the figures
+        pyplot.tight_layout()
+        pyplot.subplots_adjust(top=0.95, right=0.99)
+        pyplot.show()
+        return
+
         # Step 2 Prep: Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LibVisO 2')] + [
-            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.values()
+            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
         ]
 
         # Step 2 - Trajectory visualization: For each system and each trajectory, plot the different paths
-        for trajectory_group in self._trajectory_groups:
+        for trajectory_group in self._trajectory_groups.values():
             # Make the trajectory comparison figure
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
@@ -669,6 +682,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 # Plot the max quality trajectory
                 trial_result = dh.load_object(db_client, db_client.trials_collection,
                                               self._trial_map[system_id][trajectory_group.max_quality_id])
+                if trial_result is None:
+                    continue
                 if not added_ground_truth:
                     plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(), 'ground-truth trajectory')
                     added_ground_truth = True   # Ground truth trajectory should be the same for all in this group.
@@ -719,7 +734,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             real_world_results += values_list_getter(benchmark_result)
 
                 # Add results for synthetic data
-                for trajectory_group in self._trajectory_groups:
+                for trajectory_group in self._trajectory_groups.values():
                     if trajectory_group.max_quality_id in self._trial_map[system_id]:
                         trial_result_id = self._trial_map[system_id][trajectory_group.max_quality_id]
                         if trial_result_id in self._result_map and benchmark_id in self._result_map[trial_result_id]:
@@ -753,7 +768,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         for system_id, system_name in systems:
             if system_id not in self._trial_map:  # Skip systems with no trials
                 continue
-            for trajectory_group in self._trajectory_groups:
+            for trajectory_group in self._trajectory_groups.values():
 
                 # Make figures for each benchmark
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)

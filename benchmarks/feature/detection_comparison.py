@@ -1,4 +1,4 @@
-import bson
+import numpy as np
 import core.trial_comparison
 import core.benchmark
 import trials.feature_detection.feature_detector_result as detector_result
@@ -21,37 +21,47 @@ class FeatureDetectionComparison(core.trial_comparison.TrialComparison):
             return core.benchmark.FailedBenchmark(self.identifier, reference_trial_result.identifier,
                                                   "{0} is not a FeatureDetectorResult".format(
                                                       reference_trial_result.identifier))
-        reference_feature_points = reference_trial_result.keypoints
-        base_feature_points = trial_result.keypoints
-        image_ids = set(reference_feature_points.keys()) & set(base_feature_points.keys())
-        point_matches = {}
-        missing_trial = {}
-        missing_reference = {}
-        for image_id in image_ids:
-            points1 = {point.pt for point in trial_result.keypoints[image_id]}
-            points2 = {point.pt for point in reference_trial_result.keypoints[image_id]}
+
+        # First, we need to find images taken from the same place
+        matching_timestamps = [
+            (image_id1, image_id2)
+            for image_id1 in trial_result.camera_poses.keys()
+            for image_id2 in reference_trial_result.camera_poses.keys()
+            if is_pose_similar(trial_result.camera_poses[image_id1], reference_trial_result.camera_poses[image_id2])
+        ]
+        if len(matching_timestamps) <= 0:
+            return core.benchmark.FailedBenchmark(self.identifier, reference_trial_result.identifier,
+                                                  "Given trials were never in the same place")
+        # Then, for each pair of images, find changes in detected features
+        results = []
+        for trial_image_id, reference_image_id in matching_timestamps:
+            points1 = {point.pt for point in trial_result.keypoints[trial_image_id]}
+            points2 = {point.pt for point in reference_trial_result.keypoints[reference_image_id]}
             potential_matches = sorted(
                 (point_dist(point1, point2), point1, point2)
                 for point1 in points1
                 for point2 in points2
                 if point_dist(point1, point2) < self._acceptable_radius * self._acceptable_radius)
-            point_matches[image_id] = []
+            point_matches = []
             for match in potential_matches:
-                coords1 = match[1].pt
-                coords2 = match[2].pt
+                coords1 = match[1]
+                coords2 = match[2]
                 if coords1 in points1 and coords2 in points2:
                     points1.remove(coords1)
                     points2.remove(coords2)
-                    point_matches[image_id].append((match[1], match[2]))
-            missing_trial[image_id] = list(points1)
-            missing_reference[image_id] = list(points2)
+                    point_matches.append((match[1], match[2]))
+            results.append({
+                'trial_image_id': trial_image_id,
+                'reference_image_id': reference_image_id,
+                'point_matches': point_matches,
+                'new_trial_points': list(points1),
+                'missing_reference_points': list(points2)
+            })
         return FeatureDetectionComparisonResult(
             benchmark_id=self.identifier,
             trial_result_id=trial_result.identifier,
             reference_id=reference_trial_result.identifier,
-            point_matches=point_matches,
-            missing_trial=missing_trial,
-            missing_reference=missing_reference)
+            feature_changes=results)
 
     def serialize(self):
         serialized = super().serialize()
@@ -71,17 +81,18 @@ class FeatureDetectionComparison(core.trial_comparison.TrialComparison):
 
 class FeatureDetectionComparisonResult(core.trial_comparison.TrialComparisonResult):
 
-    def __init__(self, benchmark_id, trial_result_id, reference_id, point_matches, missing_trial, missing_reference,
-                 id_=None, **kwargs):
+    def __init__(self, benchmark_id, trial_result_id, reference_id, feature_changes, id_=None, **kwargs):
         kwargs['success'] = True
         super().__init__(
             benchmark_id=benchmark_id,
             trial_result_id=trial_result_id,
             reference_id=reference_id,
             id_=id_, **kwargs)
-        self._point_matches = point_matches
-        self._missing_trial = missing_trial
-        self._missing_reference = missing_reference
+        self._feature_changes = feature_changes
+
+    @property
+    def changes(self):
+        return self._feature_changes
 
     def compute_intersection_over_union(self):
         """
@@ -91,40 +102,43 @@ class FeatureDetectionComparisonResult(core.trial_comparison.TrialComparisonResu
         Detecting extra points, or failing to detect points reduce the ratio.
         :return:
         """
-        return {image_id: len(self._point_matches[image_id]) / (len(self._point_matches[image_id]) +
-                                                                len(self._missing_trial[image_id]) +
-                                                                len(self._missing_reference[image_id]))
-                for image_id in self._point_matches.keys()}
-
-    def get_image_ids(self):
-        return self._point_matches.keys()
-
-    def get_for_image(self, image_id):
-        if image_id in self._point_matches and image_id in self._missing_trial and image_id in self._missing_reference:
-            return self._point_matches[image_id], self._missing_trial[image_id], self._missing_reference[image_id]
-        return None, None, None
+        return {changes['trial_image_id']: len(changes['point_matches']) / (len(changes['point_matches']) +
+                                                                            len(changes['new_trial_points']) +
+                                                                            len(changes['missing_reference_points']))
+                for changes in self._feature_changes}
 
     def serialize(self):
         serialized = super().serialize()
-        serialized['point_matches'] = {str(img_id): matches for img_id, matches in self._point_matches.items()}
-        serialized['missing_trial'] = {str(img_id): points for img_id, points in self._missing_trial.items()}
-        serialized['missing_reference'] = {str(img_id): points for img_id, points in self._missing_reference.items()}
+        serialized['feature_changes'] = self._feature_changes
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        if 'point_matches' in serialized_representation:
-            kwargs['point_matches'] = {bson.ObjectId(str_id): matches for str_id, matches
-                                       in serialized_representation['point_matches'].items()}
-        if 'missing_trial' in serialized_representation:
-            kwargs['missing_trial'] = {bson.ObjectId(str_id): points for str_id, points
-                                       in serialized_representation['missing_trial'].items()}
-        if 'missing_reference' in serialized_representation:
-            kwargs['missing_reference'] = {bson.ObjectId(str_id): points for str_id, points
-                                           in serialized_representation['missing_reference'].items()}
+        if 'feature_changes' in serialized_representation:
+            kwargs['feature_changes'] = serialized_representation['feature_changes']
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
+def is_pose_similar(pose1, pose2):
+    """
+    Are two poses close enough together that we consider them the same
+    :param pose1: The first transform
+    :param pose2: The second transform
+    :return: True if the two transforms are close together
+    """
+    trans_diff = pose1.location - pose2.location
+    rot_diff1 = pose1.rotation_quat(w_first=True) - pose2.rotation_quat(w_first=True)
+    rot_diff2 = pose1.rotation_quat(w_first=True) + pose2.rotation_quat(w_first=True)
+    return np.dot(trans_diff, trans_diff) < 0.001 and (np.dot(rot_diff1, rot_diff1) < 0.001 or
+                                                       np.dot(rot_diff2, rot_diff2) < 0.001)
+
+
 def point_dist(point1, point2):
+    """
+    Get the square euclidean distance between feature points
+    :param point1:
+    :param point2:
+    :return:
+    """
     diff = (point1[0] - point2[0], point1[1] - point2[1])
     return diff[0] * diff[0] + diff[1] * diff[1]
