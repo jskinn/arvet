@@ -598,8 +598,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             # Track outstanding images
             highest_iou_points = None
             highest_iou = -1
-            lowest_iou_points = None
-            lowest_iou = 1
+            most_missing_points = None
+            most_missing = 1
             x = []
             y = []
             for trajectory_group in self._trajectory_groups.values():
@@ -623,9 +623,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                                       image_changes['point_matches'],
                                                       image_changes['new_trial_points'],
                                                       image_changes['missing_reference_points'])
-                            if iou < lowest_iou:
-                                lowest_iou = iou
-                                lowest_iou_points = (image_changes['trial_image_id'],
+                            if len(image_changes['missing_reference_points']) > most_missing:
+                                most_missing = len(image_changes['missing_reference_points'])
+                                most_missing_points = (image_changes['trial_image_id'],
                                                      image_changes['point_matches'],
                                                      image_changes['new_trial_points'],
                                                      image_changes['missing_reference_points'])
@@ -638,10 +638,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.plot(x, y, 'o')
 
             # Step 1a - Show some outstanding example images
-            for name, points in [('Few lost points', highest_iou_points),
-                                 ('Many lost points', lowest_iou_points)]:
+            for name, points in [('{} few lost points'.format(detector_name), highest_iou_points),
+                                 ('{} many lost points'.format(detector_name), most_missing_points)]:
                 if points is not None:
-                    image_id, matches, missing_trial, missing_reference = highest_iou_points
+                    image_id, matches, missing_trial, missing_reference = points
                     image = dh.load_object(db_client, db_client.image_collection, image_id)
                     figure = pyplot.figure()
                     figure.suptitle(name)
