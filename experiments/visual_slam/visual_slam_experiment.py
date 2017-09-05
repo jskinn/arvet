@@ -1,6 +1,7 @@
 import os
 import bson
 import numpy as np
+import operator
 import util.database_helpers as dh
 import util.associate
 import util.transform as tf
@@ -27,9 +28,10 @@ import simulation.controllers.trajectory_follow_controller as follow_cont
 
 class TrajectoryGroup:
 
-    def __init__(self, simulator_id, default_simulator_config, max_quality_id,
-                 controller_id=None, quality_variations=None):
+    def __init__(self, simulator_id, group_name, default_simulator_config, max_quality_id,
+                 controller_id=None, quality_variations=None,):
         self.simulator_id = simulator_id
+        self.name = group_name
         self.default_simulator_config = default_simulator_config
         self.max_quality_id = max_quality_id
         self.follow_controller_id = controller_id
@@ -153,6 +155,7 @@ class TrajectoryGroup:
     def serialize(self):
         return {
             'simulator_id': self.simulator_id,
+            'name': self.name,
             'default_simulator_config': self.default_simulator_config,
             'max_quality_id': self.max_quality_id,
             'controller_id': self.follow_controller_id,
@@ -163,6 +166,7 @@ class TrajectoryGroup:
     def deserialize(cls, serialized_representation):
         return cls(
             simulator_id=serialized_representation['simulator_id'],
+            group_name=serialized_representation['name'],
             default_simulator_config=serialized_representation['default_simulator_config'],
             max_quality_id=serialized_representation['max_quality_id'],
             controller_id=serialized_representation['controller_id'],
@@ -173,16 +177,19 @@ class TrajectoryGroup:
 class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def __init__(self, feature_detectors=None, libviso_system=None, orbslam_systems=None,
-                 tum_manager=None, real_world_datasets=None,
+                 tum_manager=None, kitti_datasets=None,
+                 simulators=None, flythrough_controller=None, trajectory_groups=None,
                  benchmark_feature_diff=None,
                  benchmark_rpe=None, benchmark_ate=None, benchmark_trajectory_drift=None, benchmark_tracking=None,
-                 simulators=None, flythrough_controller=None, trajectory_groups=None,
-                 trial_list=None, result_list=None, id_=None):
+                 trial_map=None, result_map=None, id_=None):
         super().__init__(id_=id_)
+        # Systems
         self._feature_detectors = feature_detectors if feature_detectors is not None else {}
         self._libviso_system = libviso_system
-        self._orbslam_systems = set(orbslam_systems) if orbslam_systems is not None else set()
-        self._kitti_datasets = set(real_world_datasets) if real_world_datasets is not None else set()
+        self._orbslam_systems = dict(orbslam_systems) if orbslam_systems is not None else {}
+
+        # Real-world image sources
+        self._kitti_datasets = set(kitti_datasets) if kitti_datasets is not None else set()
         if isinstance(tum_manager, dataset.tum.tum_manager.TUMManager):
             self._tum_manager = tum_manager
         else:
@@ -192,16 +199,21 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 'rgbd_dataset_freiburg2_xyz': True,
                 'rgbd_dataset_freiburg2_rpy': True
             })
+        # Generated image sources
+        self._simulators = simulators if simulators is not None else {}
+        self._flythrough_controller = flythrough_controller
+        self._trajectory_groups = trajectory_groups if trajectory_groups is not None else {}
+
+        # Benchmarks
         self._benchmark_feature_diff = benchmark_feature_diff
         self._benchmark_rpe = benchmark_rpe
         self._benchmark_ate = benchmark_ate
         self._benchmark_trajectory_drift = benchmark_trajectory_drift
         self._benchmark_tracking = benchmark_tracking
-        self._simulators = set(simulators) if simulators is not None else set()
-        self._flythrough_controller = flythrough_controller
-        self._trajectory_groups = trajectory_groups if trajectory_groups is not None else {}
-        self._trial_list = trial_list if trial_list is not None else []
-        self._result_list = result_list if result_list is not None else []
+
+        # Trials and results
+        self._trial_map = trial_map if trial_map is not None else {}
+        self._result_map = result_map if result_map is not None else {}
         self._placeholder_image_collections = {}
 
     def do_imports(self, task_manager, db_client):
@@ -211,6 +223,26 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param db_client: The database client, for saving declared objects too small to need a task
         :return:
         """
+
+        # --------- REAL WORLD DATASETS -----------
+        # Import KITTI dataset
+        task = task_manager.get_import_dataset_task(
+            module_name='dataset.kitti.kitti_loader',
+            path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
+            num_cpus=1,
+            num_gpus=0,
+            memory_requirements='3GB',
+            expected_duration='72:00:00'
+        )
+        if task.is_finished:
+            self._kitti_datasets.add(set(task.result))
+            self._add_to_set('real_world_datasets', task.result)
+        else:
+            task_manager.do_task(task)
+
+        # Import TUM datasets using the manager
+        self._tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
+
         # --------- SYNTHETIC DATASETS -----------
         # Add simulators explicitly, they have different metadata, so we can't just search
         for exe, world_name, environment_type, light_level, time_of_day in [
@@ -235,8 +267,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 light_level=light_level,
                 time_of_day=time_of_day
             ))
-            self._simulators.add(sim_id)
-            self._add_to_set('simulators', {sim_id})
+            self._simulators[world_name] = sim_id
+            self._add_to_set('simulators', (world_name, sim_id))
 
         # Add controllers
         if self._flythrough_controller is None:
@@ -255,7 +287,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # Generate max-quality flythroughs
         trajectories_per_environment = 3
-        for simulator_id in self._simulators:
+        for world_name, simulator_id in self._simulators.items():
             for repeat in range(trajectories_per_environment):
                 # Default, maximum quality settings. We override specific settings in the quality group
                 simulator_config = {
@@ -295,7 +327,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     memory_requirements='3GB',
                     expected_duration='4:00:00'
                 )
-                if generate_dataset_task.is_finished:
+                if not generate_dataset_task.is_finished:
+                    task_manager.do_task(generate_dataset_task)
+                else:
                     result_ids = generate_dataset_task.result
                     if isinstance(result_ids, bson.ObjectId):   # we got a single id
                         result_ids = [result_ids]
@@ -303,42 +337,18 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         if result_id not in self._trajectory_groups:
                             self._trajectory_groups[result_id] = TrajectoryGroup(
                                 simulator_id=simulator_id,
+                                group_name="{world} {repeat}".format(world=world_name, repeat=repeat),
                                 default_simulator_config=simulator_config,
-                                max_quality_id=result_id)
+                                max_quality_id=result_id
+                            )
                             self._set_property('trajectory_groups.{0}'.format(result_id),
                                                self._trajectory_groups[result_id].serialize())
-                else:
-                    task_manager.do_task(generate_dataset_task)
 
         # Schedule dataset generation for lower-quality datasets in each trajectory group
         for trajectory_group in self._trajectory_groups.values():
             if trajectory_group.do_imports(task_manager, db_client):
                 self._set_property('trajectory_groups.{0}'.format(trajectory_group.max_quality_id),
                                    trajectory_group.serialize())
-
-        # --------- REAL WORLD DATASETS -----------
-        # Import KITTI dataset
-        import_dataset_task = task_manager.get_import_dataset_task(
-            module_name='dataset.kitti.kitti_loader',
-            path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
-            num_cpus=1,
-            num_gpus=0,
-            memory_requirements='3GB',
-            expected_duration='72:00:00'
-        )
-        if import_dataset_task.is_finished:
-            imported_ids = import_dataset_task.result
-            if not isinstance(import_dataset_task.result, list):
-                imported_ids = [imported_ids]
-            for imported_id in imported_ids:
-                if imported_id not in self._kitti_datasets:
-                    self._kitti_datasets.add(imported_id)
-                    self._add_to_set('real_world_datasets', {imported_id})
-        else:
-            task_manager.do_task(import_dataset_task)
-
-        # Import TUM datasets using the manager
-        self._tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
 
         # --------- SYSTEMS -----------
         # Import the systems under test for this experiment.
@@ -354,6 +364,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     'edge_threshold': 10,
                     'sigma': 1.6
                 }))
+            self._add_to_set('feature_detectors', {('SIFT detector', self._feature_detectors['SIFT detector'])})
         if 'ORB detector' not in self._feature_detectors:
             self._feature_detectors['ORB detector'] = dh.add_unique(
                 db_client.system_collection, orb_detector.ORBDetector({
@@ -364,6 +375,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     'patch_size': 31,
                     'fast_threshold': 20
                 }))
+            self._add_to_set('feature_detectors', {('ORB detector', self._feature_detectors['ORB detector'])})
 
         # LIBVISO2
         if self._libviso_system is None:
@@ -372,26 +384,29 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # ORBSLAM2 - 12 variants for parameter sweep
         settings_list = [
-            (sensor_mode, n_features, scale_factor, resolution)
+            (sensor_mode, n_features, resolution)
             for sensor_mode in {orbslam2.SensorMode.MONOCULAR, orbslam2.SensorMode.STEREO}
             for n_features in {1000, 1500, 2000}
-            for scale_factor in {1.2}
             for resolution in {(640, 480), (128, 96)}
         ]
         if len(self._orbslam_systems) < len(settings_list):
             for settings in settings_list:
+                name = 'ORBSLAM2 {mode} - {resolution} - {features} features'.format(
+                    mode=settings[0].name.lower(),
+                    features=settings[1],
+                    resolution=settings[2]
+                )
                 orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
                     vocabulary_file='/opt/ORBSLAM2/Vocabulary/ORBvoc.txt',
                     mode=settings[0],
                     settings={
                         'ORBextractor': {
-                            'nFeatures': settings[1],
-                            'scaleFactor': settings[2]
+                            'nFeatures': settings[1]
                         }
-                    }, resolution=settings[3]
+                    }, resolution=settings[2]
                 ))
-                self._orbslam_systems.add(orbslam_id)
-                self._add_to_set('orbslam_systems', {orbslam_id})
+                self._orbslam_systems[name] = orbslam_id
+                self._add_to_set('orbslam_systems', {(name, orbslam_id)})
 
         # --------- BENCHMARKS -----------
         # Create and store the benchmarks for camera trajectories
@@ -429,6 +444,73 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             self._set_property('benchmark_tracking', self._benchmark_tracking)
 
     def schedule_tasks(self, task_manager, db_client):
+        """
+
+        :param task_manager:
+        :param db_client:
+        :return:
+        """
+        # Feature Detectors
+        for feature_detector_id in self._feature_detectors.values():
+            # Make sure we've got a place to store trials for this feature detector
+            if feature_detector_id not in self._trial_map:
+                self._trial_map[feature_detector_id] = {}
+
+            # Run the feature detector on each image source in each trajectory group
+            for group in self._trajectory_groups.values():
+                max_quality_trial = None
+
+                # Run the feature detector on the top quality run
+                task = task_manager.get_run_system_task(
+                    system_id=feature_detector_id,
+                    image_source_id=group.max_quality_id,
+                    expected_duration='2:00:00'
+                )
+                if not task.is_finished:
+                    task_manager.do_task(task)
+                else:
+                    # We've already run it, add to the trial map, and get it ready for comparison
+                    max_quality_trial = task.result
+                    self._trial_map[feature_detector_id][group.max_quality_id] = task.result
+                    self._set_property('trial_map.{0}.{1}'.format(feature_detector_id, group.max_quality_id),
+                                       task.result)
+
+                for variation in group.quality_variations:
+                    # Run with each reduced quality variation
+                    task = task_manager.get_run_system_task(
+                        system_id=feature_detector_id,
+                        image_source_id=variation['dataset'],
+                        expected_duration='2:00:00'
+                    )
+                    if not task.is_finished:
+                        # Run the task if we haven't yet
+                        task_manager.do_task(task)
+                    else:
+                        # If task is complete, benchmark it
+                        self._trial_map[feature_detector_id][variation['dataset']] = task.result
+                        self._set_property('trial_map.{0}.{1}'.format(feature_detector_id, variation['dataset']),
+                                           task.result)
+
+                        # Task is complete, perform comparison benchmark
+                        if max_quality_trial is not None:
+                            variation_trial_result = task.result
+                            task = task_manager.get_trial_comparison_task(
+                                trial_result1_id=task.result,
+                                trial_result2_id=max_quality_trial,
+                                comparison_id=self._benchmark_feature_diff
+                            )
+                            if task.is_finished:
+                                if variation_trial_result not in self._result_map:
+                                    self._result_map[variation_trial_result] = {}
+                                self._result_map[variation_trial_result][self._benchmark_feature_diff] = task.result
+                                self._set_property(
+                                    'result_map.{0}.{1}'.format(variation_trial_result,
+                                                                self._benchmark_feature_diff),
+                                    task.result)
+                            else:
+                                task_manager.do_task(task)
+
+        # Groups of things for testing all the systems
         libviso_system = dh.load_object(db_client, db_client.system_collection, self._libviso_system)
         orbslam_systems = [
             dh.load_object(db_client, db_client.system_collection, system_id)
@@ -443,77 +525,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         datasets = set(self._kitti_datasets) & self._tum_manager.all_datasets
         for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
+        system_trials = set()
 
-        # Feature Detectors
-        for feature_detector_id in self._feature_detectors.values():
-            detector = dh.load_object(db_client, db_client.system_collection, feature_detector_id)
-
-            # Run the feature detector on each image source in each trajectory group
-            for group in self._trajectory_groups.values():
-                image_source = self._load_image_source(db_client, group.max_quality_id)
-                max_quality_trial = None
-                task = task_manager.get_run_system_task(
-                    system_id=feature_detector_id,
-                    image_source_id=image_source.identifier,
-                    expected_duration='2:00:00'
-                )
-                if not task.is_finished:
-                    task_manager.do_task(task)
-                else:
-                    max_quality_trial = task.result
-                    found = False
-                    for _, _, trial_result_id in self._trial_list:
-                        if trial_result_id == task.result:
-                            found = True
-                            break
-                    if not found:
-                        trial_tuple = (group.max_quality_id, feature_detector_id, task.result)
-                        self._trial_list.append(trial_tuple)
-                        self._add_to_list('trial_list', [trial_tuple])
-
-                for variation in group.quality_variations:
-                    image_source = self._load_image_source(db_client, variation['dataset'])
-                    task = task_manager.get_run_system_task(
-                        system_id=feature_detector_id,
-                        image_source_id=image_source.identifier,
-                        expected_duration='2:00:00'
-                    )
-                    if not task.is_finished:
-                        task_manager.do_task(task)
-                    else:
-                        found = False
-                        for _, _, trial_result_id in self._trial_list:
-                            if trial_result_id == task.result:
-                                found = True
-                                break
-                        if not found:
-                            trial_tuple = (group.max_quality_id, feature_detector_id, task.result)
-                            self._trial_list.append(trial_tuple)
-                            self._add_to_list('trial_list', [trial_tuple])
-
-                        # Task is complete, perform comparison benchmark
-                        if max_quality_trial is not None:
-                            benchmark_task = task_manager.get_trial_comparison_task(
-                                trial_result1_id=task.result,
-                                trial_result2_id=max_quality_trial,
-                                comparison_id=self._benchmark_feature_diff
-                            )
-                            if benchmark_task.is_finished:
-                                found = False
-                                for _, _, _, _, benchmark_result_id in self._result_list:
-                                    if benchmark_result_id == benchmark_task.result:
-                                        found = True
-                                        break
-                                if not found:
-                                    result_tuple = (variation['dataset'], feature_detector_id, task.result,
-                                                    self._benchmark_feature_diff, benchmark_task.result)
-                                    self._result_list.append(result_tuple)
-                                    self._add_to_list('result_list', [result_tuple])
-                            else:
-                                task_manager.do_task(benchmark_task)
-
-
-        # Schedule trials
+        # For each of all the datasets, run LIBVISO and ORBSLAM on the dataset
         for image_source_id in datasets:
             image_source = self._load_image_source(db_client, image_source_id)
 
@@ -524,18 +538,12 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     image_source_id=image_source.identifier,
                     expected_duration='4:00:00'
                 )
-                if task.is_finished:
-                    found = False
-                    for _, _, trial_result_id in self._trial_list:
-                        if trial_result_id == task.result:
-                            found = True
-                            break
-                    if not found:
-                        trial_tuple = (image_source_id, self._libviso_system, task.result)
-                        self._trial_list.append(trial_tuple)
-                        self._add_to_list('trial_list', [trial_tuple])
-                else:
+                if not task.is_finished:
                     task_manager.do_task(task)
+                else:
+                    system_trials.add(task.result)
+                    self._trial_map[self._libviso_system][image_source_id] = task.result
+                    self._set_property('trial_map.{0}.{1}'.format(self._libviso_system, image_source_id), task.result)
 
             # ORBSLAM2
             for orbslam_system in orbslam_systems:
@@ -546,21 +554,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         image_source_id=image_source.identifier,
                         expected_duration='4:00:00'
                     )
-                    if task.is_finished:
-                        found = False
-                        for _, _, trial_result_id in self._trial_list:
-                            if trial_result_id == task.result:
-                                found = True
-                                break
-                        if not found:
-                            trial_tuple = (image_source_id, orbslam_system.identifier, task.result)
-                            self._trial_list.append(trial_tuple)
-                            self._add_to_list('trial_list', [trial_tuple])
-                    else:
+                    if not task.is_finished:
                         task_manager.do_task(task)
+                    else:
+                        system_trials.add(task.result)
+                        self._trial_map[orbslam_system.identifier][image_source_id] = task.result
+                        self._set_property('trial_map.{0}.{1}'.format(orbslam_system.identifier, image_source_id),
+                                           task.result)
 
-        # Benchmark results
-        for image_source_id, system_id, trial_result_id in self._trial_list:
+        # Benchmark system results
+        for trial_result_id in system_trials:
             trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
             for benchmark in benchmarks:
                 if benchmark.is_trial_appropriate(trial_result):
@@ -569,19 +572,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         benchmark_id=benchmark.identifier,
                         expected_duration='4:00:00'
                     )
-                    if task.is_finished:
-                        found = False
-                        for _, _, _, _, benchmark_result_id in self._result_list:
-                            if benchmark_result_id == task.result:
-                                found = True
-                                break
-                        if not found:
-                            result_tuple = (image_source_id, system_id, trial_result_id,
-                                            benchmark.identifier, task.result)
-                            self._result_list.append(result_tuple)
-                            self._add_to_list('result_list', [result_tuple])
-                    else:
+                    if not task.is_finished:
                         task_manager.do_task(task)
+                    else:
+                        if trial_result_id not in self._result_map:
+                            self._result_map[trial_result_id] = {}
+                        self._result_map[trial_result_id][benchmark.identifier] = task.result
+                        self._set_property('result_map.{0}.{1}'.format(trial_result_id, benchmark.identifier),
+                                           task.result)
 
     def plot_results(self, db_client):
         """
@@ -593,37 +591,68 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         import matplotlib.pyplot as pyplot
         from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
 
-        # Prep: Make a list of systems and system names
+        # Step 1 - Feature detection: Plot the number of new vs missing features for each detector type
+        for detector_name, detector_id in self._feature_detectors.values():
+            if detector_id not in self._trial_map:
+                continue
+            # Track outstanding images
+            highest_iou_points = None
+            highest_iou = -1
+            lowest_iou_points = None
+            lowest_iou = 1
+            x = []
+            y = []
+            for trajectory_group in self._trajectory_groups:
+                for variation in trajectory_group.quality_variations:
+                    if variation['dataset'] not in self._trial_map[detector_id]:
+                        continue
+                    trial_result_id = self._trial_map[detector_id][variation['dataset']]
+                    if (trial_result_id not in self._result_map or
+                            self._benchmark_feature_diff not in self._result_map[trial_result_id]):
+                        benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
+                        benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
+                        for image_id in benchmark_result.get_image_ids():
+                            matches, missing_trial, missing_reference = benchmark_result.get_for_image(image_id)
+                            x.append(len(missing_trial))
+                            y.append(len(missing_reference))
+                            iou = len(matches) / (len(matches) + len(missing_trial) + len(missing_reference))
+                            if iou > highest_iou:
+                                highest_iou = iou
+                                highest_iou_points = (image_id, matches, missing_trial, missing_reference)
+                            if iou < lowest_iou:
+                                lowest_iou = iou
+                                lowest_iou_points = (image_id, matches, missing_trial, missing_reference)
+
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("Number of changes for {0}".format(detector_name))
+            ax = figure.add_subplot(111)
+            ax.set_xlabel('new features')
+            ax.set_ylabel('missing features')
+            ax.plot(x, y, 'o')
+
+            # Step 1a - Show some outstanding example images
+            for name, points in [('Few lost points', highest_iou_points),
+                                 ('Many lost points', lowest_iou_points)]:
+                if points is not None:
+                    image_id, matches, missing_trial, missing_reference = highest_iou_points
+                    image = dh.load_object(db_client, db_client.image_collection, image_id)
+                    figure = pyplot.figure()
+                    figure.suptitle(name)
+                    ax = figure.add_subplot(111)
+                    ax.imshow(image.data)
+                    ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
+                    ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
+
+        # Step 2 Prep: Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LibVisO 2')] + [
-            (orbslam_id, get_orbslam_name(orbslam_id, db_client))
-            for orbslam_id in self._orbslam_systems
+            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.values()
         ]
 
-        # Prep: Make a map of system id to image source id to trial result
-        trials_map = {}
-        for image_source_id, system_id, trial_result_id in self._trial_list:
-            if system_id not in trials_map:
-                trials_map[system_id] = {}
-            trials_map[system_id][image_source_id] = trial_result_id
-
-        # Prep: Make a list of benchmarks and names
-        benchmarks = [(self._benchmark_rpe, 'Relative Pose Error'),
-                      (self._benchmark_ate, 'Absolute Trajectory Error'),
-                      (self._benchmark_trajectory_drift, 'Trajectory Drift'),
-                      (self._benchmark_tracking, 'Tracking Failure')]
-
-        # Prep: Map from trial result id and benchmark_id to benchmark result
-        benchmark_result_map = {}
-        for _, _, trial_result_id, benchmark_id, benchmark_result_id in self._result_list:
-            if trial_result_id not in benchmark_result_map:
-                benchmark_result_map[trial_result_id] = {}
-            benchmark_result_map[trial_result_id][benchmark_id] = benchmark_result_id
-
-        # Step 1 - Direct comparison: For each system and each trajectory, plot the different paths
+        # Step 2 - Trajectory visualization: For each system and each trajectory, plot the different paths
         for trajectory_group in self._trajectory_groups:
             # Make the trajectory comparison figure
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("Computed trajectories for ")
+            figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
             ax = figure.add_subplot(111, projection='3d')
             ax.set_xlabel('x-location')
             ax.set_ylabel('y-location')
@@ -632,13 +661,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
             # For each system variation over this trajectory
             for system_id, system_name in systems:
-                if system_id not in trials_map or trajectory_group.max_quality_id not in trials_map[system_id]:
+                if (system_id not in self._trial_map or
+                        trajectory_group.max_quality_id not in self._trial_map[system_id]):
                     # Skip systems that have not run on this trajectory group
                     continue
 
                 # Plot the max quality trajectory
                 trial_result = dh.load_object(db_client, db_client.trials_collection,
-                                              trials_map[system_id][trajectory_group.max_quality_id])
+                                              self._trial_map[system_id][trajectory_group.max_quality_id])
                 if not added_ground_truth:
                     plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(), 'ground-truth trajectory')
                     added_ground_truth = True   # Ground truth trajectory should be the same for all in this group.
@@ -647,105 +677,140 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
                 # Plot the trajectories for each quality variant. We've only got one right now
                 for variation in trajectory_group.quality_variations:
-                    if variation['dataset'] in trials_map[system_id]:
+                    if variation['dataset'] in self._trial_map[system_id]:
                         trial_result = dh.load_object(db_client, db_client.trials_collection,
-                                                      trials_map[system_id][variation['dataset']])
+                                                      self._trial_map[system_id][variation['dataset']])
                         plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                         'min-quality trajectory for {}'.format(system_name))
 
-        # Step 2 - Benchmarks for trajectory
-        for trajectory_group in self._trajectory_groups:
-            # Make figures for each benchmark
-            figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("Computed trajectories for ")
-            rpe_ax = figure.add_subplot(221)
-            rpe_ax.set_ylabel('Relative Pose Error')
-            ate_ax = figure.add_subplot(222)
-            ate_ax.set_ylabel('Absolute Trajectory Error')
-            drift_ax = figure.add_subplot(223)
-            drift_ax.set_ylabel('Trajectory Drift')
-            lost_ax = figure.add_subplot(224)
-            lost_ax.set_ylabel('Number of Lost Frames')
-            labels = []
+        # Step 3 Prep: Make a list of benchmarks, names, and lambdas for aggregate statistic extraction
+        benchmarks = [
+            (self._benchmark_rpe, 'Relative Pose Error (Translation)', lambda r: list(r.translational_error.values())),
+            (self._benchmark_rpe, 'Relative Pose Error (Rotation)', lambda r: list(r.rotational_error.values())),
+            (self._benchmark_ate, 'Absolute Trajectory Error', lambda r: list(r.translational_error.values())),
+            (self._benchmark_trajectory_drift, 'Trajectory Drift (Translation)',
+             operator.attrgetter('translational_error')),
+            (self._benchmark_trajectory_drift, 'Trajectory Drift (Rotation)',
+             operator.attrgetter('rotational_error')),
+            (self._benchmark_tracking, 'Tracking Failure', lambda r: list(r.distances))
+        ]
 
-            for system_id, system_name in systems:
-                if system_id in trials_map and trajectory_group.max_quality_id in trials_map[system_id]:
-                    # Results for max quality run
-                    trial_result_id = trials_map[system_id][trajectory_group.max_quality_id]
-                    if (trial_result_id in benchmark_result_map and self._benchmark_rpe in benchmark_result_map[trial_result_id]):
-                        benchmark_result = dh.load_object(db_client, db_client.results_collection,
-                                                          benchmark_result_map[trial_result_id][self._benchmark_rpe])
-
-                    # Results for lower quality variations
-                    for variation in trajectory_group.quality_variations:
-                        if variation['dataset'] in trials_map[system_id]:
-                            trial_result_id = trials_map[system_id][variation['dataset']]
-                            if (trial_result_id in benchmark_result_map and self._benchmark_rpe in benchmark_result_map[trial_result_id]):
-                                benchmark_result = dh.load_object(db_client, db_client.results_collection,
-                                                                  benchmark_result_map[trial_result_id][self._benchmark_rpe])
+        # Step 3 Prep: Make a list of real-world datasets
+        real_world_datasets = self._kitti_datasets | self._tum_manager.all_datasets
 
         # Step 3 - Aggregation: For each benchmark, compare real-world and different qualities
-        for system_id, system_name in systems:
-            if system_id not in trials_map:
-                continue
-            for benchmark_id, benchmark_name in benchmarks:
+        for benchmark_id, benchmark_name, values_list_getter in benchmarks:
+            data = []
+            labels = []
+            for system_id, system_name in systems:
+                if system_id not in self._trial_map:
+                    continue    # Skip systems for which we have no trials on record.
                 real_world_results = []
                 max_quality_results = []
                 min_quality_results = []
 
+                # Add results for real-world data
+                for image_source_id in real_world_datasets:
+                    if image_source_id in self._trial_map[system_id]:
+                        trial_result_id = self._trial_map[system_id][image_source_id]
+                        if trial_result_id in self._result_map and benchmark_id in self._result_map[trial_result_id]:
+                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                              self._result_map[trial_result_id][benchmark_id])
+                            real_world_results += values_list_getter(benchmark_result)
+
                 # Add results for synthetic data
                 for trajectory_group in self._trajectory_groups:
-                    if trajectory_group.max_quality_id in trials_map[system_id]:
-                        trial_result_id = trials_map[system_id][trajectory_group.max_quality_id]
-                        benchmark_result_id = benchmark_result_map[trial_result_id][benchmark_id]
+                    if trajectory_group.max_quality_id in self._trial_map[system_id]:
+                        trial_result_id = self._trial_map[system_id][trajectory_group.max_quality_id]
+                        if trial_result_id in self._result_map and benchmark_id in self._result_map[trial_result_id]:
+                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                              self._result_map[trial_result_id][benchmark_id])
+                            max_quality_results += values_list_getter(benchmark_result)
 
+                    for variation in trajectory_group.quality_variations:
+                        if variation['dataset'] in self._trial_map[system_id]:
+                            trial_result_id = self._trial_map[system_id][variation['dataset']]
+                            if (trial_result_id in self._result_map and
+                                    benchmark_id in self._result_map[trial_result_id]):
+                                benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                                  self._result_map[trial_result_id][benchmark_id])
+                                min_quality_results += values_list_getter(benchmark_result)
 
-        trajectory_map = []
-        trials_by_trajectory = []
-        results_by_trajectory = []
-
-        for image_source_id, system_id, trial_result_id in self._trial_list:
-            image_source = self._load_image_source(db_client, image_source_id)
-            metadata_key = self._make_metadata_key(image_source, trajectory_map)
-            trials_by_trajectory[metadata_key[0]].append(
-                dh.load_object(db_client, db_client.trials_collection, trial_result_id)
-            )
-        for image_source_id, system_id, trial_result_id, benchmark_result_id in self._result_list:
-            image_source = self._load_image_source(db_client, image_source_id)
-            metadata_key = self._make_metadata_key(image_source, trajectory_map)
-            results_by_trajectory[metadata_key[0]].append(
-                dh.load_object(db_client, db_client.trials_collection, benchmark_result_id)
-            )
-
-        # TODO: Once we've grouped the trial results, plot them by group
-        trial_results = []
-        for trial_result_id in trial_results:
-            trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
-            ground_truth_traj = trial_result.get_ground_truth_camera_poses()
-            result_traj = trial_result.get_computed_camera_poses()
-            matches = util.associate.associate(ground_truth_traj, result_traj, offset=0, max_difference=1)
-            x = []
-            y = []
-            z = []
-            x_gt = []
-            y_gt = []
-            z_gt = []
-            gt_start = ground_truth_traj[min(ground_truth_traj.keys())]
-            for gt_stamp, result_stamp in matches:
-                gt_relative_pose = gt_start.find_relative(ground_truth_traj[gt_stamp])
-                x_gt.append(gt_relative_pose.location[0])
-                y_gt.append(gt_relative_pose.location[1])
-                z_gt.append(gt_relative_pose.location[2])
-                x.append(result_traj[result_stamp].location[0])
-                y.append(result_traj[result_stamp].location[1])
-                z.append(result_traj[result_stamp].location[2])
+                data.append(real_world_results)
+                labels.append('{} - Real world'.format(system_name))
+                data.append(max_quality_results)
+                labels.append('{} - Max quality'.format(system_name))
+                data.append(min_quality_results)
+                labels.append('{} - Min quality'.format(system_name))
 
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            ax = figure.add_subplot(111, projection='3d')
-            ax.plot(x, y, z, label='computed trajectory')
-            ax.plot(x_gt, y_gt, z_gt, label='ground-truth trajectory')
-            ax.set_xlabel('x-location')
-            ax.set_ylabel('y-location')
+            figure.suptitle("Changes in {0}".format(benchmark_name))
+            ax = figure.add_subplot(111)
+            ax.boxplot(data)
+            ax.set_xticklabels(labels)
+
+        # Step 4 - Benchmark results over time, for each trajectory and system
+        for system_id, system_name in systems:
+            if system_id not in self._trial_map:  # Skip systems with no trials
+                continue
+            for trajectory_group in self._trajectory_groups:
+
+                # Make figures for each benchmark
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("{0} changes for {1}".format(system_name, trajectory_group.name))
+                rpe_ax = figure.add_subplot(221)
+                rpe_ax.set_xlabel('Timestamp')
+                rpe_ax.set_ylabel('Relative Pose Error (translational)')
+                ate_ax = figure.add_subplot(222)
+                ate_ax.set_xlabel('Timestamp')
+                ate_ax.set_ylabel('Absolute Trajectory Error')
+                drift_ax = figure.add_subplot(223)
+                drift_ax.set_xlabel('Timestamp')
+                drift_ax.set_ylabel('Trajectory Drift')
+                lost_ax = figure.add_subplot(224)
+                lost_ax.set_xlabel('Timestamp')
+                lost_ax.set_ylabel('Number of Lost Frames')
+
+                if trajectory_group.max_quality_id in self._trial_map[system_id]:
+                    # Results for max quality run
+                    trial_result_id = self._trial_map[system_id][trajectory_group.max_quality_id]
+                    if trial_result_id in self._result_map:
+                        # RPE results
+                        if self._benchmark_rpe in self._result_map[trial_result_id]:
+                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                              self._result_map[trial_result_id][self._benchmark_rpe])
+                            times = sorted(benchmark_result.translational_error.keys())
+                            rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                        label='Max quality')
+                        # ATE results
+                        if self._benchmark_ate in self._result_map[trial_result_id]:
+                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                              self._result_map[trial_result_id][self._benchmark_ate])
+                            times = sorted(benchmark_result.translational_error.keys())
+                            ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                        label='Max quality')
+
+                # Results for lower quality variations
+                for variation in trajectory_group.quality_variations:
+                    if variation['dataset'] in self._trial_map[system_id]:
+                        trial_result_id = self._trial_map[system_id][variation['dataset']]
+                        if trial_result_id in self._result_map:
+                            # RPE results
+                            if self._benchmark_rpe in self._result_map[trial_result_id]:
+                                benchmark_result = dh.load_object(
+                                    db_client, db_client.results_collection,
+                                    self._result_map[trial_result_id][self._benchmark_rpe]
+                                )
+                                times = sorted(benchmark_result.translational_error.keys())
+                                rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                            label='Min quality')
+                        # ATE results
+                        if self._benchmark_ate in self._result_map[trial_result_id]:
+                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                              self._result_map[trial_result_id][self._benchmark_ate])
+                            times = sorted(benchmark_result.translational_error.keys())
+                            ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                        label='Min quality')
 
         # final figure configuration, and show the figures
         pyplot.tight_layout()
@@ -787,66 +852,65 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             )
         return self._placeholder_image_collections[image_source_id]
 
-    def _get_trajectory_id(self, trajectory, trajectory_map):
-        """
-        Get an id number in the trajectory map matching the given trajectory.
-        If there are no matching trajectories, store it in the map and return the new index
-        :param trajectory: A trajectory, as timestamps to poses
-        :return: Integer trajectory id which is the index to the trajectory map
-        """
-        for idx, mapped_trajectory in enumerate(trajectory_map):
-            if are_matching_trajectories(trajectory, mapped_trajectory):
-                return idx
-        trajectory_map.append(trajectory)
-        return len(trajectory_map) - 1
-
-    def _make_metadata_key(self, dataset, trajectory_map):
-        """
-        Make a vector of the properties we care about for associating results from a dataset
-        :param dataset: The image collection
-        :param trajectory_map: A collection of existing trajectories, for grouping
-        :return:
-        """
-        trajectory = extract_trajectory(dataset)
-        trajectory_id = self._get_trajectory_id(trajectory, trajectory_map)
-        first_image = dataset.get(0)
-        return (
-            trajectory_id,
-            first_image.metadata.source_type.value,
-            first_image.metadata.texture_mipmap_bias,
-            int(first_image.metadata.texture_mipmap_bias),
-            int(first_image.metadata.roughness_enabled),
-            first_image.metadata.geometry_decimation
-        )
-
     def serialize(self):
         serialized = super().serialize()
-        serialized['feature_detectors'] = self._feature_detectors
+        # Systems
+        serialized['feature_detectors'] = [(name, id_) for name, id_ in self._feature_detectors.items()]
         serialized['libviso'] = self._libviso_system
-        serialized['orbslam_systems'] = list(self._orbslam_systems)
+        serialized['orbslam_systems'] = [(name, id_) for name, id_ in self._orbslam_systems.items()]
+
+        # Real-world datasets
+        serialized['kitti_datasets'] = list(self._kitti_datasets)
+        serialized['tum_datasets'] = self._tum_manager.serialize()
+
+        # Generated Datasets
+        serialized['simulators'] = [(name, id_) for name, id_ in self._simulators.items()]
+        serialized['flythrough_controller'] = self._flythrough_controller
+        serialized['trajectory_groups'] = {str(max_id): group.serialize()
+                                           for max_id, group in self._trajectory_groups.items()}
+
+        # Benchmarks
         serialized['benchmark_feature_diff'] = self._benchmark_feature_diff
         serialized['benchmark_rpe'] = self._benchmark_rpe
         serialized['benchmark_ate'] = self._benchmark_ate
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
         serialized['benchmark_tracking'] = self._benchmark_tracking
-        serialized['simulators'] = list(self._simulators)
-        serialized['flythrough_controller'] = self._flythrough_controller
-        serialized['trajectory_groups'] = {str(max_id): group.serialize()
-                                           for max_id, group in self._trajectory_groups.items()}
-        serialized['real_world_datasets'] = list(self._kitti_datasets)
-        serialized['tum_datasets'] = self._tum_manager.serialize()
-        serialized['trial_list'] = self._trial_list
-        serialized['result_list'] = self._result_list
+
+        # Trials
+        serialized['trial_map'] = {str(sys_id): {str(source_id): trial_id for source_id, trial_id in inner_map.items()}
+                                   for sys_id, inner_map in self._trial_map.items()}
+        serialized['result_map'] = {str(trial_id): {str(bench_id): res_id for bench_id, res_id in inner_map.items()}
+                                   for trial_id, inner_map in self._result_map.items()}
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
+        # Systems
         if 'feature_detectors' in serialized_representation:
-            kwargs['feature_detectors'] = serialized_representation['feature_detectors']
+            kwargs['feature_detectors'] = {name: id_ for name, id_ in serialized_representation['feature_detectors']}
         if 'libviso' in serialized_representation:
             kwargs['libviso_system'] = serialized_representation['libviso']
         if 'orbslam_systems' in serialized_representation:
-            kwargs['orbslam_systems'] = serialized_representation['orbslam_systems']
+            kwargs['orbslam_systems'] = {name: id_ for name, id_ in serialized_representation['orbslam_systems']}
+
+        # Real-world datasets
+        if 'kitti_datasets' in serialized_representation:
+            kwargs['kitti_datasets'] = set(serialized_representation['kitti_datasets'])
+        if 'tum_datasets' in serialized_representation:
+            kwargs['tum_manager'] = dataset.tum.tum_manager.TUMManager.deserialize(
+                serialized_representation['tum_datasets'])
+
+        # Generated datasets
+        if 'simulators' in serialized_representation:
+            kwargs['simulators'] = {name: id_ for name, id_ in serialized_representation['simulators']}
+        if 'flythrough_controller' in serialized_representation:
+            kwargs['flythrough_controller'] = serialized_representation['flythrough_controller']
+        if 'trajectory_groups' in serialized_representation:
+            kwargs['trajectory_groups'] = {bson.ObjectId(max_id): TrajectoryGroup.deserialize(s_group)
+                                           for max_id, s_group in
+                                           serialized_representation['trajectory_groups'].items()}
+
+        # Benchmarks
         if 'benchmark_feature_diff' in serialized_representation:
             kwargs['benchmark_feature_diff'] = serialized_representation['benchmark_feature_diff']
         if 'benchmark_rpe' in serialized_representation:
@@ -857,23 +921,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             kwargs['benchmark_trajectory_drift'] = serialized_representation['benchmark_trajectory_drift']
         if 'benchmark_tracking' in serialized_representation:
             kwargs['benchmark_tracking'] = serialized_representation['benchmark_tracking']
-        if 'simulators' in serialized_representation:
-            kwargs['simulators'] = serialized_representation['simulators']
-        if 'flythrough_controller' in serialized_representation:
-            kwargs['flythrough_controller'] = serialized_representation['flythrough_controller']
-        if 'trajectory_groups' in serialized_representation:
-            kwargs['trajectory_groups'] = {bson.ObjectId(max_id): TrajectoryGroup.deserialize(s_group)
-                                           for max_id, s_group in
-                                           serialized_representation['trajectory_groups'].items()}
-        if 'real_world_datasets' in serialized_representation:
-            kwargs['real_world_datasets'] = serialized_representation['real_world_datasets']
-        if 'tum_datasets' in serialized_representation:
-            kwargs['tum_manager'] = dataset.tum.tum_manager.TUMManager.deserialize(
-                serialized_representation['tum_datasets'])
-        if 'trial_list' in serialized_representation:
-            kwargs['trial_list'] = serialized_representation['trial_list']
-        if 'result_list' in serialized_representation:
-            kwargs['result_list'] = serialized_representation['result_list']
+
+        # Trials and results
+        if 'trial_map' in serialized_representation:
+            kwargs['trial_map'] = {bson.ObjectId(sys_id): {bson.ObjectId(source_id): trial_id
+                                                           for source_id, trial_id in inner_map.items()}
+                                   for sys_id, inner_map in serialized_representation['trial_map'].items()}
+        if 'result_map' in serialized_representation:
+            kwargs['result_map'] = {bson.ObjectId(trial_id): {bson.ObjectId(bench_id): res_id
+                                                              for bench_id, res_id in inner_map.items()}
+                                   for trial_id, inner_map in serialized_representation['result_map'].items()}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
@@ -946,39 +1003,6 @@ class PlaceholderImageCollection(core.image_source.ImageSource):
         return True
 
 
-def get_orbslam_name(orbslam_id, db_client):
-    """
-    Get a meaningful display name for an ORBSLAM system variant
-    :param orbslam_id:
-    :param db_client:
-    :return:
-    """
-    s_orbslam = db_client.systems_collection.find_one({
-        '_id': orbslam_id, '_type': 'systems.slam.orbslam2.ORBSLAM2'
-    }, {
-        'mode': True,
-        'resolution': True,
-        'settings.ORBextractor.nFeatures': True
-    })
-    if s_orbslam is None:
-        return 'ORBSLAM2 - unknown settings'
-    else:
-        mode = orbslam2.SensorMode(s_orbslam['mode'])
-        str_mode = 'unknown'
-        if mode == orbslam2.SensorMode.MONOCULAR:
-            str_mode = 'Monocular'
-        elif mode == orbslam2.SensorMode.STEREO:
-            str_mode = 'Stereo'
-        elif mode == orbslam2.SensorMode.RGBD:
-            str_mode = 'RGB-D'
-        return 'ORBSLAM2 {mode} - ({width}x{height}) - {features} features'.format(
-            mode=str_mode,
-            width=s_orbslam['resolution'][0],
-            height=s_orbslam['resolution'][1],
-            features=s_orbslam['settings']['ORBextractor']['nFeatures']
-        )
-
-
 def plot_trajectory(axis, trajectory, label):
     """
     Simple helper to plot a trajectory on a 3D axis.
@@ -1017,20 +1041,6 @@ def get_trajectory_for_image_source(db_client, image_collection_id):
             position_result = db_client.image_collection.find_one({'_id': image_id}, {'metadata.camera_pose': True})
             if position_result is not None:
                 trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
-    return trajectory
-
-
-def extract_trajectory(image_source):
-    """
-    Extract a trajectory from an image source, which will almost always be an image collection.
-    :param image_source: The image source to extract from
-    :return: The ground-truth camera trajectory, as a dict of timestamp to pose
-    """
-    trajectory = {}
-    with image_source:
-        while not image_source.is_complete():
-            image, timestamp = image_source.get_next_image()
-            trajectory[timestamp] = image.metadata.camera_pose
     return trajectory
 
 
