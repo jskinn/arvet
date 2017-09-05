@@ -918,27 +918,40 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     # Results for max quality run
                     trial_result_id = self._trial_map[system_id][trajectory_group.max_quality_id]
                     if trial_result_id in self._result_map:
-                        # RPE results
+                        # RPE translational results
                         if self._benchmark_rpe in self._result_map[trial_result_id]:
-                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
-                                                              self._result_map[trial_result_id][self._benchmark_rpe])
+                            benchmark_result = dh.load_object(
+                                db_client, db_client.results_collection,
+                                self._result_map[trial_result_id][self._benchmark_rpe]
+                            )
                             times = sorted(benchmark_result.translational_error.keys())
                             rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
                                         label='Max quality')
                         # ATE results
                         if self._benchmark_ate in self._result_map[trial_result_id]:
-                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
-                                                              self._result_map[trial_result_id][self._benchmark_ate])
+                            benchmark_result = dh.load_object(
+                                db_client, db_client.results_collection,
+                                self._result_map[trial_result_id][self._benchmark_ate]
+                            )
                             times = sorted(benchmark_result.translational_error.keys())
                             ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
                                         label='Max quality')
+                        # Drift results
+                        if self._benchmark_trajectory_drift in self._result_map[trial_result_id]:
+                            benchmark_result = dh.load_object(
+                                db_client, db_client.results_collection,
+                                self._result_map[trial_result_id][self._benchmark_trajectory_drift]
+                            )
+                            times = sorted(benchmark_result.translational_error.keys())
+                            drift_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                          label='Max quality')
 
                 # Results for lower quality variations
                 for variation in trajectory_group.quality_variations:
                     if variation['dataset'] in self._trial_map[system_id]:
                         trial_result_id = self._trial_map[system_id][variation['dataset']]
                         if trial_result_id in self._result_map:
-                            # RPE results
+                            # RPE translational results
                             if self._benchmark_rpe in self._result_map[trial_result_id]:
                                 benchmark_result = dh.load_object(
                                     db_client, db_client.results_collection,
@@ -947,13 +960,24 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 times = sorted(benchmark_result.translational_error.keys())
                                 rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
                                             label='Min quality')
-                        # ATE results
-                        if self._benchmark_ate in self._result_map[trial_result_id]:
-                            benchmark_result = dh.load_object(db_client, db_client.results_collection,
-                                                              self._result_map[trial_result_id][self._benchmark_ate])
-                            times = sorted(benchmark_result.translational_error.keys())
-                            ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                        label='Min quality')
+                            # ATE results
+                            if self._benchmark_ate in self._result_map[trial_result_id]:
+                                benchmark_result = dh.load_object(
+                                    db_client, db_client.results_collection,
+                                    self._result_map[trial_result_id][self._benchmark_ate]
+                                )
+                                times = sorted(benchmark_result.translational_error.keys())
+                                ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                            label='Min quality')
+                            # Drift results
+                            if self._benchmark_trajectory_drift in self._result_map[trial_result_id]:
+                                benchmark_result = dh.load_object(
+                                    db_client, db_client.results_collection,
+                                    self._result_map[trial_result_id][self._benchmark_trajectory_drift]
+                                )
+                                times = sorted(benchmark_result.translational_error.keys())
+                                drift_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                              label='Min quality')
 
     def serialize(self):
         serialized = super().serialize()
