@@ -218,6 +218,9 @@ class ORBSLAM2(core.system.VisionSystem):
                 time.sleep(1)
                 delay_time += 1
 
+            # Add the camera pose to the ground-truth trajectory
+            self._gt_trajectory[timestamp] = image.camera_pose
+
             # Send different input based on the running mode
             if self._mode == SensorMode.MONOCULAR:
                 self._input_queue.put((np.copy(image.data), None, timestamp))
