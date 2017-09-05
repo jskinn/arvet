@@ -587,11 +587,66 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :param db_client:
         :return:
         """
-        # Plotting imports are here only, to save dependencies
         import matplotlib.pyplot as pyplot
-        from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
+        # Step 1 - Plot graphs for image features
+        self._plot_feature_graphs(db_client)
 
-        # Step 1 - Feature detection: Plot the number of new vs missing features for each detector type
+        # Step 2 - Trajectory visualization: For each system and each trajectory, plot the different paths
+        self._plot_trajectories(db_client)
+
+        # Step 3 - Aggregation: For each benchmark, compare real-world and different qualities
+        self._plot_aggregate_performance(db_client)
+
+        # Step 4 - detailed analysis of performance vs time for each trajectory
+        self._plot_performance_vs_time(db_client)
+
+        # final figure configuration, and show the figures
+        pyplot.tight_layout()
+        pyplot.subplots_adjust(top=0.95, right=0.99)
+        pyplot.show()
+
+    def _load_image_source(self, db_client, image_source_id):
+        if image_source_id not in self._placeholder_image_collections:
+            s_image_collection = db_client.image_source_collection.find_one({'_id': image_source_id})
+            image_ids = [img_id for _, img_id in s_image_collection['images']]
+            self._placeholder_image_collections[image_source_id] = PlaceholderImageCollection(
+                id_=s_image_collection['_id'],
+                is_labels_available=db_client.image_collection.find({
+                    '_id': {'$in': image_ids},
+                    'metadata.labelled_objects': {'$in': [[], None]}
+                }).count() <= 0,
+                is_per_pixel_labels_available=db_client.image_collection.find({
+                    '_id': {'$in': image_ids},
+                    'labels_data': None,
+                    'left_labels_data': None
+                }).count() <= 0,
+                is_normals_available=db_client.image_collection.find({
+                    '_id': {'$in': image_ids},
+                    'world_normals_data': None,
+                    'left_world_normals_data': None
+                }).count() <= 0,
+                is_depth_available=db_client.image_collection.find({
+                    '_id': {'$in': image_ids},
+                    'depth_data': None,
+                    'left_depth_data': None
+                }).count() <= 0,
+                is_stereo_available=db_client.image_collection.find({
+                    '_id': {'$in': image_ids},
+                    'right_data': None
+                }).count() <= 0,
+                sequence_type=(core.sequence_type.ImageSequenceType.SEQUENTIAL
+                               if s_image_collection['sequence_type'] == 'SEQ'
+                               else core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
+            )
+        return self._placeholder_image_collections[image_source_id]
+
+    def _plot_feature_graphs(self, db_client):
+        """
+        Plot new vs missing features for each feature detector type
+        :param db_client:
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
         for detector_name, detector_id in self._feature_detectors.items():
             if detector_id not in self._trial_map:
                 continue
@@ -608,7 +663,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         continue
                     trial_result_id = self._trial_map[detector_id][variation['dataset']]
                     if (trial_result_id in self._result_map and
-                            self._benchmark_feature_diff in self._result_map[trial_result_id]):
+                                self._benchmark_feature_diff in self._result_map[trial_result_id]):
                         benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
                         benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
                         for image_changes in benchmark_result.changes:
@@ -626,9 +681,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             if len(image_changes['missing_reference_points']) > most_missing:
                                 most_missing = len(image_changes['missing_reference_points'])
                                 most_missing_points = (image_changes['trial_image_id'],
-                                                     image_changes['point_matches'],
-                                                     image_changes['new_trial_points'],
-                                                     image_changes['missing_reference_points'])
+                                                       image_changes['point_matches'],
+                                                       image_changes['new_trial_points'],
+                                                       image_changes['missing_reference_points'])
 
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Number of changes for {0}".format(detector_name))
@@ -650,18 +705,21 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
                     ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
 
-        # final figure configuration, and show the figures
-        pyplot.tight_layout()
-        pyplot.subplots_adjust(top=0.95, right=0.99)
-        pyplot.show()
-        return
-
-        # Step 2 Prep: Make a list of systems and system names to plot.
+    def _plot_trajectories(self, db_client):
+        """
+        Plot the ground-truth and computed trajectories for each system for each trajectory.
+        This is important for validation
+        :param db_client:
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
+        from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
+        # Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LibVisO 2')] + [
             (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
         ]
 
-        # Step 2 - Trajectory visualization: For each system and each trajectory, plot the different paths
+        # Trajectory visualization: For each system and each trajectory, plot the different paths
         for trajectory_group in self._trajectory_groups.values():
             # Make the trajectory comparison figure
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
@@ -675,7 +733,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             # For each system variation over this trajectory
             for system_id, system_name in systems:
                 if (system_id not in self._trial_map or
-                        trajectory_group.max_quality_id not in self._trial_map[system_id]):
+                            trajectory_group.max_quality_id not in self._trial_map[system_id]):
                     # Skip systems that have not run on this trajectory group
                     continue
 
@@ -686,7 +744,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     continue
                 if not added_ground_truth:
                     plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(), 'ground-truth trajectory')
-                    added_ground_truth = True   # Ground truth trajectory should be the same for all in this group.
+                    added_ground_truth = True  # Ground truth trajectory should be the same for all in this group.
                 plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                 'max-quality trajectory for {}'.format(system_name))
 
@@ -698,7 +756,18 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                         'min-quality trajectory for {}'.format(system_name))
 
-        # Step 3 Prep: Make a list of benchmarks, names, and lambdas for aggregate statistic extraction
+    def _plot_aggregate_performance(self, db_client):
+        """
+        Plot the aggregate performance of real world, high-quality and low quality
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
+        # Make a list of systems and system names to plot.
+        systems = [(self._libviso_system, 'LibVisO 2')] + [
+            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
+        ]
+
+        # Make a list of benchmarks, names, and lambdas for aggregate statistic extraction
         benchmarks = [
             (self._benchmark_rpe, 'Relative Pose Error (Translation)', lambda r: list(r.translational_error.values())),
             (self._benchmark_rpe, 'Relative Pose Error (Rotation)', lambda r: list(r.rotational_error.values())),
@@ -710,7 +779,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             (self._benchmark_tracking, 'Tracking Failure', lambda r: list(r.distances))
         ]
 
-        # Step 3 Prep: Make a list of real-world datasets
+        # Make a list of real-world datasets
         real_world_datasets = self._kitti_datasets | self._tum_manager.all_datasets
 
         # Step 3 - Aggregation: For each benchmark, compare real-world and different qualities
@@ -719,7 +788,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             labels = []
             for system_id, system_name in systems:
                 if system_id not in self._trial_map:
-                    continue    # Skip systems for which we have no trials on record.
+                    continue  # Skip systems for which we have no trials on record.
                 real_world_results = []
                 max_quality_results = []
                 min_quality_results = []
@@ -746,7 +815,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         if variation['dataset'] in self._trial_map[system_id]:
                             trial_result_id = self._trial_map[system_id][variation['dataset']]
                             if (trial_result_id in self._result_map and
-                                    benchmark_id in self._result_map[trial_result_id]):
+                                        benchmark_id in self._result_map[trial_result_id]):
                                 benchmark_result = dh.load_object(db_client, db_client.results_collection,
                                                                   self._result_map[trial_result_id][benchmark_id])
                                 min_quality_results += values_list_getter(benchmark_result)
@@ -764,7 +833,20 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.boxplot(data)
             ax.set_xticklabels(labels)
 
-        # Step 4 - Benchmark results over time, for each trajectory and system
+    def _plot_performance_vs_time(self, db_client):
+        """
+        Perform detailed plots of performance vs time for high and low quality.
+        This lets us look at places where the difference between high and low quality is pronounced
+        :param db_client:
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
+        # Make a list of systems and system names to plot.
+        systems = [(self._libviso_system, 'LibVisO 2')] + [
+            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
+        ]
+
+        # Benchmark results over time, for each trajectory and system
         for system_id, system_name in systems:
             if system_id not in self._trial_map:  # Skip systems with no trials
                 continue
@@ -826,46 +908,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             times = sorted(benchmark_result.translational_error.keys())
                             ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
                                         label='Min quality')
-
-        # final figure configuration, and show the figures
-        pyplot.tight_layout()
-        pyplot.subplots_adjust(top=0.95, right=0.99)
-        pyplot.show()
-
-    def _load_image_source(self, db_client, image_source_id):
-        if image_source_id not in self._placeholder_image_collections:
-            s_image_collection = db_client.image_source_collection.find_one({'_id': image_source_id})
-            image_ids = [img_id for _, img_id in s_image_collection['images']]
-            self._placeholder_image_collections[image_source_id] = PlaceholderImageCollection(
-                id_=s_image_collection['_id'],
-                is_labels_available=db_client.image_collection.find({
-                    '_id': {'$in': image_ids},
-                    'metadata.labelled_objects': {'$in': [[], None]}
-                }).count() <= 0,
-                is_per_pixel_labels_available=db_client.image_collection.find({
-                    '_id': {'$in': image_ids},
-                    'labels_data': None,
-                    'left_labels_data': None
-                }).count() <= 0,
-                is_normals_available=db_client.image_collection.find({
-                    '_id': {'$in': image_ids},
-                    'world_normals_data': None,
-                    'left_world_normals_data': None
-                }).count() <= 0,
-                is_depth_available=db_client.image_collection.find({
-                    '_id': {'$in': image_ids},
-                    'depth_data': None,
-                    'left_depth_data': None
-                }).count() <= 0,
-                is_stereo_available=db_client.image_collection.find({
-                    '_id': {'$in': image_ids},
-                    'right_data': None
-                }).count() <= 0,
-                sequence_type=(core.sequence_type.ImageSequenceType.SEQUENTIAL
-                               if s_image_collection['sequence_type'] == 'SEQ'
-                               else core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
-            )
-        return self._placeholder_image_collections[image_source_id]
 
     def serialize(self):
         serialized = super().serialize()
