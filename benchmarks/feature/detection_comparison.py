@@ -1,3 +1,5 @@
+import logging
+import pickle
 import numpy as np
 import core.trial_comparison
 import core.benchmark
@@ -81,13 +83,14 @@ class FeatureDetectionComparison(core.trial_comparison.TrialComparison):
 
 class FeatureDetectionComparisonResult(core.trial_comparison.TrialComparisonResult):
 
-    def __init__(self, benchmark_id, trial_result_id, reference_id, feature_changes, id_=None, **kwargs):
+    def __init__(self, benchmark_id, trial_result_id, reference_id, feature_changes, changes_id=None, id_=None, **kwargs):
         kwargs['success'] = True
         super().__init__(
             benchmark_id=benchmark_id,
             trial_result_id=trial_result_id,
             reference_id=reference_id,
             id_=id_, **kwargs)
+        self._changes_id = changes_id
         self._feature_changes = feature_changes
 
     @property
@@ -107,15 +110,30 @@ class FeatureDetectionComparisonResult(core.trial_comparison.TrialComparisonResu
                                                                             len(changes['missing_reference_points']))
                 for changes in self._feature_changes}
 
+    def save_data(self, db_client):
+        """
+        Save the changes, many keypoints for many images are too big to store in a single document
+        :param db_client:
+        :return:
+        """
+        if self._changes_id is None:
+            self._changes_id = db_client.grid_fs.put(pickle.dumps(self._feature_changes,
+                                                                  protocol=pickle.HIGHEST_PROTOCOL))
+
     def serialize(self):
         serialized = super().serialize()
-        serialized['feature_changes'] = self._feature_changes
+        if self._changes_id is None:
+            logging.getLogger(__name__).warning("Keypoints have not yet been saved,"
+                                                " you must call 'save_data' before serialization")
+        serialized['changes_id'] = self._changes_id
         return serialized
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        if 'feature_changes' in serialized_representation:
-            kwargs['feature_changes'] = serialized_representation['feature_changes']
+        if 'changes_id' in serialized_representation:
+            kwargs['changes_id'] = serialized_representation['changes_id']
+            if kwargs['changes_id'] is not None:
+                kwargs['feature_changes'] = pickle.loads(db_client.grid_fs.get(kwargs['changes_id']).read())
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 

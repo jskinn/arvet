@@ -71,6 +71,15 @@ class TrialComparisonResult(core.benchmark.BenchmarkResult):
         """
         return self._reference_id
 
+    def save_data(self, db_client):
+        """
+        Like trial results, benchmark results can be really large,
+        provide an opportunity to save the data elsewhere.
+        :param db_client: The database client.
+        :return:
+        """
+        pass
+
     def serialize(self):
         serialized = super().serialize()
         serialized['reference'] = self._reference_id
