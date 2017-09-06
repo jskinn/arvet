@@ -54,7 +54,7 @@ class TUMManager:
                                              self._dataset_ids[dataset_name] is None)}
         for dataset_folder in to_import:
             try:
-                full_path = next(glob.iglob(os.path.join(root_folder, '**', dataset_folder)))
+                full_path = next(glob.iglob(os.path.join(root_folder, '**', dataset_folder), recursive=True))
             except StopIteration:
                 full_path = None
             if full_path is not None:
