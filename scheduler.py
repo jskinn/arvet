@@ -14,12 +14,12 @@ def main():
     We need to find a way of running this repeatedly as a daemon
     """
     config = global_conf.load_global_config('config.yml')
-    logging.config.dictConfig(config['logging'])
-    log = logging.getLogger(__name__)
+    if __name__ == '__main__':
+        logging.config.dictConfig(config['logging'])
     db_client = database.client.DatabaseClient(config=config)
     task_manager = batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
 
-    log.info("Scheduling experiments...")
+    logging.getLogger(__name__).info("Scheduling experiments...")
     experiment_ids = db_client.experiments_collection.find({}, {'_id': True})
     for experiment_id in experiment_ids:
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
@@ -30,9 +30,10 @@ def main():
                 experiment.schedule_tasks(task_manager, db_client)
                 experiment.save_updates(db_client)
             except Exception:
-                log.error("Exception occurred during scheduling:\n{0}".format(traceback.format_exc()))
+                logging.getLogger(__name__).error(
+                    "Exception occurred during scheduling:\n{0}".format(traceback.format_exc()))
 
-    log.info("Scheduling tasks...")
+    logging.getLogger(__name__).info("Scheduling tasks...")
     job_system = job_system_factory.create_job_system(config=config)
     task_manager.schedule_tasks(job_system)
 

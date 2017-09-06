@@ -19,7 +19,9 @@ def main(*args):
         task_id = bson.objectid.ObjectId(args[0])
 
         config = global_conf.load_global_config('config.yml')
-        logging.config.dictConfig(config['logging'])
+        if __name__ == '__main__':
+            # Only configure the logging if this is the main function, don't reconfigure
+            logging.config.dictConfig(config['logging'])
         db_client = database.client.DatabaseClient(config=config)
 
         task = dh.load_object(db_client, db_client.tasks_collection, task_id)
