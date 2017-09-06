@@ -536,7 +536,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     expected_duration='4:00:00'
                 )
                 if not task.is_finished:
-                    task_manager.do_task(task)
+                    #task_manager.do_task(task)
+                    pass
                 else:
                     system_trials.add(task.result)
                     if self._libviso_system not in self._trial_map:
@@ -554,7 +555,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         expected_duration='4:00:00'
                     )
                     if not task.is_finished:
-                        task_manager.do_task(task)
+                        #task_manager.do_task(task)
+                        pass
                     else:
                         system_trials.add(task.result)
                         if orbslam_system.identifier not in self._trial_map:
