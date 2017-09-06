@@ -17,13 +17,6 @@ class TUMManager:
         for key in self._config.keys():
             if key in config and bool(config[key]):
                 self._config[key] = True
-
-        du.defaults(self._config, config, {
-            'rgbd_dataset_freiburg1_xyz': True,
-            'rgbd_dataset_freiburg1_rpy': False,
-            'rgbd_dataset_freiburg2_xyz': True,
-            'rgbd_dataset_freiburg2_rpy': True
-        })
         if dataset_ids is not None:
             du.defaults(self._dataset_ids, dataset_ids)
 
@@ -57,7 +50,8 @@ class TUMManager:
 
     def do_imports(self, root_folder, task_manager):
         to_import = {dataset_name for dataset_name, do_import in self._config.items()
-                     if bool(do_import) and (dataset_name not in self._config or self._config[dataset_name] is None)}
+                     if bool(do_import) and (dataset_name not in self._dataset_ids or
+                                             self._dataset_ids[dataset_name] is None)}
         for dataset_folder in to_import:
             try:
                 full_path = next(glob.iglob(os.path.join(root_folder, '**', dataset_folder)))
