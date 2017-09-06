@@ -8,6 +8,7 @@ import util.transform as tf
 import util.dict_utils as du
 import core.image_source
 import core.sequence_type
+import core.benchmark
 import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import batch_analysis.experiment
@@ -737,7 +738,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 -1 * len(image_changes['missing_reference_points'])
                             ))
 
-            changes.sort(key=lambda d: d[1] - d[2])
+            changes.sort(key=lambda d: d[0])
             x = np.arange(len(changes))
             changes = np.array(changes)
 
@@ -747,9 +748,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax = figure.add_subplot(111)
             ax.set_xlabel('new features')
             ax.set_ylabel('missing features')
-            ax.plot(x, changes[:, 0], 'b-', label='matching features')
-            ax.plot(x, changes[:, 1], 'g-', label='low-quality features')
-            ax.plot(x, changes[:, 2], 'r-', label='high-quality features')
+            ax.fill_between(x, changes[:, 0], color='b', label='matching features')
+            ax.fill_between(x, changes[:, 0], changes[:, 1], color='g', label='low-quality features')
+            ax.fill_between(x, changes[:, 2], color='r', label='high-quality features')
 
     def _plot_trajectories(self, db_client):
         """
@@ -846,7 +847,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         if trial_result_id in self._result_map and benchmark_id in self._result_map[trial_result_id]:
                             benchmark_result = dh.load_object(db_client, db_client.results_collection,
                                                               self._result_map[trial_result_id][benchmark_id])
-                            real_world_results += values_list_getter(benchmark_result)
+                            if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                print(benchmark_result.reason)
+                            else:
+                                real_world_results += values_list_getter(benchmark_result)
 
                 # Add results for synthetic data
                 for trajectory_group in self._trajectory_groups.values():
@@ -855,7 +859,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         if trial_result_id in self._result_map and benchmark_id in self._result_map[trial_result_id]:
                             benchmark_result = dh.load_object(db_client, db_client.results_collection,
                                                               self._result_map[trial_result_id][benchmark_id])
-                            max_quality_results += values_list_getter(benchmark_result)
+                            if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                print(benchmark_result.reason)
+                            else:
+                                max_quality_results += values_list_getter(benchmark_result)
 
                     for variation in trajectory_group.quality_variations:
                         if variation['dataset'] in self._trial_map[system_id]:
