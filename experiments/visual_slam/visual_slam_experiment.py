@@ -232,8 +232,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             expected_duration='72:00:00'
         )
         if task.is_finished:
-            self._kitti_datasets.add(set(task.result))
-            self._add_to_set('real_world_datasets', task.result)
+            self._kitti_datasets |= set(task.result)
+            self._add_to_set('kitti_datasets', task.result)
         else:
             task_manager.do_task(task)
 
