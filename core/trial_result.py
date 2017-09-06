@@ -57,6 +57,16 @@ class TrialResult(database.entity.Entity):
         """
         return self._settings
 
+    def save_data(self, db_client):
+        """
+        Some trials produce large amounts of data, particularly with lots of images.
+        This is the chance to save that data elsewhere (GridFS).
+        Not every trial result will override this, but it is part of the API for those that need to.
+        :param db_client: The database client
+        :return: void
+        """
+        pass
+
     def serialize(self):
         """
         Serialize the entity to a dict format, that can be saved to the database

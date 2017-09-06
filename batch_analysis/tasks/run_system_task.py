@@ -60,6 +60,7 @@ class RunSystemTask(batch_analysis.task.Task):
                     self.system, self.image_source, traceback.format_exc()))
                 self.mark_job_failed()
             else:
+                trial_result.save_data(db_client)
                 trial_result_id = db_client.trials_collection.insert(trial_result.serialize())
                 logging.getLogger(__name__).info(("Successfully ran system {0} with image source {1},"
                                                   "producing trial result {2}").format(

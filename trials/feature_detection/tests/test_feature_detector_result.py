@@ -1,7 +1,10 @@
 import operator
 import unittest
+import unittest.mock as mock
 
-import bson.objectid
+import bson
+import gridfs
+import pickle
 import cv2
 import numpy as np
 
@@ -12,7 +15,37 @@ import util.dict_utils as du
 import util.transform as tf
 
 
+class MockReadable:
+    """
+    A helper for mock gridfs.get to return, that has a 'read' method as expected.
+    """
+    def __init__(self, thing):
+        self._thing_bytes = pickle.dumps(thing, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def read(self):
+        return self._thing_bytes
+
+
 class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.keypoints = {
+            bson.ObjectId(): [
+                cv2.KeyPoint(
+                    x=np.random.uniform(0, 128),
+                    y=np.random.uniform(0, 128),
+                    _angle=np.random.uniform(360),
+                    _class_id=np.random.randint(10),
+                    _octave=np.random.randint(100000000),
+                    _response=np.random.uniform(0, 1),
+                    _size=np.random.uniform(10)
+                )
+                for _ in range(np.random.randint(3))]
+            for _ in range(10)
+        }
+        self.s_keypoints = {identifier: [feature_result.serialize_keypoint(keypoint) for keypoint in keypoints]
+                            for identifier, keypoints in self.keypoints.items()}
 
     def get_class(self):
         return feature_result.FeatureDetectorResult
@@ -20,24 +53,12 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'system_id': np.random.randint(10, 20),
-            'keypoints': {
-                bson.objectid.ObjectId(): [
-                    cv2.KeyPoint(
-                        x=np.random.uniform(0, 128),
-                        y=np.random.uniform(0, 128),
-                        _angle=np.random.uniform(360),
-                        _class_id=np.random.randint(10),
-                        _octave=np.random.randint(100000000),
-                        _response=np.random.uniform(0, 1),
-                        _size=np.random.uniform(10)
-                    )
-                    for _ in range(np.random.randint(3))]
-                for _ in range(10)
-            },
+            'keypoints': self.keypoints,
             'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
-            }
+            },
+            'keypoints_id': bson.ObjectId()
         })
         if 'timestamps' not in kwargs:
             kwargs['timestamps'] = {idx + np.random.uniform(0, 1): identifier
@@ -47,6 +68,14 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
                                                                rotation=np.random.uniform(-1, 1, 4))
                                       for identifier in kwargs['keypoints'].keys()}
         return feature_result.FeatureDetectorResult(*args, **kwargs)
+
+    def create_mock_db_client(self):
+        self.db_client = super().create_mock_db_client()
+
+        self.db_client.grid_fs = unittest.mock.create_autospec(gridfs.GridFS)
+        self.db_client.grid_fs.get.return_value = MockReadable(self.s_keypoints)
+
+        return self.db_client
 
     def assert_models_equal(self, trial_result1, trial_result2):
         """
@@ -87,7 +116,7 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
 
     def assert_serialized_equal(self, s_model1, s_model2):
         self.assertEqual(set(s_model1.keys()), set(s_model2.keys()))
-        for key in {'_id', '_type', 'keypoints', 'sequence_type', 'settings', 'settings'}:
+        for key in {'_id', '_type', 'keypoints_id', 'sequence_type', 'settings', 'settings'}:
             self.assertEqual(s_model1[key], s_model2[key])
         s_model1_stamps = {stamp: bson.objectid.ObjectId(identifier) for stamp, identifier in s_model1['timestamps']}
         s_model2_stamps = {stamp: bson.objectid.ObjectId(identifier) for stamp, identifier in s_model1['timestamps']}
@@ -95,3 +124,49 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         s_model1_poses = {stamp: tf.Transform.deserialize(s_trans) for stamp, s_trans in s_model1['camera_poses']}
         s_model2_poses = {stamp: tf.Transform.deserialize(s_trans) for stamp, s_trans in s_model2['camera_poses']}
         self.assertEqual(s_model1_poses, s_model2_poses)
+
+    def test_save_data_stores_keypoints(self):
+        mock_db_client = self.create_mock_db_client()
+        new_id = bson.ObjectId()
+        mock_db_client.grid_fs.put.return_value = new_id
+
+        subject = self.make_instance(keypoints_id=None)
+        subject.save_data(mock_db_client)
+        self.assertTrue(mock_db_client.grid_fs.put.called)
+        s_keypoints = pickle.loads(mock_db_client.grid_fs.put.call_args[0][0])
+        self.assertEqual(self.s_keypoints, s_keypoints)
+
+    def test_serialize_and_deserialize_keypoint(self):
+        keypoint1 = cv2.KeyPoint(
+            x=np.random.uniform(0, 128),
+            y=np.random.uniform(0, 128),
+            _angle=np.random.uniform(360),
+            _class_id=np.random.randint(10),
+            _octave=np.random.randint(100000000),
+            _response=np.random.uniform(0, 1),
+            _size=np.random.uniform(10)
+        )
+        s_keypoint1 = feature_result.serialize_keypoint(keypoint1)
+
+        keypoint2 = feature_result.deserialize_keypoint(s_keypoint1)
+        s_keypoint2 = feature_result.serialize_keypoint(keypoint2)
+
+        self.assertEqual(keypoint1.pt, keypoint2.pt)
+        self.assertEqual(keypoint1.angle, keypoint2.angle)
+        self.assertEqual(keypoint1.class_id, keypoint2.class_id)
+        self.assertEqual(keypoint1.octave, keypoint2.octave)
+        self.assertEqual(keypoint1.response, keypoint2.response)
+        self.assertEqual(keypoint1.size, keypoint2.size)
+        self.assertEqual(s_keypoint1, s_keypoint2)
+
+        for idx in range(0, 10):
+            # Test that repeated serialization and deserialization does not degrade the information
+            keypoint2 = feature_result.deserialize_keypoint(s_keypoint2)
+            s_keypoint2 = feature_result.serialize_keypoint(keypoint2)
+            self.assertEqual(keypoint1.pt, keypoint2.pt)
+            self.assertEqual(keypoint1.angle, keypoint2.angle)
+            self.assertEqual(keypoint1.class_id, keypoint2.class_id)
+            self.assertEqual(keypoint1.octave, keypoint2.octave)
+            self.assertEqual(keypoint1.response, keypoint2.response)
+            self.assertEqual(keypoint1.size, keypoint2.size)
+            self.assertEqual(s_keypoint1, s_keypoint2)
