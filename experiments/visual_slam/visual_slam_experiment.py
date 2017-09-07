@@ -597,7 +597,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         self._plot_per_image_feature_changes(db_client)
 
         # Step 3 - Trajectory visualization: For each system and each trajectory, plot the different paths
-        #self._plot_trajectories(db_client)
+        self._plot_trajectories(db_client)
 
         # Step 4 - Aggregation: For each benchmark, compare real-world and different qualities
         #self._plot_aggregate_performance(db_client)
@@ -724,8 +724,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 continue
 
             changes = []
-            x = []
-            x_val = 0
+            where = []
             for trajectory_group in self._trajectory_groups.values():
                 for variation in trajectory_group.quality_variations:
                     if variation['dataset'] not in self._trial_map[detector_id]:
@@ -739,25 +738,29 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             changes.append((
                                 len(image_changes['point_matches']),
                                 len(image_changes['point_matches']),# + len(image_changes['new_trial_points']),
-                                -1 * len(image_changes['missing_reference_points'])
+                                len(image_changes['missing_reference_points'])
                             ))
-                            x.append(x_val)
-                            x_val += 1
-                x_val += 10
+                            where.append(True)
+                for _ in range(10):
+                    changes.append((0,0,0))
+                    where.append(False)
 
             #changes.sort(key=lambda d: d[1], reverse=True)
-            #x = np.arange(len(changes))
+            x = np.arange(len(changes))
             changes = np.array(changes)
 
-            # TODO: These need to be area plots
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Number of changes for {0}".format(detector_name))
             ax = figure.add_subplot(111)
             ax.set_xlabel('new features')
             ax.set_ylabel('missing features')
             #ax.fill_between(x, changes[:, 0], color='b', label='matching features')
-            ax.fill_betweenx(x, changes[:, 1], color='b', label='low-quality features', alpha=0.3)
-            ax.fill_betweenx(x, changes[:, 0], changes[:, 2], color='r', label='high-quality features', alpha=0.3)
+            ax.fill_betweenx(x, -1 * changes[:, 0] / 2, changes[:, 1] + changes[:, 0] / 2,
+                             where=changes[:, 0] > 0,
+                             color='b', label='low-quality features', alpha=0.3)
+            ax.fill_betweenx(x, -1 * changes[:, 2] - changes[:, 0] / 2, changes[:, 0] / 2,
+                             where=changes[:, 0] > 0,
+                             color='r', label='high-quality features', alpha=0.3)
 
     def _plot_trajectories(self, db_client):
         """
@@ -783,6 +786,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.set_ylabel('y-location')
             ax.set_zlabel('z-location')
             ax.plot([0], [0], [0], 'ko', label='origin')
+            lower_limit = 0
+            upper_limit = 0
             added_ground_truth = False
 
             # For each system variation over this trajectory
@@ -808,9 +813,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     if variation['dataset'] in self._trial_map[system_id]:
                         trial_result = dh.load_object(db_client, db_client.trials_collection,
                                                       self._trial_map[system_id][variation['dataset']])
-                        plot_trajectory(ax, trial_result.get_computed_camera_poses(),
-                                        'min-quality trajectory for {}'.format(system_name))
+                        minp, maxp = plot_trajectory(ax, trial_result.get_computed_camera_poses(),
+                                                     'min-quality trajectory for {}'.format(system_name))
+                        lower_limit = min(lower_limit, minp)
+                        upper_limit = max(upper_limit, maxp)
             ax.legend()
+            ax.set_xlim(lower_limit, upper_limit)
+            ax.set_ylim(lower_limit, upper_limit)
+            ax.set_zlim(lower_limit, upper_limit)
 
     def _plot_aggregate_performance(self, db_client):
         """
@@ -1154,11 +1164,13 @@ def plot_trajectory(axis, trajectory, label):
     :param axis: The axis on which to plot
     :param trajectory: A map of timestamps to camera poses
     :param label: The label for the series
-    :return:
+    :return: The minimum and maximum coordinate values, for axis sizing.
     """
     x = []
     y = []
     z = []
+    max_point = 0
+    min_point = 0
     times = sorted(trajectory.keys())
     first_pose = None
     for timestamp in times:
@@ -1170,10 +1182,13 @@ def plot_trajectory(axis, trajectory, label):
             z.append(0)
         else:
             pose = first_pose.find_relative(pose)
+            max_point = max(max_point, pose.location[0], pose.location[1], pose.location[2])
+            min_point = min(min_point, pose.location[0], pose.location[1], pose.location[2])
             x.append(pose.location[0])
             y.append(pose.location[1])
             z.append(pose.location[2])
     axis.plot(x, y, z, label=label)
+    return min_point, max_point
 
 
 def get_trajectory_for_image_source(db_client, image_collection_id):
