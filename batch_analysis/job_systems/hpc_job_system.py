@@ -99,7 +99,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         :param job_id: The integer job id to check
         :return: True if the job is currently running on this node
         """
-        result = subprocess.run(['qstat', str(int(job_id))], stdout=subprocess.PIPE, stdin=subprocess.STDOUT,
+        result = subprocess.run(['qstat', str(int(job_id))], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 universal_newlines=True)
         output = result.stdout.lower()  # Case insensitive
         return 'unknown job id' not in output and 'job has finished' not in output
