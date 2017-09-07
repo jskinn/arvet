@@ -519,7 +519,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_trajectory_drift),
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_tracking)
         ]
-        datasets = set(self._kitti_datasets) & self._tum_manager.all_datasets
+        datasets = set(self._kitti_datasets) | self._tum_manager.all_datasets
         for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
         system_trials = set()
