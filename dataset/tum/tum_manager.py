@@ -1,4 +1,4 @@
-import os.path
+import os
 import glob
 import util.dict_utils as du
 
@@ -52,24 +52,28 @@ class TUMManager:
         to_import = {dataset_name for dataset_name, do_import in self._config.items()
                      if bool(do_import) and (dataset_name not in self._dataset_ids or
                                              self._dataset_ids[dataset_name] is None)}
-        for dataset_folder in to_import:
-            try:
-                full_path = next(glob.iglob(os.path.join(root_folder, '**', dataset_folder), recursive=True))
-            except StopIteration:
-                full_path = None
-            if full_path is not None:
-                import_dataset_task = task_manager.get_import_dataset_task(
-                    module_name='dataset.tum.tum_loader',
-                    path=full_path,
-                    num_cpus=1,
-                    num_gpus=0,
-                    memory_requirements='3GB',
-                    expected_duration='8:00:00'
-                )
-                if import_dataset_task.is_finished:
-                    self._dataset_ids[dataset_folder] = import_dataset_task.result
-                else:
-                    task_manager.do_task(import_dataset_task)
+
+        # Recursively search for the directories to import from the root folder
+        full_paths = set()
+        for dirpath, subdirs, _ in os.walk(root_folder):
+            for subdir in subdirs:
+                if subdir in to_import:
+                    full_paths.add((subdir, os.path.join(dirpath, subdir)))
+
+        # Create tasks for tall the paths we found
+        for dataset_folder, full_path in full_paths:
+            import_dataset_task = task_manager.get_import_dataset_task(
+                module_name='dataset.tum.tum_loader',
+                path=full_path,
+                num_cpus=1,
+                num_gpus=0,
+                memory_requirements='3GB',
+                expected_duration='8:00:00'
+            )
+            if import_dataset_task.is_finished:
+                self._dataset_ids[dataset_folder] = import_dataset_task.result
+            else:
+                task_manager.do_task(import_dataset_task)
 
     def serialize(self):
         return {

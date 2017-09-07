@@ -178,8 +178,9 @@ def import_dataset(root_folder, db_client):
     builder = dataset.image_collection_builder.ImageCollectionBuilder(db_client)
     for timestamp, image_file, camera_pose, depth_file in all_metadata:
         rgb_data = cv2.imread(os.path.join(root_folder, image_file), cv2.IMREAD_COLOR)
-        depth_data = cv2.imread(os.path.join(root_folder, depth_path), cv2.IMREAD_UNCHANGED)
-        camera_intrinsics = get_camera_intrinsics()
+        depth_data = cv2.imread(os.path.join(root_folder, depth_file), cv2.IMREAD_UNCHANGED)
+        depth_data = depth_data / 5000  # Re-scale depth to meters
+        camera_intrinsics = get_camera_intrinsics(root_folder)
         horizontal_fov = np.arctan2(rgb_data.shape[1] * max(camera_intrinsics.cx, 1 - camera_intrinsics.cx),
                                     camera_intrinsics.fx)
         vertical_fov = np.arctan2(rgb_data.shape[0] * max(camera_intrinsics.cy, 1 - camera_intrinsics.cy),
@@ -192,7 +193,7 @@ def import_dataset(root_folder, db_client):
                 camera_pose=camera_pose,
                 height=rgb_data.shape[0],
                 width=rgb_data.shape[1],
-                intrinsics=get_camera_intrinsics(root_folder),
+                intrinsics=camera_intrinsics,
                 fov=max(horizontal_fov, vertical_fov),
                 source_type=imeta.ImageSourceType.REAL_WORLD,
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
