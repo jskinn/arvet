@@ -91,14 +91,18 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
 
         whereas a non-running job produces:
         qstat: Unknown Job Id 2315.pbs
-        and an invalid job:
+        an invalid job produces:
         qstat: illegally formed job identifier: 231512525
+        A finished job produces:
+        qstat: 2338916.pbs Job has finished, use -x or -H to obtain historical job information
 
         :param job_id: The integer job id to check
         :return: True if the job is currently running on this node
         """
-        result = subprocess.run(['qstat', str(int(job_id))], stdout=subprocess.PIPE, universal_newlines=True)
-        return 'Unknown Job Id' not in result.stdout    # TODO: Better distinguish here once we have example output
+        result = subprocess.run(['qstat', str(int(job_id))], stdout=subprocess.PIPE, stdin=subprocess.STDOUT,
+                                universal_newlines=True)
+        output = result.stdout.lower()  # Case insensitive
+        return 'unknown job id' not in output and 'job has finished' not in output
 
     def run_task(self, task_id, num_cpus=1, num_gpus=0, memory_requirements='3GB',
                  expected_duration='1:00:00'):

@@ -533,7 +533,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 task = task_manager.get_run_system_task(
                     system_id=libviso_system.identifier,
                     image_source_id=image_source.identifier,
-                    expected_duration='4:00:00'
+                    expected_duration='4:00:00',
+                    memory_requirements='4GB'
                 )
                 if not task.is_finished:
                     task_manager.do_task(task)
@@ -551,7 +552,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     task = task_manager.get_run_system_task(
                         system_id=orbslam_system.identifier,
                         image_source_id=image_source.identifier,
-                        expected_duration='4:00:00'
+                        expected_duration='4:00:00',
+                        memory_requirements='4GB'
                     )
                     if not task.is_finished:
                         #task_manager.do_task(task)
