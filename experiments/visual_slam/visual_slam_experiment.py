@@ -380,11 +380,11 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             self._libviso_system = dh.add_unique(db_client.system_collection, libviso2.LibVisOSystem())
             self._set_property('libviso', self._libviso_system)
 
-        # ORBSLAM2 - 12 variants for parameter sweep
+        # ORBSLAM2 - now only a single variant
         settings_list = [
             (sensor_mode, n_features, resolution)
-            for sensor_mode in {orbslam2.SensorMode.MONOCULAR, orbslam2.SensorMode.STEREO}
-            for n_features in {1000, 2000}
+            for sensor_mode in {orbslam2.SensorMode.STEREO}
+            for n_features in {1500}
             for resolution in {(640, 480)}
         ]
         if len(self._orbslam_systems) < len(settings_list):
