@@ -2,6 +2,7 @@ import os
 import bson
 import numpy as np
 import operator
+import logging
 import util.database_helpers as dh
 import util.associate
 import util.transform as tf
@@ -656,6 +657,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Plotting general feature changes")
         for detector_name, detector_id in self._feature_detectors.items():
             if detector_id not in self._trial_map:
                 continue
@@ -722,6 +724,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Looking for interesting images...")
         for detector_name, detector_id in self._feature_detectors.items():
             if detector_id not in self._trial_map:
                 continue
@@ -773,6 +776,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             if len(image_changes['new_trial_points']) < least_new:
                                 least_new = len(image_changes['new_trial_points'])
                                 least_new_points = points
+                    logging.getLogger(__name__).info("... searched trajectory {0}".format(trajectory_group.name))
 
             # Show the selected outstanding example images
             for name, points in [('{0} highest IoU ({1})'.format(detector_name, highest_iou), highest_iou_points),
@@ -801,6 +805,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Plotting per-image feature change counts...")
         for detector_name, detector_id in self._feature_detectors.items():
             if detector_id not in self._trial_map:
                 continue
@@ -824,6 +829,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 len(image_changes['missing_reference_points'])
                             ))
                             where.append(True)
+                logging.getLogger(__name__).info("... added changes for {0}".format(trajectory_group.name))
                 annotations.append(((0, len(changes)), trajectory_group.name))
                 for _ in range(10):
                     changes.append((0,0,0))
@@ -856,6 +862,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Plotting trajectories...")
         from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
         # Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LibVisO 2')] + [
@@ -903,6 +910,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                                      'min-quality trajectory for {}'.format(system_name))
                         lower_limit = min(lower_limit, minp)
                         upper_limit = max(upper_limit, maxp)
+            logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
             ax.legend()
             ax.set_xlim(lower_limit, upper_limit)
             ax.set_ylim(lower_limit, upper_limit)
@@ -914,6 +922,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Plotting aggregate performance...")
         # Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LibVisO 2')] + [
             (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
@@ -985,6 +994,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 data.append(min_quality_results)
                 labels.append('{} - Min quality'.format(system_name))
 
+            logging.getLogger(__name__).info("Completed plot for {0}".format(benchmark_name))
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Changes in {0}".format(benchmark_name))
             ax = figure.add_subplot(111)
@@ -999,6 +1009,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Plottng performance over time for all systems...")
         # Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LibVisO 2')] + [
             (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
