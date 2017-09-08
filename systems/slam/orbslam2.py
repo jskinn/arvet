@@ -386,6 +386,7 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
     import logging
     import trials.slam.tracking_state
 
+    logging.getLogger(__name__).info("Starting ORBSLAM2...")
     sensor_mode = orbslam2.Sensor.RGBD
     if mode == SensorMode.MONOCULAR:
         sensor_mode = orbslam2.Sensor.MONOCULAR
@@ -397,6 +398,7 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
     orbslam_system.set_use_viewer(False)
     orbslam_system.initialize()
     output_queue.put(True)  # Tell the parent process we've set-up correctly and are ready to go.
+    logging.getLogger(__name__).info("ORBSLAM2 Ready.")
 
     running = True
     while running:
@@ -421,6 +423,7 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
                 tracking_stats.append(trials.slam.tracking_state.TrackingState.LOST)
         else:
             # Non-matching input indicates the end of processing, stop the main loop
+            logging.getLogger(__name__).info("Got terminate input, finishing up and sending results.")
             running = False
 
     # send the final trajectory to the parent
@@ -428,3 +431,4 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
 
     # shut down the system. This is going to crash it, but that's ok, because it's a subprocess
     orbslam_system.shutdown()
+    logging.getLogger(__name__).info("Finished running ORBSLAM2")
