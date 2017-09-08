@@ -383,8 +383,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         settings_list = [
             (sensor_mode, n_features, resolution)
             for sensor_mode in {orbslam2.SensorMode.MONOCULAR, orbslam2.SensorMode.STEREO}
-            for n_features in {1000, 1500, 2000}
-            for resolution in {(640, 480), (128, 96)}
+            for n_features in {1000, 2000}
+            for resolution in {(640, 480)}
         ]
         if len(self._orbslam_systems) < len(settings_list):
             for settings in settings_list:
@@ -556,8 +556,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         memory_requirements='4GB'
                     )
                     if not task.is_finished:
-                        #task_manager.do_task(task)
-                        pass
+                        task_manager.do_task(task)
                     else:
                         system_trials.add(task.result)
                         if orbslam_system.identifier not in self._trial_map:
