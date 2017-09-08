@@ -58,13 +58,15 @@ class CompareBenchmarksTask(batch_analysis.task.Task):
             try:
                 comparison_result = comparison_benchmark.compare_results(benchmark_result_1, benchmark_result_2)
             except Exception:
-                comparison_result = None
-            if comparison_result is None:
                 logging.getLogger(__name__).error("Error occurred while comparing benchmark results {0} and {1}"
                                                   "with benchmark {2}:\n{3}".format(self.benchmark_result1,
                                                                                     self.benchmark_result2,
                                                                                     self.comparison,
                                                                                     traceback.format_exc()))
+                comparison_result = None
+            if comparison_result is None:
+                logging.getLogger(__name__).error("Failed to compare benchmarks {0} and {1} with {2}".format(
+                    self.benchmark_result1, self.benchmark_result2, self.comparison))
                 self.mark_job_failed()
             else:
                 result_id = db_client.results_collection.insert(comparison_result.serialize())

@@ -46,6 +46,8 @@ class ImportDatasetTask(batch_analysis.task.Task):
                 ))
 
             if dataset_id is None:
+                logging.getLogger(__name__).error("Failed to import dataset from {0} with module {1}".format(
+                    self.path, self.module_name))
                 self.mark_job_failed()
             else:
                 self.mark_job_complete(dataset_id)

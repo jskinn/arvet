@@ -42,10 +42,12 @@ class BenchmarkTrialTask(batch_analysis.task.Task):
             try:
                 benchmark_result = benchmark.benchmark_results(trial_result)
             except Exception:
-                benchmark_result = None
-            if benchmark_result is None:
                 logging.getLogger(__name__).error("Exception while benchmarking {0} with benchmark {1}:\n{2}".format(
                     self.trial_result, self.benchmark, traceback.format_exc()))
+                benchmark_result = None
+            if benchmark_result is None:
+                logging.getLogger(__name__).error("Failed to benchmark {0} with {1}".format(
+                    self.trial_result, self.benchmark))
                 self.mark_job_failed()
             else:
                 benchmark_result_id = db_client.results_collection.insert(benchmark_result.serialize())

@@ -53,11 +53,13 @@ class RunSystemTask(batch_analysis.task.Task):
             try:
                 trial_result = run_system_with_source(system, image_source)
             except Exception:
-                trial_result = None
-            if trial_result is None:
                 logging.getLogger(__name__).error("Error occurred while running system {0} "
                                                   "with image source {1}:\n{2}".format(
                     self.system, self.image_source, traceback.format_exc()))
+                trial_result = None
+            if trial_result is None:
+                logging.getLogger(__name__).error("Failed to system {0} with image source {1}.".format(
+                    self.system, self.image_source))
                 self.mark_job_failed()
             else:
                 trial_result.save_data(db_client)

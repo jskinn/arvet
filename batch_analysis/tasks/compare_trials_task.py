@@ -52,11 +52,14 @@ class CompareTrialTask(batch_analysis.task.Task):
             try:
                 comparison_result = comparison_benchmark.compare_trial_results(trial_result_1, trial_result_2)
             except Exception:
-                comparison_result = None
-            if comparison_result is None:
                 logging.getLogger(__name__).error("Error occurred while comparing trials {0} and {1}"
                                                   "with benchmark {2}:\n{3}".format(
                     self.trial_result1, self.trial_result2, self.comparison, traceback.format_exc()))
+                comparison_result = None
+            if comparison_result is None:
+                logging.getLogger(__name__).error("Failed to compare trials {0} and {1}"
+                                                  "with benchmark {2}".format(
+                    self.trial_result1, self.trial_result2, self.comparison))
                 self.mark_job_failed()
             else:
                 comparison_result.save_data(db_client)

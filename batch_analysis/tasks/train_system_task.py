@@ -46,13 +46,15 @@ class TrainSystemTask(batch_analysis.task.Task):
             try:
                 system = trainer.train_vision_system(trainee)
             except Exception:
-                system = None
-            if system is None:
                 logging.getLogger(__name__).error("Error occurred while trainer {0} trains trainee {1}:\n{2}".format(
                     self.trainer,
                     self.trainee,
                     traceback.format_exc()
                 ))
+                system = None
+            if system is None:
+                logging.getLogger(__name__).error("Failed to train trainee {0} with trainer {1}".format(
+                    self.trainer, self.trainee))
                 self.mark_job_failed()
             else:
                 system_id = db_client.system_collection.insert(system.serialize())
