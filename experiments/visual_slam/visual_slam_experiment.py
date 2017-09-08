@@ -594,11 +594,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Step 1 - Show some aggregate statistics on image feature detection
         #self._plot_feature_changes(db_client)
 
+        # Step 2 - Plot images with interesting changes
+        #self._plot_interesting_feature_changes(db_client)
+
         # Step 2 - Plot the changes for each image
         self._plot_per_image_feature_changes(db_client)
 
         # Step 3 - Trajectory visualization: For each system and each trajectory, plot the different paths
-        self._plot_trajectories(db_client)
+        #self._plot_trajectories(db_client)
 
         # Step 4 - Aggregation: For each benchmark, compare real-world and different qualities
         #self._plot_aggregate_performance(db_client)
@@ -712,6 +715,84 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
                     ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
 
+    def _plot_interesting_feature_changes(self, db_client):
+        """
+        Search through the results for interesting
+        :param db_client:
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
+        for detector_name, detector_id in self._feature_detectors.items():
+            if detector_id not in self._trial_map:
+                continue
+            # Track outstanding images
+            highest_iou_points = None
+            highest_iou = -1
+            lowest_iou_points = None
+            lowest_iou = 1
+            most_missing_points = None
+            most_missing = -1
+            least_missing_points = None
+            least_missing = 10000000
+            most_new_points = None
+            most_new = -1
+            least_new_points = None
+            least_new = 1000000000
+            for trajectory_group in self._trajectory_groups.values():
+                for variation in trajectory_group.quality_variations:
+                    if variation['dataset'] not in self._trial_map[detector_id]:
+                        continue
+                    trial_result_id = self._trial_map[detector_id][variation['dataset']]
+                    if (trial_result_id in self._result_map and
+                                self._benchmark_feature_diff in self._result_map[trial_result_id]):
+                        benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
+                        benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
+                        for image_changes in benchmark_result.changes:
+                            iou = len(image_changes['point_matches']) / (len(image_changes['point_matches']) +
+                                                                         len(image_changes['new_trial_points']) +
+                                                                         len(image_changes['missing_reference_points']))
+                            points = (image_changes['trial_image_id'],
+                                      image_changes['point_matches'],
+                                      image_changes['new_trial_points'],
+                                      image_changes['missing_reference_points'])
+                            if iou > highest_iou:
+                                highest_iou = iou
+                                highest_iou_points = points
+                            if iou < lowest_iou:
+                                lowest_iou = iou
+                                lowest_iou_points = points
+                            if len(image_changes['missing_reference_points']) > most_missing:
+                                most_missing = len(image_changes['missing_reference_points'])
+                                most_missing_points = points
+                            if len(image_changes['missing_reference_points']) < least_missing:
+                                least_missing = len(image_changes['missing_reference_points'])
+                                least_missing_points = points
+                            if len(image_changes['new_trial_points']) > most_new:
+                                most_new = len(image_changes['new_trial_points'])
+                                most_new_points = points
+                            if len(image_changes['new_trial_points']) < least_new:
+                                least_new = len(image_changes['new_trial_points'])
+                                least_new_points = points
+
+            # Show the selected outstanding example images
+            for name, points in [('{0} highest IoU ({1})'.format(detector_name, highest_iou), highest_iou_points),
+                                 ('{0} lowest IoU ({1})'.format(detector_name, lowest_iou), lowest_iou_points),
+                                 ('{0} most lost points ({1})'.format(detector_name, most_missing),
+                                  most_missing_points),
+                                 ('{0} fewest lost points ({1})'.format(detector_name, least_missing),
+                                  least_missing_points),
+                                 ('{0} most new points ({1})'.format(detector_name, most_new), most_new_points),
+                                 ('{0} fewest new points ({1})'.format(detector_name, least_new), least_new_points)]:
+                if points is not None:
+                    image_id, matches, missing_trial, missing_reference = points
+                    image = dh.load_object(db_client, db_client.image_collection, image_id)
+                    figure = pyplot.figure()
+                    figure.suptitle(name)
+                    ax = figure.add_subplot(111)
+                    ax.imshow(image.data)
+                    ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
+                    ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
+
     def _plot_per_image_feature_changes(self, db_client):
         """
         Plot the changes in detected features for all the images.
@@ -726,6 +807,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
             changes = []
             where = []
+            annotations = []
             for trajectory_group in self._trajectory_groups.values():
                 for variation in trajectory_group.quality_variations:
                     if variation['dataset'] not in self._trial_map[detector_id]:
@@ -742,6 +824,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 len(image_changes['missing_reference_points'])
                             ))
                             where.append(True)
+                annotations.append(((0, len(changes)), trajectory_group.name))
                 for _ in range(10):
                     changes.append((0,0,0))
                     where.append(False)
@@ -762,6 +845,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.fill_betweenx(x, -1 * changes[:, 2] - changes[:, 0] / 2, changes[:, 0] / 2,
                              where=changes[:, 0] > 0,
                              color='r', label='high-quality features', alpha=0.3)
+            for point, label in annotations:
+                ax.annotate(label, xy=point)
 
     def _plot_trajectories(self, db_client):
         """
