@@ -243,7 +243,7 @@ class ORBSLAM2(core.system.VisionSystem):
         except queue.Empty:
             # process has failed to complete within expected time, kill it and move on.
             trajectory_list = None
-            tracking_stats = []
+            tracking_stats = {}
 
         if isinstance(trajectory_list, list):
             # completed successfully, return the trajectory
@@ -393,7 +393,7 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
     elif mode == SensorMode.STEREO:
         sensor_mode = orbslam2.Sensor.STEREO
 
-    tracking_stats = []
+    tracking_stats = {}
     orbslam_system = orbslam2.System(vocab_file, settings_file, resolution[0], resolution[1], sensor_mode)
     orbslam_system.set_use_viewer(False)
     orbslam_system.initialize()
@@ -416,11 +416,11 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
             if (tracking_state == orbslam2.TrackingState.SYSTEM_NOT_READY or
                     tracking_state == orbslam2.TrackingState.NO_IMAGES_YET or
                     tracking_state == orbslam2.TrackingState.NOT_INITIALIZED):
-                tracking_stats.append(trials.slam.tracking_state.TrackingState.NOT_INITIALIZED)
+                tracking_stats[timestamp] = trials.slam.tracking_state.TrackingState.NOT_INITIALIZED
             elif tracking_state == orbslam2.TrackingState.OK:
-                tracking_stats.append(trials.slam.tracking_state.TrackingState.OK)
+                tracking_stats[timestamp] = trials.slam.tracking_state.TrackingState.OK
             else:
-                tracking_stats.append(trials.slam.tracking_state.TrackingState.LOST)
+                tracking_stats[timestamp] = trials.slam.tracking_state.TrackingState.LOST
         else:
             # Non-matching input indicates the end of processing, stop the main loop
             logging.getLogger(__name__).info("Got terminate input, finishing up and sending results.")
