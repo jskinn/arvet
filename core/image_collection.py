@@ -196,16 +196,17 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         When I have effective metadata aggregation, read it from that.
         :return:
         """
-        return self._images[0].metadata.camera_intrinsics
+        return self._images[min(self._images.keys())].metadata.camera_intrinsics
 
     def get_stereo_baseline(self):
         """
         Get the distance between the stereo cameras, or None if the images in this collection are not stereo.
         :return:
         """
-        if not self.is_stereo_available or not isinstance(self._images[0], core.image.StereoImage):
+        min_timestamp = min(self._images.keys())
+        if not self.is_stereo_available or not isinstance(self._images[min_timestamp], core.image.StereoImage):
             return None
-        dist = self._images[0].left_camera_location - self._images[0].right_camera_location
+        dist = self._images[min_timestamp].left_camera_location - self._images[min_timestamp].right_camera_location
         return np.linalg.norm(dist)
 
     def validate(self):
