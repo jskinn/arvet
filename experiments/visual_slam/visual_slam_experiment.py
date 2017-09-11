@@ -557,7 +557,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         memory_requirements='4GB'
                     )
                     if not task.is_finished:
-                        task_manager.do_task(task)
+                        #task_manager.do_task(task)
+                        pass
                     else:
                         system_trials.add(task.result)
                         if orbslam_system.identifier not in self._trial_map:
