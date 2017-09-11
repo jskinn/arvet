@@ -65,7 +65,11 @@ class LibVisOSystem(core.system.VisionSystem):
 
     def process_image(self, image, timestamp):
         left_grey = cv2.cvtColor(image.left_data, cv2.COLOR_RGB2GRAY)
+        if left_grey.dtype == np.float:
+            left_grey = np.asarray(255 * left_grey, dtype=np.uint8)
         right_grey = cv2.cvtColor(image.right_data, cv2.COLOR_RGB2GRAY)
+        if right_grey.dtype == np.float:
+            right_grey = np.asarray(255 * right_grey, dtype=np.uint8)
         self._viso.process_frame(left_grey, right_grey)
         motion = self._viso.getMotion()  # Motion is a 4x4 pose matrix
         np_motion = np.zeros((4, 4))
