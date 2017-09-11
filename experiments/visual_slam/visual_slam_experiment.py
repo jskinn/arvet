@@ -599,16 +599,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Step 2 - Plot images with interesting changes
         #self._plot_interesting_feature_changes(db_client)
 
-        # Step 2 - Plot the changes for each image
+        # Step 3 - Plot the changes for each image
         self._plot_per_image_feature_changes(db_client)
 
-        # Step 3 - Trajectory visualization: For each system and each trajectory, plot the different paths
+        # Step 4 - Trajectory visualization: For each system and each trajectory, plot the different paths
         #self._plot_trajectories(db_client)
 
-        # Step 4 - Aggregation: For each benchmark, compare real-world and different qualities
+        # Step 5 - Aggregation: For each benchmark, compare real-world and different qualities
         #self._plot_aggregate_performance(db_client)
 
-        # Step 5 - detailed analysis of performance vs time for each trajectory
+        # Step 6 - detailed analysis of performance vs time for each trajectory
         #self._plot_performance_vs_time(db_client)
 
         # final figure configuration, and show the figures
@@ -826,7 +826,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         for image_changes in benchmark_result.changes:
                             changes.append((
                                 len(image_changes['point_matches']),
-                                len(image_changes['point_matches']),# + len(image_changes['new_trial_points']),
+                                len(image_changes['new_trial_points']),
                                 len(image_changes['missing_reference_points'])
                             ))
                             where.append(True)
@@ -836,6 +836,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     changes.append((0,0,0))
                     where.append(False)
 
+            # Plot an area overlap graph
             #changes.sort(key=lambda d: d[1], reverse=True)
             x = np.arange(len(changes))
             changes = np.array(changes)
@@ -843,8 +844,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Number of changes for {0}".format(detector_name))
             ax = figure.add_subplot(111)
-            ax.set_xlabel('new features')
-            ax.set_ylabel('missing features')
+            ax.set_xlabel('number of features')
+            ax.set_ylabel('image')
             #ax.fill_between(x, changes[:, 0], color='b', label='matching features')
             ax.fill_betweenx(x, -1 * changes[:, 0] / 2, changes[:, 1] + changes[:, 0] / 2,
                              where=changes[:, 0] > 0,
@@ -854,6 +855,45 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                              color='r', label='high-quality features', alpha=0.3)
             for point, label in annotations:
                 ax.annotate(label, xy=point)
+
+            # Plot just the total new/missing
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("{0} total new/missing features".format(detector_name))
+            ax = figure.add_subplot(111)
+            ax.set_xlabel('image')
+            ax.set_ylabel('number of features')
+            ax.plot(x, changes[:, 1], label='new low-quality features', linewidth=0.1)
+            ax.plot(x, changes[:, 2], label='missing high-quality features', linewidth=0.1)
+            ax.legend()
+
+            # Plot the relative number of new missing
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("{0} fraction of features matched".format(detector_name))
+            ax = figure.add_subplot(111)
+            ax.set_xlabel('image')
+            ax.set_ylabel('fraction of features')
+            ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
+                    label='fraction of low-quality features', linewidth=0.1)
+            ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]),
+                    label='fraction of high-quality features', linewidth=0.1)
+            ax.legend()
+
+            # Plot precision/recall, just because
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("{0} precision/recall".format(detector_name))
+            ax = figure.add_subplot(111)
+            ax.set_xlabel('fraction of low-quality features')
+            ax.set_ylabel('fraction of high-quality features')
+            ax.plot(np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
+                    np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]), markersize=0.1)
+
+            # Plot IoU
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("{0} Intersection over Union".format(detector_name))
+            ax = figure.add_subplot(111)
+            ax.set_xlabel('image')
+            ax.set_ylabel('Intersection over Union')
+            ax.plot(x, np.divide(changes[:, 0], np.sum(changes, axis=1)), linewidth=0.1)
 
     def _plot_trajectories(self, db_client):
         """
