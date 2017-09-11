@@ -1,3 +1,4 @@
+import logging.config
 import database.client
 import config.global_configuration as global_conf
 import util.database_helpers as dh
@@ -5,6 +6,8 @@ import util.database_helpers as dh
 
 def main(*args):
     config = global_conf.load_global_config("config.yml")
+    if __name__ == '__main__':
+        logging.config.dictConfig(config['logging'])
     db_client = database.client.DatabaseClient(config)
     experiment_ids = db_client.experiments_collection.find({}, {'_id': True})
     for ex_id in experiment_ids:
