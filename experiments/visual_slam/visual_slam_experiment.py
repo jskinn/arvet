@@ -510,10 +510,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # Groups of things for testing all the systems
         libviso_system = dh.load_object(db_client, db_client.system_collection, self._libviso_system)
-        orbslam_systems = [
-            dh.load_object(db_client, db_client.system_collection, system_id)
-            for system_id in self._orbslam_systems.values()
-        ]
+        #orbslam_systems = [
+        #    dh.load_object(db_client, db_client.system_collection, system_id)
+        #    for system_id in self._orbslam_systems.values()
+        #]
         benchmarks = [
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_rpe),
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_ate),
@@ -547,25 +547,25 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     self._set_property('trial_map.{0}.{1}'.format(self._libviso_system, image_source_id), task.result)
 
             # ORBSLAM2
-            for orbslam_system in orbslam_systems:
-                if (orbslam_system.is_image_source_appropriate(image_source) and
-                        orbslam_system.mode != orbslam2.SensorMode.RGBD):
-                    task = task_manager.get_run_system_task(
-                        system_id=orbslam_system.identifier,
-                        image_source_id=image_source.identifier,
-                        expected_duration='4:00:00',
-                        memory_requirements='4GB'
-                    )
-                    if not task.is_finished:
-                        #task_manager.do_task(task)
-                        pass
-                    else:
-                        system_trials.add(task.result)
-                        if orbslam_system.identifier not in self._trial_map:
-                            self._trial_map[orbslam_system.identifier] = {}
-                        self._trial_map[orbslam_system.identifier][image_source_id] = task.result
-                        self._set_property('trial_map.{0}.{1}'.format(orbslam_system.identifier, image_source_id),
-                                           task.result)
+            #for orbslam_system in orbslam_systems:
+            #    if (orbslam_system.is_image_source_appropriate(image_source) and
+            #            orbslam_system.mode != orbslam2.SensorMode.RGBD):
+            #        task = task_manager.get_run_system_task(
+            #            system_id=orbslam_system.identifier,
+            #            image_source_id=image_source.identifier,
+            #            expected_duration='4:00:00',
+            #            memory_requirements='4GB'
+            #        )
+            #        if not task.is_finished:
+            #            #task_manager.do_task(task)
+            #            pass
+            #        else:
+            #            system_trials.add(task.result)
+            #            if orbslam_system.identifier not in self._trial_map:
+            #                self._trial_map[orbslam_system.identifier] = {}
+            #            self._trial_map[orbslam_system.identifier][image_source_id] = task.result
+            #            self._set_property('trial_map.{0}.{1}'.format(orbslam_system.identifier, image_source_id),
+            #                               task.result)
 
         # Benchmark system results
         for trial_result_id in system_trials:
@@ -813,6 +813,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 continue
 
             changes = []
+            grouped_changes = []
             where = []
             annotations = []
             for trajectory_group in self._trajectory_groups.values():
@@ -830,17 +831,23 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 len(image_changes['new_trial_points']),
                                 len(image_changes['missing_reference_points'])
                             ))
+                            grouped_changes.append((
+                                len(image_changes['point_matches']),
+                                len(image_changes['new_trial_points']),
+                                len(image_changes['missing_reference_points'])
+                            ))
                             where.append(True)
                 logging.getLogger(__name__).info("... added changes for {0}".format(trajectory_group.name))
-                annotations.append(((0, len(changes)), trajectory_group.name))
+                annotations.append(((0, len(grouped_changes)), trajectory_group.name))
                 for _ in range(10):
-                    changes.append((0,0,0))
+                    grouped_changes.append((0,0,0))
                     where.append(False)
 
             # Plot an area overlap graph
             #changes.sort(key=lambda d: d[1], reverse=True)
             x = np.arange(len(changes))
             changes = np.array(changes)
+            grouped_changes = np.array(grouped_changes)
 
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Number of changes for {0}".format(detector_name))
@@ -848,11 +855,11 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.set_xlabel('number of features')
             ax.set_ylabel('image')
             #ax.fill_between(x, changes[:, 0], color='b', label='matching features')
-            ax.fill_betweenx(x, -1 * changes[:, 0] / 2, changes[:, 1] + changes[:, 0] / 2,
-                             where=changes[:, 0] > 0,
+            ax.fill_betweenx(np.arange(len(grouped_changes)), -1 * grouped_changes[:, 0] / 2,
+                             grouped_changes[:, 1] + grouped_changes[:, 0] / 2, where=where,
                              color='b', label='low-quality features', alpha=0.3)
-            ax.fill_betweenx(x, -1 * changes[:, 2] - changes[:, 0] / 2, changes[:, 0] / 2,
-                             where=changes[:, 0] > 0,
+            ax.fill_betweenx(np.arange(len(grouped_changes)), -1 * grouped_changes[:, 2] - grouped_changes[:, 0] / 2,
+                             grouped_changes[:, 0] / 2, where=where,
                              color='r', label='high-quality features', alpha=0.3)
             for point, label in annotations:
                 ax.annotate(label, xy=point)
@@ -863,8 +870,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax = figure.add_subplot(111)
             ax.set_xlabel('image')
             ax.set_ylabel('number of features')
-            ax.plot(x, changes[:, 1], label='new low-quality features', linewidth=0.1)
-            ax.plot(x, changes[:, 2], label='missing high-quality features', linewidth=0.1)
+            ax.plot(x, changes[:, 1], label='new low-quality features', linewidth=1)
+            ax.plot(x, changes[:, 2], label='missing high-quality features', linewidth=1)
             ax.legend()
 
             # Plot the relative number of new missing
@@ -874,9 +881,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.set_xlabel('image')
             ax.set_ylabel('fraction of features')
             ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
-                    label='fraction of low-quality features', linewidth=0.1)
+                    label='fraction of low-quality features', linewidth=1)
             ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]),
-                    label='fraction of high-quality features', linewidth=0.1)
+                    label='fraction of high-quality features', linewidth=1)
             ax.legend()
 
             # Plot precision/recall, just because
@@ -886,7 +893,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax.set_xlabel('fraction of low-quality features')
             ax.set_ylabel('fraction of high-quality features')
             ax.plot(np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
-                    np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]), markersize=0.1)
+                    np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]), 'bo', markersize=0.5)
 
             # Plot IoU
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
@@ -894,7 +901,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax = figure.add_subplot(111)
             ax.set_xlabel('image')
             ax.set_ylabel('Intersection over Union')
-            ax.plot(x, np.divide(changes[:, 0], np.sum(changes, axis=1)), linewidth=0.1)
+            y = np.divide(changes[:, 0], np.sum(changes, axis=1))
+            y.sort()
+            ax.plot(x, y, linewidth=1)
 
     def _plot_trajectories(self, db_client):
         """
@@ -966,9 +975,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         import matplotlib.pyplot as pyplot
         logging.getLogger(__name__).info("Plotting aggregate performance...")
         # Make a list of systems and system names to plot.
-        systems = [(self._libviso_system, 'LibVisO 2')] + [
-            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
-        ]
+        systems = [(self._libviso_system, 'LibVisO 2')]
 
         # Make a list of benchmarks, names, and lambdas for aggregate statistic extraction
         benchmarks = [
@@ -979,7 +986,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
              operator.attrgetter('translational_error')),
             (self._benchmark_trajectory_drift, 'Trajectory Drift (Rotation)',
              operator.attrgetter('rotational_error')),
-            (self._benchmark_tracking, 'Tracking Failure', lambda r: list(r.distances))
+#            (self._benchmark_tracking, 'Tracking Failure', lambda r: list(r.distances))
         ]
 
         # Make a list of real-world datasets
@@ -1027,7 +1034,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                     benchmark_id in self._result_map[trial_result_id]):
                                 benchmark_result = dh.load_object(db_client, db_client.results_collection,
                                                                   self._result_map[trial_result_id][benchmark_id])
-                                min_quality_results += values_list_getter(benchmark_result)
+                                if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                    print(benchmark_result.reason)
+                                else:
+                                    min_quality_results += values_list_getter(benchmark_result)
 
                 data.append(real_world_results)
                 labels.append('{} - Real world'.format(system_name))
@@ -1038,7 +1048,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
             logging.getLogger(__name__).info("Completed plot for {0}".format(benchmark_name))
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("Changes in {0}".format(benchmark_name))
+            figure.suptitle("{0}".format(benchmark_name))
             ax = figure.add_subplot(111)
             ax.boxplot(data)
             ax.set_xticklabels(labels)
@@ -1053,9 +1063,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         import matplotlib.pyplot as pyplot
         logging.getLogger(__name__).info("Plottng performance over time for all systems...")
         # Make a list of systems and system names to plot.
-        systems = [(self._libviso_system, 'LibVisO 2')] + [
-            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
-        ]
+        systems = [(self._libviso_system, 'LibVisO 2')]
 
         # Benchmark results over time, for each trajectory and system
         for system_id, system_name in systems:
@@ -1066,18 +1074,12 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 # Make figures for each benchmark
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)
                 figure.suptitle("{0} changes for {1}".format(system_name, trajectory_group.name))
-                rpe_ax = figure.add_subplot(221)
+                rpe_ax = figure.add_subplot(211)
                 rpe_ax.set_xlabel('Timestamp')
                 rpe_ax.set_ylabel('Relative Pose Error (translational)')
-                ate_ax = figure.add_subplot(222)
+                ate_ax = figure.add_subplot(212)
                 ate_ax.set_xlabel('Timestamp')
                 ate_ax.set_ylabel('Absolute Trajectory Error')
-                drift_ax = figure.add_subplot(223)
-                drift_ax.set_xlabel('Timestamp')
-                drift_ax.set_ylabel('Trajectory Drift')
-                lost_ax = figure.add_subplot(224)
-                lost_ax.set_xlabel('Timestamp')
-                lost_ax.set_ylabel('Number of Lost Frames')
 
                 if trajectory_group.max_quality_id in self._trial_map[system_id]:
                     # Results for max quality run
@@ -1089,27 +1091,24 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 db_client, db_client.results_collection,
                                 self._result_map[trial_result_id][self._benchmark_rpe]
                             )
-                            times = sorted(benchmark_result.translational_error.keys())
-                            rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                        label='Max quality')
+                            if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                print(benchmark_result.reason)
+                            else:
+                                times = sorted(benchmark_result.translational_error.keys())
+                                rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                            label='Max quality')
                         # ATE results
                         if self._benchmark_ate in self._result_map[trial_result_id]:
                             benchmark_result = dh.load_object(
                                 db_client, db_client.results_collection,
                                 self._result_map[trial_result_id][self._benchmark_ate]
                             )
-                            times = sorted(benchmark_result.translational_error.keys())
-                            ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                        label='Max quality')
-                        # Drift results
-                        if self._benchmark_trajectory_drift in self._result_map[trial_result_id]:
-                            benchmark_result = dh.load_object(
-                                db_client, db_client.results_collection,
-                                self._result_map[trial_result_id][self._benchmark_trajectory_drift]
-                            )
-                            times = sorted(benchmark_result.translational_error.keys())
-                            drift_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                          label='Max quality')
+                            if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                print(benchmark_result.reason)
+                            else:
+                                times = sorted(benchmark_result.translational_error.keys())
+                                ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                            label='Max quality')
 
                 # Results for lower quality variations
                 for variation in trajectory_group.quality_variations:
@@ -1122,27 +1121,24 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                     db_client, db_client.results_collection,
                                     self._result_map[trial_result_id][self._benchmark_rpe]
                                 )
-                                times = sorted(benchmark_result.translational_error.keys())
-                                rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                            label='Min quality')
+                                if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                    print(benchmark_result.reason)
+                                else:
+                                    times = sorted(benchmark_result.translational_error.keys())
+                                    rpe_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                                label='Min quality')
                             # ATE results
                             if self._benchmark_ate in self._result_map[trial_result_id]:
                                 benchmark_result = dh.load_object(
                                     db_client, db_client.results_collection,
                                     self._result_map[trial_result_id][self._benchmark_ate]
                                 )
-                                times = sorted(benchmark_result.translational_error.keys())
-                                ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                            label='Min quality')
-                            # Drift results
-                            if self._benchmark_trajectory_drift in self._result_map[trial_result_id]:
-                                benchmark_result = dh.load_object(
-                                    db_client, db_client.results_collection,
-                                    self._result_map[trial_result_id][self._benchmark_trajectory_drift]
-                                )
-                                times = sorted(benchmark_result.translational_error.keys())
-                                drift_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
-                                              label='Min quality')
+                                if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                    print(benchmark_result.reason)
+                                else:
+                                    times = sorted(benchmark_result.translational_error.keys())
+                                    ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
+                                                label='Min quality')
 
     def serialize(self):
         serialized = super().serialize()
