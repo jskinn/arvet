@@ -604,13 +604,13 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         self._plot_per_image_feature_changes(db_client)
 
         # Step 4 - Trajectory visualization: For each system and each trajectory, plot the different paths
-        #self._plot_trajectories(db_client)
+        self._plot_trajectories(db_client)
 
         # Step 5 - Aggregation: For each benchmark, compare real-world and different qualities
-        #self._plot_aggregate_performance(db_client)
+        self._plot_aggregate_performance(db_client)
 
         # Step 6 - detailed analysis of performance vs time for each trajectory
-        #self._plot_performance_vs_time(db_client)
+        self._plot_performance_vs_time(db_client)
 
         # final figure configuration, and show the figures
         pyplot.tight_layout()
@@ -916,9 +916,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         logging.getLogger(__name__).info("Plotting trajectories...")
         from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
         # Make a list of systems and system names to plot.
-        systems = [(self._libviso_system, 'LibVisO 2')] + [
-            (orbslam_id, name) for name, orbslam_id in self._orbslam_systems.items()
-        ]
+        systems = [(self._libviso_system, 'LibVisO 2')]
 
         # Trajectory visualization: For each system and each trajectory, plot the different paths
         for trajectory_group in self._trajectory_groups.values():
