@@ -239,7 +239,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             task_manager.do_task(task)
 
         # Import TUM datasets using the manager
-        self._tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
+        #self._tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
 
         # --------- SYNTHETIC DATASETS -----------
         # Add simulators explicitly, they have different metadata, so we can't just search
