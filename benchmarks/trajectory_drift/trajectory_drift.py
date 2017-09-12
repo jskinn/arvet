@@ -49,7 +49,7 @@ class BenchmarkTrajectoryDrift(core.benchmark.Benchmark):
     def is_trial_appropriate(self, trial_result):
         return (hasattr(trial_result, 'identifier') and
                 hasattr(trial_result, 'get_ground_truth_camera_poses') and
-                hasattr(trial_result, 'computed_camera_poses'))
+                hasattr(trial_result, 'get_computed_camera_poses'))
 
     def benchmark_results(self, trial_result):
         """
@@ -72,8 +72,8 @@ class BenchmarkTrajectoryDrift(core.benchmark.Benchmark):
                                                   reason="Couldn't find matching timestamp pairs between"
                                                          "groundtruth and estimated trajectory!")
 
-        gt_poses = [ground_truth_traj[match[0]].transform_matrix for match in matches]
-        result_poses = [result_traj[match[1]].transform_matrix for match in matches]
+        gt_poses = [ground_truth_traj[match[0]] for match in matches]
+        result_poses = [result_traj[match[1]] for match in matches]
         errors = calc_sequence_errors(gt_poses, result_poses, segment_lengths=self._segment_lengths, step_size=10)
 
         return drif_result.TrajectoryDriftBenchmarkResult(benchmark_id=self.identifier,
@@ -143,9 +143,9 @@ def trajectory_distances(poses):
     for i in range(1, len(poses)):
         p1 = poses[i-1]
         p2 = poses[i]
-        dx = p1.val[0][3]-p2.val[0][3]
-        dy = p1.val[1][3]-p2.val[1][3]
-        dz = p1.val[2][3]-p2.val[2][3]
+        dx = p1[0][3] - p2[0][3]
+        dy = p1[1][3] - p2[1][3]
+        dz = p1[2][3] - p2[2][3]
         dist.append(dist[i-1] + np.sqrt(dx * dx + dy * dy + dz * dz))
     return dist
 
