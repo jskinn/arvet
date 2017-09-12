@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import unittest, unittest.mock as mock
 import core.benchmark
 import database.client

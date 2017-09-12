@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import database.entity
 import core.sequence_type
 import core.image_source

@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import database.client
 import core.system
 import core.trained_system

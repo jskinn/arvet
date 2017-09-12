@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import numpy as np
 import core.benchmark
 import benchmarks.matching.matching_result as match_res

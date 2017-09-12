@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import copy
 import core.image_collection
 import core.image_entity

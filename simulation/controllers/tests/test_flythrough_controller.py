@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
 import database.tests.test_entity

@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import os
 import bson
 import numpy as np

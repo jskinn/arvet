@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import operator
 import database.entity
 

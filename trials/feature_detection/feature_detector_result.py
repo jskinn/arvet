@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import cv2
 import logging
 import pickle

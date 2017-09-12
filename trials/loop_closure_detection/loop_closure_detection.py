@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import copy
 import core.trial_result
 

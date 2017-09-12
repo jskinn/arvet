@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import sys
 import bson.objectid
 import numpy as np

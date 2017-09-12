@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import pickle
 import bson
 import core.trial_result

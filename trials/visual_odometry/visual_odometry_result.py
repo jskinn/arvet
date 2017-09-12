@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import core.trial_result
 import util.transform as tf
 

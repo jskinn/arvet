@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import bson.objectid as oid
 import core.trial_result
 

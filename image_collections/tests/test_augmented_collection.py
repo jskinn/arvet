@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import abc

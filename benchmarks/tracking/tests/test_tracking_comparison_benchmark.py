@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import unittest
 import core.benchmark
 import core.trial_comparison

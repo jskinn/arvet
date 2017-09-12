@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import core.benchmark
 import benchmarks.bounding_box_overlap.bounding_box_overlap_result as bbox_result
 

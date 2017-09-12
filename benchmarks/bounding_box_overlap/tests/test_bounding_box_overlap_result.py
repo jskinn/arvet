@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import unittest
 import bson.objectid
 import numpy as np

@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import copy
 import util.dict_utils
 import util.database_helpers

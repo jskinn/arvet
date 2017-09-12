@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import metadata.image_metadata as imeta
 
 

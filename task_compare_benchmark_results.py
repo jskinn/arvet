@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import sys
 import bson.objectid
 import config.global_configuration as global_conf

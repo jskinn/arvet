@@ -1,3 +1,5 @@
+#!/bin/python
+#Copyright (c) 2017, John Skinner
 import logging
 import logging.config
 import traceback

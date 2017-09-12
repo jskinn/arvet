@@ -1,3 +1,5 @@
+#!/bin/python
+#Copyright (c) 2017, John Skinner
 import config.global_configuration as global_conf
 import database.client
 import util.database_helpers as db_help

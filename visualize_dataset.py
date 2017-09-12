@@ -1,3 +1,5 @@
+#!/bin/python
+#Copyright (c) 2017, John Skinner
 import bson
 import config.global_configuration as global_conf
 import database.client

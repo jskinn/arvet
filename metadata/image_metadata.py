@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import enum
 import numpy as np
 import util.transform as tf

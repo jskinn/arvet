@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import xxhash
 import numpy as np
 import copy

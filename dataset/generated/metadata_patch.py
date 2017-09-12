@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 """
 Fix the metadata for my first iteration of data generation
 I'm missing some keys I now realize I need, both at the dataset level and the

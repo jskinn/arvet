@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import os
 import glob
 import util.dict_utils as du

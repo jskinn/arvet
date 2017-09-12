@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import numpy as np
 import cv2  # TODO: Replace with a lighter library, maybe pillow
 import viso2 as libviso2

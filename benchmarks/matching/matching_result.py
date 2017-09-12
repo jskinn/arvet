@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import enum
 import pickle
 import bson

@@ -1,3 +1,4 @@
+#Copyright (c) 2017, John Skinner
 import util.associate
 import core.benchmark_comparison
 import benchmarks.matching.matching_result as match_res
