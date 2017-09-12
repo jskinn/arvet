@@ -64,12 +64,8 @@ class LibVisOSystem(core.system.VisionSystem):
         self._gt_poses = {}
 
     def process_image(self, image, timestamp):
-        left_grey = cv2.cvtColor(image.left_data, cv2.COLOR_RGB2GRAY)
-        if left_grey.dtype == np.float:
-            left_grey = np.asarray(255 * left_grey, dtype=np.uint8)
-        right_grey = cv2.cvtColor(image.right_data, cv2.COLOR_RGB2GRAY)
-        if right_grey.dtype == np.float:
-            right_grey = np.asarray(255 * right_grey, dtype=np.uint8)
+        left_grey = prepare_image(image.left_data)
+        right_grey = prepare_image(image.right_data)
         self._viso.process_frame(left_grey, right_grey)
         motion = self._viso.getMotion()  # Motion is a 4x4 pose matrix
         np_motion = np.zeros((4, 4))
@@ -114,3 +110,20 @@ def make_relative_pose(frame_delta):
                                      [0, 0, 0, 1]])
     pose = np.dot(np.dot(coordinate_exchange, frame_delta), coordinate_exchange.T)
     return tf.Transform(pose)
+
+
+def prepare_image(image_data):
+    """
+    Process image data ready to input it to libviso2.
+    We expect input images to be greyscale uint8 images, other image types are massaged into that shape
+    :param image_data: A numpy array of image data
+    :return: An uint8 numpy array, intensity range 0-255
+    """
+    output_image = image_data
+    if len(image_data.shape) > 2:
+        output_image = cv2.cvtColor(image_data, cv2.COLOR_RGB2GRAY)
+    if output_image.dtype != np.uint8:
+        if 0.99 < np.max(output_image) <= 1.001:
+            output_image = 255 * output_image
+        output_image = np.asarray(output_image, dtype=np.uint8)
+    return output_image
