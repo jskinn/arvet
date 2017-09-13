@@ -496,7 +496,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             task = task_manager.get_trial_comparison_task(
                                 trial_result1_id=task.result,
                                 trial_result2_id=max_quality_trial,
-                                comparison_id=self._benchmark_feature_diff
+                                comparison_id=self._benchmark_feature_diff,
+                                memory_requirements='6GB',
+                                expected_duration='4:00:00'
                             )
                             if task.is_finished:
                                 if variation_trial_result not in self._result_map:
@@ -535,7 +537,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 task = task_manager.get_run_system_task(
                     system_id=libviso_system.identifier,
                     image_source_id=image_source.identifier,
-                    expected_duration='4:00:00',
+                    expected_duration='8:00:00',
                     memory_requirements='12GB'
                 )
                 if not task.is_finished:
