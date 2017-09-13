@@ -602,16 +602,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         #self._plot_interesting_feature_changes(db_client)
 
         # Step 3 - Plot the changes for each image
-        self._plot_per_image_feature_changes(db_client)
+        #self._plot_per_image_feature_changes(db_client)
 
         # Step 4 - Trajectory visualization: For each system and each trajectory, plot the different paths
         self._plot_trajectories(db_client)
 
         # Step 5 - Aggregation: For each benchmark, compare real-world and different qualities
-        self._plot_aggregate_performance(db_client)
+        #self._plot_aggregate_performance(db_client)
 
         # Step 6 - detailed analysis of performance vs time for each trajectory
-        self._plot_performance_vs_time(db_client)
+        #self._plot_performance_vs_time(db_client)
 
         # final figure configuration, and show the figures
         pyplot.tight_layout()
@@ -917,7 +917,49 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         logging.getLogger(__name__).info("Plotting trajectories...")
         from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plots
         # Make a list of systems and system names to plot.
-        systems = [(self._libviso_system, 'LibVisO 2')]
+        systems = [(self._libviso_system, 'LIBVISO 2')]
+
+        for image_source_id in self._kitti_datasets:
+            # Make the trajectory comparison figure
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("Computed trajectories for {0}".format(image_source_id))
+            ax = figure.add_subplot(111, projection='3d')
+            ax.set_xlabel('x-location')
+            ax.set_ylabel('y-location')
+            ax.set_zlabel('z-location')
+            ax.plot([0], [0], [0], 'ko', label='origin')
+            lower_limit = 0
+            upper_limit = 0
+            added_ground_truth = False
+
+            for system_id, system_name in systems:
+                if (system_id not in self._trial_map or image_source_id not in self._trial_map[system_id]):
+                    # Skip systems that have not run on this image source
+                    continue
+
+                # Plot the max quality trajectory
+                trial_result = dh.load_object(db_client, db_client.trials_collection,
+                                              self._trial_map[system_id][image_source_id])
+                if trial_result is None:
+                    continue
+                if not added_ground_truth:
+                    minp, maxp = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
+                                                 'ground-truth trajectory')
+                    lower_limit = min(lower_limit, minp)
+                    upper_limit = max(upper_limit, maxp)
+                    added_ground_truth = True  # Ground truth trajectory should be the same for all in this group.
+                minp, maxp = plot_trajectory(ax, trial_result.get_computed_camera_poses(),
+                                             'max-quality trajectory for {}'.format(system_name))
+                lower_limit = min(lower_limit, minp)
+                upper_limit = max(upper_limit, maxp)
+            if added_ground_truth:
+                logging.getLogger(__name__).info("... plotted trajectories for {0}".format(image_source_id))
+                ax.legend()
+                ax.set_xlim(lower_limit, upper_limit)
+                ax.set_ylim(lower_limit, upper_limit)
+                ax.set_zlim(lower_limit, upper_limit)
+            else:
+                logging.getLogger(__name__).warning("Failed to get trajectories for {0}".format(image_source_id))
 
         # Trajectory visualization: For each system and each trajectory, plot the different paths
         for trajectory_group in self._trajectory_groups.values():
@@ -946,10 +988,15 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 if trial_result is None:
                     continue
                 if not added_ground_truth:
-                    plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(), 'ground-truth trajectory')
+                    minp, maxp = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
+                                                 'ground-truth trajectory')
+                    lower_limit = min(lower_limit, minp)
+                    upper_limit = max(upper_limit, maxp)
                     added_ground_truth = True  # Ground truth trajectory should be the same for all in this group.
-                plot_trajectory(ax, trial_result.get_computed_camera_poses(),
+                minp, maxp = plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                 'max-quality trajectory for {}'.format(system_name))
+                lower_limit = min(lower_limit, minp)
+                upper_limit = max(upper_limit, maxp)
 
                 # Plot the trajectories for each quality variant. We've only got one right now
                 for variation in trajectory_group.quality_variations:
@@ -960,11 +1007,14 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                                      'min-quality trajectory for {}'.format(system_name))
                         lower_limit = min(lower_limit, minp)
                         upper_limit = max(upper_limit, maxp)
-            logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
-            ax.legend()
-            ax.set_xlim(lower_limit, upper_limit)
-            ax.set_ylim(lower_limit, upper_limit)
-            ax.set_zlim(lower_limit, upper_limit)
+            if added_ground_truth:
+                logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
+                ax.legend()
+                ax.set_xlim(lower_limit, upper_limit)
+                ax.set_ylim(lower_limit, upper_limit)
+                ax.set_zlim(lower_limit, upper_limit)
+            else:
+                logging.getLogger(__name__).warning("Failed to get trajectories for {0}".format(trajectory_group.name))
 
     def _plot_aggregate_performance(self, db_client):
         """
@@ -974,7 +1024,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         import matplotlib.pyplot as pyplot
         logging.getLogger(__name__).info("Plotting aggregate performance...")
         # Make a list of systems and system names to plot.
-        systems = [(self._libviso_system, 'LibVisO 2')]
+        systems = [(self._libviso_system, 'LIBVISO 2')]
 
         # Make a list of benchmarks, names, and lambdas for aggregate statistic extraction
         benchmarks = [
@@ -1062,7 +1112,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         import matplotlib.pyplot as pyplot
         logging.getLogger(__name__).info("Plottng performance over time for all systems...")
         # Make a list of systems and system names to plot.
-        systems = [(self._libviso_system, 'LibVisO 2')]
+        systems = [(self._libviso_system, 'LIBVISO 2')]
 
         # Benchmark results over time, for each trajectory and system
         for system_id, system_name in systems:

@@ -56,6 +56,7 @@ class VisualOdometryResult(core.trial_result.TrialResult):
         current_pose = tf.Transform()
         computed_poses = {}
         for timestamp, delta in pairs:
+            delta = delta.find_relative(tf.Transform())     # Flip the direction from previous pose relative to new
             current_pose = current_pose.find_independent(delta)
             computed_poses[timestamp] = current_pose
         return computed_poses
