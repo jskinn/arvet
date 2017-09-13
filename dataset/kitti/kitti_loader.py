@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os.path
 import numpy as np
 import xxhash
@@ -90,7 +90,11 @@ def import_dataset(root_folder, db_client):
                     environment_type=imeta.EnvironmentType.OUTDOOR_URBAN,
                     light_level=imeta.LightingLevel.WELL_LIT,
                     time_of_day=imeta.TimeOfDay.AFTERNOON,
-                )
+                ),
+                additional_metadata={
+                    'dataset': 'KITTI',
+                    'sequence': sequence_num
+                }
             ), timestamp=timestamp.total_seconds())
         datasets.append(builder.save())
     return datasets
