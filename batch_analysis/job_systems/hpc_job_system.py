@@ -127,6 +127,8 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         job_params = ""
         if num_gpus > 0:
             job_params = GPU_ARGS_TEMPLATE.format(gpus=num_gpus)
+        elif int(memory_requirements.rstrip('MGB')) > 125:
+            job_params = '#PBS -l cputype=E5-2680v3'
         env = ('source ' + quote(self._virtual_env)) if self._virtual_env is not None else ''
 
         # Parameter args
