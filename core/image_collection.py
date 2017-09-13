@@ -197,7 +197,8 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         When I have effective metadata aggregation, read it from that.
         :return:
         """
-        return self._images[min(self._images.keys())].metadata.camera_intrinsics
+        image = self._images[min(self._images.keys())]
+        return image.metadata.camera_intrinsics, (image.metadata.width, image.metadata.height)
 
     def get_stereo_baseline(self):
         """

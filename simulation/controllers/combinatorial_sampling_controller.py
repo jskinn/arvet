@@ -140,7 +140,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Get the camera intrinsics from the simulator
         :return:
         """
-        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None
+        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None, (0, 0)
 
     def get_stereo_baseline(self):
         """

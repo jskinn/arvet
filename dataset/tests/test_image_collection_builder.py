@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import numpy as np
@@ -56,7 +56,7 @@ class MockImageSource(core.image_source.ImageSource):
         return None
 
     def get_camera_intrinsics(self):
-        return None
+        return None, (0, 0)
 
     @property
     def is_per_pixel_labels_available(self):

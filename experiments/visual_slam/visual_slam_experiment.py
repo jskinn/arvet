@@ -1271,7 +1271,7 @@ class PlaceholderImageCollection(core.image_source.ImageSource):
         return True
 
     def get_camera_intrinsics(self):
-        return cam_intr.CameraIntrinsics(fx=1, fy=1, cx=0.5, cy=0.5)
+        return cam_intr.CameraIntrinsics(fx=1, fy=1, cx=0.5, cy=0.5), (640, 480)
 
     @property
     def sequence_type(self):

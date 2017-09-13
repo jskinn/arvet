@@ -33,15 +33,16 @@ class LibVisOSystem(core.system.VisionSystem):
     def is_deterministic(self):
         return True
 
-    def set_camera_intrinsics(self, camera_intrinsics):
+    def set_camera_intrinsics(self, camera_intrinsics, resolution):
         """
         Set the camera intrinisics for libviso2
-        :param camera_intrinsics:
+        :param camera_intrinsics: The camera intrinsics, relative to the image resolution
+        :param resolution: The image resolution
         :return:
         """
-        self._focal_distance = float(camera_intrinsics.fx)
-        self._cu = float(camera_intrinsics.cx)
-        self._cv = float(camera_intrinsics.cy)
+        self._focal_distance = float(camera_intrinsics.fx * resolution[0])
+        self._cu = float(camera_intrinsics.cx * resolution[0])
+        self._cv = float(camera_intrinsics.cy * resolution[1])
 
     def set_stereo_baseline(self, baseline):
         """

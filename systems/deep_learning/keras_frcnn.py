@@ -293,7 +293,7 @@ class KerasFRCNN(core.trained_system.TrainedVisionSystem):
         """
         return image_source.is_stored_in_database and image_source.is_labels_available
 
-    def set_camera_intrinsics(self, camera_intrinsics):
+    def set_camera_intrinsics(self, camera_intrinsics, resolution):
         """
         Set the camera intrinsics. Maybe want to unwarp images before input or something.
         :param camera_intrinsics:

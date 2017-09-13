@@ -203,11 +203,11 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         if self._resolution[0] > self._resolution[1]:  # Wider than tall, fov is horizontal FOV
             return cam_intr.CameraIntrinsics(focal_length,
                                              focal_length * (self._resolution[0] / self._resolution[1]),
-                                             0.5, 0.5)
+                                             0.5, 0.5), self._resolution
         else:  # Taller than wide, fov is vertical fov
             return cam_intr.CameraIntrinsics(focal_length * (self._resolution[1] / self._resolution[0]),
                                              focal_length,
-                                             0.5, 0.5)
+                                             0.5, 0.5), self._resolution
 
     def begin(self):
         """
@@ -608,7 +608,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                     depth_data = simulation.depth_noise.generate_depth_noise(
                         ground_truth_depth_data,
                         right_ground_truth_depth_data,
-                        self.get_camera_intrinsics(),
+                        self.get_camera_intrinsics()[0],
                         right_relative_pose,
                         self._depth_noise_quality)
                 if self.is_per_pixel_labels_available:
@@ -648,7 +648,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         #     fov = self._client.request('vget /camera/0/fov')
         #     focus_length = self._client.request('vget /camera/0/focus-distance')
         #     aperture = self._client.request('vget /camera/0/fstop')
-        camera_intrinsics = self.get_camera_intrinsics()
+        camera_intrinsics, _ = self.get_camera_intrinsics()
 
         labelled_objects = []
         if label_data is not None:

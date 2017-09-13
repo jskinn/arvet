@@ -135,7 +135,7 @@ class ORBSLAM2(core.system.VisionSystem):
             (self._mode == SensorMode.STEREO and image_source.is_stereo_available) or
             (self._mode == SensorMode.RGBD and image_source.is_depth_available)))
 
-    def set_camera_intrinsics(self, camera_intrinsics):
+    def set_camera_intrinsics(self, camera_intrinsics, resolution):
         """
         Set the intrinsics of the camera using
         :param camera_intrinsics: A metadata.camera_intrinsics.CameraIntriniscs object

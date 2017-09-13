@@ -35,11 +35,12 @@ class VisionSystem(database.entity.Entity, metaclass=database.entity.AbstractEnt
         pass
 
     @abc.abstractmethod
-    def set_camera_intrinsics(self, camera_intrinsics):
+    def set_camera_intrinsics(self, camera_intrinsics, resolution):
         """
         Set the intrinsics used by this image source to process images.
         Many systems take this as configuration.
         :param camera_intrinsics: A camera intrinsics object.
+        :param resolution: The image resolution
         :return:
         """
         pass
