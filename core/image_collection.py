@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import abc
 import numpy as np
 import logging
@@ -6,6 +6,9 @@ import database.entity
 import core.image
 import core.sequence_type
 import core.image_source
+import metadata.camera_intrinsics as cam_intr
+import util.database_helpers as dh
+import util.transform as tf
 
 
 class ImageCollection(core.image_source.ImageSource, database.entity.Entity, metaclass=abc.ABCMeta):
@@ -14,7 +17,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     This can be a sequential set of images like a video, or a random sampling of different pictures.
     """
 
-    def __init__(self, images, type_, id_=None, **kwargs):
+    def __init__(self, images, type_, db_client_, id_=None, **kwargs):
         super().__init__(id_=id_, **kwargs)
 
         self._images = images
@@ -24,23 +27,60 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
             self._sequence_type = type_
         else:
             self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-
-        self._is_depth_available = len(images) > 0 and all(
-            hasattr(image, 'depth_data') and image.depth_data is not None for image in images.values())
-        self._is_labels_image_available = len(images) > 0 and all(
-            hasattr(image, 'labels_data') and image.labels_data is not None for image in images.values())
-        self._is_bboxes_available = len(images) > 0 and all(
-            hasattr(image, 'metadata') and hasattr(image.metadata, 'labelled_objects') and
-            len(image.metadata.labelled_objects) > 0 for image in images.values())
-        self._is_normals_available = len(images) > 0 and all(
-            hasattr(image, 'labels_data') and image.world_normals_data is not None for image in images.values())
-        self._is_stereo_available = len(images) > 0 and all(
-            hasattr(image, 'left_data') and image.left_data is not None and
-            hasattr(image, 'right_data') and image.right_data is not None
-            for image in images.values())
-
         self._timestamps = sorted(self._images.keys())
         self._current_index = 0
+
+        self._db_client = db_client_
+        if len(images) > 0:
+            image_ids = list(images.values())
+            self._is_depth_available = (db_client_.image_collection.find({
+                '_id': {'$in': image_ids},
+                'depth_data': None,
+                'left_depth_data': None,
+            }).count() <= 0)
+            self._is_labels_image_available = (db_client_.image_collection.find({
+                '_id': {'$in': image_ids},
+                'labels_data': None,
+                'left_labels_data': None
+            }).count() <= 0)
+            self._is_bboxes_available = (db_client_.image_collection.find({
+                '_id': {'$in': image_ids},
+                'metadata.labelled_objects': []
+            }).count() <= 0)
+            self._is_normals_available = (db_client_.image_collection.find({
+                '_id': {'$in': image_ids},
+                'world_normals_data': None,
+                'left_world_normals_data': None
+            }).count() <= 0)
+            self._is_stereo_available = (db_client_.image_collection.find({
+                '_id': {'$in': image_ids},
+                'left_data': None,
+                'right_data': None
+            }).count() <= 0)
+        else:
+            self._is_depth_available = False
+            self._is_labels_image_available = False
+            self._is_bboxes_available = False
+            self._is_normals_available = False
+            self._is_stereo_available = False
+
+        # Get some metadata from the first image in the collection
+        s_first_image = db_client_.image_collection.find_one({'_id': images[self._timestamps[0]]}, {
+            'metadata.width': True,
+            'metadata.height': True,
+            'metadata.intrinsics': True,
+            'metadata.camera_pose': True,
+            'metadata.right_camera_pose': True
+        })
+        self._camera_intrinsics = cam_intr.CameraIntrinsics.deserialize(s_first_image['metadata']['intrinsics'])
+        self._resolution = (s_first_image['metadata']['width'], s_first_image['metadata']['height'])
+        self._stereo_baseline = None
+        if (self.is_stereo_available and
+                'camera_pose' in s_first_image['metadata'] and
+                'right_camera_pose' in s_first_image['metadata']):
+            camera_pose = tf.Transform.deserialize(s_first_image['metadata']['camera_pose'])
+            right_camera_pose = tf.Transform.deserialize(s_first_image['metadata']['right_camera_pose'])
+            self._stereo_baseline = np.linalg.norm(camera_pose.location - right_camera_pose.location)
 
     def __len__(self):
         """
@@ -104,7 +144,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return:
         """
         if index in self._images:
-            return self._images[index]
+            return dh.load_object(self._db_client, self._db_client.image_collection, self._images[index])
         return None
 
     def get_next_image(self):
@@ -117,9 +157,9 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         """
         if not self.is_complete():
             timestamp = self._timestamps[self._current_index]
-            result = self._images[timestamp]
+            image = self.get(timestamp)
             self._current_index += 1
-            return result, timestamp
+            return image, timestamp
         return None, None
 
     def is_complete(self):
@@ -197,19 +237,14 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         When I have effective metadata aggregation, read it from that.
         :return:
         """
-        image = self._images[min(self._images.keys())]
-        return image.metadata.camera_intrinsics, (image.metadata.width, image.metadata.height)
+        return self._camera_intrinsics, self._resolution
 
     def get_stereo_baseline(self):
         """
         Get the distance between the stereo cameras, or None if the images in this collection are not stereo.
         :return:
         """
-        min_timestamp = min(self._images.keys())
-        if not self.is_stereo_available or not isinstance(self._images[min_timestamp], core.image.StereoImage):
-            return None
-        dist = self._images[min_timestamp].left_camera_location - self._images[min_timestamp].right_camera_location
-        return np.linalg.norm(dist)
+        return self._stereo_baseline
 
     def validate(self):
         """
@@ -247,15 +282,12 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         :return: A deserialized 
         """
         if 'images' in serialized_representation:
-            s_images = db_client.image_collection.find({
-                '_id': {'$in': [img_id for _, img_id in serialized_representation['images']]}
-            })
-            image_map = {s_image['_id']: db_client.deserialize_entity(s_image) for s_image in s_images}
-            kwargs['images'] = {stamp: image_map[img_id] for stamp, img_id in serialized_representation['images']}
+            kwargs['images'] = {stamp: img_id for stamp, img_id in serialized_representation['images']}
         if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] == 'SEQ':
             kwargs['type_'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
             kwargs['type_'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+        kwargs['db_client_'] = db_client
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
     @classmethod
