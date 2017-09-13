@@ -52,8 +52,7 @@ class VisualOdometryResult(core.trial_result.TrialResult):
         the trajectory from there, assuming
         :return:
         """
-        pairs = [(timestamp, pose) for timestamp, pose in self.frame_deltas.items()]
-        pairs.sort()
+        pairs = sorted((timestamp, pose) for timestamp, pose in self.frame_deltas.items())
         current_pose = tf.Transform()
         computed_poses = {}
         for timestamp, delta in pairs:

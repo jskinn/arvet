@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import numpy as np
 import cv2  # TODO: Replace with a lighter library, maybe pillow
 import viso2 as libviso2
@@ -129,3 +129,37 @@ def prepare_image(image_data):
             output_image = 255 * output_image
         output_image = np.asarray(output_image, dtype=np.uint8)
     return output_image
+
+
+def visualize(image, motion):
+    estimated_delta = make_relative_pose(motion)
+    #if self._prev_camera_pose is None:
+    #    gt_delta = tf.Transform((0, 0, 0))
+    #else:
+    #    gt_delta = image.camera_pose.find_relative(self._prev_camera_pose)
+
+    to_deg = 180 / np.pi
+    text_estimated_angle = "roll: {0:2.2f}, pitch: {1:2.2f}, yaw: {2:2.2f}".format(estimated_delta.euler[0] * to_deg,
+                                                                                   estimated_delta.euler[1] * to_deg,
+                                                                                   estimated_delta.euler[2] * to_deg)
+    #text_gt_angle = "roll: {0:2.2f}, pitch: {1:2.2f}, yaw: {2:2.2f}".format(gt_delta.euler[0] * to_deg,
+    #                                                                        gt_delta.euler[1] * to_deg,
+    #                                                                        gt_delta.euler[2] * to_deg)
+    text_estimated = "x: {0:2.2f}, y: {1:2.2f}, z: {2:2.2f}".format(estimated_delta.location[0],
+                                                                    estimated_delta.location[1],
+                                                                    estimated_delta.location[2])
+    #text_gt = "x: {0:2.2f}, y: {1:2.2f}, z: {2:2.2f}".format(gt_delta.location[0],
+    #                                                         gt_delta.location[1],
+    #                                                         gt_delta.location[2])
+
+    cv2.putText(image, text_estimated, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+    cv2.putText(image, text_estimated, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+    cv2.putText(image, text_estimated_angle, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+    cv2.putText(image, text_estimated_angle, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+    #cv2.putText(image, text_gt, (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+    #cv2.putText(image, text_gt, (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+    #cv2.putText(image, text_gt_angle, (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+    #cv2.putText(image, text_gt_angle, (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+
+    cv2.imshow('left', image)
+    cv2.waitKey(1000)
