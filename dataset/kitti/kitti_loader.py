@@ -60,13 +60,13 @@ def import_dataset(root_folder, db_client):
             camera_intrinsics = intrins.CameraIntrinsics(
                 fx=data.calib.K_cam2[0, 0] / left_image.shape[1],
                 fy=data.calib.K_cam2[1, 1] / left_image.shape[0],
-                cx=data.calib.K_cam2[2, 0] / left_image.shape[1],
-                cy=data.calib.K_cam2[2, 1] / left_image.shape[0])
+                cx=data.calib.K_cam2[0, 2] / left_image.shape[1],
+                cy=data.calib.K_cam2[1, 2] / left_image.shape[0])
             right_camera_intrinsics = intrins.CameraIntrinsics(
                 fx=data.calib.K_cam3[0, 0] / right_image.shape[1],
                 fy=data.calib.K_cam3[1, 1] / right_image.shape[0],
-                cx=data.calib.K_cam3[2, 0] / right_image.shape[1],
-                cy=data.calib.K_cam3[2, 1] / right_image.shape[0])
+                cx=data.calib.K_cam3[0, 2] / right_image.shape[1],
+                cy=data.calib.K_cam3[1, 2] / right_image.shape[0])
             # Focal distance and sensor horizontal distance form a triangle,
             # with tan(fov) = sensor width / focal distance
             # We take the largest width from the principal point as the opposite edge, to produce the largest angle
