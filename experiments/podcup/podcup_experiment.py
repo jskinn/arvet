@@ -18,10 +18,18 @@ import benchmarks.bounding_box_overlap.bounding_box_overlap_result as overlap_re
 class PodCupExperiment(batch_analysis.experiment.Experiment):
     """
     My experiment for testing the detection of cups in pods.
+    This is an old structure, don't emulate this
     """
     def __init__(self, training_data_names=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._training_data_names = training_data_names if training_data_names is not None else {}
+
+    def do_imports(self, task_manager, db_client):
+        self.import_trainers(db_client)
+        self.import_trainees(db_client)
+        self.import_image_sources(task_manager, db_client)
+        self.import_systems(db_client)
+        self.import_benchmarks(db_client)
 
     def import_trainers(self, db_client):
         """
