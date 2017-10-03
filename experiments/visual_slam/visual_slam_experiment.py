@@ -545,7 +545,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_trajectory_drift),
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_tracking)
         ]
-        datasets = set(self._kitti_datasets) | self._tum_manager.all_datasets
+        datasets = set(self._kitti_datasets) | self._tum_manager.all_datasets | set(self._euroc_datasets.values())
         for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
         system_trials = set()
@@ -629,10 +629,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         #self._plot_per_image_feature_changes(db_client)
 
         # Step 4 - Trajectory visualization: For each system and each trajectory, plot the different paths
-        self._plot_trajectories(db_client)
+        #self._plot_trajectories(db_client)
 
         # Step 5 - Aggregation: For each benchmark, compare real-world and different qualities
-        #self._plot_aggregate_performance(db_client)
+        self._plot_aggregate_performance(db_client)
 
         # Step 6 - detailed analysis of performance vs time for each trajectory
         #self._plot_performance_vs_time(db_client)
@@ -943,7 +943,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Make a list of systems and system names to plot.
         systems = [(self._libviso_system, 'LIBVISO 2')]
 
-        for image_source_id in self._kitti_datasets:
+        # Plot Real-world datasets
+        for image_source_id in set(self._kitti_datasets) | set(self._euroc_datasets.values()):
             # Make the trajectory comparison figure
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
             figure.suptitle("Computed trajectories for {0}".format(image_source_id))
@@ -1063,7 +1064,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         ]
 
         # Make a list of real-world datasets
-        real_world_datasets = self._kitti_datasets | self._tum_manager.all_datasets
+        real_world_datasets = self._kitti_datasets | self._tum_manager.all_datasets | set(self._euroc_datasets.values())
 
         # Step 3 - Aggregation: For each benchmark, compare real-world and different qualities
         for benchmark_id, benchmark_name, values_list_getter in benchmarks:
