@@ -176,7 +176,7 @@ class TrajectoryGroup:
 class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
     def __init__(self, feature_detectors=None, libviso_system=None, orbslam_systems=None,
-                 tum_manager=None, kitti_datasets=None,
+                 tum_manager=None, kitti_datasets=None, euroc_datasets=None,
                  simulators=None, flythrough_controller=None, trajectory_groups=None,
                  benchmark_feature_diff=None,
                  benchmark_rpe=None, benchmark_ate=None, benchmark_trajectory_drift=None, benchmark_tracking=None,
@@ -189,6 +189,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # Real-world image sources
         self._kitti_datasets = set(kitti_datasets) if kitti_datasets is not None else set()
+        self._euroc_datasets = dict(euroc_datasets) if euroc_datasets is not None else {}
         if isinstance(tum_manager, dataset.tum.tum_manager.TUMManager):
             self._tum_manager = tum_manager
         else:
@@ -238,6 +239,27 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             self._add_to_set('kitti_datasets', task.result)
         else:
             task_manager.do_task(task)
+
+        # Import EuRoC datasets
+        for path in [
+            os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_01_easy')),
+            os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_04_difficult'))
+        ]:
+            path_key = path.replace('/', '_')
+            if path_key not in self._euroc_datasets and os.path.isdir(path):
+                task = task_manager.get_import_dataset_task(
+                    module_name='dataset.euroc.euroc_loader',
+                    path=path,
+                    num_cpus=1,
+                    num_gpus=0,
+                    memory_requirements='3GB',
+                    expected_duration='4:00:00'
+                )
+                if task.is_finished:
+                    self._euroc_datasets[path_key] = task.result
+                    self._set_property('euroc_datasets.{0}'.format(path_key), task.result)
+                else:
+                    task_manager.do_task(task)
 
         # Import TUM datasets using the manager
         #self._tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
@@ -1201,6 +1223,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Real-world datasets
         serialized['kitti_datasets'] = list(self._kitti_datasets)
         serialized['tum_datasets'] = self._tum_manager.serialize()
+        serialized['euroc_datasets'] = self._euroc_datasets
 
         # Generated Datasets
         serialized['simulators'] = self._simulators
@@ -1238,6 +1261,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if 'tum_datasets' in serialized_representation:
             kwargs['tum_manager'] = dataset.tum.tum_manager.TUMManager.deserialize(
                 serialized_representation['tum_datasets'])
+        if 'euroc_datasets' in serialized_representation:
+            kwargs['euroc_datasets'] = serialized_representation['euroc_datasets']
 
         # Generated datasets
         if 'simulators' in serialized_representation:
