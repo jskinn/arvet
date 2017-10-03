@@ -626,7 +626,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         #self._plot_interesting_feature_changes(db_client)
 
         # Step 3 - Plot the changes for each image
-        #self._plot_per_image_feature_changes(db_client)
+        self._plot_per_image_feature_changes(db_client)
 
         # Step 4 - Trajectory visualization: For each system and each trajectory, plot the different paths
         #self._plot_trajectories(db_client)
@@ -637,9 +637,10 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         # Step 6 - detailed analysis of performance vs time for each trajectory
         #self._plot_performance_vs_time(db_client)
 
+        # Step 7 - detailed analysis of performance vs time for each trajectory
+        #self._plot_performance_vs_motion(db_client)
+
         # final figure configuration, and show the figures
-        pyplot.tight_layout()
-        pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
 
     def _load_image_source(self, db_client, image_source_id):
@@ -743,6 +744,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     ax.imshow(image.data)
                     ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
                     ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
 
     def _plot_interesting_feature_changes(self, db_client):
         """
@@ -778,31 +781,43 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         benchmark_result_id = self._result_map[trial_result_id][self._benchmark_feature_diff]
                         benchmark_result = dh.load_object(db_client, db_client.results_collection, benchmark_result_id)
                         for image_changes in benchmark_result.changes:
-                            iou = len(image_changes['point_matches']) / (len(image_changes['point_matches']) +
-                                                                         len(image_changes['new_trial_points']) +
-                                                                         len(image_changes['missing_reference_points']))
-                            points = (image_changes['trial_image_id'],
-                                      image_changes['point_matches'],
-                                      image_changes['new_trial_points'],
-                                      image_changes['missing_reference_points'])
-                            if iou > highest_iou:
-                                highest_iou = iou
-                                highest_iou_points = points
-                            if iou < lowest_iou:
-                                lowest_iou = iou
-                                lowest_iou_points = points
-                            if len(image_changes['missing_reference_points']) > most_missing:
-                                most_missing = len(image_changes['missing_reference_points'])
-                                most_missing_points = points
-                            if len(image_changes['missing_reference_points']) < least_missing:
-                                least_missing = len(image_changes['missing_reference_points'])
-                                least_missing_points = points
-                            if len(image_changes['new_trial_points']) > most_new:
-                                most_new = len(image_changes['new_trial_points'])
-                                most_new_points = points
-                            if len(image_changes['new_trial_points']) < least_new:
-                                least_new = len(image_changes['new_trial_points'])
-                                least_new_points = points
+                            union = (len(image_changes['point_matches']) +
+                                     len(image_changes['new_trial_points']) +
+                                     len(image_changes['missing_reference_points']))
+                            if union > 0:   # images with no features are not interesting
+                                iou = len(image_changes['point_matches']) / union
+                                points = (image_changes['trial_image_id'],
+                                          image_changes['point_matches'],
+                                          image_changes['new_trial_points'],
+                                          image_changes['missing_reference_points'])
+                                if iou is not None and iou > highest_iou:
+                                    highest_iou = iou
+                                    highest_iou_points = points
+                                if iou is not None and iou < lowest_iou:
+                                    lowest_iou = iou
+                                    lowest_iou_points = points
+                                if len(image_changes['missing_reference_points']) > most_missing:
+                                    most_missing = len(image_changes['missing_reference_points'])
+                                    most_missing_points = (
+                                        image_changes['reference_image_id'],
+                                        image_changes['point_matches'],
+                                        image_changes['new_trial_points'],
+                                        image_changes['missing_reference_points']
+                                    )
+                                if len(image_changes['missing_reference_points']) < least_missing:
+                                    least_missing = len(image_changes['missing_reference_points'])
+                                    least_missing_points = (
+                                        image_changes['reference_image_id'],
+                                        image_changes['point_matches'],
+                                        image_changes['new_trial_points'],
+                                        image_changes['missing_reference_points']
+                                    )
+                                if len(image_changes['new_trial_points']) > most_new:
+                                    most_new = len(image_changes['new_trial_points'])
+                                    most_new_points = points
+                                if len(image_changes['new_trial_points']) < least_new:
+                                    least_new = len(image_changes['new_trial_points'])
+                                    least_new_points = points
                     logging.getLogger(__name__).info("... searched trajectory {0}".format(trajectory_group.name))
 
             # Show the selected outstanding example images
@@ -821,8 +836,21 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                     figure.suptitle(name)
                     ax = figure.add_subplot(111)
                     ax.imshow(image.data)
-                    ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go')
-                    ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx')
+                    ax.plot([match[0][0] for match in matches], [match[0][1] for match in matches], 'go',
+                            markersize=2)
+                    if 'lost' in name or 'IoU' in name:
+                        ax.plot([point[0] for point in missing_reference], [point[1] for point in missing_reference],
+                                'bx',markersize=2)
+                    if 'new' in name or 'IoU' in name:
+                        ax.plot([point[0] for point in missing_trial], [point[1] for point in missing_trial], 'rx',
+                                markersize=2)
+                    pyplot.setp(ax.get_yticklabels(), visible=False)
+                    pyplot.setp(ax.get_yticklines(), visible=False)
+                    pyplot.setp(ax.get_yticklines()[1::2], visible=False)
+                    pyplot.setp(ax.get_xticklabels(), visible=False)
+                    pyplot.setp(ax.get_xticklines(), visible=False)
+                    pyplot.setp(ax.get_xticklines()[1::2], visible=False)
+
 
     def _plot_per_image_feature_changes(self, db_client):
         """
@@ -874,61 +902,77 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             changes = np.array(changes)
             grouped_changes = np.array(grouped_changes)
 
-            figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("Number of changes for {0}".format(detector_name))
-            ax = figure.add_subplot(111)
-            ax.set_xlabel('number of features')
-            ax.set_ylabel('image')
-            #ax.fill_between(x, changes[:, 0], color='b', label='matching features')
-            ax.fill_betweenx(np.arange(len(grouped_changes)), -1 * grouped_changes[:, 0] / 2,
-                             grouped_changes[:, 1] + grouped_changes[:, 0] / 2, where=where,
-                             color='b', label='low-quality features', alpha=0.3)
-            ax.fill_betweenx(np.arange(len(grouped_changes)), -1 * grouped_changes[:, 2] - grouped_changes[:, 0] / 2,
-                             grouped_changes[:, 0] / 2, where=where,
-                             color='r', label='high-quality features', alpha=0.3)
-            for point, label in annotations:
-                ax.annotate(label, xy=point)
+            # figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            # figure.suptitle("Number of changes for {0}".format(detector_name))
+            # ax = figure.add_subplot(111)
+            # ax.set_xlabel('number of features')
+            # ax.set_ylabel('image')
+            # #ax.fill_between(x, changes[:, 0], color='b', label='matching features')
+            # ax.fill_betweenx(np.arange(len(grouped_changes)), -1 * grouped_changes[:, 0] / 2,
+            #                  grouped_changes[:, 1] + grouped_changes[:, 0] / 2, where=where,
+            #                  color='b', label='low-quality features', alpha=0.3)
+            # ax.fill_betweenx(np.arange(len(grouped_changes)), -1 * grouped_changes[:, 2] - grouped_changes[:, 0] / 2,
+            #                  grouped_changes[:, 0] / 2, where=where,
+            #                  color='r', label='high-quality features', alpha=0.3)
+            # for point, label in annotations:
+            #     ax.annotate(label, xy=point)
 
-            # Plot just the total new/missing
+            # # Plot just the total new/missing
+            # figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            # figure.suptitle("{0} total new/missing features".format(detector_name))
+            # ax = figure.add_subplot(111)
+            # ax.set_xlabel('image')
+            # ax.set_ylabel('number of features')
+            # ax.plot(x, changes[:, 1], label='new low-quality features', linewidth=1)
+            # ax.plot(x, changes[:, 2], label='missing high-quality features', linewidth=1)
+            # ax.legend()
+            #
+            # # Plot the relative number of new missing
+            # figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            # figure.suptitle("{0} fraction of features matched".format(detector_name))
+            # ax = figure.add_subplot(111)
+            # ax.set_xlabel('image')
+            # ax.set_ylabel('fraction of features')
+            # ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
+            #         label='fraction of low-quality features', linewidth=1)
+            # ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]),
+            #         label='fraction of high-quality features', linewidth=1)
+            # ax.legend()
+
+            # Plot total image features
             figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("{0} total new/missing features".format(detector_name))
+            figure.suptitle("{0} total features".format(detector_name))
             ax = figure.add_subplot(111)
             ax.set_xlabel('image')
             ax.set_ylabel('number of features')
-            ax.plot(x, changes[:, 1], label='new low-quality features', linewidth=1)
-            ax.plot(x, changes[:, 2], label='missing high-quality features', linewidth=1)
+            ax.plot(x, changes[:, 0] + changes[:, 1], label='High quality features', linewidth=0.1)
+            ax.plot(x, changes[:, 0] + changes[:, 2], label='Low quality features', linewidth=0.1)
             ax.legend()
-
-            # Plot the relative number of new missing
-            figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("{0} fraction of features matched".format(detector_name))
-            ax = figure.add_subplot(111)
-            ax.set_xlabel('image')
-            ax.set_ylabel('fraction of features')
-            ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
-                    label='fraction of low-quality features', linewidth=1)
-            ax.plot(x, np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]),
-                    label='fraction of high-quality features', linewidth=1)
-            ax.legend()
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
 
             # Plot precision/recall, just because
-            figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("{0} precision/recall".format(detector_name))
-            ax = figure.add_subplot(111)
-            ax.set_xlabel('fraction of low-quality features')
-            ax.set_ylabel('fraction of high-quality features')
-            ax.plot(np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
-                    np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]), 'bo', markersize=0.5)
+            #figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            #figure.suptitle("{0} fraction of features matched".format(detector_name))
+            #ax = figure.add_subplot(111)
+            #ax.set_xlabel('fraction of low-quality features')
+            #ax.set_ylabel('fraction of high-quality features')
+            #ax.set_xlim(0, 1)
+            #ax.set_ylim(0, 1)
+            #ax.plot(np.divide(changes[:, 0], changes[:, 0] + changes[:, 1]),
+            #        np.divide(changes[:, 0], changes[:, 0] + changes[:, 2]), 'bo', markersize=0.5)
+            #pyplot.tight_layout()
+            #pyplot.subplots_adjust(top=0.95, right=0.99)
 
-            # Plot IoU
-            figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("{0} Intersection over Union".format(detector_name))
-            ax = figure.add_subplot(111)
-            ax.set_xlabel('image')
-            ax.set_ylabel('Intersection over Union')
-            y = np.divide(changes[:, 0], np.sum(changes, axis=1))
-            y.sort()
-            ax.plot(x, y, linewidth=1)
+            # # Plot IoU
+            # figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            # figure.suptitle("{0} Intersection over Union".format(detector_name))
+            # ax = figure.add_subplot(111)
+            # ax.set_xlabel('image')
+            # ax.set_ylabel('Intersection over Union')
+            # y = np.divide(changes[:, 0], np.sum(changes, axis=1))
+            # y.sort()
+            # ax.plot(x, y, linewidth=1)
 
     def _plot_trajectories(self, db_client):
         """
@@ -985,6 +1029,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 ax.set_zlim(lower_limit, upper_limit)
             else:
                 logging.getLogger(__name__).warning("Failed to get trajectories for {0}".format(image_source_id))
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
 
         # Trajectory visualization: For each system and each trajectory, plot the different paths
         for trajectory_group in self._trajectory_groups.values():
@@ -1040,6 +1086,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 ax.set_zlim(lower_limit, upper_limit)
             else:
                 logging.getLogger(__name__).warning("Failed to get trajectories for {0}".format(trajectory_group.name))
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
 
     def _plot_aggregate_performance(self, db_client):
         """
@@ -1090,8 +1138,16 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                 real_world_results += values_list_getter(benchmark_result)
 
                 # Add results for synthetic data
+                # Count half the max-quality from half the paths, and reduced quality from the other half
+                use_max_quality_list = [i < len(self._trajectory_groups) / 2
+                                        for i in range(len(self._trajectory_groups))]
+                np.random.shuffle(use_max_quality_list)
+                use_max_quality_index = 0
                 for trajectory_group in self._trajectory_groups.values():
-                    if trajectory_group.max_quality_id in self._trial_map[system_id]:
+                    use_max_quality = use_max_quality_list[use_max_quality_index]
+                    use_max_quality_index += 1
+
+                    if use_max_quality and trajectory_group.max_quality_id in self._trial_map[system_id]:
                         trial_result_id = self._trial_map[system_id][trajectory_group.max_quality_id]
                         if trial_result_id in self._result_map and benchmark_id in self._result_map[trial_result_id]:
                             benchmark_result = dh.load_object(db_client, db_client.results_collection,
@@ -1101,17 +1157,18 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                             else:
                                 max_quality_results += values_list_getter(benchmark_result)
 
-                    for variation in trajectory_group.quality_variations:
-                        if variation['dataset'] in self._trial_map[system_id]:
-                            trial_result_id = self._trial_map[system_id][variation['dataset']]
-                            if (trial_result_id in self._result_map and
-                                    benchmark_id in self._result_map[trial_result_id]):
-                                benchmark_result = dh.load_object(db_client, db_client.results_collection,
-                                                                  self._result_map[trial_result_id][benchmark_id])
-                                if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
-                                    print(benchmark_result.reason)
-                                else:
-                                    min_quality_results += values_list_getter(benchmark_result)
+                    if not use_max_quality:
+                        for variation in trajectory_group.quality_variations:
+                            if variation['dataset'] in self._trial_map[system_id]:
+                                trial_result_id = self._trial_map[system_id][variation['dataset']]
+                                if (trial_result_id in self._result_map and
+                                        benchmark_id in self._result_map[trial_result_id]):
+                                    benchmark_result = dh.load_object(db_client, db_client.results_collection,
+                                                                      self._result_map[trial_result_id][benchmark_id])
+                                    if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                                        print(benchmark_result.reason)
+                                    else:
+                                        min_quality_results += values_list_getter(benchmark_result)
 
                 data.append(real_world_results)
                 labels.append('{} - Real world'.format(system_name))
@@ -1126,6 +1183,8 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             ax = figure.add_subplot(111)
             ax.boxplot(data)
             ax.set_xticklabels(labels)
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
 
     def _plot_performance_vs_time(self, db_client):
         """
@@ -1213,6 +1272,150 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                                     times = sorted(benchmark_result.translational_error.keys())
                                     ate_ax.plot(times, [benchmark_result.translational_error[time] for time in times],
                                                 label='Min quality')
+
+    def _plot_performance_vs_motion(self, db_client):
+        """
+        Detailed plot of
+        :param db_client:
+        :return:
+        """
+        import matplotlib.pyplot as pyplot
+        logging.getLogger(__name__).info("Plottng performance vs motion type for all systems...")
+        # Make a list of systems and system names to plot.
+        systems = [(self._libviso_system, 'LIBVISO 2')]
+
+        # Make a list of benchmarks, names, and lambdas for aggregate statistic extraction
+        benchmarks = [
+            (self._benchmark_rpe, 'Relative Pose Error (Translation)', lambda r: r.translational_error.items()),
+            #(self._benchmark_rpe, 'Relative Pose Error (Rotation)', lambda r: r.rotational_error.items()),
+            #(self._benchmark_ate, 'Absolute Trajectory Error', lambda r: r.translational_error.items()),
+        ]
+
+        real_world_datasets = self._kitti_datasets
+
+        # Benchmark results over time, for each trajectory and system
+        for system_id, system_name in systems:
+            if system_id not in self._trial_map:  # Skip systems with no trials
+                continue
+            for benchmark_id, benchmark_name, error_getter  in benchmarks:
+                # Make figures for each motion type
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("{0} {1} over time.".format(system_name, benchmark_name))
+                x_ax = figure.add_subplot(231)
+                x_ax.set_xlabel('x motion')
+                x_ax.set_ylabel('Relative Pose Error (translational)')
+                y_ax = figure.add_subplot(232)
+                y_ax.set_xlabel('y motion')
+                y_ax.set_ylabel('Relative Pose Error (translational)')
+                z_ax = figure.add_subplot(233)
+                z_ax.set_xlabel('z motion')
+                z_ax.set_ylabel('Relative Pose Error (translational)')
+                roll_ax = figure.add_subplot(234)
+                roll_ax.set_xlabel('roll')
+                roll_ax.set_ylabel('Relative Pose Error (translational)')
+                pitch_ax = figure.add_subplot(235)
+                pitch_ax.set_xlabel('pitch')
+                pitch_ax.set_ylabel('Relative Pose Error (translational)')
+                yaw_ax = figure.add_subplot(236)
+                yaw_ax.set_xlabel('yaw')
+                yaw_ax.set_ylabel('Relative Pose Error (translational)')
+
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("{0} {1} over time.".format(system_name, benchmark_name))
+                x_ax2 = figure.add_subplot(131)
+                x_ax2.set_xlabel('x motion')
+                x_ax2.set_ylabel('Relative Pose Error (translational)')
+                y_ax2 = figure.add_subplot(132)
+                y_ax2.set_xlabel('y motion')
+                y_ax2.set_ylabel('Relative Pose Error (translational)')
+                z_ax2 = figure.add_subplot(133)
+                z_ax2.set_xlabel('z motion')
+                z_ax2.set_ylabel('Relative Pose Error (translational)')
+
+                x_box_real_world = []
+                x_box_max = []
+                x_box_min = []
+                y_box_real_world = []
+                y_box_max = []
+                y_box_min = []
+                z_box_real_world = []
+                z_box_max = []
+                z_box_min = []
+                for real_world_id in real_world_datasets:
+                    x, y, z, roll, pitch, yaw, error = create_motion_vs_error_series(
+                        db_client, system_id, real_world_id, benchmark_id,
+                        self._trial_map, self._result_map, error_getter)
+                    x_ax.plot(x, error, 'go', markersize=0.1)
+                    y_ax.plot(y, error, 'go', markersize=0.1)
+                    z_ax.plot(z, error, 'go', markersize=0.1)
+                    roll_ax.plot(roll, error, 'go', markersize=0.1)
+                    pitch_ax.plot(pitch, error, 'go', markersize=0.1)
+                    yaw_ax.plot(yaw, error, 'go', markersize=0.1)
+
+                    x, x_error, y, y_error, z, z_error = create_bucketed_motion_vs_error(
+                        db_client, system_id, real_world_id, benchmark_id,
+                        self._trial_map, self._result_map, error_getter)
+                    x_ax2.plot(x, x_error, 'go', markersize=0.1)
+                    y_ax2.plot(y, y_error, 'go', markersize=0.1)
+                    z_ax2.plot(z, z_error, 'go', markersize=0.1)
+                    x_box_real_world += x_error
+                    y_box_real_world += y_error
+                    z_box_real_world += z_error
+
+                for trajectory_group in self._trajectory_groups.values():
+                    #db_client, system_id, image_source_id, benchmark_id, trial_map, result_map, get_error_func
+                    x, y, z, roll, pitch, yaw, error = create_motion_vs_error_series(
+                        db_client, system_id, trajectory_group.max_quality_id, benchmark_id,
+                        self._trial_map, self._result_map, error_getter)
+                    x_ax.plot(x, error, 'bo', markersize=0.1)
+                    y_ax.plot(y, error, 'bo', markersize=0.1)
+                    z_ax.plot(z, error, 'bo', markersize=0.1)
+                    roll_ax.plot(roll, error, 'bo', markersize=0.1)
+                    pitch_ax.plot(pitch, error, 'bo', markersize=0.1)
+                    yaw_ax.plot(yaw, error, 'bo', markersize=0.1)
+
+                    x, x_error, y, y_error, z, z_error = create_bucketed_motion_vs_error(
+                        db_client, system_id, trajectory_group.max_quality_id, benchmark_id,
+                        self._trial_map, self._result_map, error_getter)
+                    x_ax2.plot(x, x_error, 'bo', markersize=0.1)
+                    y_ax2.plot(y, y_error, 'bo', markersize=0.1)
+                    z_ax2.plot(z, z_error, 'bo', markersize=0.1)
+                    x_box_max += x_error
+                    y_box_max += y_error
+                    z_box_max += z_error
+
+                    for variation in trajectory_group.quality_variations:
+                        x, y, z, roll, pitch, yaw, error = create_motion_vs_error_series(
+                            db_client, system_id, variation['dataset'], benchmark_id,
+                            self._trial_map, self._result_map, error_getter)
+                        x_ax.plot(x, error, 'ro', markersize=0.1)
+                        y_ax.plot(y, error, 'ro', markersize=0.1)
+                        z_ax.plot(z, error, 'ro', markersize=0.1)
+                        roll_ax.plot(roll, error, 'ro', markersize=0.1)
+                        pitch_ax.plot(pitch, error, 'ro', markersize=0.1)
+                        yaw_ax.plot(yaw, error, 'ro', markersize=0.1)
+
+                        x, x_error, y, y_error, z, z_error = create_bucketed_motion_vs_error(
+                            db_client, system_id, variation['dataset'], benchmark_id,
+                            self._trial_map, self._result_map, error_getter)
+                        x_ax2.plot(x, x_error, 'ro', markersize=0.1)
+                        y_ax2.plot(y, y_error, 'ro', markersize=0.1)
+                        z_ax2.plot(z, z_error, 'ro', markersize=0.1)
+                        x_box_min += x_error
+                        y_box_min += y_error
+                        z_box_min += z_error
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("{0}".format(benchmark_name))
+                ax = figure.add_subplot(111)
+                ax.boxplot([x_box_real_world, x_box_max, x_box_min,
+                            y_box_real_world, y_box_max, y_box_min,
+                            z_box_real_world, z_box_max, z_box_min])
+                ax.set_xticklabels(['x real world', 'x max quality', 'x max quality',
+                                    'y real world', 'y max quality', 'y max quality',
+                                    'z real world', 'z max quality', 'z max quality'])
+                pyplot.tight_layout()
+                pyplot.subplots_adjust(top=0.95, right=0.99)
+
 
     def serialize(self):
         serialized = super().serialize()
@@ -1402,6 +1605,94 @@ def plot_trajectory(axis, trajectory, label):
     axis.plot(x, y, z, label=label)
     return min_point, max_point
 
+
+def get_motion_from_trajectory(trajectory):
+    """
+    Extract the frame by frame motion from a trajectory.
+    :param trajectory:
+    :return:
+    """
+    prev_pose = None
+    motion  = {}
+    timestamps = sorted(trajectory.keys())
+    for stamp in timestamps:
+        if prev_pose is None:
+            motion[stamp] = tf.Transform()
+        else:
+            motion[stamp] = prev_pose.find_relative(trajectory[stamp])
+        prev_pose = trajectory[stamp]
+    return motion
+
+
+def create_motion_vs_error_series(db_client, system_id, image_source_id, benchmark_id, trial_map, result_map,
+                                  get_error_func):
+    x = []
+    y = []
+    z = []
+    roll = []
+    pitch = []
+    yaw = []
+    error = []
+
+    if image_source_id in trial_map[system_id]:
+        # Results for max quality run
+        trial_result_id = trial_map[system_id][image_source_id]
+        if trial_result_id in result_map:
+            # RPE results
+            if benchmark_id in result_map[trial_result_id]:
+                trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
+                motion = get_motion_from_trajectory(trial_result.get_ground_truth_camera_poses())
+                benchmark_result = dh.load_object(
+                    db_client, db_client.results_collection, result_map[trial_result_id][benchmark_id])
+                if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                    print(benchmark_result.reason)
+                else:
+                    for timestamp, error_val in get_error_func(benchmark_result):
+                        x.append(motion[timestamp].location[0])
+                        y.append(motion[timestamp].location[1])
+                        z.append(motion[timestamp].location[2])
+                        roll.append(motion[timestamp].euler[0])
+                        pitch.append(motion[timestamp].euler[1])
+                        yaw.append(motion[timestamp].euler[2])
+                        error.append(error_val)
+    return x, y, z, roll, pitch, yaw, error
+
+
+def create_bucketed_motion_vs_error(db_client, system_id, image_source_id, benchmark_id, trial_map, result_map,
+                                    get_error_func):
+    x = []
+    x_error = []
+    y = []
+    y_error = []
+    z = []
+    z_error = []
+
+    if image_source_id in trial_map[system_id]:
+        # Results for max quality run
+        trial_result_id = trial_map[system_id][image_source_id]
+        if trial_result_id in result_map:
+            # RPE results
+            if benchmark_id in result_map[trial_result_id]:
+                trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
+                motion = get_motion_from_trajectory(trial_result.get_ground_truth_camera_poses())
+                benchmark_result = dh.load_object(
+                    db_client, db_client.results_collection, result_map[trial_result_id][benchmark_id])
+                if isinstance(benchmark_result, core.benchmark.FailedBenchmark):
+                    print(benchmark_result.reason)
+                else:
+                    for timestamp, error_val in get_error_func(benchmark_result):
+                        m = motion[timestamp]
+                        if np.linalg.norm(m.euler) < 0.01:
+                            if abs(m.location[0]) > 0.01 and abs(m.location[1]) < 0.01 and abs(m.location[2]) < 0.01:
+                                x.append(m.location[0])
+                                x_error.append(error_val)
+                            if abs(m.location[0]) < 0.01 and abs(m.location[1]) > 0.01 and abs(m.location[2]) < 0.01:
+                                y.append(m.location[1])
+                                y_error.append(error_val)
+                            if abs(m.location[0]) < 0.01 and abs(m.location[1]) < 0.01 and abs(m.location[2]) > 0.01:
+                                z.append(m.location[2])
+                                z_error.append(error_val)
+    return x, x_error, y, y_error, z, z_error
 
 def get_trajectory_for_image_source(db_client, image_collection_id):
     """
