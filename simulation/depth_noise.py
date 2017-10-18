@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import functools
 import numpy as np
 import cv2
@@ -77,39 +77,35 @@ def kinect_depth_model(ground_truth_depth_left, ground_truth_depth_right, camera
 
     # Step 3: Find orthographic depth
     # Basically, we find the z-component of the world point for each depth point
-    output_depth = np.array([[(x, y, 1) for x in range(640)] for y in range(480)], dtype=np.float32)
-    output_depth = np.linalg.norm(np.divide(output_depth - (cx, cy, 0), (fx, fy, 1)), axis=2)
-    np.multiply(left_depth_points, output_depth, out=output_depth)
+    ortho_projection = np.array([[(x, y, 1) for x in range(640)] for y in range(480)], dtype=np.float32)
+    ortho_projection = np.linalg.norm(np.divide(ortho_projection - (cx, cy, 0), (fx, fy, 1)), axis=2)
+    output_depth = np.multiply(left_depth_points, ortho_projection)
 
     # Step 4: Clipping planes - Set to 0 where too close or too far
-    output_depth = np.where((output_depth > 0.8) & (output_depth < 4.0), output_depth, 0.0)
+    shadow_mask = (output_depth > 0.8) & (output_depth < 4.0)
 
     # Step 5: Shadows
     # Project the depth points from the right depth image onto the left depth image
     # Places that are not visible from the right image are shadows
-    right_ortho_depth = np.array([[(x, y, 1) for x in range(640)] for y in range(480)], dtype=np.float32)
-    right_ortho_depth = np.linalg.norm(np.divide(right_ortho_depth - (cx, cy, 0), (fx, fy, 1)), axis=2)
-    np.multiply(right_depth_points, right_ortho_depth, out=right_ortho_depth)
+    right_ortho_depth = np.multiply(right_depth_points, ortho_projection)
 
+    # TODO: This is 40% of the compute time. use np.indices((480, 640)) instead
     right_points = (np.array([[(x, y) for x in range(640)] for y in range(480)], dtype=np.float32)
                     - np.divide((baseline[0] * fx, baseline[1] * fy),
                                 np.stack([right_ortho_depth + 0.00001, right_ortho_depth + 0.00001], axis=2)))
-    right_points = np.asarray(np.rint(right_points), dtype=np.int32)
-    output_depth = np.where(np.all(right_points > (0, 0), axis=2) & np.all(right_points < (640, 480), axis=2) & np.array([[
-        output_depth[y, x] - right_ortho_depth[right_points[y, x, 1], right_points[y, x, 0]] < 0.01
-        if 0 <= right_points[y, x, 0] < 640 and 0 <= right_points[y, x, 1] < 480 else False
-        for x in range(640)] for y in range(480)]), output_depth, 0.0)
+    right_points = np.asarray(np.rint(right_points), dtype=np.int32)    # TODO: This needs to bilinear sample
+    shadow_mask &= np.all(right_points > (0, 0), axis=2) & np.all(right_points < (640, 480), axis=2)
+    projected_depth = right_ortho_depth[right_points[:, :, 1], right_points[:,:,0]]
+    shadow_mask &= (output_depth - projected_depth) < 0.01
 
     # Step 6: Random dropout
-    np.multiply(
-        np.random.choice([0, 1], (480, 640), p=(0.2, 0.8)),
-        output_depth,
-        out=output_depth)
+    shadow_mask &= np.random.choice([False, True], (480, 640), p=(0.2, 0.8))
 
     # Step 7: Lateral noise - I don't know how to do this quickly
 
     # Step 8: axial noise
-    output_depth += np.where(output_depth != 0.0, np.random.normal(0, 0.0012 + 0.0019 * np.square(output_depth - 0.4)), 0.0)
+    output_depth += np.random.normal(0, 0.0012 + 0.0019 * np.square(output_depth - 0.4))
+    output_depth = np.multiply(shadow_mask, output_depth)
 
     # Finally, return to an image matching the input size, so that we're aligned with the RGB image
     if ground_truth_depth_left.shape != (480, 640):
