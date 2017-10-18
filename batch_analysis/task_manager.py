@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import copy
 import util.database_helpers as dh
 import util.dict_utils as du
@@ -87,6 +87,7 @@ class TaskManager:
             return import_dataset_task.ImportDatasetTask(
                 module_name=module_name,
                 path=path,
+                additional_args=additional_args,
                 num_cpus=num_cpus,
                 num_gpus=num_gpus,
                 memory_requirements=memory_requirements,
@@ -286,6 +287,8 @@ class TaskManager:
             if isinstance(task, import_dataset_task.ImportDatasetTask):
                 existing_query['module_name'] = task.module_name
                 existing_query['path'] = task.path
+                existing_query['additional_args'] = task.additional_args
+                dh.query_to_dot_notation(existing_query)
             elif isinstance(task, generate_dataset_task.GenerateDatasetTask):
                 existing_query['controller_id'] = task.controller_id
                 existing_query['simulator_id'] = task.simulator_id

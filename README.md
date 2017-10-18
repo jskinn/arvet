@@ -21,7 +21,7 @@ in particular the `do_imports`, `schedule_tasks`, and `plot_results` methods.
 - `schedule_tasks` indicates which systems should be run with which image datasets, and how each result should be assessed
 - `plot results` visualizes the performance output
 
-See the `experiments` module for examples.
+See the `experiments` module for examples, particularly `experiments.visual_slam.visual_odometry_experiment`.
 
 Lastly, create and store an instance of the experiment in `add_initial_entities.py`.
 
