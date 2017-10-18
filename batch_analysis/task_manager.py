@@ -62,7 +62,7 @@ class TaskManager:
         self._allow_trial_comparison = bool(task_config['allow_trial_comparison'])
         self._allow_benchmark_comparison = bool(task_config['allow_benchmark_comparison'])
 
-    def get_import_dataset_task(self, module_name, path, num_cpus=1, num_gpus=0,
+    def get_import_dataset_task(self, module_name, path, additional_args=None, num_cpus=1, num_gpus=0,
                                 memory_requirements='3GB', expected_duration='1:00:00'):
         """
         Get a task to import a dataset.
@@ -76,7 +76,11 @@ class TaskManager:
         :param expected_duration: The expected time this job will take. Default 1 hour.
         :return: An ImportDatasetTask containing the task state.
         """
-        existing = self._collection.find_one({'module_name': module_name, 'path': path})
+        if additional_args is None:
+            additional_args = {}
+        existing = self._collection.find_one(dh.query_to_dot_notation({
+            'module_name': module_name, 'path': path,
+            'additional_args': copy.deepcopy(additional_args)}))
         if existing is not None:
             return self._db_client.deserialize_entity(existing)
         else:

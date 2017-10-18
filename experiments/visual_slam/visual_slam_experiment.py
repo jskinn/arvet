@@ -226,19 +226,23 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # --------- REAL WORLD DATASETS -----------
         # Import KITTI dataset
-        task = task_manager.get_import_dataset_task(
-            module_name='dataset.kitti.kitti_loader',
-            path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
-            num_cpus=1,
-            num_gpus=0,
-            memory_requirements='3GB',
-            expected_duration='72:00:00'
-        )
-        if task.is_finished:
-            self._kitti_datasets |= set(task.result)
-            self._add_to_set('kitti_datasets', task.result)
-        else:
-            task_manager.do_task(task)
+        for sequence_num in range(11):
+            task = task_manager.get_import_dataset_task(
+                module_name='dataset.kitti.kitti_loader',
+                path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
+                additional_args={
+                    'sequence_number': sequence_num
+                },
+                num_cpus=1,
+                num_gpus=0,
+                memory_requirements='3GB',
+                expected_duration='72:00:00'
+            )
+            if task.is_finished:
+                self._kitti_datasets |= set(task.result)
+                self._add_to_set('kitti_datasets', task.result)
+            else:
+                task_manager.do_task(task)
 
         # Import EuRoC datasets
         for path in [

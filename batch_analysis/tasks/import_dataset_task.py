@@ -4,12 +4,13 @@ import batch_analysis.task
 
 class ImportDatasetTask(batch_analysis.task.Task):
     """
-    A task for importing a dataset. Result will be an image source id or list of image source ids.
+    A task for importing a dataset. Result will be an image source id
     """
-    def __init__(self, module_name, path, *args, **kwargs):
+    def __init__(self, module_name, path, additional_args=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._module_name = module_name
         self._path = path
+        self.additional_args = additional_args if additional_args is not None else {}
 
     @property
     def module_name(self):
@@ -39,7 +40,7 @@ class ImportDatasetTask(batch_analysis.task.Task):
         else:
             logging.getLogger(__name__).info("Importing dataset from {0} using module {1}".format(self.path, self.module_name))
             try:
-                dataset_id = loader_module.import_dataset(self.path, db_client)
+                dataset_id = loader_module.import_dataset(self.path, db_client, **self.additional_args)
             except Exception:
                 dataset_id = None
                 logging.getLogger(__name__).error("Exception occurred while importing dataset from {0} with module {1}:\n{2}".format(
@@ -58,6 +59,7 @@ class ImportDatasetTask(batch_analysis.task.Task):
         serialized = super().serialize()
         serialized['module_name'] = self.module_name
         serialized['path'] = self.path
+        serialized['additional_args'] = self.additional_args
         return serialized
 
     @classmethod
@@ -66,4 +68,6 @@ class ImportDatasetTask(batch_analysis.task.Task):
             kwargs['module_name'] = serialized_representation['module_name']
         if 'path' in serialized_representation:
             kwargs['path'] = serialized_representation['path']
+        if 'additional_args' in serialized_representation:
+            kwargs['additional_args'] = serialized_representation['additional_args']
         return super().deserialize(serialized_representation, db_client, **kwargs)

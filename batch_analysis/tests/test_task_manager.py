@@ -24,7 +24,8 @@ class TestTaskManager(unittest.TestCase):
         subject = manager.TaskManager(mock_collection, mock_db_client)
         module_name = 'test_module'
         path = '/tmp/dataset/thisisadataset'
-        subject.get_import_dataset_task(module_name, path)
+        additional_args = {'foo': 'bar'}
+        subject.get_import_dataset_task(module_name, path, additional_args)
 
         self.assertTrue(mock_collection.find_one.called)
         query = mock_collection.find_one.call_args[0][0]
@@ -32,6 +33,8 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(module_name, query['module_name'])
         self.assertIn('path', query)
         self.assertEqual(path, query['path'])
+        self.assertIn('additional_args.foo', query)
+        self.assertEqual('bar', query['additional_args.foo'])
 
     def test_get_import_dataset_task_returns_deserialized_existing(self):
         s_task = {'_type': 'ImportDatasetTask', '_id': bson.ObjectId()}
@@ -80,8 +83,9 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(controller_id, query['controller_id'])
         self.assertIn('simulator_id', query)
         self.assertEqual(simulator_id, query['simulator_id'])
-        self.assertIn('simulator_config', query)
-        self.assertEqual(simulator_config, query['simulator_config'])
+        for key, value in simulator_config.items():
+            self.assertIn('simulator_config.{}'.format(key), query)
+            self.assertEqual(value, query['simulator_config.{}'.format(key)])
         self.assertIn('repeat', query)
         self.assertEqual(repeat, query['repeat'])
 

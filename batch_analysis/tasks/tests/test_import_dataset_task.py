@@ -16,6 +16,7 @@ class TestImportDatasetTask(database.tests.test_entity.EntityContract, unittest.
         kwargs = du.defaults(kwargs, {
             'module_name': 'datasets.generated.import_generated_dataset',
             'path': 'datasets/TestDataset/',
+            'additional_args': {'foo': 'bar'},
             'state': batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
             'num_gpus': np.random.randint(0, 1000),
@@ -40,6 +41,7 @@ class TestImportDatasetTask(database.tests.test_entity.EntityContract, unittest.
             self.fail('object was not an ImportDatasetTask')
         self.assertEqual(task1.identifier, task2.identifier)
         self.assertEqual(task1.module_name, task2.module_name)
+        self.assertEqual(task1.additional_args, task2.additional_args)
         self.assertEqual(task1.path, task2.path)
         self.assertEqual(task1._state, task2._state)
         self.assertEqual(task1.node_id, task2.node_id)
