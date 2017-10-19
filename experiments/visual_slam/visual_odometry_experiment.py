@@ -93,15 +93,16 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                 'BlockWorld', imeta.EnvironmentType.OUTDOOR_LANDSCAPE, imeta.LightingLevel.WELL_LIT, imeta.TimeOfDay.DAY
             )
         ]:
-            simulator_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
-                executable_path=exe,
-                world_name=world_name,
-                environment_type=environment_type,
-                light_level=light_level,
-                time_of_day=time_of_day
-            ))
-            self._simulators[world_name] = simulator_id
-            self._set_property('simulators.{}'.format(world_name), simulator_id)
+            if world_name not in self._simulators:
+                simulator_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
+                    executable_path=exe,
+                    world_name=world_name,
+                    environment_type=environment_type,
+                    light_level=light_level,
+                    time_of_day=time_of_day
+                ))
+                self._simulators[world_name] = simulator_id
+                self._set_property('simulators.{}'.format(world_name), simulator_id)
 
         # --------- TRAJECTORY GROUPS -----------
         for key, trajectory_group in self._trajectory_groups.items():
@@ -214,7 +215,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                         trial_results.add(task.result)
                         if self._libviso_system not in self._trial_map:
                             self._trial_map[system.identifier] = {}
-                        self._trial_map[system.identifer][image_source_id] = task.result
+                        self._trial_map[system.identifier][image_source_id] = task.result
                         self._set_property('trial_map.{0}.{1}'.format(system.identifier, image_source_id),
                                            task.result)
 
@@ -266,7 +267,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         for system_name, system_id in systems.items():
             if system_id not in self._trial_map:
                 continue    # No trials for this system, skip it
-            for trajectory_group in self._trajectory_groups:
+            for trajectory_group in self._trajectory_groups.values():
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)
                 figure.suptitle("Computed trajectories for {0} on {1}".format(system_name, trajectory_group.name))
                 ax = figure.add_subplot(111, projection='3d')
@@ -387,7 +388,7 @@ def plot_trajectory(axis, trajectory, label):
             x.append(pose.location[0])
             y.append(pose.location[1])
             z.append(pose.location[2])
-    axis.plot(x, y, z, label=label)
+    axis.plot(x, y, z, '--', label=label)
     return min_point, max_point
 
 
@@ -404,7 +405,7 @@ class TrajectoryGroup:
                  controller_id=None, generated_datasets=None):
         self.name = name
         self.real_world_dataset = real_world_id
-        self.simulator_ids = simulator_ids
+        self.simulator_ids = simulator_ids if simulator_ids is not None else []
         self.simulator_configs = simulator_configs if simulator_configs is not None else {}
 
         self.follow_controller_id = controller_id
@@ -470,9 +471,9 @@ class TrajectoryGroup:
             'name': self.name,
             'real_world_dataset': self.real_world_dataset,
             'simulator_ids': self.simulator_ids,
-            'simulator_configs': self.simulator_configs,
+            'simulator_configs': {str(id_): config for id_, config in self.simulator_configs.items()},
             'controller_id': self.follow_controller_id,
-            'generated_datasets': self.generated_datasets
+            'generated_datasets': {str(sim_id): dataset_id for sim_id, dataset_id in self.generated_datasets.items()}
         }
 
     @classmethod
@@ -481,7 +482,9 @@ class TrajectoryGroup:
             name=serialized_representation['name'],
             real_world_id=serialized_representation['real_world_dataset'],
             simulator_ids=serialized_representation['simulator_ids'],
-            simulator_configs=serialized_representation['simulator_configs'],
+            simulator_configs={bson.ObjectId(id_): config for id_, config
+                               in serialized_representation['simulator_configs'].items()},
             controller_id=serialized_representation['controller_id'],
-            generated_datasets=serialized_representation['generated_datasets']
+            generated_datasets={bson.ObjectId(sim_id): dataset_id for sim_id, dataset_id
+                                in serialized_representation['generated_datasets'].items()}
         )
