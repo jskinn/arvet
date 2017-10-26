@@ -1,7 +1,7 @@
 #!/bin/sh
 # Reset the file permissions for all the relevant files
 chmod +x reset_permissions.sh
-chmod -x README.md .gitignore requirements.txt
+chmod -x README.md .gitignore requirements.txt LICENSE
 find . -name "*.py" -exec chmod -x {} \;
 chmod +x add_initial_entities.py
 chmod +x scheduler.py
