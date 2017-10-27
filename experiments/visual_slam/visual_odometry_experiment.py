@@ -32,11 +32,9 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         :param benchmark_rpe:
         :param benchmark_ate:
         :param benchmark_trajectory_drift:
-        :param trial_map:
-        :param result_map:
         :param id_:
         """
-        super().__init__(id_=id_)
+        super().__init__(id_=id_, trial_map=trial_map, result_map=result_map)
         # Systems
         self._libviso_system = libviso_system
 
@@ -48,11 +46,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         self._benchmark_rpe = benchmark_rpe
         self._benchmark_ate = benchmark_ate
         self._benchmark_trajectory_drift = benchmark_trajectory_drift
-
-        # Trials and results
-        self._trial_map = trial_map if trial_map is not None else {}
-        self._result_map = result_map if result_map is not None else {}
-        self._placeholder_image_collections = {}
 
     def do_imports(self, task_manager, db_client):
         """
@@ -182,62 +175,20 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         """
         # Group everything up
         # All systems
-        systems = [
-            dh.load_object(db_client, db_client.system_collection, self._libviso_system)
-        ]
+        systems = [self._libviso_system]
         # All image datasets
         datasets = set()
         for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
         # All benchmarks
-        benchmarks = [
-            dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_rpe),
-            dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_ate),
-            dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_trajectory_drift)
-        ]
-        # Trial results will be collected as we go
-        trial_results = set()
+        benchmarks = [self._benchmark_rpe, self._benchmark_ate, self._benchmark_trajectory_drift]
 
-        # For each image dataset, run libviso with that dataset, and store the result in the trial map
-        for image_source_id in datasets:
-            image_source = dh.load_object(db_client, db_client.image_source_collection, image_source_id)
-            for system in systems:
-                if system.is_image_source_appropriate(image_source):
-                    task = task_manager.get_run_system_task(
-                        system_id=system.identifier,
-                        image_source_id=image_source.identifier,
-                        expected_duration='8:00:00',
-                        memory_requirements='12GB'
-                    )
-                    if not task.is_finished:
-                        task_manager.do_task(task)
-                    else:
-                        trial_results.add(task.result)
-                        if self._libviso_system not in self._trial_map:
-                            self._trial_map[system.identifier] = {}
-                        self._trial_map[system.identifier][image_source_id] = task.result
-                        self._set_property('trial_map.{0}.{1}'.format(system.identifier, image_source_id),
-                                           task.result)
-
-        # Benchmark trial results
-        for trial_result_id in trial_results:
-            trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
-            for benchmark in benchmarks:
-                if benchmark.is_trial_appropriate(trial_result):
-                    task = task_manager.get_benchmark_task(
-                        trial_result_id=trial_result.identifier,
-                        benchmark_id=benchmark.identifier,
-                        expected_duration='6:00:00',
-                        memory_requirements='6GB'
-                    )
-                    if not task.is_finished:
-                        task_manager.do_task(task)
-                    else:
-                        if trial_result_id not in self._result_map:
-                            self._result_map[trial_result_id] = {}
-                        self._result_map[trial_result_id][benchmark.identifier] = task.result
-                        self._set_property('result_map.{0}.{1}'.format(trial_result_id, benchmark.identifier),
-                                           task.result)
+        # Schedule all combinations of systems with the generated datasets
+        self.schedule_all(task_manager=task_manager,
+                          db_client=db_client,
+                          systems=systems,
+                          image_sources=datasets,
+                          benchmarks=benchmarks)
 
     def plot_results(self, db_client):
         """
@@ -265,8 +216,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
         systems = {'LIBVISO 2': self._libviso_system}
         for system_name, system_id in systems.items():
-            if system_id not in self._trial_map:
-                continue    # No trials for this system, skip it
             for trajectory_group in self._trajectory_groups.values():
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)
                 figure.suptitle("Computed trajectories for {0} on {1}".format(system_name, trajectory_group.name))
@@ -284,9 +233,9 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
                 # For each image source in this group
                 for dataset_name, dataset_id in image_sources.items():
-                    if dataset_id in self._trial_map[system_id]:
-                        trial_result = dh.load_object(db_client, db_client.trials_collection,
-                                                      self._trial_map[system_id][dataset_id])
+                    trial_result_id = self.get_trial_result(system_id, dataset_id)
+                    if trial_result_id is not None:
+                        trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
                         if trial_result is not None:
                             minp, maxp = plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                                          dataset_name)
@@ -316,11 +265,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         serialized['benchmark_ate'] = self._benchmark_ate
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
 
-        # Trials
-        serialized['trial_map'] = {str(sys_id): {str(source_id): trial_id for source_id, trial_id in inner_map.items()}
-                                   for sys_id, inner_map in self._trial_map.items()}
-        serialized['result_map'] = {str(trial_id): {str(bench_id): res_id for bench_id, res_id in inner_map.items()}
-                                    for trial_id, inner_map in self._result_map.items()}
         return serialized
 
     @classmethod
@@ -345,15 +289,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         if 'benchmark_trajectory_drift' in serialized_representation:
             kwargs['benchmark_trajectory_drift'] = serialized_representation['benchmark_trajectory_drift']
 
-        # Trials and results
-        if 'trial_map' in serialized_representation:
-            kwargs['trial_map'] = {bson.ObjectId(sys_id): {bson.ObjectId(source_id): trial_id
-                                                           for source_id, trial_id in inner_map.items()}
-                                   for sys_id, inner_map in serialized_representation['trial_map'].items()}
-        if 'result_map' in serialized_representation:
-            kwargs['result_map'] = {bson.ObjectId(trial_id): {bson.ObjectId(bench_id): res_id
-                                                              for bench_id, res_id in inner_map.items()}
-                                    for trial_id, inner_map in serialized_representation['result_map'].items()}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 

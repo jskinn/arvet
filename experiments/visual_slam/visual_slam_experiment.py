@@ -181,7 +181,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                  benchmark_feature_diff=None,
                  benchmark_rpe=None, benchmark_ate=None, benchmark_trajectory_drift=None, benchmark_tracking=None,
                  trial_map=None, result_map=None, id_=None):
-        super().__init__(id_=id_)
+        super().__init__(trial_map=trial_map, result_map=result_map, id_=id_)
         # Systems
         self._feature_detectors = feature_detectors if feature_detectors is not None else {}
         self._libviso_system = libviso_system
@@ -212,8 +212,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         self._benchmark_tracking = benchmark_tracking
 
         # Trials and results
-        self._trial_map = trial_map if trial_map is not None else {}
-        self._result_map = result_map if result_map is not None else {}
         self._placeholder_image_collections = {}
 
     def do_imports(self, task_manager, db_client):
@@ -239,7 +237,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                 expected_duration='72:00:00'
             )
             if task.is_finished:
-                self._kitti_datasets |= set(task.result)
+                self._kitti_datasets |= {task.result}
                 self._add_to_set('kitti_datasets', task.result)
             else:
                 task_manager.do_task(task)
@@ -1446,11 +1444,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         serialized['benchmark_trajectory_drift'] = self._benchmark_trajectory_drift
         serialized['benchmark_tracking'] = self._benchmark_tracking
 
-        # Trials
-        serialized['trial_map'] = {str(sys_id): {str(source_id): trial_id for source_id, trial_id in inner_map.items()}
-                                   for sys_id, inner_map in self._trial_map.items()}
-        serialized['result_map'] = {str(trial_id): {str(bench_id): res_id for bench_id, res_id in inner_map.items()}
-                                    for trial_id, inner_map in self._result_map.items()}
         return serialized
 
     @classmethod
@@ -1494,15 +1487,6 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         if 'benchmark_tracking' in serialized_representation:
             kwargs['benchmark_tracking'] = serialized_representation['benchmark_tracking']
 
-        # Trials and results
-        if 'trial_map' in serialized_representation:
-            kwargs['trial_map'] = {bson.ObjectId(sys_id): {bson.ObjectId(source_id): trial_id
-                                                           for source_id, trial_id in inner_map.items()}
-                                   for sys_id, inner_map in serialized_representation['trial_map'].items()}
-        if 'result_map' in serialized_representation:
-            kwargs['result_map'] = {bson.ObjectId(trial_id): {bson.ObjectId(bench_id): res_id
-                                                              for bench_id, res_id in inner_map.items()}
-                                    for trial_id, inner_map in serialized_representation['result_map'].items()}
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
