@@ -4,6 +4,7 @@ import unittest.mock as mock
 import pymongo
 import bson
 import core.trial_result
+import core.benchmark
 import core.sequence_type
 import core.tests.mock_types as mock_core
 import batch_analysis.tests.mock_task_manager as mock_manager_factory
@@ -163,3 +164,133 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
                 self.assertIn(mock.call(trial_result_id=trial_result_id, benchmark_id=benchmark_id,
                                         memory_requirements=mock.ANY, expected_duration=mock.ANY),
                               zombie_task_manager.mock.get_benchmark_task.call_args_list)
+
+    def test_schedule_all_stores_trial_results(self):
+
+        zombie_db_client = mock_client_factory.create()
+        zombie_task_manager = mock_manager_factory.create()
+        subject = MockExperiment()
+        systems = []
+        image_sources = []
+        trial_results = []
+        for _ in range(3):  # Create
+            entity = mock_core.MockSystem()
+            systems.append(zombie_db_client.system_collection.insert(entity.serialize()))
+
+            entity = mock_core.MockImageSource()
+            image_sources.append(zombie_db_client.image_source_collection.insert(entity.serialize()))
+
+        for system_id in systems:
+            for image_source_id in image_sources:
+                # Create trial results for each combination of systems and image sources,
+                # as if the run system tasks are complete
+                entity = core.trial_result.TrialResult(
+                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+                trial_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                trial_results.append(trial_result_id)
+                task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
+                task.mark_job_started('test', 0)
+                task.mark_job_complete(trial_result_id)
+
+        subject.schedule_all(zombie_task_manager.mock, zombie_db_client.mock, systems, image_sources, [])
+
+        for system_id in systems:
+            for image_source_id in image_sources:
+                trial_result_id = subject.get_trial_result(system_id, image_source_id)
+                self.assertIsNotNone(trial_result_id)
+                self.assertIn(trial_result_id, trial_results)
+
+    def test_schedule_all_stores_benchmark_results(self):
+
+        zombie_db_client = mock_client_factory.create()
+        zombie_task_manager = mock_manager_factory.create()
+        subject = MockExperiment()
+        systems = []
+        image_sources = []
+        trial_results = []
+        benchmarks = []
+        benchmark_results = []
+        for _ in range(3):  # Create
+            entity = mock_core.MockSystem()
+            systems.append(zombie_db_client.system_collection.insert(entity.serialize()))
+
+            entity = mock_core.MockImageSource()
+            image_sources.append(zombie_db_client.image_source_collection.insert(entity.serialize()))
+
+            entity = mock_core.MockBenchmark()
+            benchmarks.append(zombie_db_client.benchmarks_collection.insert(entity.serialize()))
+
+        for system_id in systems:
+            for image_source_id in image_sources:
+                # Create trial results for each combination of systems and image sources,
+                # as if the run system tasks are complete
+                entity = core.trial_result.TrialResult(
+                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+                trial_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                trial_results.append(trial_result_id)
+                task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
+                task.mark_job_started('test', 0)
+                task.mark_job_complete(trial_result_id)
+
+        for trial_result_id in trial_results:
+            for benchmark_id in benchmarks:
+                # Create benchmark results for each combination of trial result and benchmark,
+                # as if the benchmark system tasks are complete
+                entity = core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True)
+                benchmark_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                benchmark_results.append(benchmark_result_id)
+                task = zombie_task_manager.get_benchmark_task(trial_result_id, benchmark_id)
+                task.mark_job_started('test', 0)
+                task.mark_job_complete(benchmark_result_id)
+
+        subject.schedule_all(zombie_task_manager.mock, zombie_db_client.mock, systems, image_sources, benchmarks)
+
+        for trial_result_id in trial_results:
+            for benchmark_id in benchmarks:
+                benchmark_result_id = subject.get_benchmark_result(trial_result_id, benchmark_id)
+                self.assertIsNotNone(benchmark_result_id)
+                self.assertIn(benchmark_result_id, benchmark_results)
+
+    def test_store_and_get_trial_result_basic(self):
+        subject = MockExperiment()
+        system_id = bson.ObjectId()
+        image_source_id = bson.ObjectId()
+        trial_result_id = bson.ObjectId()
+        subject.store_trial_result(system_id, image_source_id, trial_result_id)
+        self.assertEqual(trial_result_id, subject.get_trial_result(system_id, image_source_id))
+
+    def test_store_trial_result_persists_when_serialized(self):
+        zombie_db_client = mock_client_factory.create()
+        subject = MockExperiment()
+        system_id = bson.ObjectId()
+        image_source_id = bson.ObjectId()
+        trial_result_id = bson.ObjectId()
+        subject.store_trial_result(system_id, image_source_id, trial_result_id)
+
+        # Serialize and then deserialize the experiment
+        s_subject = subject.serialize()
+        subject = MockExperiment.deserialize(s_subject, zombie_db_client.mock)
+
+        self.assertEqual(trial_result_id, subject.get_trial_result(system_id, image_source_id))
+
+    def test_store_and_get_benchmark_result_basic(self):
+        subject = MockExperiment()
+        trial_result_id = bson.ObjectId()
+        benchmark_id = bson.ObjectId()
+        benchmark_result_id = bson.ObjectId()
+        subject.store_benchmark_result(trial_result_id, benchmark_id, benchmark_result_id)
+        self.assertEqual(benchmark_result_id, subject.get_benchmark_result(trial_result_id, benchmark_id))
+
+    def test_store_benchmark_result_persists_when_serialized(self):
+        zombie_db_client = mock_client_factory.create()
+        subject = MockExperiment()
+        trial_result_id = bson.ObjectId()
+        benchmark_id = bson.ObjectId()
+        benchmark_result_id = bson.ObjectId()
+        subject.store_benchmark_result(trial_result_id, benchmark_id, benchmark_result_id)
+
+        # Serialize and then deserialize the experiment
+        s_subject = subject.serialize()
+        subject = MockExperiment.deserialize(s_subject, zombie_db_client.mock)
+
+        self.assertEqual(benchmark_result_id, subject.get_benchmark_result(trial_result_id, benchmark_id))
