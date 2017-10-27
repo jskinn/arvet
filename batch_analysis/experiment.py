@@ -21,7 +21,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
     of association or meta-data that we can't articulate or encapsulate in the image_metadata.
     """
 
-    def __init__(self, trial_map: dict = None, result_map: dict = None, id_=typing.Union[bson.ObjectId, None]):
+    def __init__(self, trial_map: dict = None, result_map: dict = None, id_: typing.Union[bson.ObjectId, None] = None):
         super().__init__(id_=id_)
         self._trial_map = trial_map if trial_map is not None else {}
         self._result_map = result_map if result_map is not None else {}

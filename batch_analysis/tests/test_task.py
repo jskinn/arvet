@@ -37,7 +37,7 @@ class TestTask(database.tests.test_entity.EntityContract, unittest.TestCase):
         """
         if (not isinstance(task1, task.Task) or
                 not isinstance(task2, task.Task)):
-            self.fail('object was not an Experiment')
+            self.fail('object was not an Task')
         self.assertEqual(task1.identifier, task2.identifier)
         self.assertEqual(task1._state, task2._state)
         self.assertEqual(task1.node_id, task2.node_id)
