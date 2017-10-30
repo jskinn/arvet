@@ -72,6 +72,7 @@ class LibVisOSystem(core.system.VisionSystem):
         motion = self._viso.getMotion()  # Motion is a 4x4 pose matrix
         np_motion = np.zeros((4, 4))
         motion.toNumpy(np_motion)
+
         self._frame_deltas[timestamp] = make_relative_pose(np_motion)
         self._gt_poses[timestamp] = image.camera_pose
         # TODO: Aggregate the image metadata
@@ -131,7 +132,8 @@ def prepare_image(image_data):
     return output_image
 
 
-def visualize(image, motion):
+def visualize(image, motion, gt_delta=None):
+    display_image = np.copy(image.data[:,:,::-1])
     estimated_delta = make_relative_pose(motion)
     #if self._prev_camera_pose is None:
     #    gt_delta = tf.Transform((0, 0, 0))
@@ -142,24 +144,26 @@ def visualize(image, motion):
     text_estimated_angle = "roll: {0:2.2f}, pitch: {1:2.2f}, yaw: {2:2.2f}".format(estimated_delta.euler[0] * to_deg,
                                                                                    estimated_delta.euler[1] * to_deg,
                                                                                    estimated_delta.euler[2] * to_deg)
-    #text_gt_angle = "roll: {0:2.2f}, pitch: {1:2.2f}, yaw: {2:2.2f}".format(gt_delta.euler[0] * to_deg,
-    #                                                                        gt_delta.euler[1] * to_deg,
-    #                                                                        gt_delta.euler[2] * to_deg)
     text_estimated = "x: {0:2.2f}, y: {1:2.2f}, z: {2:2.2f}".format(estimated_delta.location[0],
                                                                     estimated_delta.location[1],
                                                                     estimated_delta.location[2])
-    #text_gt = "x: {0:2.2f}, y: {1:2.2f}, z: {2:2.2f}".format(gt_delta.location[0],
-    #                                                         gt_delta.location[1],
-    #                                                         gt_delta.location[2])
+    cv2.putText(display_image, text_estimated, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+    cv2.putText(display_image, text_estimated, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+    cv2.putText(display_image, text_estimated_angle, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+    cv2.putText(display_image, text_estimated_angle, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
 
-    cv2.putText(image, text_estimated, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
-    cv2.putText(image, text_estimated, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
-    cv2.putText(image, text_estimated_angle, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
-    cv2.putText(image, text_estimated_angle, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
-    #cv2.putText(image, text_gt, (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
-    #cv2.putText(image, text_gt, (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
-    #cv2.putText(image, text_gt_angle, (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
-    #cv2.putText(image, text_gt_angle, (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+    if gt_delta is not None:
+        text_gt_angle = "roll: {0:2.2f}, pitch: {1:2.2f}, yaw: {2:2.2f}".format(gt_delta.euler[0] * to_deg,
+                                                                            gt_delta.euler[1] * to_deg,
+                                                                            gt_delta.euler[2] * to_deg)
 
-    cv2.imshow('left', image)
+        text_gt = "x: {0:2.2f}, y: {1:2.2f}, z: {2:2.2f}".format(gt_delta.location[0],
+                                                                 gt_delta.location[1],
+                                                                 gt_delta.location[2])
+        cv2.putText(display_image, text_gt, (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+        cv2.putText(display_image, text_gt, (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+        cv2.putText(display_image, text_gt_angle, (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 3, cv2.LINE_AA)
+        cv2.putText(display_image, text_gt_angle, (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 1, cv2.LINE_AA)
+
+    cv2.imshow('left', display_image)
     cv2.waitKey(1000)
