@@ -22,10 +22,10 @@ def main():
     task_manager = batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
 
     logging.getLogger(__name__).info("Scheduling experiments...")
-    experiment_ids = db_client.experiments_collection.find({}, {'_id': True})
+    experiment_ids = db_client.experiments_collection.find({'enabled': {'$ne': False}}, {'_id': True})
     for experiment_id in experiment_ids:
         experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
-        if experiment is not None:
+        if experiment is not None and experiment.enabled:
             # TODO: Separate scripts for scheduling and importing, they run at different rates
             try:
                 experiment.do_imports(task_manager, db_client)

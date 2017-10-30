@@ -21,8 +21,10 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
     of association or meta-data that we can't articulate or encapsulate in the image_metadata.
     """
 
-    def __init__(self, trial_map: dict = None, result_map: dict = None, id_: typing.Union[bson.ObjectId, None] = None):
+    def __init__(self, trial_map: dict = None, result_map: dict = None, enabled: bool = True,
+                 id_: typing.Union[bson.ObjectId, None] = None):
         super().__init__(id_=id_)
+        self.enabled = enabled
         self._trial_map = trial_map if trial_map is not None else {}
         self._result_map = result_map if result_map is not None else {}
         self._updates = {}
@@ -200,6 +202,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         :return:
         """
         serialized = super().serialize()
+        serialized['enabled'] = self.enabled
         serialized['trial_map'] = {str(sys_id): {str(source_id): trial_id
                                                  for source_id, trial_id in inner_map.items()}
                                    for sys_id, inner_map in self._trial_map.items()}
@@ -210,6 +213,8 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
+        if 'enabled' in serialized_representation:
+            kwargs['enabled'] = bool(serialized_representation['enabled'])
         if 'trial_map' in serialized_representation:
             kwargs['trial_map'] = {bson.ObjectId(sys_id): {bson.ObjectId(source_id): trial_id
                                                            for source_id, trial_id in inner_map.items()}
