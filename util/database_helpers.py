@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import copy
 
 
@@ -74,3 +74,35 @@ def add_unique(collection, entity):
         return existing['_id']
     else:
         return collection.insert(s_object)
+
+
+def add_schema_version(serialized: dict, schema_name: str, version_number: int):
+    """
+    Add a schema version to a serialized representation. This lets us handle patching and updating dynamically.
+    All schemas have a unique name, and a given document may have multiple schemas due to it's inheritance hierarchy.
+    For instance, A robot vision system will have schemas for base database.entity.Entity, core.system.VisionSystem,
+    and then a third schema for data specific to that system.
+    Using this method gives us a standardized way of storing schema versions in the serialized document,
+    and helps prevent collisions between the version numbers for different partial schema on the same document.
+    :param serialized: The base serialized document, which will have a version number added to it
+    :param schema_name: The unique name of the schema to version.
+    :param version_number: The version number to set
+    :return: void
+    """
+    if '_schema_version' not in serialized:
+        serialized['_schema_version'] = {}
+    serialized['_schema_version'][schema_name] = version_number
+
+
+def get_schema_version(serialized: dict, schema_name: str) -> int:
+    """
+    Get the version of a particular schema on this document. Defaults to 0 if the version number is missing.
+    A document may have multiple schema applied to it by it's inheritance hierarchy, this lets us separate
+    the version numbers for each level, so that we can avoid collisions.
+    :param serialized: The serialized document
+    :param schema_name: The name of the schema to get.
+    :return: An integer version number
+    """
+    if '_schema_version' not in serialized or schema_name not in serialized['_schema_version']:
+        return 0
+    return serialized['_schema_version'][schema_name]
