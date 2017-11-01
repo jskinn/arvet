@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import numpy as np
 import transforms3d as tf3d
 import core.sequence_type
@@ -114,7 +114,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         Get the camera intrinsics from the simulator
         :return:
         """
-        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None, (0, 0)
+        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None
 
     def get_stereo_baseline(self):
         """

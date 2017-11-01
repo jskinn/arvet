@@ -68,7 +68,7 @@ class TestTrialRunner(unittest.TestCase):
 
         self._image_source = mock.create_autospec(core.image_source.ImageSource)
         self._image_source.get_stereo_baseline.return_value = None
-        self._image_source.get_camera_intrinsics.return_value = (mock.Mock(), (640, 480))
+        self._image_source.get_camera_intrinsics.return_value = mock.Mock()
         self._image_source._image_count = 0
         self._image_source._image = mock.Mock()
 

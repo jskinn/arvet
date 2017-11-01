@@ -135,20 +135,22 @@ class ORBSLAM2(core.system.VisionSystem):
             (self._mode == SensorMode.STEREO and image_source.is_stereo_available) or
             (self._mode == SensorMode.RGBD and image_source.is_depth_available)))
 
-    def set_camera_intrinsics(self, camera_intrinsics, resolution):
+    def set_camera_intrinsics(self, camera_intrinsics):
         """
         Set the intrinsics of the camera using
         :param camera_intrinsics: A metadata.camera_intrinsics.CameraIntriniscs object
         :return:
         """
         if self._child_process is None:
-            new_fx = camera_intrinsics.fx * self._resolution[0]
+            x_scale = self._resolution[0] / camera_intrinsics.width
+            y_scale = self._resolution[1] / camera_intrinsics.height
+            new_fx = camera_intrinsics.fx * x_scale
             self._orbslam_settings['Camera']['bf'] = (new_fx * self._orbslam_settings['Camera']['bf']
                                                       / self._orbslam_settings['Camera']['fx'])
             self._orbslam_settings['Camera']['fx'] = new_fx
-            self._orbslam_settings['Camera']['fy'] = camera_intrinsics.fy * self._resolution[1]
-            self._orbslam_settings['Camera']['cx'] = camera_intrinsics.cx * self._resolution[0]
-            self._orbslam_settings['Camera']['cy'] = camera_intrinsics.cy * self._resolution[1]
+            self._orbslam_settings['Camera']['fy'] = camera_intrinsics.fy * y_scale
+            self._orbslam_settings['Camera']['cx'] = camera_intrinsics.cx * x_scale
+            self._orbslam_settings['Camera']['cy'] = camera_intrinsics.cy * y_scale
             self._orbslam_settings['Camera']['k1'] = camera_intrinsics.k1
             self._orbslam_settings['Camera']['k2'] = camera_intrinsics.k2
             self._orbslam_settings['Camera']['k3'] = camera_intrinsics.k3

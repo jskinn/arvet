@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import abc
 
 
@@ -131,7 +131,7 @@ class ImageSource(metaclass=abc.ABCMeta):
         """
         Get the intrinsics of the camera in this image source.
         This allows systems to use the correct calibration.
-        :return: A metadata.camera_intrinsics.CameraIntrinsics object, and the resolution as a tuple.
+        :return: A metadata.camera_intrinsics.CameraIntrinsics object.
         """
         pass
 

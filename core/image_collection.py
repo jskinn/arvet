@@ -73,7 +73,6 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
             'metadata.right_camera_pose': True
         })
         self._camera_intrinsics = cam_intr.CameraIntrinsics.deserialize(s_first_image['metadata']['intrinsics'])
-        self._resolution = (s_first_image['metadata']['width'], s_first_image['metadata']['height'])
         self._stereo_baseline = None
         if (self.is_stereo_available and
                 'camera_pose' in s_first_image['metadata'] and
@@ -237,7 +236,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         When I have effective metadata aggregation, read it from that.
         :return:
         """
-        return self._camera_intrinsics, self._resolution
+        return self._camera_intrinsics
 
     def get_stereo_baseline(self):
         """

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import pickle
 import bson
 import numpy as np
@@ -123,7 +123,7 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
         Get the camera intrinsics from the simulator
         :return:
         """
-        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None, (0, 0)
+        return self._simulator.get_camera_intrinsics() if self._simulator is not None else None
 
     def get_stereo_baseline(self):
         """
@@ -253,7 +253,7 @@ def create_follow_controller(db_client, image_collection_id, sequence_type):
     if len(trajectory) <= 0:
         return None
     existing = db_client.image_source_collection.find({
-        '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__,})
+        '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__})
     for s_follow_controller in existing:
         controller = TrajectoryFollowController.deserialize(s_follow_controller, db_client)
         matches = util.associate.associate(trajectory, controller.trajectory, max_difference=0.1, offset=0)

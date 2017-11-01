@@ -209,7 +209,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             height=self._resolution[1],
             fx=focal_length, fy=focal_length,
             cx=0.5 * self._resolution[0], cy=0.5 * self._resolution[1]
-        ), self._resolution
+        )
 
     def begin(self):
         """
@@ -649,7 +649,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         #     fov = self._client.request('vget /camera/0/fov')
         #     focus_length = self._client.request('vget /camera/0/focus-distance')
         #     aperture = self._client.request('vget /camera/0/fstop')
-        camera_intrinsics, _ = self.get_camera_intrinsics()
+        camera_intrinsics = self.get_camera_intrinsics()
 
         labelled_objects = []
         if label_data is not None:

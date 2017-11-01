@@ -56,7 +56,7 @@ class MockImageSource(core.image_source.ImageSource):
         return None
 
     def get_camera_intrinsics(self):
-        return None, (0, 0)
+        return None
 
     @property
     def is_per_pixel_labels_available(self):
