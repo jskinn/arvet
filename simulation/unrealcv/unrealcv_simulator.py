@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os
 import time
 import subprocess
@@ -196,18 +196,20 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         :return:
         """
         rad_fov = np.pi * self.field_of_view / 180
-        focal_length = 1 / (2 * np.tan(rad_fov / 4))
+        focal_length = 1 / (2 * np.tan(rad_fov / 2))
 
         # In unreal 4, field of view is whichever is the larger dimension
         # See: https://answers.unrealengine.com/questions/36550/perspective-camera-and-field-of-view.html
         if self._resolution[0] > self._resolution[1]:  # Wider than tall, fov is horizontal FOV
-            return cam_intr.CameraIntrinsics(focal_length,
-                                             focal_length * (self._resolution[0] / self._resolution[1]),
-                                             0.5, 0.5), self._resolution
+            focal_length = focal_length * self._resolution[0]
         else:  # Taller than wide, fov is vertical fov
-            return cam_intr.CameraIntrinsics(focal_length * (self._resolution[1] / self._resolution[0]),
-                                             focal_length,
-                                             0.5, 0.5), self._resolution
+            focal_length = focal_length * self._resolution[1]
+        return cam_intr.CameraIntrinsics(
+            width=self._resolution[0],
+            height=self._resolution[1],
+            fx=focal_length, fy=focal_length,
+            cx=0.5 * self._resolution[0], cy=0.5 * self._resolution[1]
+        ), self._resolution
 
     def begin(self):
         """
@@ -641,7 +643,6 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         return None
 
     def _make_metadata(self, im_data, depth_data, label_data, camera_pose, right_camera_pose=None):
-        fov = self._fov
         focus_length = self._focus_distance
         aperture = self._aperture
         # if self._client is not None:
@@ -673,13 +674,13 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
 
         return imeta.ImageMetadata(
             hash_=xxhash.xxh64(im_data).digest(),
-            source_type=imeta.ImageSourceType.SYNTHETIC, height=im_data.shape[0], width=im_data.shape[1],
+            source_type=imeta.ImageSourceType.SYNTHETIC,
             camera_pose=camera_pose,
             right_camera_pose=right_camera_pose,
             intrinsics=camera_intrinsics, right_intrinsics=camera_intrinsics,
             environment_type=self._environment_type,
             light_level=self._light_level, time_of_day=self._time_of_day,
-            fov=fov * np.pi / 180, focal_distance=focus_length, aperture=aperture,
+            lens_focal_distance=focus_length, aperture=aperture,
             simulation_world=self._world_name,
             lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
             texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,

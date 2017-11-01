@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import pymongo.collection
@@ -48,12 +48,12 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
             'data_id': 0,
             'metadata': imeta.ImageMetadata(
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                source_type=imeta.ImageSourceType.SYNTHETIC,
                 camera_pose=tf.Transform(location=(1, 2, 3), rotation=(4, 5, 6, 7)),
-                intrinsics=cam_intr.CameraIntrinsics(0.277, 0.305, 0.5, 0.5),
+                intrinsics=cam_intr.CameraIntrinsics(32, 32, 17.8, 15.2, 16, 17),
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+                lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
                 lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
                 normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
                 procedural_generation_seed=16234,
@@ -111,14 +111,13 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
     def test_constructor_works_with_minimal_arguments(self):
         ie.ImageEntity(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                        metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                                    source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                                    source_type=imeta.ImageSourceType.SYNTHETIC))
 
     def test_serialize_and_deserialize_works_with_minimal_arguments(self):
         entity1 = ie.ImageEntity(data=self.data_map[0],
                                  data_id=0,
                                  metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                                              source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
-                                                              width=800))
+                                                              source_type=imeta.ImageSourceType.SYNTHETIC))
         s_entity = entity1.serialize()
         entity2 = ie.ImageEntity.deserialize(s_entity, self.create_mock_db_client())
         s_entity2 = entity2.serialize()
@@ -233,14 +232,14 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
             'right_world_normals_id': 9,
             'metadata': imeta.ImageMetadata(
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                source_type=imeta.ImageSourceType.SYNTHETIC,
                 camera_pose=tf.Transform(location=(1, 2, 3), rotation=(4, 5, 6, 7)),
                 right_camera_pose=tf.Transform(location=(8, 9, 10), rotation=(11, 12, 13, 14)),
-                intrinsics=cam_intr.CameraIntrinsics(0.2927, 0.67, 0.5, 0.5),
-                right_intrinsics=cam_intr.CameraIntrinsics(0.277, 0.305, 0.5, 0.5),
+                intrinsics=cam_intr.CameraIntrinsics(32, 32, 29.3, 12.05, 15.6, 16.1),
+                right_intrinsics=cam_intr.CameraIntrinsics(32, 32, 27.7, 30.5, 16.2, 15.8),
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+                lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
                 lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
                 normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
                 procedural_generation_seed=16234,
@@ -298,9 +297,7 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
                              right_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                              metadata=imeta.ImageMetadata(
                                  hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                                 height=600,
-                                 width=800))
+                                 source_type=imeta.ImageSourceType.SYNTHETIC))
 
     def test_serialize_and_deserialize_work_with_minimal_arguments(self):
         entity1 = ie.StereoImageEntity(left_data=self.data_map[0],
@@ -309,9 +306,7 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
                                        right_data_id=1,
                                        metadata=imeta.ImageMetadata(
                                            hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                           source_type=imeta.ImageSourceType.SYNTHETIC,
-                                           height=600,
-                                           width=800))
+                                           source_type=imeta.ImageSourceType.SYNTHETIC))
         s_entity = entity1.serialize()
         entity2 = ie.StereoImageEntity.deserialize(s_entity, self.create_mock_db_client())
         s_entity2 = entity2.serialize()
@@ -413,8 +408,7 @@ class TestImageToEntity(unittest.TestCase):
     def test_image_to_image_entity_does_nothing_to_an_image_entity(self):
         entity = ie.ImageEntity(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                 metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                                             source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
-                                                             width=800))
+                                                             source_type=imeta.ImageSourceType.SYNTHETIC))
         result = ie.image_to_entity(entity)
         self.assertEqual(entity, result)
 
@@ -422,8 +416,7 @@ class TestImageToEntity(unittest.TestCase):
         entity = ie.StereoImageEntity(left_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                       right_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                       metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                                                   source_type=imeta.ImageSourceType.SYNTHETIC,
-                                                                   height=600, width=800))
+                                                                   source_type=imeta.ImageSourceType.SYNTHETIC))
         result = ie.image_to_entity(entity)
         self.assertEqual(entity, result)
 
@@ -432,8 +425,7 @@ class TestImageToEntity(unittest.TestCase):
                                  metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                                                               camera_pose=tf.Transform(location=(10, 13, -67),
                                                                                        rotation=(0.5, 0.1, 0.2)),
-                                                              source_type=imeta.ImageSourceType.SYNTHETIC, height=600,
-                                                              width=800))
+                                                              source_type=imeta.ImageSourceType.SYNTHETIC))
         entity = ie.image_to_entity(image)
         self.assertIsInstance(entity, ie.ImageEntity)
         self.assertTrue(np.array_equal(entity.data, image.data), "Image data are not equal")
@@ -449,8 +441,7 @@ class TestImageToEntity(unittest.TestCase):
                                                                     right_camera_pose=tf.Transform(
                                                                         location=(-32, 2, -8),
                                                                         rotation=(0.1, 0.6, 0.8)),
-                                                                    source_type=imeta.ImageSourceType.SYNTHETIC,
-                                                                    height=600, width=800))
+                                                                    source_type=imeta.ImageSourceType.SYNTHETIC))
         entity = ie.image_to_entity(image)
         self.assertIsInstance(entity, ie.StereoImageEntity)
         self.assertTrue(np.array_equal(entity.left_data, image.left_data), "Left image data are not equal")
@@ -489,7 +480,7 @@ class TestSaveImage(unittest.TestCase):
             world_normals_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             world_normals_id=4,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                         source_type=imeta.ImageSourceType.SYNTHETIC))
         ie.save_image(self.mock_db_client, image)
 
         existing_query = self.mock_db_client.image_collection.find_one.mock_calls[0][1][0]
@@ -523,7 +514,7 @@ class TestSaveImage(unittest.TestCase):
             right_world_normals_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             right_world_normals_id=9,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                         source_type=imeta.ImageSourceType.SYNTHETIC))
         ie.save_image(self.mock_db_client, image)
 
         existing_query = self.mock_db_client.image_collection.find_one.mock_calls[0][1][0]
@@ -546,7 +537,7 @@ class TestSaveImage(unittest.TestCase):
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                         source_type=imeta.ImageSourceType.SYNTHETIC))
         result = ie.save_image(self.mock_db_client, image)
         self.assertEqual(existing_id, result)
         self.assertTrue(self.mock_db_client.image_collection.find_one.called)
@@ -557,7 +548,7 @@ class TestSaveImage(unittest.TestCase):
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=None,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                         source_type=imeta.ImageSourceType.SYNTHETIC))
         ie.save_image(self.mock_db_client, image)
         self.assertTrue(self.mock_db_client.grid_fs.put.called)
 
@@ -568,7 +559,7 @@ class TestSaveImage(unittest.TestCase):
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                         source_type=imeta.ImageSourceType.SYNTHETIC))
         result = ie.save_image(self.mock_db_client, image)
         self.assertEqual(new_id, result)
         self.assertTrue(self.mock_db_client.image_collection.find_one.called)
@@ -581,7 +572,7 @@ class TestSaveImage(unittest.TestCase):
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=None,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800))
+                                         source_type=imeta.ImageSourceType.SYNTHETIC))
         ie.save_image(self.mock_db_client, image)
         s_image = self.mock_db_client.image_collection.insert.mock_calls[0][1][0]
         self.assertEqual(new_id, s_image['data'])

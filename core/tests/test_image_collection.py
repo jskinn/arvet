@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import database.tests.test_entity
@@ -6,6 +6,7 @@ import numpy as np
 import bson.objectid
 import util.dict_utils as du
 import util.transform as tf
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import core.image_entity as ie
 import core.image_collection as ic
@@ -18,12 +19,13 @@ def make_image(index=1, **kwargs):
         'data': np.random.uniform(0, 255, (32, 32, 3)),
         'metadata': imeta.ImageMetadata(
             hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
-            source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+            source_type=imeta.ImageSourceType.SYNTHETIC,
             camera_pose=tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
                                      rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+            intrinsics=cam_intr.CameraIntrinsics(800, 600, 550.2, 750.2, 400, 300),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -55,12 +57,16 @@ def make_stereo_image(index=1, **kwargs):
         'right_data': np.random.uniform(0, 255, (32, 32, 3)),
         'metadata': imeta.ImageMetadata(
             hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
-            source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+            source_type=imeta.ImageSourceType.SYNTHETIC,
             camera_pose=tf.Transform(location=(1 + 100*index, 2 + np.random.uniform(-1, 1), 3),
                                      rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+            right_camera_pose=tf.Transform(location=(1 + 100*index, 12 + np.random.uniform(-1, 1), 3),
+                                           rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+            intrinsics=cam_intr.CameraIntrinsics(800, 600, 550.2, 750.2, 400, 300),
+            right_intrinsics=cam_intr.CameraIntrinsics(800, 600, 550.2, 750.2, 400, 300),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -104,7 +110,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'images': self.images,
-            'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL
+            'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+            'db_client_': self.create_mock_db_client()
         })
         return ic.ImageCollection(*args, **kwargs)
 
@@ -152,58 +159,70 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         return self.db_client
 
     def test_timestamps_returns_all_timestamps_in_order(self):
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     db_client_=self.create_mock_db_client())
         self.assertEqual([1.2 * t for t in range(10)], subject.timestamps)
         for stamp in subject.timestamps:
             self.assertIsNotNone(subject.get(stamp))
 
     def test_is_depth_available_is_true_iff_all_images_have_depth_data(self):
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     db_client_=self.create_mock_db_client())
         self.assertTrue(subject.is_depth_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(depth_data=None)}, self.images))
+                                     images=du.defaults({1.7: make_image(depth_data=None)}, self.images),
+                                     db_client_=self.create_mock_db_client())
         self.assertFalse(subject.is_depth_available)
 
     def test_is_per_pixel_labels_available_is_true_iff_all_images_have_labels_data(self):
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     db_client_=self.create_mock_db_client())
         self.assertTrue(subject.is_per_pixel_labels_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(labels_data=None)}, self.images))
+                                     images=du.defaults({1.7: make_image(labels_data=None)}, self.images),
+                                     db_client_=self.create_mock_db_client())
         self.assertFalse(subject.is_per_pixel_labels_available)
 
     def test_is_labels_available_is_true_iff_all_images_have_bounding_boxes(self):
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     db_client_=self.create_mock_db_client())
         self.assertTrue(subject.is_labels_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: make_image(metadata=imeta.ImageMetadata(
                                          hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
-                                         source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+                                         source_type=imeta.ImageSourceType.SYNTHETIC,
                                          camera_pose=tf.Transform(location=(800, 2 + np.random.uniform(-1, 1), 3),
                                                                   rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+                                         intrinsics=cam_intr.CameraIntrinsics(800, 600, 550.2, 750.2, 400, 300),
                                          environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                                          light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                                         fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+                                         lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
                                          lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
                                          normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
                                          procedural_generation_seed=16234, labelled_objects=[],
                                          average_scene_depth=90.12
-                                     ))}, self.images))
+                                     ))}, self.images),
+                                     db_client_=self.create_mock_db_client())
         self.assertFalse(subject.is_labels_available)
 
     def test_is_normals_available_is_true_iff_all_images_have_normals_data(self):
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+                                     db_client_=self.create_mock_db_client())
         self.assertTrue(subject.is_normals_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(world_normals_data=None)}, self.images))
+                                     images=du.defaults({1.7: make_image(world_normals_data=None)}, self.images),
+                                     db_client_=self.create_mock_db_client())
         self.assertFalse(subject.is_normals_available)
 
     def test_is_stereo_available_is_true_iff_all_images_are_stereo_images(self):
         stereo_images_list = {i * 1.3: make_stereo_image(index=i) for i in range(10)}
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=stereo_images_list)
+                                     images=stereo_images_list,
+                                     db_client_=self.create_mock_db_client())
         self.assertTrue(subject.is_stereo_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults(stereo_images_list, self.images))
+                                     images=du.defaults(stereo_images_list, self.images),
+                                     db_client_=self.create_mock_db_client())
         self.assertFalse(subject.is_stereo_available)
 
     def test_get_next_image_returns_images_in_order(self):

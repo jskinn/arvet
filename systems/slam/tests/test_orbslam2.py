@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import os.path
@@ -151,7 +151,7 @@ class TestORBSLAM2(database.tests.test_entity.EntityContract, unittest.TestCase)
         mock_depth_data = np.random.randint(0, 255, (32, 32, 3), dtype='uint8')
         image = core.image.Image(data=mock_image_data, depth_data=mock_depth_data, metadata=imeta.ImageMetadata(
             source_type=imeta.ImageSourceType.SYNTHETIC,
-            height=32, width=32, hash_=b'\x00\x00\x00\x00\x00\x00\x00\x01'
+            hash_=b'\x00\x00\x00\x00\x00\x00\x00\x01'
         ))
 
         subject = self.make_instance()

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
 import cv2
@@ -150,7 +150,6 @@ class TestImportGeneratedDataset(unittest.TestCase):
         self.assertTrue(metadata.normal_maps_enabled)
         self.assertEqual(0, metadata.texture_mipmap_bias)
         self.assertEqual(0, metadata.geometry_decimation)
-        self.assertEqual(90, metadata.fov)
         self.assertEqual(0, metadata.procedural_generation_seed)
 
     @mock.patch('dataset.generated.import_generated_dataset.cv2', autospec=cv2)

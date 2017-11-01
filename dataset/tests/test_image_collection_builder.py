@@ -81,7 +81,7 @@ def make_image(*args, **kwargs):
         'data_id': 0,
         'metadata': imeta.ImageMetadata(
             source_type=imeta.ImageSourceType.SYNTHETIC,
-            hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b', height=600, width=800,
+            hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
             camera_pose=tf.Transform()
         )
     })

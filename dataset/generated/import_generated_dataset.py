@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import copy
 import glob
 import json
@@ -106,16 +106,20 @@ def build_image_metadata(im_data, ground_truth_depth_data, camera_pose, metadata
     # In unreal 4, field of view is whichever is the larger dimension
     # See: https://answers.unrealengine.com/questions/36550/perspective-camera-and-field-of-view.html
     if im_data.shape[1] > im_data.shape[0]:     # Wider than tall, fov is horizontal FOV
-        camera_intrinsics = intrins.CameraIntrinsics(focal_length, focal_length * (im_data.shape[1] / im_data.shape[0]),
-                                                     0.5, 0.5)
+        focal_length = focal_length * im_data.shape[1]
     else:    # Taller than wide, fov is vertical fov
-        camera_intrinsics = intrins.CameraIntrinsics(focal_length * (im_data.shape[0] / im_data.shape[1]), focal_length,
-                                                     0.5, 0.5)
+        focal_length = focal_length * im_data.shape[0]
+    camera_intrinsics = intrins.CameraIntrinsics(
+        width=im_data.shape[1],
+        height=im_data.shape[0],
+        fx=focal_length,
+        fy=focal_length,
+        cx=0.5 * im_data.shape[1],
+        cy=0.5 * im_data.shape[0]
+    )
     image_metadata = imeta.ImageMetadata(
         hash_=xxhash.xxh64(np.ascontiguousarray(im_data)).digest(),
         source_type=imeta.ImageSourceType.SYNTHETIC,
-        height=im_data.shape[0],
-        width=im_data.shape[1],
         camera_pose=camera_pose,
         right_camera_pose=right_camera_pose,
         environment_type=imeta.EnvironmentType.INDOOR,
@@ -123,8 +127,7 @@ def build_image_metadata(im_data, ground_truth_depth_data, camera_pose, metadata
         time_of_day=imeta.TimeOfDay.DAY,
         intrinsics=camera_intrinsics,
         right_intrinsics=camera_intrinsics if right_camera_pose is not None else None,
-        fov=np.pi / 2,     # checked, this is definitely 90 degrees in all generated data
-        focal_distance=None,
+        lens_focal_distance=None,
         aperture=None,
         simulation_world=metadata['World Name'],
         lighting_model=imeta.LightingModel.LIT,

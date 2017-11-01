@@ -122,10 +122,12 @@ def get_camera_calibration(sensor_yaml_path):
     ]))
     resolution = sensor_data['resolution']
     intrinsics = cam_intr.CameraIntrinsics(
-        fx=sensor_data['intrinsics'][0] / resolution[0],
-        fy=sensor_data['intrinsics'][1] / resolution[1],
-        cx=sensor_data['intrinsics'][2] / resolution[0],
-        cy=sensor_data['intrinsics'][3] / resolution[1],
+        width=resolution[0],
+        height=resolution[1],
+        fx=sensor_data['intrinsics'][0],
+        fy=sensor_data['intrinsics'][1],
+        cx=sensor_data['intrinsics'][2],
+        cy=sensor_data['intrinsics'][3],
         k1=sensor_data['distortion_coefficients'][0],
         k2=sensor_data['distortion_coefficients'][1],
         p1=sensor_data['distortion_coefficients'][2],
@@ -175,10 +177,6 @@ def import_dataset(root_folder, db_client):
         left_pose = robot_pose.find_independent(left_extrinsics)
         right_pose = robot_pose.find_independent(right_extrinsics)
 
-        horizontal_fov = np.arctan2(max(left_intrinsics.cx, 1 - left_intrinsics.cx),
-                                    left_intrinsics.fx)
-        vertical_fov = np.arctan2(max(left_intrinsics.cy, 1 - left_intrinsics.cy),
-                                  left_intrinsics.fy)
         builder.add_image(image=core.image_entity.StereoImageEntity(
             left_data=left_data,
             right_data=right_data,
@@ -186,11 +184,8 @@ def import_dataset(root_folder, db_client):
                 hash_=xxhash.xxh64(left_data).digest(),
                 camera_pose=left_pose,
                 right_camera_pose=right_pose,
-                height=left_data.shape[0],
-                width=left_data.shape[1],
                 intrinsics=left_intrinsics,
                 right_intrinsics=right_intrinsics,
-                fov=max(horizontal_fov, vertical_fov),
                 source_type=imeta.ImageSourceType.REAL_WORLD,
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT,

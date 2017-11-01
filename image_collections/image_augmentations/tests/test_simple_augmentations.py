@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
 import core.image
@@ -37,8 +37,6 @@ class TestHorizontalFlip(test_augmented.ImageAugmenterContract, unittest.TestCas
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                width=data.shape[1],
-                height=data.shape[0],
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
@@ -82,8 +80,6 @@ class TestVerticalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase)
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                width=data.shape[1],
-                height=data.shape[0],
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
@@ -127,8 +123,6 @@ class TestRotate90(test_augmented.ImageAugmenterContract, unittest.TestCase):
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                width=data.shape[1],
-                height=data.shape[0],
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
@@ -173,8 +167,6 @@ class TestRotate180(test_augmented.ImageAugmenterContract, unittest.TestCase):
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                width=data.shape[1],
-                height=data.shape[0],
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
@@ -219,8 +211,6 @@ class TestRotate270(test_augmented.ImageAugmenterContract, unittest.TestCase):
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                width=data.shape[1],
-                height=data.shape[0],
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},

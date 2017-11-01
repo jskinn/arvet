@@ -40,8 +40,6 @@ class TestRotateSimple(test_augmented.ImageAugmenterContract, unittest.TestCase)
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
-                width=data.shape[1],
-                height=data.shape[0],
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},

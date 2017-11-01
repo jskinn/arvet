@@ -1,8 +1,10 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
+import typing
 import enum
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
+import util.database_helpers as dh
 import metadata.camera_intrinsics as cam_intr
 
 
@@ -45,7 +47,9 @@ class LabelledObject:
     """
     Metadata for a labelled object in an image.
     """
-    def __init__(self, class_names, bounding_box, label_color=None, relative_pose=None, object_id=None):
+    def __init__(self, class_names: typing.Iterable[str], bounding_box: typing.Tuple[int, int, int, int],
+                 label_color: typing.Tuple[int, int, int] = None, relative_pose: tf.Transform = None,
+                 object_id: str = None):
         self._class_names = tuple(class_names)
         # Order is (upper left x, upper left y, width, height)
         self._bounding_box = (int(bounding_box[0]), int(bounding_box[1]), int(bounding_box[2]), int(bounding_box[3]))
@@ -55,11 +59,11 @@ class LabelledObject:
         self._object_id = object_id
 
     @property
-    def class_names(self):
+    def class_names(self) -> typing.Tuple[str, ...]:
         return self._class_names
 
     @property
-    def bounding_box(self):
+    def bounding_box(self) -> typing.Tuple[int, int, int, int]:
         """
         The bounding box, as (x, y, width, height).
         Location is measured from the top left of the image
@@ -68,18 +72,18 @@ class LabelledObject:
         return self._bounding_box
 
     @property
-    def label_color(self):
+    def label_color(self) -> typing.Tuple[int, int, int]:
         return self._label_color
 
     @property
-    def relative_pose(self):
+    def relative_pose(self) -> tf.Transform:
         return self._relative_pose
 
     @property
-    def object_id(self):
+    def object_id(self) -> str:
         return self._object_id
 
-    def __eq__(self, other):
+    def __eq__(self, other: typing.Any) -> bool:
         """
         Override equals. Labelled objects
         :param other:
@@ -96,14 +100,14 @@ class LabelledObject:
                 self.relative_pose == other.relative_pose and
                 self.object_id == other.object_id)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         Hash this object, so it can be in sets
         :return:
         """
         return hash((self.class_names, self.bounding_box, self.label_color, self.relative_pose, self.object_id))
 
-    def serialize(self):
+    def serialize(self) -> dict:
         return {
             'class_names': list(self.class_names),
             'bounding_box': self.bounding_box,
@@ -113,7 +117,7 @@ class LabelledObject:
         }
 
     @classmethod
-    def deserialize(cls, serialized):
+    def deserialize(cls, serialized: dict) -> 'LabelledObject':
         kwargs = {}
         if 'class_names' in serialized:
             kwargs['class_names'] = tuple(serialized['class_names'])
@@ -138,8 +142,8 @@ class ImageMetadata:
     Instances of this class are associated with Image objects
     """
 
-    def __init__(self, source_type, height, width, hash_, camera_pose=None, right_camera_pose=None, intrinsics=None,
-                 right_intrinsics=None, fov=None, focal_distance=None, aperture=None,
+    def __init__(self, source_type, hash_, camera_pose=None, right_camera_pose=None, intrinsics=None,
+                 right_intrinsics=None, lens_focal_distance=None, aperture=None,
                  environment_type=None, light_level=None, time_of_day=None,
                  simulation_world=None, lighting_model=None, texture_mipmap_bias=None, normal_maps_enabled=True,
                  roughness_enabled=None, geometry_decimation=None, procedural_generation_seed=None,
@@ -151,14 +155,11 @@ class ImageMetadata:
         self._light_level = LightingLevel(light_level) if light_level is not None else None
         self._time_of_day = TimeOfDay(time_of_day) if time_of_day is not None else None
 
-        self._height = int(height)
-        self._width = int(width)
         self._camera_pose = camera_pose
         self._right_camera_pose = right_camera_pose
         self._camera_intrinsics = intrinsics
         self._right_camera_intrinsics = right_intrinsics
-        self._fov = float(fov) if fov is not None else None
-        self._focal_distance = float(focal_distance) if focal_distance is not None else None
+        self._lens_focal_distance = float(lens_focal_distance) if lens_focal_distance is not None else None
         self._aperture = float(aperture) if aperture is not None else None
 
         # Computer graphics settings, for measuring image quality
@@ -183,21 +184,18 @@ class ImageMetadata:
         self._base_image = base_image
         self._affine_transformation_matrix = transformation_matrix
 
-    def __eq__(self, other):
+    def __eq__(self, other: typing.Any) -> bool:
         return (isinstance(other, ImageMetadata) and
                 self.hash == other.hash and
                 self.source_type == other.source_type and
                 self.environment_type == other.environment_type and
                 self.light_level == other.light_level and
                 self.time_of_day == other.time_of_day and
-                self.height == other.height and
-                self.width == other.width and
                 self.camera_pose == other.camera_pose and
                 self.right_camera_pose == other.right_camera_pose and
                 self.camera_intrinsics == other.camera_intrinsics and
                 self.right_camera_intrinsics == other.right_camera_intrinsics and
-                self.fov == other.fov and
-                self.focal_distance == other.focal_distance and
+                self.lens_focal_distance == other.lens_focal_distance and
                 self.aperture == other.aperture and
                 self.simulation_world == other.simulation_world and
                 self.lighting_model == other.lighting_model and
@@ -211,10 +209,10 @@ class ImageMetadata:
                 np.array_equal(self.affine_transformation_matrix, other.affine_transformation_matrix) and
                 set(self.labelled_objects) == set(other.labelled_objects))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.hash, self.source_type, self.environment_type, self.light_level, self.time_of_day,
-                     self.height, self.width, self.camera_pose, self.right_camera_pose, self.camera_intrinsics,
-                     self.right_camera_intrinsics, self.fov, self.focal_distance, self.aperture,
+                     self.camera_pose, self.right_camera_pose, self.camera_intrinsics,
+                     self.right_camera_intrinsics, self.lens_focal_distance, self.aperture,
                      self.simulation_world, self.lighting_model,
                      self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
                      self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth,
@@ -222,7 +220,7 @@ class ImageMetadata:
                     tuple(hash(obj) for obj in self.labelled_objects))
 
     @property
-    def hash(self):
+    def hash(self) -> bytes:
         """
         The 64-bit xxhash of the image data.
         this is useful for quick comparisons of images,
@@ -232,94 +230,92 @@ class ImageMetadata:
         return self._hash
 
     @property
-    def source_type(self):
+    def source_type(self) -> ImageSourceType:
         return self._source_type
 
     @property
-    def environment_type(self):
+    def environment_type(self) -> typing.Union[EnvironmentType, None]:
         return self._environment_type
 
     @property
-    def light_level(self):
+    def light_level(self) -> typing.Union[LightingLevel, None]:
         return self._light_level
 
     @property
-    def time_of_day(self):
+    def time_of_day(self) -> typing.Union[TimeOfDay, None]:
         return self._time_of_day
 
     @property
-    def height(self):
-        return self._height
+    def height(self) -> int:
+        return self.camera_intrinsics.height
 
     @property
-    def width(self):
-        return self._width
+    def width(self) -> int:
+        return self.camera_intrinsics.width
 
     @property
-    def camera_pose(self):
+    def camera_pose(self) -> typing.Union[tf.Transform, None]:
         return self._camera_pose
 
     @property
-    def right_camera_pose(self):
+    def right_camera_pose(self) -> typing.Union[tf.Transform, None]:
         return self._right_camera_pose
 
     @property
-    def camera_intrinsics(self):
+    def camera_intrinsics(self) -> cam_intr.CameraIntrinsics:
         """
-        A tuple containing the camera intrinsics, fx, fy, cx, cy.
-        If you want them in matrix form, use intrinsic_matrix.
+        The camera intrinsics object, containing the image resolution, focal distances, and lens skew
+        If you want them in matrix form, get the intrinsic_matrix property of this.
         :return:
         """
         return self._camera_intrinsics
 
     @property
-    def right_camera_intrinsics(self):
+    def right_camera_intrinsics(self) -> typing.Union[cam_intr.CameraIntrinsics, None]:
         """
-        If this is a stereo image, a tuple containing the right camera intrinsics, fx, fy, cx, cy.
+        If this is a stereo image, a object containing the right camera intrinsics, fx, fy, cx, cy.
         If you want them in matrix form, use right_intrinsic_matrix.
+        You can also use this to get the dimensions of the right image.
         :return:
         """
         return self._right_camera_intrinsics
 
     @property
-    def fov(self):
-        return self._fov
-
-    @property
-    def focal_distance(self):
+    def lens_focal_distance(self) -> typing.Union[float, None]:
         """
         The distance to the in-focus field of the camera lens.
         The distance from the camera at which an object is in focus.
+        This is distinct from the length of the pinhole camera, although the values are often the same.
         :return:
         """
-        return self._focal_distance
+        return self._lens_focal_distance
 
     @property
-    def aperture(self):
+    def aperture(self) -> float:
         return self._aperture
 
     @property
-    def simulation_world(self):
+    def simulation_world(self) -> str:
         return self._simulation_world
 
     @property
-    def lighting_model(self):
+    def lighting_model(self) -> LightingModel:
         return self._lighting_model
 
     @property
-    def texture_mipmap_bias(self):
+    def texture_mipmap_bias(self) -> int:
         return self._texture_mipmap_bias
 
     @property
-    def normal_maps_enabled(self):
+    def normal_maps_enabled(self) -> bool:
         return self._normal_maps_enabled
 
     @property
-    def roughness_enabled(self):
+    def roughness_enabled(self) -> typing.Union[bool, None]:
         return self._roughness_enabled
 
     @property
-    def geometry_decimation(self):
+    def geometry_decimation(self) -> typing.Union[float, None]:
         return self._geometry_decimation
 
     @property
@@ -368,8 +364,6 @@ class ImageMetadata:
         du.defaults(kwargs, {
             'hash_': self.hash,
             'source_type': self.source_type,
-            'height': self.height,
-            'width': self.width,
             'camera_pose': self.camera_pose,
             'right_camera_pose': self.right_camera_pose,
             'intrinsics': self.camera_intrinsics,
@@ -377,8 +371,7 @@ class ImageMetadata:
             'environment_type': self.environment_type,
             'light_level': self.light_level,
             'time_of_day': self.time_of_day,
-            'fov': self.fov,
-            'focal_distance': self.focal_distance,
+            'lens_focal_distance': self.lens_focal_distance,
             'aperture': self.aperture,
             'simulation_world': self.simulation_world,
             'lighting_model': self.lighting_model,
@@ -401,7 +394,7 @@ class ImageMetadata:
         return ImageMetadata(**kwargs)
 
     def serialize(self):
-        return {
+        serialized = {
             'hash': self.hash,
             'source_type': self.source_type.value,
             'environment_type': self.environment_type.value if self.environment_type is not None else None,
@@ -413,10 +406,7 @@ class ImageMetadata:
             'intrinsics': self.camera_intrinsics.serialize() if self.camera_intrinsics is not None else None,
             'right_intrinsics': (self.right_camera_intrinsics.serialize()
                                  if self.right_camera_intrinsics is not None else None),
-            'height': self.height,
-            'width': self.width,
-            'fov': self.fov,
-            'focal_distance': self.focal_distance,
+            'lens_focal_distance': self.lens_focal_distance,
             'aperture': self.aperture,
 
             'simulation_world': self.simulation_world,
@@ -434,12 +424,15 @@ class ImageMetadata:
             'base_image': self.base_image,
             'transformation_matrix': self.affine_transformation_matrix
         }
+        dh.add_schema_version(serialized, 'metadata:image_metadata:ImageMetadata', 1)
+        return serialized
 
     @classmethod
     def deserialize(cls, serialized):
         kwargs = {}
-        direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day', 'height', 'width',
-                            'fov', 'focal_distance', 'aperture', 'simulation_world', 'lighting_model',
+        update_schema(serialized)
+        direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day',
+                            'lens_focal_distance', 'aperture', 'simulation_world', 'lighting_model',
                             'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
         for key in direct_copy_keys:
@@ -459,3 +452,79 @@ class ImageMetadata:
             kwargs['labelled_objects'] = tuple(LabelledObject.deserialize(s_obj)
                                                for s_obj in serialized['labelled_objects'])
         return cls(**kwargs)
+
+
+def update_schema(serialized: dict):
+    """
+    Update the serialized image metadata to the latest version.
+    :param serialized:
+    :return:
+    """
+    version = dh.get_schema_version(serialized, 'metadata:image_metadata:ImageMetadata')
+    if version < 1:
+        # unversioned -> version 1
+        if 'width' in serialized:
+            if 'intrinsics' in serialized and isinstance(serialized['intrinsics'], dict):
+                serialized['intrinsics']['width'] = serialized['width']
+            if 'right_intrinsics' in serialized and isinstance(serialized['right_intrinsics'], dict):
+                serialized['right_intrinsics']['width'] = serialized['width']
+        if 'height' in serialized:
+            if 'intrinsics' in serialized and isinstance(serialized['intrinsics'], dict):
+                serialized['intrinsics']['height'] = serialized['height']
+            if 'right_intrinsics' in serialized and isinstance(serialized['right_intrinsics'], dict):
+                serialized['right_intrinsics']['height'] = serialized['height']
+        if 'focal_distance' in serialized:
+            serialized['lens_focal_distance'] = serialized['focal_distance']
+
+
+T = typing.TypeVar
+
+
+def merge(*args: T) -> T:
+    """
+    Merge a list of things, returning the first non-null value.
+    Returns None if all the arguments are None.
+    This is used to merge metadata values from multiple metadata objects, treating None as unspecified.
+    :param args:
+    :return: The first non-zero argument
+    """
+    for arg in args:
+        if arg is not None:
+            return arg
+    return None
+
+
+def merge_stereo(left_image_metadata: ImageMetadata, right_image_metadata: ImageMetadata) -> ImageMetadata:
+    """
+    Merge two image metadata to produce the metadata for a stereo image.
+    Mostly uses the left image values where available, and falls back to the right image where they are missing.
+    :param left_image_metadata: The metadata for the left image
+    :param right_image_metadata: The metadata for the right image
+    :return:
+    """
+    return ImageMetadata(
+        hash_=left_image_metadata.hash,
+        source_type=left_image_metadata.source_type,
+        camera_pose=left_image_metadata.camera_pose,
+        right_camera_pose=right_image_metadata.camera_pose,
+        intrinsics=left_image_metadata.camera_intrinsics,
+        right_intrinsics=right_image_metadata.camera_intrinsics,
+        lens_focal_distance=merge(left_image_metadata.lens_focal_distance, right_image_metadata.lens_focal_distance),
+        aperture=merge(left_image_metadata.aperture, right_image_metadata.aperture),
+        environment_type=merge(left_image_metadata.environment_type, right_image_metadata.environment_type),
+        light_level=merge(left_image_metadata.light_level, right_image_metadata.light_level),
+        time_of_day=merge(left_image_metadata.time_of_day, right_image_metadata.time_of_day),
+        simulation_world=merge(left_image_metadata.simulation_world, right_image_metadata.simulation_world),
+        lighting_model=merge(left_image_metadata.lighting_model, right_image_metadata.lighting_model),
+        texture_mipmap_bias=merge(left_image_metadata.texture_mipmap_bias, right_image_metadata.texture_mipmap_bias),
+        normal_maps_enabled=merge(left_image_metadata.normal_maps_enabled, right_image_metadata.normal_maps_enabled),
+        roughness_enabled=merge(left_image_metadata.roughness_enabled, right_image_metadata.roughness_enabled),
+        geometry_decimation=merge(left_image_metadata.geometry_decimation, right_image_metadata.geometry_decimation),
+        procedural_generation_seed=merge(left_image_metadata.procedural_generation_seed,
+                                         right_image_metadata.procedural_generation_seed),
+        labelled_objects=merge(left_image_metadata.labelled_objects, right_image_metadata.labelled_objects),
+        average_scene_depth=merge(left_image_metadata.average_scene_depth, right_image_metadata.average_scene_depth),
+        base_image=merge(left_image_metadata.base_image, right_image_metadata.base_image),
+        transformation_matrix=merge(left_image_metadata.affine_transformation_matrix,
+                                    right_image_metadata.affine_transformation_matrix)
+    )

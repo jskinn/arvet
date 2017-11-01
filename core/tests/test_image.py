@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
 import util.transform as tf
@@ -15,14 +15,12 @@ class TestImage(unittest.TestCase):
         self.metadata = imeta.ImageMetadata(
             hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
             source_type=imeta.ImageSourceType.SYNTHETIC,
-            height=600,
-            width=800,
             camera_pose=trans,
-            intrinsics=cam_intr.CameraIntrinsics(0.277, 0.305, 0.5, 0.5),
+            intrinsics=cam_intr.CameraIntrinsics(32, 32, 12, 14, 16, 16),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -41,14 +39,12 @@ class TestImage(unittest.TestCase):
         self.full_metadata = imeta.ImageMetadata(
             hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
             source_type=imeta.ImageSourceType.SYNTHETIC,
-            height=600,
-            width=800,
             camera_pose=trans,
-            intrinsics=cam_intr.CameraIntrinsics(0.612, 0.6482, 0.5, 0.5),
+            intrinsics=cam_intr.CameraIntrinsics(32, 32, 24, 31, 16, 17),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -138,13 +134,13 @@ class TestStereoImage(unittest.TestCase):
                                        w_first=False)
         self.metadata = imeta.ImageMetadata(
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
-            source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+            source_type=imeta.ImageSourceType.SYNTHETIC,
             camera_pose=self.left_pose, right_camera_pose=self.right_pose,
-            intrinsics=cam_intr.CameraIntrinsics(0.654, 0.619, 0.5, 0.5),
-            right_intrinsics=cam_intr.CameraIntrinsics(0.129, 0.37, 0.5, 0.5),
+            intrinsics=cam_intr.CameraIntrinsics(32, 32, 17, 22, 16, 16),
+            right_intrinsics=cam_intr.CameraIntrinsics(32, 32, 8, 12, 16, 16),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -167,11 +163,13 @@ class TestStereoImage(unittest.TestCase):
                                             w_first=False)
         self.full_metadata = imeta.ImageMetadata(
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
-            source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+            source_type=imeta.ImageSourceType.SYNTHETIC,
             camera_pose=self.full_left_pose, right_camera_pose=self.full_right_pose,
+            intrinsics=cam_intr.CameraIntrinsics(32, 32, 17, 22, 16, 16),
+            right_intrinsics=cam_intr.CameraIntrinsics(32, 32, 8, 12, 16, 16),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
@@ -308,11 +306,13 @@ class TestStereoImage(unittest.TestCase):
                                   w_first=False)
         metadata = imeta.ImageMetadata(
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
-            source_type=imeta.ImageSourceType.SYNTHETIC, height=600, width=800,
+            source_type=imeta.ImageSourceType.SYNTHETIC,
             camera_pose=left_pose, right_camera_pose=right_pose,
+            intrinsics=cam_intr.CameraIntrinsics(32, 32, 15, 21, 16, 16),
+            right_intrinsics=cam_intr.CameraIntrinsics(32, 32, 13, 7, 16, 16),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-            fov=90, focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(

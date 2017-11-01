@@ -1,11 +1,13 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os.path
 import glob
 import re
+import numpy as np
 import xxhash
 import cv2
 
 import util.transform as tf
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import core.image_entity
 import core.image_collection
@@ -42,6 +44,12 @@ def import_dataset(labels_path, db_client, **kwargs):
             im = cv2.imread(os.path.join(base_dir, imfile))
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
+            focal_length = 1 / (2 * np.tan(np.pi / 4))  # FOV is 90 degrees which is pi / 2
+            if im.shape[1] > im.shape[0]:
+                focal_length = focal_length * im.shape[1]
+            else:
+                focal_length = focal_length * im.shape[0]
+
             labelled_object = imeta.LabelledObject(
                 class_names=(label.lower(),),
                 bounding_box=(int(x1), int(y1), int(x2) - int(x1), int(y2) - int(y1)),
@@ -52,8 +60,14 @@ def import_dataset(labels_path, db_client, **kwargs):
                 metadata=imeta.ImageMetadata(
                     hash_=xxhash.xxh64(im).digest(),
                     source_type=imeta.ImageSourceType.REAL_WORLD,
-                    height=im.shape[0],
-                    width=im.shape[1],
+                    intrinsics=cam_intr.CameraIntrinsics(
+                        width=im.shape[1],
+                        height=im.shape[0],
+                        fx=focal_length,
+                        fy=focal_length,
+                        cx=0.5 * im.shape[1],
+                        cy=0.5 * im.shape[0]
+                    ),
                     camera_pose=tf.Transform(),
                     labelled_objects=(labelled_object,),
                     **kwargs),

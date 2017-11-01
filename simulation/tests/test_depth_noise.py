@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os.path
 import unittest
 import numpy as np
@@ -20,9 +20,11 @@ class TestDepthNoise(unittest.TestCase):
         ground_truth_depth_left, ground_truth_depth_right = get_test_images()
         focal_length = 1 / (2 * np.tan(np.pi / 4))
         camera_intrinsics = cam_intr.CameraIntrinsics(
-            focal_length,
-            focal_length * (ground_truth_depth_left.shape[1] / ground_truth_depth_left.shape[0]),
-            0.5, 0.5)
+            ground_truth_depth_left.shape[1],
+            ground_truth_depth_left.shape[0],
+            focal_length * ground_truth_depth_left.shape[1],
+            focal_length * ground_truth_depth_left.shape[1],
+            0.5 * ground_truth_depth_left.shape[1], 0.5 * ground_truth_depth_left.shape[1])
         noisy_depth = depth_noise.kinect_depth_model(ground_truth_depth_left, ground_truth_depth_right, camera_intrinsics)
         cv2.imshow('test depth linear', noisy_depth / np.max(noisy_depth))
         cv2.waitKey(0)

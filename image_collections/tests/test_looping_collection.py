@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import numpy as np
@@ -130,8 +130,6 @@ def make_image(**kwargs):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
     metadata_kwargs = {
         'source_type': imeta.ImageSourceType.SYNTHETIC,
-        'width': data.shape[1],
-        'height': data.shape[0],
         'hash_': b'\xa5\xc9\x08\xaf$\x0b\x116'
     }
     if 'metadata' in kwargs and isinstance(kwargs['metadata'], dict):

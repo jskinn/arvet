@@ -1,6 +1,5 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os.path
-import numpy as np
 import xxhash
 import cv2
 import util.associate
@@ -112,10 +111,12 @@ def get_camera_intrinsics(folder_path):
     folder_path = folder_path.lower()
     if 'freiburg1' in folder_path:
         return cam_intr.CameraIntrinsics(
-            fx=517.3 / 640,
-            fy=516.5 / 480,
-            cx=318.6 / 640,
-            cy=255.3 / 480,
+            width=640,
+            height=480,
+            fx=517.3,
+            fy=516.5,
+            cx=318.6,
+            cy=255.3,
             k1=0.2624,
             k2=-0.9531,
             k3=1.1633,
@@ -124,10 +125,12 @@ def get_camera_intrinsics(folder_path):
         )
     elif 'freiburg2' in folder_path:
         return cam_intr.CameraIntrinsics(
-            fx=580.8 / 640,
-            fy=581.8 / 480,
-            cx=308.8 / 640,
-            cy=253.0 / 480,
+            width=640,
+            height=480,
+            fx=580.8,
+            fy=581.8,
+            cx=308.8,
+            cy=253.0,
             k1=-0.2297,
             k2=1.4766,
             k3=-3.4194,
@@ -136,16 +139,20 @@ def get_camera_intrinsics(folder_path):
         )
     elif 'frieburg3' in folder_path:
         return cam_intr.CameraIntrinsics(
-            fx=535.4 / 640,
-            fy=539.2 / 480,
-            cx=320.1 / 640,
-            cy=247.6 / 480
+            width=640,
+            height=480,
+            fx=535.4,
+            fy=539.2,
+            cx=320.1,
+            cy=247.6
         )
     else:
         # Default to ROS parameters
         return cam_intr.CameraIntrinsics(
-            fx=525.0 / 640,
-            fy=525.0 / 480,
+            width=640,
+            height=480,
+            fx=525.0,
+            fy=525.0,
             cx=319.5,
             cy=239.5
         )
@@ -182,20 +189,13 @@ def import_dataset(root_folder, db_client):
         depth_data = cv2.imread(os.path.join(root_folder, depth_file), cv2.IMREAD_UNCHANGED)
         depth_data = depth_data / 5000  # Re-scale depth to meters
         camera_intrinsics = get_camera_intrinsics(root_folder)
-        horizontal_fov = np.arctan2(rgb_data.shape[1] * max(camera_intrinsics.cx, 1 - camera_intrinsics.cx),
-                                    camera_intrinsics.fx)
-        vertical_fov = np.arctan2(rgb_data.shape[0] * max(camera_intrinsics.cy, 1 - camera_intrinsics.cy),
-                                  camera_intrinsics.fy)
         builder.add_image(image=core.image_entity.ImageEntity(
             data=rgb_data[:, :, ::-1],
             depth_data=depth_data,
             metadata=imeta.ImageMetadata(
                 hash_=xxhash.xxh64(rgb_data).digest(),
                 camera_pose=camera_pose,
-                height=rgb_data.shape[0],
-                width=rgb_data.shape[1],
                 intrinsics=camera_intrinsics,
-                fov=max(horizontal_fov, vertical_fov),
                 source_type=imeta.ImageSourceType.REAL_WORLD,
                 environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
                 light_level=imeta.LightingLevel.WELL_LIT,

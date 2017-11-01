@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import abc
 import unittest
 
@@ -31,11 +31,11 @@ def create_mock_image(width=128, height=128):
         im[max(0, position[1]):min(height, position[1] + shape[1]),
            max(0, position[0]):min(width, position[0] + shape[0]), :] += colour
 
-    metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, height=height, width=width,
+    metadata = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC,
                                    hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
                                    environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                   light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY, fov=90,
-                                   focal_distance=100, aperture=22,
+                                   light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+                                   lens_focal_distance=100, aperture=22,
                                    camera_pose=tf.Transform())
     return core.image_entity.ImageEntity(data=im,
                                          metadata=metadata,

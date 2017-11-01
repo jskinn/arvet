@@ -40,15 +40,19 @@ def patch_kitti_intrinsics(db_client, root_folder):
         data = pykitti.odometry(root_folder, sequence="{0:02}".format(sequence_num))
         for left_image in data.cam2:
             camera_intrinsics = cam_intr.CameraIntrinsics(
-                fx=data.calib.K_cam2[0, 0] / left_image.shape[1],
-                fy=data.calib.K_cam2[1, 1] / left_image.shape[0],
-                cx=data.calib.K_cam2[0, 2] / left_image.shape[1],
-                cy=data.calib.K_cam2[1, 2] / left_image.shape[0])
+                width=left_image.shape[1],
+                height=left_image.shape[0],
+                fx=data.calib.K_cam2[0, 0],
+                fy=data.calib.K_cam2[1, 1],
+                cx=data.calib.K_cam2[0, 2],
+                cy=data.calib.K_cam2[1, 2])
             right_camera_intrinsics = cam_intr.CameraIntrinsics(
-                fx=data.calib.K_cam3[0, 0] / left_image.shape[1],
-                fy=data.calib.K_cam3[1, 1] / left_image.shape[0],
-                cx=data.calib.K_cam3[0, 2] / left_image.shape[1],
-                cy=data.calib.K_cam3[1, 2] / left_image.shape[0])
+                width=left_image.shape[1],
+                height=left_image.shape[0],
+                fx=data.calib.K_cam3[0, 0],
+                fy=data.calib.K_cam3[1, 1],
+                cx=data.calib.K_cam3[0, 2],
+                cy=data.calib.K_cam3[1, 2])
             image_ids = db_client.image_collection.find({
                 'metadata.hash': xxhash.xxh64(left_image).digest(),
                 'metadata.height': left_image.shape[0],

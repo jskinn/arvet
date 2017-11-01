@@ -1,10 +1,11 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
 import bson.objectid
 import util.dict_utils as du
 import util.transform as tf
 import database.tests.test_entity
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import core.image_entity as ie
 import core.image_collection as ic
@@ -236,14 +237,13 @@ def make_image(**kwargs):
         'metadata': imeta.ImageMetadata(
             hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
             source_type=imeta.ImageSourceType.SYNTHETIC,
-            height=600, width=800,
             camera_pose=tf.Transform(location=np.random.uniform(-1000, 1000, 3),
                                      rotation=np.random.uniform(-1, 1, 4)),
+            intrinsics=cam_intr.CameraIntrinsics(800, 600, 782.5, 781.3, 320, 300),
             environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
             light_level=imeta.LightingLevel.WELL_LIT,
             time_of_day=imeta.TimeOfDay.DAY,
-            fov=np.random.randint(10, 90),
-            focal_distance=np.random.uniform(10, 10000),
+            lens_focal_distance=np.random.uniform(10, 10000),
             aperture=np.random.uniform(1, 22),
             simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT,
@@ -286,5 +286,6 @@ def make_mock_image_collection(num_images):
     return ic.ImageCollection(
         id_=bson.objectid.ObjectId(),
         type_=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
-        images={1.2 * idx: make_image() for idx in range(num_images)}
+        images={1.2 * idx: make_image() for idx in range(num_images)},
+        db_client_=None
     )

@@ -57,22 +57,19 @@ def import_dataset(root_folder, db_client, sequence_number=0):
         right_camera_pose = camera_pose.find_independent(tf.Transform(location=(0, -0.54, 0), rotation=(0, 0, 0, 1),
                                                                       w_first=False))
         camera_intrinsics = intrins.CameraIntrinsics(
-            fx=data.calib.K_cam2[0, 0] / left_image.shape[1],
-            fy=data.calib.K_cam2[1, 1] / left_image.shape[0],
-            cx=data.calib.K_cam2[0, 2] / left_image.shape[1],
-            cy=data.calib.K_cam2[1, 2] / left_image.shape[0])
+            height=left_image.shape[0],
+            width=left_image.shape[1],
+            fx=data.calib.K_cam2[0, 0],
+            fy=data.calib.K_cam2[1, 1],
+            cx=data.calib.K_cam2[0, 2],
+            cy=data.calib.K_cam2[1, 2])
         right_camera_intrinsics = intrins.CameraIntrinsics(
-            fx=data.calib.K_cam3[0, 0] / right_image.shape[1],
-            fy=data.calib.K_cam3[1, 1] / right_image.shape[0],
-            cx=data.calib.K_cam3[0, 2] / right_image.shape[1],
-            cy=data.calib.K_cam3[1, 2] / right_image.shape[0])
-        # Focal distance and sensor horizontal distance form a triangle,
-        # with tan(fov) = sensor width / focal distance
-        # We take the largest width from the principal point as the opposite edge, to produce the largest angle
-        horizontal_fov = np.arctan2(max(data.calib.K_cam2[0, 2], left_image.shape[1] - data.calib.K_cam2[0, 2]),
-                                    data.calib.K_cam2[0, 0])
-        vertical_fov = np.arctan2(max(data.calib.K_cam2[1, 2], left_image.shape[0] - data.calib.K_cam2[1, 2]),
-                                  data.calib.K_cam2[1, 1])
+            height=right_image.shape[0],
+            width=right_image.shape[1],
+            fx=data.calib.K_cam3[0, 0],
+            fy=data.calib.K_cam3[1, 1],
+            cx=data.calib.K_cam3[0, 2],
+            cy=data.calib.K_cam3[1, 2])
         builder.add_image(image=core.image_entity.StereoImageEntity(
             left_data=left_image,
             right_data=right_image,
@@ -80,11 +77,8 @@ def import_dataset(root_folder, db_client, sequence_number=0):
                 hash_=xxhash.xxh64(left_image).digest(),
                 camera_pose=make_camera_pose(pose),
                 right_camera_pose=right_camera_pose,
-                height=left_image.shape[0],
-                width=left_image.shape[1],
                 intrinsics=camera_intrinsics,
                 right_intrinsics=right_camera_intrinsics,
-                fov=max(horizontal_fov, vertical_fov),
                 source_type=imeta.ImageSourceType.REAL_WORLD,
                 environment_type=imeta.EnvironmentType.OUTDOOR_URBAN,
                 light_level=imeta.LightingLevel.WELL_LIT,

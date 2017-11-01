@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
 import abc
@@ -6,6 +6,7 @@ import numpy as np
 import pymongo.collection
 import bson.objectid
 import database.tests.test_entity
+import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
 import core.image
 import core.sequence_type
@@ -86,7 +87,7 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
 
     def test_single_null_augment_is_same_as_inner_collection(self):
         images = {idx + np.random.uniform(-0.2, 0.2):
-                      make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
+                  make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
         collection = make_image_collection(images=images)
         subject = aug_coll.AugmentedImageCollection(collection, [None])
 
@@ -105,7 +106,7 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
 
     def test_provides_index_as_stamp_if_multiple_augmenters(self):
         images = {idx + np.random.uniform(-0.2, 0.2):
-                      make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
+                  make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
         collection = make_image_collection(images=images)
         subject = aug_coll.AugmentedImageCollection(collection, [
             simple_augments.HorizontalFlip(), simple_augments.VerticalFlip()])
@@ -119,7 +120,7 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
 
     def test_multiple_augmenters_makes_non_sequential(self):
         images = {idx + np.random.uniform(-0.2, 0.2):
-                      make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
+                  make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
         collection = make_image_collection(images=images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
         subject = aug_coll.AugmentedImageCollection(collection, [simple_augments.Rotate270()])
         self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, subject.sequence_type)
@@ -228,12 +229,11 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
                 light_level=imeta.LightingLevel.WELL_LIT,
                 time_of_day=imeta.TimeOfDay.DAY,
 
-                width=data.shape[1],
-                height=data.shape[0],
                 camera_pose=tf.Transform((1, 3, 4), (0.2, 0.8, 0.2, -0.7)),
                 right_camera_pose=tf.Transform((-10, -20, -30), (0.9, -0.7, 0.5, -0.3)),
-                fov=90,
-                focal_distance=5,
+                intrinsics=cam_intr.CameraIntrinsics(data.shape[1], data.shape[0], 147.2, 123.3, 420, 215),
+                right_intrinsics=cam_intr.CameraIntrinsics(data.shape[1], data.shape[0], 168.2, 123.3, 420, 251),
+                lens_focal_distance=5,
                 aperture=22,
 
                 simulation_world='TestSimulationWorld',
@@ -280,8 +280,7 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
         self.assertEqual(result.metadata.width, image.metadata.width)
         self.assertEqual(result.metadata.camera_pose, image.metadata.camera_pose)
         self.assertEqual(result.metadata.right_camera_pose, image.metadata.right_camera_pose)
-        self.assertEqual(result.metadata.fov, image.metadata.fov)
-        self.assertEqual(result.metadata.focal_distance, image.metadata.focal_distance)
+        self.assertEqual(result.metadata.lens_focal_distance, image.metadata.lens_focal_distance)
         self.assertEqual(result.metadata.aperture, image.metadata.aperture)
         self.assertEqual(result.metadata.simulation_world, image.metadata.simulation_world)
         self.assertEqual(result.metadata.lighting_model, image.metadata.lighting_model)
@@ -348,8 +347,6 @@ def make_image(**kwargs):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
     metadata_kwargs = {
         'source_type': imeta.ImageSourceType.SYNTHETIC,
-        'width': data.shape[1],
-        'height': data.shape[0],
         'hash_': b'\xa5\xc9\x08\xaf$\x0b\x116'
     }
     if 'metadata' in kwargs and isinstance(kwargs['metadata'], dict):

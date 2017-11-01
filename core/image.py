@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import util.dict_utils as du
 import metadata.image_metadata as imeta
 
@@ -8,7 +8,8 @@ class Image:
     def __init__(self, data, metadata, additional_metadata=None,
                  depth_data=None, ground_truth_depth_data=None,
                  labels_data=None, world_normals_data=None, **kwargs):
-        super().__init__(**kwargs)  # The warning here is false, this passes arguments to other constructors for MI
+        # noinspection PyArgumentList
+        super().__init__(**kwargs)  # kwargs here passes arguments to other constructors for MI
         self._data = data
         self._metadata = (metadata if isinstance(metadata, imeta.ImageMetadata)
                           else imeta.ImageMetadata.deserialize(metadata))
@@ -231,7 +232,7 @@ class StereoImage(Image):
         The 4x4 homogenous matrix describing the pose of the right camera
         :return: A 4x4 numpy array
         """
-        return self.right_camera_pose.transform if self.right_camera_pose is not None else None
+        return self.right_camera_pose.transform_matrix if self.right_camera_pose is not None else None
 
     @property
     def right_camera_pose(self):
@@ -319,39 +320,6 @@ class StereoImage(Image):
         :param right_image: another Image object
         :return: an instance of StereoImage
         """
-        # Merge the left and right metadata, skipping keys that are None on each
-        # to produce the maximum metadata available for this image.
-        # Also properly set the right camera pose from the right image
-        lm = left_image.metadata
-        rm = right_image.metadata
-        metadata_kwargs = {
-            'hash_': lm.hash,
-            'source_type': lm.source_type,
-            'height': lm.height,
-            'width': lm.width,
-            'camera_pose': lm.camera_pose,
-            'right_camera_pose': rm.camera_pose,
-            'environment_type': lm.environment_type if lm.environment_type is not None else rm.environment_type,
-            'light_level': lm.light_level if lm.light_level is not None else rm.light_level,
-            'time_of_day': lm.time_of_day if lm.time_of_day is not None else rm.time_of_day,
-            'fov': lm.fov if lm.fov is not None else rm.fov,
-            'focal_distance': lm.focal_distance if lm.focal_distance is not None else rm.focal_distance,
-            'aperture': lm.aperture if lm.aperture is not None else rm.aperture,
-            'simulation_world': lm.simulation_world if lm.simulation_world is not None else rm.simulation_world,
-            'lighting_model': lm.lighting_model if lm.lighting_model is not None else rm.lighting_model,
-            'texture_mipmap_bias': (lm.texture_mipmap_bias if lm.texture_mipmap_bias is not None
-                                    else rm.texture_mipmap_bias),
-            'normal_maps_enabled': (lm.normal_maps_enabled if lm.normal_maps_enabled is not None
-                                    else rm.normal_maps_enabled),
-            'roughness_enabled': lm.roughness_enabled if lm.roughness_enabled is not None else rm.roughness_enabled,
-            'geometry_decimation': (lm.geometry_decimation if lm.geometry_decimation is not None
-                                    else rm.geometry_decimation),
-            'procedural_generation_seed': (lm.procedural_generation_seed if lm.procedural_generation_seed is not None
-                                           else rm.procedural_generation_seed),
-            'labelled_objects': lm.labelled_objects if lm.labelled_objects is not None else rm.labelled_objects,
-            'average_scene_depth': (lm.average_scene_depth if lm.average_scene_depth is not None
-                                    else rm.average_scene_depth)
-        }
         return cls(left_data=left_image.data,
                    right_data=right_image.data,
                    left_depth_data=left_image.depth_data,
@@ -360,5 +328,5 @@ class StereoImage(Image):
                    right_depth_data=right_image.depth_data,
                    right_labels_data=right_image.labels_data,
                    right_world_normals_data=right_image.world_normals_data,
-                   metadata=imeta.ImageMetadata(**metadata_kwargs),
+                   metadata=imeta.merge_stereo(left_image.metadata, right_image.metadata),
                    additional_metadata=du.defaults(left_image.additional_metadata, right_image.additional_metadata))
