@@ -547,7 +547,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_trajectory_drift),
             dh.load_object(db_client, db_client.benchmarks_collection, self._benchmark_tracking)
         ]
-        datasets = set(self._kitti_datasets) | self._tum_manager.all_datasets | set(self._euroc_datasets.values())
+        datasets = set(self._kitti_datasets) | self._tum_manager.dataset_ids | set(self._euroc_datasets.values())
         for group in self._trajectory_groups.values():
             datasets = datasets | group.get_all_dataset_ids()
         system_trials = set()
@@ -1114,7 +1114,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
         ]
 
         # Make a list of real-world datasets
-        real_world_datasets = self._kitti_datasets | self._tum_manager.all_datasets | set(self._euroc_datasets.values())
+        real_world_datasets = self._kitti_datasets | self._tum_manager.dataset_ids | set(self._euroc_datasets.values())
 
         # Step 3 - Aggregation: For each benchmark, compare real-world and different qualities
         for benchmark_id, benchmark_name, values_list_getter in benchmarks:

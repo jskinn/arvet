@@ -19,7 +19,7 @@ def main():
 
     # Create the experiments
     c = db_client.experiments_collection
-    db_help.add_unique(c, experiments.visual_slam.visual_slam_experiment.VisualSlamExperiment())
+    # db_help.add_unique(c, experiments.visual_slam.visual_slam_experiment.VisualSlamExperiment())
     db_help.add_unique(c, experiments.visual_slam.visual_odometry_experiment.VisualOdometryExperiment())
 
 

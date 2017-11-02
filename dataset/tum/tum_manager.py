@@ -1,6 +1,5 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os
-import glob
 import util.dict_utils as du
 
 
@@ -22,8 +21,20 @@ class TUMManager:
             du.defaults(self._dataset_ids, dataset_ids)
 
     @property
-    def all_datasets(self):
+    def dataset_ids(self):
+        """
+        Get a set of all the dataset ids
+        :return:
+        """
         return set(self._dataset_ids.values())
+
+    @property
+    def datasets(self):
+        """
+        A generator of name -> id pairs
+        :return:
+        """
+        return self._dataset_ids.items()
 
     @property
     def rgbd_dataset_freiburg1_xyz(self):
