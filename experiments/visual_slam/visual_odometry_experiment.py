@@ -533,7 +533,7 @@ class TrajectoryGroup:
             'baseline_configuration': self.baseline_configuration,
             'simulators': self.simulators,
             'controller_id': self.follow_controller_id,
-            'generated_datasets': self.generated_datasets.items()
+            'generated_datasets': self.generated_datasets
         }
 
     @classmethod
