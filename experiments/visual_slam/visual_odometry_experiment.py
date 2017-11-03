@@ -92,7 +92,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # --------- REAL WORLD DATASETS -----------
 
         # Import KITTI dataset
-        for sequence_num in {3}:  # range(11):
+        for sequence_num in range(11):
             task = task_manager.get_import_dataset_task(
                 module_name='dataset.kitti.kitti_loader',
                 path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
@@ -111,7 +111,16 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # Import EuRoC datasets
         for name, path in [
             ('EuRoC MH_01_easy', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_01_easy'))),
-            ('EuRoC MH_04_difficult', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_04_difficult')))
+            ('EuRoC MH_02_easy', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_02_easy'))),
+            ('EuRoC MH_02_medium', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_03_medium'))),
+            ('EuRoC MH_04_difficult', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_04_difficult'))),
+            ('EuRoC MH_05_difficult', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'MH_05_difficult'))),
+            ('EuRoC V1_01_easy', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V1_01_easy'))),
+            ('EuRoC V1_02_medium', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V1_02_medium'))),
+            ('EuRoC V1_03_difficult', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V1_03_difficult'))),
+            ('EuRoC V2_01_easy', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V2_01_easy'))),
+            ('EuRoC V2_02_medium', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V2_02_medium'))),
+            ('EuRoC V2_03_difficult', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V2_03_difficult')))
         ]:
             task = task_manager.get_import_dataset_task(
                 module_name='dataset.euroc.euroc_loader',
@@ -130,8 +139,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         tum_manager = dataset.tum.tum_manager.TUMManager({
             'rgbd_dataset_freiburg1_xyz': True,
             'rgbd_dataset_freiburg1_rpy': True,
-            # 'rgbd_dataset_freiburg2_xyz': True,
-            # 'rgbd_dataset_freiburg2_rpy': True
+            'rgbd_dataset_freiburg2_xyz': True,
+            'rgbd_dataset_freiburg2_rpy': True
         })
         tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
         for name, dataset_id in tum_manager.datasets:
