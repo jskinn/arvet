@@ -4,6 +4,8 @@ import bson
 import logging
 import util.database_helpers as dh
 import util.dict_utils as du
+import util.trajectory_helpers as traj_help
+import util.unreal_transform as uetf
 import database.client
 import core.image_source
 import core.sequence_type
@@ -230,7 +232,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         if changed:
             self._set_property('trajectory_groups.{0}'.format(trajectory_group.name), trajectory_group.serialize())
 
-    def schedule_tasks(self, task_manager, db_client):
+    def schedule_tasks(self, task_manager: batch_analysis.task_manager.TaskManager,
+                       db_client: database.client.DatabaseClient):
         """
         Schedule the running of systems with image sources, and the benchmarking of the trial results so produced.
         :param task_manager:
@@ -255,7 +258,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                           image_sources=datasets,
                           benchmarks=benchmarks)
 
-    def plot_results(self, db_client):
+    def plot_results(self, db_client: database.client.DatabaseClient):
         """
         Plot the results for this experiment.
         :param db_client:
@@ -264,7 +267,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # Visualize the different trajectories in each group
         self._plot_trajectories(db_client)
 
-    def _plot_trajectories(self, db_client):
+    def _plot_trajectories(self, db_client: database.client.DatabaseClient):
         """
         Plot the ground-truth and computed trajectories for each system for each trajectory.
         This is important for validation
@@ -321,6 +324,29 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                 pyplot.tight_layout()
                 pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
+
+    def export_data(self, db_client: database.client.DatabaseClient):
+        """
+        Allow experiments to export some data, usually to file.
+        I'm currently using this to dump camera trajectories so I can build simulations around them,
+        but there will be other circumstances where we want to
+        :param db_client:
+        :return:
+        """
+        for trajectory_group in self._trajectory_groups.values():
+            trajectory = traj_help.get_trajectory_for_image_source(db_client, trajectory_group.reference_dataset)
+            with open('trajectory_{0}.csv'.format(trajectory_group.name), 'w') as output_file:
+                output_file.write('Name,X,Y,Z,Roll,Pitch,Yaw\n')
+                for idx, timestamp in enumerate(sorted(trajectory.keys())):
+                    ue_pose = uetf.transform_to_unreal(trajectory[timestamp])
+                    output_file.write('{name},{x},{y},{z},{roll},{pitch},{yaw}\n'.format(
+                        name=idx,
+                        x=ue_pose.location[0],
+                        y=ue_pose.location[1],
+                        z=ue_pose.location[2],
+                        roll=ue_pose.euler[0],
+                        pitch=ue_pose.euler[1],
+                        yaw=ue_pose.euler[2]))
 
     def serialize(self):
         serialized = super().serialize()

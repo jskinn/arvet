@@ -6,8 +6,8 @@ import core.sequence_type
 import database.entity
 import simulation.simulator
 import simulation.controller
-import util.transform as tf
 import util.associate
+import util.trajectory_helpers as traj_help
 
 
 class TrajectoryFollowController(simulation.controller.Controller, database.entity.Entity):
@@ -249,7 +249,7 @@ def create_follow_controller(db_client, image_collection_id, sequence_type):
     if existing is not None:
         return existing['_id']
     # No direct controller, look for one which has the same trajectory.
-    trajectory = get_trajectory_for_image_source(db_client, image_collection_id)
+    trajectory = traj_help.get_trajectory_for_image_source(db_client, image_collection_id)
     if len(trajectory) <= 0:
         return None
     existing = db_client.image_source_collection.find({
@@ -279,24 +279,3 @@ def create_follow_controller(db_client, image_collection_id, sequence_type):
                                             trajectory_source=image_collection_id,
                                             sequence_type=sequence_type)
     return db_client.image_source_collection.insert(controller.serialize())
-
-
-def get_trajectory_for_image_source(db_client, image_collection_id):
-    """
-    Image collections are too large for us to load into memory here,
-    but we need to be able to do logic on their trajectores.
-    This utility uses the database to get just the trajectory for a given image collection.
-    Only works for image collections, due to their database structure.
-    :param db_client: The database client
-    :param image_collection_id: The id of the image collection to load
-    :return: A trajectory, a map of timestamp to camera pose. Ignores right-camera for stereo
-    """
-    images = db_client.image_source_collection.find_one({'_id': image_collection_id, 'images': {'$exists': True}},
-                                                        {'images': True})
-    trajectory = {}
-    if images is not None:
-        for timestamp, image_id in images['images']:
-            position_result = db_client.image_collection.find_one({'_id': image_id}, {'metadata.camera_pose': True})
-            if position_result is not None:
-                trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
-    return trajectory

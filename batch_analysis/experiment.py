@@ -81,6 +81,16 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         """
         pass
 
+    def export_data(self, db_client: database.client.DatabaseClient):
+        """
+        Allow experiments to export some data, usually to file.
+        I'm currently using this to dump camera trajectories so I can build simulations around them,
+        but there will be other circumstances where we want to. Naturally, this is optional.
+        :param db_client:
+        :return:
+        """
+        pass
+
     def schedule_all(self, task_manager: batch_analysis.task_manager.TaskManager,
                      db_client: database.client.DatabaseClient,
                      systems: typing.List[bson.ObjectId],
