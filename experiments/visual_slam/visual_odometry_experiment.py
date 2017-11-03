@@ -93,20 +93,22 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
         # Import KITTI dataset
         for sequence_num in range(11):
-            task = task_manager.get_import_dataset_task(
-                module_name='dataset.kitti.kitti_loader',
-                path=os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset')),
-                additional_args={'sequence_number': sequence_num},
-                num_cpus=1,
-                num_gpus=0,
-                memory_requirements='3GB',
-                expected_duration='12:00:00'
-            )
-            if task.is_finished:
-                trajectory_group = self._add_trajectory_group('KITTI trajectory {}'.format(sequence_num), task.result)
-                self._update_kitti_trajectory(trajectory_group, task_manager, db_client)
-            else:
-                task_manager.do_task(task)
+            path = os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset'))
+            if os.path.isdir(path) and os.path.isdir(os.path.join(path, "{0:02}".format(sequence_num))):
+                task = task_manager.get_import_dataset_task(
+                    module_name='dataset.kitti.kitti_loader',
+                    path=path,
+                    additional_args={'sequence_number': sequence_num},
+                    num_cpus=1,
+                    num_gpus=0,
+                    memory_requirements='3GB',
+                    expected_duration='12:00:00'
+                )
+                if task.is_finished:
+                    trajectory_group = self._add_trajectory_group('KITTI trajectory {}'.format(sequence_num), task.result)
+                    self._update_kitti_trajectory(trajectory_group, task_manager, db_client)
+                else:
+                    task_manager.do_task(task)
 
         # Import EuRoC datasets
         for name, path in [
@@ -122,18 +124,19 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
             ('EuRoC V2_02_medium', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V2_02_medium'))),
             ('EuRoC V2_03_difficult', os.path.expanduser(os.path.join('~', 'datasets', 'EuRoC', 'V2_03_difficult')))
         ]:
-            task = task_manager.get_import_dataset_task(
-                module_name='dataset.euroc.euroc_loader',
-                path=path,
-                num_cpus=1,
-                num_gpus=0,
-                memory_requirements='3GB',
-                expected_duration='4:00:00'
-            )
-            if task.is_finished:
-                self._add_trajectory_group(name, task.result)
-            else:
-                task_manager.do_task(task)
+            if os.path.isdir(path):
+                task = task_manager.get_import_dataset_task(
+                    module_name='dataset.euroc.euroc_loader',
+                    path=path,
+                    num_cpus=1,
+                    num_gpus=0,
+                    memory_requirements='3GB',
+                    expected_duration='4:00:00'
+                )
+                if task.is_finished:
+                    self._add_trajectory_group(name, task.result)
+                else:
+                    task_manager.do_task(task)
 
         # Import TUM datasets using the manager.
         tum_manager = dataset.tum.tum_manager.TUMManager({
@@ -367,6 +370,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
         # Image Sources
         serialized['kitti_simulators'] = self._kitti_simulators
+        serialized['tum_simulators'] = self._tum_simulators
+        serialized['euroc_simulators'] = self._euroc_simulators
         serialized['trajectory_groups'] = {str(name): group.serialize()
                                            for name, group in self._trajectory_groups.items()}
 
@@ -391,6 +396,10 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # Generated datasets
         if 'kitti_simulators' in serialized_representation:
             kwargs['kitti_simulators'] = serialized_representation['kitti_simulators']
+        if 'tum_simulators' in serialized_representation:
+            kwargs['tum_simulators'] = serialized_representation['tum_simulators']
+        if 'euroc_simulators' in serialized_representation:
+            kwargs['euroc_simulators'] = serialized_representation['euroc_simulators']
         if 'trajectory_groups' in serialized_representation:
             kwargs['trajectory_groups'] = {name: TrajectoryGroup.deserialize(s_group)
                                            for name, s_group in
