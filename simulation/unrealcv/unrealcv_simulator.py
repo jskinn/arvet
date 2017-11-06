@@ -82,7 +82,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             'provide_world_normals': False,
 
             # Simulator settings
-            'origin': None,
+            'origin': {},
             'resolution': {'width': 1280, 'height': 720},
             'fov': 90,
             'depth_of_field_enabled': True,
@@ -118,7 +118,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         self._provide_labels = bool(config['provide_labels'])
         self._provide_world_normals = bool(config['provide_world_normals'])
 
-        self._origin = pose_to_unreal(config['origin'])
+        self._origin = uetf.deserialize(config['origin'])
         self._resolution = (config['resolution']['width'], config['resolution']['height'])
         self._fov = float(config['fov'])
         self._use_dof = bool(config['depth_of_field_enabled'])
@@ -501,7 +501,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                         location=(float(location[0]), float(location[1]), float(location[2])),
                         # Reorder to roll, pitch, yaw, Unrealcv order is pitch, yaw, roll
                         rotation=(float(rotation[2]), float(rotation[0]), float(location[1])))
-                    ue_trans = self._origin.find_relative(ue_trans) # Express relative to the simulator origin
+                    ue_trans = self._origin.find_relative(ue_trans)  # Express relative to the simulator origin
                     return uetf.transform_from_unreal(ue_trans)
         return None
 
@@ -692,12 +692,3 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             geometry_decimation=None, procedural_generation_seed=None,
             labelled_objects=labelled_objects,
             average_scene_depth=np.mean(depth_data) if depth_data is not None else None)
-
-
-def pose_to_unreal(pose):
-    if isinstance(pose, uetf.UnrealTransform):
-        return pose
-    elif isinstance(pose, tf.Transform):
-        return uetf.transform_to_unreal(pose)
-    else:
-        return uetf.UnrealTransform()

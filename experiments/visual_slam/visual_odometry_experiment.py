@@ -237,57 +237,93 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         :param db_client:
         :return:
         """
+        quality_variations = [('max quality', {
+        #}), ('reduced resolution', {
+        #    'resolution': {'width': 256, 'height': 144}  # Extremely low res
+        #}), ('narrow fov', {
+        #    'fov': 15
+        #}), ('no depth-of-field', {
+        #    'depth_of_field_enabled': False
+        #}), ('no textures', {
+        #    'texture_mipmap_bias': 8
+        #}), ('no normal maps', {
+        #    'normal_maps_enabled': False,  # No normal maps
+        #}), ('no reflections', {
+        #    'roughness_enabled': False  # No reflections
+        #}), ('simple geometry', {
+        #    'geometry_decimation': 4,   # Simple geometry
+        #}), ('low quality', {
+        #    # low quality
+        #    'depth_of_field_enabled': False,
+        #    'texture_mipmap_bias': 8,
+        #    'normal_maps_enabled': False,
+        #    'roughness_enabled': False,
+        #    'geometry_decimation': 4,
+        #}), ('worst quality', {
+        #    # absolute minimum quality
+        #    'resolution': {'width': 256, 'height': 144},
+        #    'fov': 15,
+        #    'depth_of_field_enabled': False,
+        #    'texture_mipmap_bias': 8,
+        #    'normal_maps_enabled': False,
+        #    'roughness_enabled': False,
+        #    'geometry_decimation': 4,
+        })]
+
         changed = False
-        # Add simulators for the different trajectory groups
+        # Add simulators for the different trajectory groups with different settings
         if 'KITTI' in trajectory_group.name and 'BlockWorld' in self._simulators:
             changed |= trajectory_group.add_simulator('BlockWorld', self._simulators['BlockWorld'], {})
         if trajectory_group.name == 'TUM rgbd_dataset_freiburg1_xyz' or \
                 trajectory_group.name == 'TUM rgbd_dataset_freiburg1_rpy':
             for sim_name, variant, offset in [
-                ('AIUE_V01_001', 1, uetf.UnrealTransform((-100, -300, 0), (0, 0, 90))),
-                ('AIUE_V01_001', 2, uetf.UnrealTransform((-300, 600, 0), (0, 0, -90))),
-                ('AIUE_V01_001', 3, uetf.UnrealTransform((-200, -100, 0), (0, 0, -90))),
-                ('AIUE_V01_002', 1, uetf.UnrealTransform((-100, -200, 0), (0, 0, 0))),
-                ('AIUE_V01_002', 2, uetf.UnrealTransform((-1000, 300, -150), (0, 0, -150))),
-                ('AIUE_V01_002', 3, uetf.UnrealTransform((-1150, -300, 150), (0, 0, 30))),
-                ('AIUE_V01_003', 1, uetf.UnrealTransform((-70, -70, 10), (0, 0, -90))),
-                ('AIUE_V01_003', 2, uetf.UnrealTransform((-300, 760, 0), (0, 0, 60))),
-                ('AIUE_V01_004', 1, uetf.UnrealTransform((410, 150, -40), (0, 0, 30))),
-                ('AIUE_V01_004', 2, uetf.UnrealTransform((410, 150, 320), (0, 0, 10))),
-                ('AIUE_V01_004', 3, uetf.UnrealTransform((-90, -100, -10), (0, 0, -140))),
-                ('AIUE_V01_005', 1, uetf.UnrealTransform((-180, -1350, -80), (0, 0, -70))),
-                ('AIUE_V01_005', 2, uetf.UnrealTransform((-660, 60, -80), (0, 0, -130))),
-                ('AIUE_V01_005', 3, uetf.UnrealTransform((-710, -1380, 310), (0, 0, -100)))
+                ('AIUE_V01_001', 1, uetf.create_serialized((-100, 300, 0), (0, 0, 90))),
+                ('AIUE_V01_001', 2, uetf.create_serialized((-300, 600, 0), (0, 0, -90))),
+                ('AIUE_V01_001', 3, uetf.create_serialized((-200, -100, 0), (0, 0, -90))),
+                ('AIUE_V01_002', 1, uetf.create_serialized((-100, -200, 0), (0, 0, 0))),
+                ('AIUE_V01_002', 2, uetf.create_serialized((-1000, 300, -150), (0, 0, -150))),
+                ('AIUE_V01_002', 3, uetf.create_serialized((-1150, -300, 150), (0, 0, 30))),
+                ('AIUE_V01_003', 1, uetf.create_serialized((-70, -70, 10), (0, 0, -90))),
+                ('AIUE_V01_003', 2, uetf.create_serialized((-300, 760, 0), (0, 0, 60))),
+                ('AIUE_V01_004', 1, uetf.create_serialized((410, 150, -40), (0, 0, 30))),
+                ('AIUE_V01_004', 2, uetf.create_serialized((410, 150, 320), (0, 0, 10))),
+                ('AIUE_V01_004', 3, uetf.create_serialized((-90, -100, -10), (0, 0, -140))),
+                ('AIUE_V01_005', 1, uetf.create_serialized((-180, -1350, -80), (0, 0, -70))),
+                ('AIUE_V01_005', 2, uetf.create_serialized((-660, 60, -80), (0, 0, -130))),
+                ('AIUE_V01_005', 3, uetf.create_serialized((-710, -1380, 310), (0, 0, -100)))
             ]:
                 if sim_name in self._simulators:
-                    changed |= trajectory_group.add_simulator(
-                        "{0} variant {1}".format(sim_name, variant),
-                        self._simulators[sim_name], {'origin': offset})
+                    for quality_name, quality_settings in quality_variations:
+                        changed |= trajectory_group.add_simulator(
+                            "{0} variant {1} - {2}".format(sim_name, variant, quality_name),
+                            self._simulators[sim_name], du.defaults({'origin': offset}, quality_settings))
         if trajectory_group.name == 'EuRoC MH_01_easy':
             for sim_name, variant, offset in [
-                ('AIUE_V01_002', 1, uetf.UnrealTransform((500, -100, 150), (0, 0, 130))),
-                ('AIUE_V01_002', 2, uetf.UnrealTransform((2500, 650, 100), (0, 0, -70))),
-                ('AIUE_V01_003', 1, uetf.UnrealTransform((-350, 600, 150), (0, 0, 30))),
-                ('AIUE_V01_003', 2, uetf.UnrealTransform((-70, -70, 180), (0, 0, -160))),
-                ('AIUE_V01_004', 1, uetf.UnrealTransform((-290, -430, 170), (0, 0, 130))),
-                ('AIUE_V01_004', 2, uetf.UnrealTransform((-430, 380, 380), (-6.46637, 7.644286, -40.43219))),
-                ('AIUE_V01_005', 1, uetf.UnrealTransform((-220, -140, 250), (0, 0, 0))),
-                ('AIUE_V01_005', 2, uetf.UnrealTransform((470, -810, 370), (0, 0, -130))),
-                ('AIUE_V01_005', 3, uetf.UnrealTransform((-520, -1280, 120), (0, 0, 170)))
+                ('AIUE_V01_002', 1, uetf.create_serialized((500, -100, 150), (0, 0, 130))),
+                ('AIUE_V01_002', 2, uetf.create_serialized((2500, 650, 100), (0, 0, -70))),
+                ('AIUE_V01_003', 1, uetf.create_serialized((-350, 600, 150), (0, 0, 30))),
+                ('AIUE_V01_003', 2, uetf.create_serialized((-70, -70, 180), (0, 0, -160))),
+                ('AIUE_V01_004', 1, uetf.create_serialized((-290, -430, 170), (0, 0, 130))),
+                ('AIUE_V01_004', 2, uetf.create_serialized((-430, 380, 380), (-6.46637, 7.644286, -40.43219))),
+                ('AIUE_V01_005', 1, uetf.create_serialized((-220, -140, 250), (0, 0, 0))),
+                ('AIUE_V01_005', 2, uetf.create_serialized((470, -810, 370), (0, 0, -130))),
+                ('AIUE_V01_005', 3, uetf.create_serialized((-520, -1280, 120), (0, 0, 170)))
             ]:
                 if sim_name in self._simulators:
-                    changed |= trajectory_group.add_simulator(
-                        "{0} variant {1}".format(sim_name, variant),
-                        self._simulators[sim_name], {'origin': offset})
+                    for quality_name, quality_settings in quality_variations:
+                        changed |= trajectory_group.add_simulator(
+                            "{0} variant {1} - {2}".format(sim_name, variant, quality_name),
+                            self._simulators[sim_name], du.defaults({'origin': offset}, quality_settings))
         if trajectory_group.name == 'EuRoC MH_04_hard':
             for sim_name, variant, offset in [
-                ('AIUE_V01_005', 1, uetf.UnrealTransform((660, -1050, 70), (0, 0, 170))),
-                ('AIUE_V01_005', 2, uetf.UnrealTransform((-890, -190, 90), (0, 0, 0))),
+                ('AIUE_V01_005', 1, uetf.create_serialized((660, -1050, 70), (0, 0, 170))),
+                ('AIUE_V01_005', 2, uetf.create_serialized((-890, -190, 90), (0, 0, 0))),
             ]:
                 if sim_name in self._simulators:
-                    changed |= trajectory_group.add_simulator(
-                        "{0} variant {1}".format(sim_name, variant),
-                        self._simulators[sim_name], {'origin': offset})
+                    for quality_name, quality_settings in quality_variations:
+                        changed |= trajectory_group.add_simulator(
+                            "{0} variant {1} - {2}".format(sim_name, variant, quality_name),
+                            self._simulators[sim_name], du.defaults({'origin': offset}, quality_settings))
 
         # Do the imports for the group, and save any changes
         changed |= trajectory_group.do_imports(task_manager, db_client)

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import numpy as np
 import transforms3d as tf
 import util.transform as mytf
@@ -144,13 +144,6 @@ class UnrealTransform:
         if isinstance(pose, mytf.Transform):
             pose = transform_to_unreal(pose)
         if isinstance(pose, UnrealTransform):
-            inv_mat = np.transpose(euler2mat(self.roll, self.pitch, self.yaw))
-            pose_mat = euler2mat(pose.roll, pose.pitch, pose.yaw)
-
-            loc = np.dot(inv_mat, np.asarray(pose.location) - np.asarray(self.location))
-            rot = np.dot(inv_mat, pose_mat)
-            rot = mat2euler(rot)
-
             quat = euler2quat(self.roll, self.pitch, self.yaw)
             inv_quat = tf.quaternions.qconjugate(quat)
             pose_quat = euler2quat(pose.roll, pose.pitch, pose.yaw)
@@ -161,8 +154,6 @@ class UnrealTransform:
             return UnrealTransform(location=loc, rotation=quat2euler(rot[0], rot[1], rot[2], rot[3]))
 
         elif len(pose) >= 3:
-            #inv_mat = np.transpose(euler2mat(self.roll, self.pitch, self.yaw))
-            #return np.dot(inv_mat, np.asarray(pose) - np.asarray(self.location))
             inv_quat = tf.quaternions.qinverse(euler2quat(self.roll, self.pitch, self.yaw))
             return tf.quaternions.rotate_vector(np.asarray(pose) - np.asarray(self.location), inv_quat)
         else:
@@ -189,13 +180,33 @@ class UnrealTransform:
 
             return UnrealTransform(location=loc, rotation=quat2euler(rot[0], rot[1], rot[2], rot[3]))
         elif len(pose) >= 3:
-            #mat = euler2mat(self.roll, self.pitch, self.yaw)
-            #return np.dot(mat, np.asarray(pose)) + np.asarray(self.location)
             quat = euler2quat(self.roll, self.pitch, self.yaw)
             return tf.quaternions.rotate_vector(np.asarray(pose), quat) + np.asarray(self.location)
 
         else:
             raise TypeError('find_independent needs to transform a point or pose')
+
+
+def create_serialized(location, rotation):
+    if not len(location) == 3:
+        location = (0, 0, 0)
+    if not len(rotation) == 3:
+        rotation = (0, 0, 0)
+    return {'location': location, 'rotation': rotation}
+
+
+def deserialize(s_transform):
+    """
+    Convert a serialized
+    :param s_transform:
+    :return:
+    """
+    if s_transform is None:
+        return UnrealTransform()
+    return UnrealTransform(
+        location=s_transform['location'] if 'location' in s_transform else (0, 0, 0),
+        rotation=s_transform['rotation'] if 'rotation' in s_transform else (0, 0, 0)
+    )
 
 
 def euler2mat(roll, pitch, yaw):
@@ -212,7 +223,7 @@ def euler2mat(roll, pitch, yaw):
     return np.array([
         [cp * cy, sr * sp * cy - cr * sy, -(cr * sp * cy + sr * sy)],
         [cp * sy, sr * sp * sy + cr * cy, cy * sr - cr * sp * sy],
-        [sp     , -sr * cp              , cr * cp]
+        [sp, -sr * cp, cr * cp]
     ])
 
 
@@ -254,10 +265,10 @@ def euler2quat(roll, pitch, yaw):
     sr, sp, sy = np.sin(angles)
     cr, cp, cy = np.cos(angles)
 
-    x =  cr * sp * sy - sr * cp * cy
+    x = cr * sp * sy - sr * cp * cy
     y = -cr * sp * cy - sr * cp * sy
-    z =  cr * cp * sy - sr * sp * cy
-    w =  cr * cp * cy + sr * sp * sy
+    z = cr * cp * sy - sr * sp * cy
+    w = cr * cp * cy + sr * sp * sy
     return w, x, y, z
 
 
@@ -315,12 +326,9 @@ def transform_to_unreal(pose):
         rotation = (rotation[0], rotation[1], -rotation[2], rotation[3])
         # Invert the direction of rotation since we're now in a left handed coordinate frame
         rotation = tf.quaternions.qinverse(rotation)
-        #rotation = tf.taitbryan.quat2euler(rotation)
         # Change the axis order to roll, pitch, yaw in UE coordinates
-        #rotation = np.array([rotation[2], rotation[1], rotation[0]])
-        #return UnrealTransform(location=location, rotation=rotation * _TODEG)
         return UnrealTransform(location=location, rotation=quat2euler(rotation[0], rotation[1], rotation[2], rotation[3]))
-    return 100 * pose[0], -100 * pose[1], 100 *pose[2]
+    return 100 * pose[0], -100 * pose[1], 100 * pose[2]
 
 
 def transform_from_unreal(pose):
@@ -332,13 +340,10 @@ def transform_from_unreal(pose):
     """
     if isinstance(pose, UnrealTransform):
         location = (pose.location[0] / 100, -pose.location[1] / 100, pose.location[2] / 100)
-        #rotation = tf.taitbryan.euler2quat(pose.yaw * _TORAD, pose.pitch * _TORAD, pose.roll * _TORAD)
         rotation = euler2quat(pose.roll, pose.pitch, pose.yaw)
         # Invert the direction of rotation to go to a right-handed coordinate frame
         rotation = tf.quaternions.qinverse(rotation)
         # Invert Y-axis to go to my coordinate frame
         rotation = (rotation[0], rotation[1], -rotation[2], rotation[3])
-
-
         return mytf.Transform(location=location, rotation=rotation, w_first=True)
     return pose[0] / 100, -pose[1] / 100, pose[2] / 100
