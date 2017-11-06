@@ -27,14 +27,14 @@ import simulation.controllers.trajectory_follow_controller as follow_cont
 class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
     def __init__(self, libviso_system=None, orbslam_systems=None,
-                 kitti_simulators=None, tum_simulators=None, euroc_simulators=None,
+                 simulators=None,
                  trajectory_groups=None,
                  benchmark_rpe=None, benchmark_ate=None, benchmark_trajectory_drift=None, benchmark_tracking=None,
                  trial_map=None, result_map=None, enabled=True, id_=None):
         """
         Constructor. We need parameters to load the different stored parts of this experiment
         :param libviso_system:
-        :param kitti_simulators:
+        :param simulators:
         :param trajectory_groups:
         :param benchmark_rpe:
         :param benchmark_ate:
@@ -46,12 +46,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         self._libviso_system = libviso_system
         self._orbslam_systems = orbslam_systems if orbslam_systems is not None else {}
 
-        # Simulators
-        self._kitti_simulators = kitti_simulators if kitti_simulators is not None else {}
-        self._tum_simulators = tum_simulators if tum_simulators is not None else {}
-        self._euroc_simulators = euroc_simulators if euroc_simulators is not None else {}
-
         # Image sources
+        self._simulators = simulators if simulators is not None else {}
         self._trajectory_groups = trajectory_groups if trajectory_groups is not None else {}
 
         # Benchmarks
@@ -70,15 +66,19 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         """
         # --------- SIMULATORS -----------
         # Add simulators explicitly, they have different metadata, so we can't just search
-        for exe, world_name, environment_type, light_level, time_of_day, simulator_group, s_sim_group in [
+        for exe, world_name, environment_type, light_level, time_of_day in [
             (
                     '/media/john/Storage/simulators/BlockWorld/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
                     'BlockWorld', imeta.EnvironmentType.OUTDOOR_LANDSCAPE, imeta.LightingLevel.WELL_LIT,
-                    imeta.TimeOfDay.DAY,
-                    self._kitti_simulators, 'kitti_simulators'
+                    imeta.TimeOfDay.DAY
+            ),
+            (
+                    '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                    'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+                    imeta.TimeOfDay.DAY
             )
         ]:
-            if world_name not in self._kitti_simulators:
+            if world_name not in self._simulators:
                 simulator_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
                     executable_path=exe,
                     world_name=world_name,
@@ -86,8 +86,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     light_level=light_level,
                     time_of_day=time_of_day
                 ))
-                self._kitti_simulators[world_name] = simulator_id
-                self._set_property('{0}.{1}'.format(s_sim_group, world_name), simulator_id)
+                self._simulators[world_name] = simulator_id
+                self._set_property('simulators.{0}'.format(world_name), simulator_id)
 
         # --------- REAL WORLD DATASETS -----------
 
@@ -105,8 +105,9 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     expected_duration='12:00:00'
                 )
                 if task.is_finished:
-                    trajectory_group = self._add_trajectory_group('KITTI trajectory {}'.format(sequence_num), task.result)
-                    self._update_kitti_trajectory(trajectory_group, task_manager, db_client)
+                    trajectory_group = self._add_trajectory_group(
+                        'KITTI trajectory {}'.format(sequence_num), task.result)
+                    self._update_trajectory_group(trajectory_group, task_manager, db_client)
                 else:
                     task_manager.do_task(task)
 
@@ -134,7 +135,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     expected_duration='4:00:00'
                 )
                 if task.is_finished:
-                    self._add_trajectory_group(name, task.result)
+                    trajectory_group = self._add_trajectory_group(name, task.result)
+                    self._update_trajectory_group(trajectory_group, task_manager, db_client)
                 else:
                     task_manager.do_task(task)
 
@@ -147,7 +149,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         })
         tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
         for name, dataset_id in tum_manager.datasets:
-            self._add_trajectory_group("TUM {}".format(name), dataset_id)
+            trajectory_group = self._add_trajectory_group("TUM {}".format(name), dataset_id)
+            self._update_trajectory_group(trajectory_group, task_manager, db_client)
 
         # --------- SYSTEMS -----------
         if self._libviso_system is None:
@@ -223,7 +226,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
             self._set_property('trajectory_groups.{0}'.format(name), self._trajectory_groups[name].serialize())
         return self._trajectory_groups[name]
 
-    def _update_kitti_trajectory(self, trajectory_group: 'TrajectoryGroup',
+    def _update_trajectory_group(self, trajectory_group: 'TrajectoryGroup',
                                  task_manager: batch_analysis.task_manager.TaskManager,
                                  db_client: database.client.DatabaseClient):
         """
@@ -235,9 +238,56 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         changed = False
-        # Add simulators for KITTI trajectories
-        if 'BlockWorld' in self._kitti_simulators:
-            changed |= trajectory_group.add_simulator('BlockWorld', self._kitti_simulators['BlockWorld'], {})
+        # Add simulators for the different trajectory groups
+        if 'KITTI' in trajectory_group.name and 'BlockWorld' in self._simulators:
+            changed |= trajectory_group.add_simulator('BlockWorld', self._simulators['BlockWorld'], {})
+        if trajectory_group.name == 'TUM rgbd_dataset_freiburg1_xyz' or \
+                trajectory_group.name == 'TUM rgbd_dataset_freiburg1_rpy':
+            for sim_name, variant, offset in [
+                ('AIUE_V01_001', 1, uetf.UnrealTransform((-100, -300, 0), (0, 0, 90))),
+                ('AIUE_V01_001', 2, uetf.UnrealTransform((-300, 600, 0), (0, 0, -90))),
+                ('AIUE_V01_001', 3, uetf.UnrealTransform((-200, -100, 0), (0, 0, -90))),
+                ('AIUE_V01_002', 1, uetf.UnrealTransform((-100, -200, 0), (0, 0, 0))),
+                ('AIUE_V01_002', 2, uetf.UnrealTransform((-1000, 300, -150), (0, 0, -150))),
+                ('AIUE_V01_002', 3, uetf.UnrealTransform((-1150, -300, 150), (0, 0, 30))),
+                ('AIUE_V01_003', 1, uetf.UnrealTransform((-70, -70, 10), (0, 0, -90))),
+                ('AIUE_V01_003', 2, uetf.UnrealTransform((-300, 760, 0), (0, 0, 60))),
+                ('AIUE_V01_004', 1, uetf.UnrealTransform((410, 150, -40), (0, 0, 30))),
+                ('AIUE_V01_004', 2, uetf.UnrealTransform((410, 150, 320), (0, 0, 10))),
+                ('AIUE_V01_004', 3, uetf.UnrealTransform((-90, -100, -10), (0, 0, -140))),
+                ('AIUE_V01_005', 1, uetf.UnrealTransform((-180, -1350, -80), (0, 0, -70))),
+                ('AIUE_V01_005', 2, uetf.UnrealTransform((-660, 60, -80), (0, 0, -130))),
+                ('AIUE_V01_005', 3, uetf.UnrealTransform((-710, -1380, 310), (0, 0, -100)))
+            ]:
+                if sim_name in self._simulators:
+                    changed |= trajectory_group.add_simulator(
+                        "{0} variant {1}".format(sim_name, variant),
+                        self._simulators[sim_name], {'origin': offset})
+        if trajectory_group.name == 'EuRoC MH_01_easy':
+            for sim_name, variant, offset in [
+                ('AIUE_V01_002', 1, uetf.UnrealTransform((500, -100, 150), (0, 0, 130))),
+                ('AIUE_V01_002', 2, uetf.UnrealTransform((2500, 650, 100), (0, 0, -70))),
+                ('AIUE_V01_003', 1, uetf.UnrealTransform((-350, 600, 150), (0, 0, 30))),
+                ('AIUE_V01_003', 2, uetf.UnrealTransform((-70, -70, 180), (0, 0, -160))),
+                ('AIUE_V01_004', 1, uetf.UnrealTransform((-290, -430, 170), (0, 0, 130))),
+                ('AIUE_V01_004', 2, uetf.UnrealTransform((-430, 380, 380), (-6.46637, 7.644286, -40.43219))),
+                ('AIUE_V01_005', 1, uetf.UnrealTransform((-220, -140, 250), (0, 0, 0))),
+                ('AIUE_V01_005', 2, uetf.UnrealTransform((470, -810, 370), (0, 0, -130))),
+                ('AIUE_V01_005', 3, uetf.UnrealTransform((-520, -1280, 120), (0, 0, 170)))
+            ]:
+                if sim_name in self._simulators:
+                    changed |= trajectory_group.add_simulator(
+                        "{0} variant {1}".format(sim_name, variant),
+                        self._simulators[sim_name], {'origin': offset})
+        if trajectory_group.name == 'EuRoC MH_04_hard':
+            for sim_name, variant, offset in [
+                ('AIUE_V01_005', 1, uetf.UnrealTransform((660, -1050, 70), (0, 0, 170))),
+                ('AIUE_V01_005', 2, uetf.UnrealTransform((-890, -190, 90), (0, 0, 0))),
+            ]:
+                if sim_name in self._simulators:
+                    changed |= trajectory_group.add_simulator(
+                        "{0} variant {1}".format(sim_name, variant),
+                        self._simulators[sim_name], {'origin': offset})
 
         # Do the imports for the group, and save any changes
         changed |= trajectory_group.do_imports(task_manager, db_client)
@@ -292,7 +342,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
         logging.getLogger(__name__).info("Plotting trajectories...")
         # Map system ids and simulator ids to printable names
-        simulator_names = {v: k for k, v in self._kitti_simulators.items()}
+        simulator_names = {v: k for k, v in self._simulators.items()}
 
         systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
         for system_name, system_id in systems.items():
@@ -362,16 +412,14 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
     def serialize(self):
         serialized = super().serialize()
-        dh.add_schema_version(serialized, 'experiments:visual_slam:VisualSlamExperiment', 1)
+        dh.add_schema_version(serialized, 'experiments:visual_slam:VisualSlamExperiment', 2)
 
         # Systems
         serialized['libviso'] = self._libviso_system
         serialized['orbslam_systems'] = self._orbslam_systems
 
         # Image Sources
-        serialized['kitti_simulators'] = self._kitti_simulators
-        serialized['tum_simulators'] = self._tum_simulators
-        serialized['euroc_simulators'] = self._euroc_simulators
+        serialized['simulators'] = self._simulators
         serialized['trajectory_groups'] = {str(name): group.serialize()
                                            for name, group in self._trajectory_groups.items()}
 
@@ -394,12 +442,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
             kwargs['orbslam_systems'] = serialized_representation['orbslam_systems']
 
         # Generated datasets
-        if 'kitti_simulators' in serialized_representation:
-            kwargs['kitti_simulators'] = serialized_representation['kitti_simulators']
-        if 'tum_simulators' in serialized_representation:
-            kwargs['tum_simulators'] = serialized_representation['tum_simulators']
-        if 'euroc_simulators' in serialized_representation:
-            kwargs['euroc_simulators'] = serialized_representation['euroc_simulators']
+        if 'simulators' in serialized_representation:
+            kwargs['simulators'] = serialized_representation['simulators']
         if 'trajectory_groups' in serialized_representation:
             kwargs['trajectory_groups'] = {name: TrajectoryGroup.deserialize(s_group)
                                            for name, s_group in
@@ -459,6 +503,16 @@ def update_schema(serialized: dict):
         if 'simulators' in serialized:
             serialized['kitti_simulators'] = serialized['simulators']
             del serialized['simulators']
+            version = 1
+    if version < 2:
+        simulators = {}
+        if 'kitti_simulators' in serialized:
+            simulators = du.defaults(simulators, serialized['kitti_simulators'])
+        if 'euroc_simulators' in serialized:
+            simulators = du.defaults(simulators, serialized['euroc_simulators'])
+        if 'tum_simulators' in serialized:
+            simulators = du.defaults(simulators, serialized['tum_simulators'])
+        serialized['simulators'] = simulators
 
 
 class TrajectoryGroup:

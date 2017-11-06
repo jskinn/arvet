@@ -82,6 +82,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             'provide_world_normals': False,
 
             # Simulator settings
+            'origin': None,
             'resolution': {'width': 1280, 'height': 720},
             'fov': 90,
             'depth_of_field_enabled': True,
@@ -117,6 +118,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         self._provide_labels = bool(config['provide_labels'])
         self._provide_world_normals = bool(config['provide_world_normals'])
 
+        self._origin = pose_to_unreal(config['origin'])
         self._resolution = (config['resolution']['width'], config['resolution']['height'])
         self._fov = float(config['fov'])
         self._use_dof = bool(config['depth_of_field_enabled'])
@@ -339,6 +341,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             else:
                 self._current_pose = pose
                 pose = uetf.transform_to_unreal(pose)
+            pose = self._origin.find_independent(pose)  # Find world coordinates from relative to simulator origin
             self._client.request("vset /camera/0/location {0} {1} {2}".format(pose.location[0],
                                                                               pose.location[1],
                                                                               pose.location[2]))
@@ -357,7 +360,8 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                 self._current_pose = uetf.transform_from_unreal(pose)
             else:
                 self._current_pose = pose
-            pose = uetf.transform_to_unreal(pose)
+                pose = uetf.transform_to_unreal(pose)
+            pose = self._origin.find_independent(pose)
             self._client.request("vset /camera/0/moveto {0} {1} {2}".format(pose.location[0],
                                                                             pose.location[1],
                                                                             pose.location[2]))
@@ -497,6 +501,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                         location=(float(location[0]), float(location[1]), float(location[2])),
                         # Reorder to roll, pitch, yaw, Unrealcv order is pitch, yaw, roll
                         rotation=(float(rotation[2]), float(rotation[0]), float(location[1])))
+                    ue_trans = self._origin.find_relative(ue_trans) # Express relative to the simulator origin
                     return uetf.transform_from_unreal(ue_trans)
         return None
 
@@ -610,7 +615,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                     depth_data = simulation.depth_noise.generate_depth_noise(
                         ground_truth_depth_data,
                         right_ground_truth_depth_data,
-                        self.get_camera_intrinsics()[0],
+                        self.get_camera_intrinsics(),
                         right_relative_pose,
                         self._depth_noise_quality)
                 if self.is_per_pixel_labels_available:
@@ -687,3 +692,12 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             geometry_decimation=None, procedural_generation_seed=None,
             labelled_objects=labelled_objects,
             average_scene_depth=np.mean(depth_data) if depth_data is not None else None)
+
+
+def pose_to_unreal(pose):
+    if isinstance(pose, uetf.UnrealTransform):
+        return pose
+    elif isinstance(pose, tf.Transform):
+        return uetf.transform_to_unreal(pose)
+    else:
+        return uetf.UnrealTransform()
