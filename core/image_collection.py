@@ -65,21 +65,13 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
             self._is_stereo_available = False
 
         # Get some metadata from the first image in the collection
-        s_first_image = db_client_.image_collection.find_one({'_id': images[self._timestamps[0]]}, {
-            'metadata.width': True,
-            'metadata.height': True,
-            'metadata.intrinsics': True,
-            'metadata.camera_pose': True,
-            'metadata.right_camera_pose': True
-        })
-        self._camera_intrinsics = cam_intr.CameraIntrinsics.deserialize(s_first_image['metadata']['intrinsics'])
+        s_first_image = db_client_.image_collection.find_one({'_id': images[self._timestamps[0]]})
+        first_image = db_client_.deserialize_entity(s_first_image)
+        self._camera_intrinsics = first_image.metadata.camera_intrinsics
         self._stereo_baseline = None
-        if (self.is_stereo_available and
-                'camera_pose' in s_first_image['metadata'] and
-                'right_camera_pose' in s_first_image['metadata']):
-            camera_pose = tf.Transform.deserialize(s_first_image['metadata']['camera_pose'])
-            right_camera_pose = tf.Transform.deserialize(s_first_image['metadata']['right_camera_pose'])
-            self._stereo_baseline = np.linalg.norm(camera_pose.location - right_camera_pose.location)
+        if (self.is_stereo_available):
+            self._stereo_baseline = np.linalg.norm(first_image.left_camera_pose.location -
+                                                   first_image.right_camera_pose.location)
 
     def __len__(self):
         """
