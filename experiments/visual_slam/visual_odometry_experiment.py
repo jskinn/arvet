@@ -76,6 +76,11 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
                     'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
                     imeta.TimeOfDay.DAY
+            ),
+            (
+                    '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                    'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+                    imeta.TimeOfDay.DAY
             )
         ]:
             if world_name not in self._simulators:
@@ -381,46 +386,51 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         simulator_names = {v: k for k, v in self._simulators.items()}
 
         systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
-        for system_name, system_id in systems.items():
-            for trajectory_group in self._trajectory_groups.values():
-                figure = pyplot.figure(figsize=(14, 10), dpi=80)
-                figure.suptitle("Computed trajectories for {0} on {1}".format(system_name, trajectory_group.name))
-                ax = figure.add_subplot(111, projection='3d')
-                ax.set_xlabel('x-location')
-                ax.set_ylabel('y-location')
-                ax.set_zlabel('z-location')
-                ax.plot([0], [0], [0], 'ko', label='origin')
-                lower_limit = 0
-                upper_limit = 0
-                added_ground_truth = False
 
-                image_sources = {'KITTI sequence': trajectory_group.reference_dataset}
-                for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
+        for trajectory_group in self._trajectory_groups.values():
+            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+            figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
+            ax = figure.add_subplot(111, projection='3d')
+            ax.set_xlabel('x-location')
+            ax.set_ylabel('y-location')
+            ax.set_zlabel('z-location')
+            ax.plot([0], [0], [0], 'ko', label='origin')
+            added_ground_truth = False
+
+            image_sources = {'reference dataset': trajectory_group.reference_dataset}
+            for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
+                if simulator_id in simulator_names:
                     image_sources[simulator_names[simulator_id]] = dataset_id
+                else:
+                    image_sources[simulator_id] = dataset_id
 
+            for system_name, system_id in systems.items():
                 # For each image source in this group
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
                     if trial_result_id is not None:
                         trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
                         if trial_result is not None:
-                            minp, maxp = plot_trajectory(ax, trial_result.get_computed_camera_poses(),
-                                                         dataset_name)
-                            lower_limit = min(lower_limit, minp)
-                            upper_limit = max(upper_limit, maxp)
-                            if not added_ground_truth:
-                                minp, maxp = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
-                                                             'ground truth trajectory')
-                                lower_limit = min(lower_limit, minp)
-                                upper_limit = max(upper_limit, maxp)
+                            if trial_result.success:
+                                if not added_ground_truth:
+                                    lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
+                                                                 'ground truth trajectory')
+                                    mean = (upper + lower) / 2
+                                    lower = 2 * lower - mean
+                                    upper = 2 * upper - mean
+                                    ax.set_xlim(lower, upper)
+                                    ax.set_ylim(lower, upper)
+                                    ax.set_zlim(lower, upper)
+                                    added_ground_truth = True
+                                plot_trajectory(ax, trial_result.get_computed_camera_poses(),
+                                                "{0} on {1}".format(system_name, dataset_name))
+                            else:
+                                print("Got failed trial: {0}".format(trial_result.reason))
 
-                logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
-                ax.legend()
-                ax.set_xlim(lower_limit, upper_limit)
-                ax.set_ylim(lower_limit, upper_limit)
-                ax.set_zlim(lower_limit, upper_limit)
-                pyplot.tight_layout()
-                pyplot.subplots_adjust(top=0.95, right=0.99)
+            logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
+            ax.legend()
+            pyplot.tight_layout()
+            pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
 
     def export_data(self, db_client: database.client.DatabaseClient):
