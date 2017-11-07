@@ -666,6 +666,7 @@ class TrajectoryGroup:
                 )
                 if generate_dataset_task.is_finished:
                     self.generated_datasets[sim_name] = generate_dataset_task.result
+                    changed = True
                 else:
                     task_manager.do_task(generate_dataset_task)
         return changed
