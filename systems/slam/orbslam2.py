@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import os
 import time
 import numpy as np
@@ -302,6 +302,14 @@ class ORBSLAM2(core.system.VisionSystem):
                         self._settings_file += '-' + str(idx)
                         break
             dump_config(self._settings_file, self._orbslam_settings)
+
+    def validate(self):
+        valid = super().validate()
+        if self._resolution[0] <= 0 or self._resolution[1] <= 0:
+            valid = False
+        if not os.path.isfile(self._vocabulary_file):
+            valid = False
+        return valid
 
     def serialize(self):
         serialized = super().serialize()

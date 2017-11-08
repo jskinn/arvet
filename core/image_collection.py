@@ -243,10 +243,12 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         Only count the images that have a validate method
         :return: True if all the images are valid, false if not
         """
-        for image in self._images:
-            if hasattr(image, 'validate'):
-                if not image.validate():
-                    return False
+        with self:
+            while not self.is_complete():
+                image = self.get_next_image()
+                if hasattr(image, 'validate'):
+                    if not image.validate():
+                        return False
         return True
 
     def serialize(self):

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import xxhash
 import numpy as np
 import copy
@@ -45,6 +45,9 @@ class ImageEntity(core.image.Image, database.entity.Entity):
     def validate(self):
         if self.data is None:
             # Raw RGB data is null
+            return False
+        if not self.data.shape[1] == self.metadata.width or not self.data.shape[0] == self.metadata.height:
+            # Image dimensions are wrong
             return False
         if not self.metadata.hash == xxhash.xxh64(self.data).digest():
             # Hash is wrong
