@@ -176,17 +176,19 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     features=settings[1],
                     resolution=settings[2]
                 )
-                orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
-                    vocabulary_file='/opt/ORBSLAM2/Vocabulary/ORBvoc.txt',
-                    mode=settings[0],
-                    settings={
-                        'ORBextractor': {
-                            'nFeatures': settings[1]
-                        }
-                    }, resolution=settings[2]
-                ))
-                self._orbslam_systems[name] = orbslam_id
-                self._set_property('orbslam_systems.{}'.format(name), orbslam_id)
+                vocab_path = os.path.expanduser(os.path.join('~', 'code', 'ORBSLAM2', 'Vocabulary', 'ORBvoc.txt'))
+                if name not in self._orbslam_systems and os.path.isfile(vocab_path):
+                    orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
+                        vocabulary_file=vocab_path,
+                        mode=settings[0],
+                        settings={
+                            'ORBextractor': {
+                                'nFeatures': settings[1]
+                            }
+                        }, resolution=settings[2]
+                    ))
+                    self._orbslam_systems[name] = orbslam_id
+                    self._set_property('orbslam_systems.{}'.format(name), orbslam_id)
 
         # --------- BENCHMARKS -----------
         # Create and store the benchmarks for camera trajectories
@@ -414,7 +416,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                             if trial_result.success:
                                 if not added_ground_truth:
                                     lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
-                                                                 'ground truth trajectory')
+                                                                   'ground truth trajectory')
                                     mean = (upper + lower) / 2
                                     lower = 2 * lower - mean
                                     upper = 2 * upper - mean
