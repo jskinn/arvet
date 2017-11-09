@@ -81,6 +81,11 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
                     'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
                     imeta.TimeOfDay.DAY
+            ),
+            (
+                    '/media/john/Storage/simulators/AIUE_V01_005/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                    'AIUE_V01_005', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+                    imeta.TimeOfDay.DAY
             )
         ]:
             if world_name not in self._simulators:
@@ -390,15 +395,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
 
         for trajectory_group in self._trajectory_groups.values():
-            figure = pyplot.figure(figsize=(14, 10), dpi=80)
-            figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
-            ax = figure.add_subplot(111, projection='3d')
-            ax.set_xlabel('x-location')
-            ax.set_ylabel('y-location')
-            ax.set_zlabel('z-location')
-            ax.plot([0], [0], [0], 'ko', label='origin')
-            added_ground_truth = False
-
+            # Collect all the image sources for this trajectory group
             image_sources = {'reference dataset': trajectory_group.reference_dataset}
             for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
                 if simulator_id in simulator_names:
@@ -407,6 +404,15 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     image_sources[simulator_id] = dataset_id
 
             for system_name, system_id in systems.items():
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("Computed trajectories for {0} with {1}".format(trajectory_group.name, system_name))
+                ax = figure.add_subplot(111, projection='3d')
+                ax.set_xlabel('x-location')
+                ax.set_ylabel('y-location')
+                ax.set_zlabel('z-location')
+                ax.plot([0], [0], [0], 'ko', label='origin')
+                added_ground_truth = False
+
                 # For each image source in this group
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
@@ -429,10 +435,11 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                             else:
                                 print("Got failed trial: {0}".format(trial_result.reason))
 
-            logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
-            ax.legend()
-            pyplot.tight_layout()
-            pyplot.subplots_adjust(top=0.95, right=0.99)
+                logging.getLogger(__name__).info("... plotted trajectories for {0} with {1}".format(
+                    trajectory_group.name, system_name))
+                ax.legend()
+                pyplot.tight_layout()
+                pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
 
     def export_data(self, db_client: database.client.DatabaseClient):
