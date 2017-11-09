@@ -239,6 +239,8 @@ class ORBSLAM2(core.system.VisionSystem):
         :return:
         :rtype TrialResult:
         """
+        if self._input_queue is None:
+            return None
         self._input_queue.put(None)     # This will end the main loop, see run_orbslam, below
         try:
             trajectory_list, tracking_stats = self._output_queue.get(block=True,
