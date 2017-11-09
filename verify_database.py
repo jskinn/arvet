@@ -23,7 +23,7 @@ def remove_orphan_images(db_client: database.client.DatabaseClient, dry_run=Fals
     image_ids = set()
     image_sources = db_client.image_source_collection.find({'images': {'$exists': True}}, {'images': True})
     for s_image_collection in image_sources:
-        image_ids |= set(s_image_collection['images'])
+        image_ids |= {img_id for _, img_id in s_image_collection['images']}
     # Remove the images that don't appear in the above list.
     count = db_client.image_collection.find({'_id': {'$nin': list(image_ids)}}, {'_id': True}).count()
     logging.getLogger(__name__).info("Removing {0} images".format(count))
@@ -100,15 +100,23 @@ def main(check_collections: bool = True, remove_orphans: bool = False, recalcula
 
     # Patch saved entity types to fully-qualified names
     if check_collections:
-        check_collection(db_client.trainer_collection, db_client)
-        check_collection(db_client.trainee_collection, db_client)
-        check_collection(db_client.system_collection, db_client)
-        check_collection(db_client.image_source_collection, db_client)
-        check_collection(db_client.image_collection, db_client)
-        check_collection(db_client.trials_collection, db_client)
-        check_collection(db_client.benchmarks_collection, db_client)
-        check_collection(db_client.results_collection, db_client)
+        logging.getLogger(__name__).info('Checking experiments...')
         check_collection(db_client.experiments_collection, db_client)
+        logging.getLogger(__name__).info('Checking trainers...')
+        check_collection(db_client.trainer_collection, db_client)
+        logging.getLogger(__name__).info('Checking trainees...')
+        check_collection(db_client.trainee_collection, db_client)
+        logging.getLogger(__name__).info('Checking systems...')
+        check_collection(db_client.system_collection, db_client)
+        logging.getLogger(__name__).info('Checking benchmarks...')
+        check_collection(db_client.benchmarks_collection, db_client)
+        logging.getLogger(__name__).info('Checking image sources...')
+        check_collection(db_client.image_source_collection, db_client)
+        # check_collection(db_client.image_collection, db_client)    # This is covered by image sources
+        logging.getLogger(__name__).info('Checking trials...')
+        check_collection(db_client.trials_collection, db_client)
+        logging.getLogger(__name__).info('Checking results...')
+        check_collection(db_client.results_collection, db_client)
 
 
 if __name__ == '__main__':
