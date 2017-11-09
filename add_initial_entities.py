@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python3
 # Copyright (c) 2017, John Skinner
 import config.global_configuration as global_conf
 import database.client
