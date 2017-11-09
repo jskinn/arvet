@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import bson.objectid as oid
 import database.tests.test_entity

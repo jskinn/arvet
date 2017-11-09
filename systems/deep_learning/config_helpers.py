@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 """
 Helpers for serializing and deserializing keras_frcnn config to the database
 """

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import bson.objectid
 import util.dict_utils as du

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import numpy as np
 import transforms3d as tf3d
 import util.transform as tf

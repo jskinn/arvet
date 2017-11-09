@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import logging
 import batch_analysis.job_system
 import run_task

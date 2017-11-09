@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import logging.config
 import database.client
 import config.global_configuration as global_conf

@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest, unittest.mock as mock
 import database.client
 import core.system

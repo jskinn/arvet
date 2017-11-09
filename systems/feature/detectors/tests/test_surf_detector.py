@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
 import util.dict_utils as du
 import database.tests.test_entity

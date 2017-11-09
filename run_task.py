@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import sys
 import logging
 import logging.config

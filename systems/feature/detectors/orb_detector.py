@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import cv2
 import util.dict_utils as du
 import systems.feature.feature_detector

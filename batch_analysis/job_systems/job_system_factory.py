@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import batch_analysis.job_systems.hpc_job_system
 import batch_analysis.job_systems.simple_job_system
 
