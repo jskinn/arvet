@@ -71,22 +71,22 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     '/media/john/Storage/simulators/BlockWorld/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
                     'BlockWorld', imeta.EnvironmentType.OUTDOOR_LANDSCAPE, imeta.LightingLevel.WELL_LIT,
                     imeta.TimeOfDay.DAY
-            ),
-            (
-                    '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                    'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
-                    imeta.TimeOfDay.DAY
-            ),
-            (
-                    '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                    'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
-                    imeta.TimeOfDay.DAY
-            ),
-            (
-                    '/media/john/Storage/simulators/AIUE_V01_005/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                    'AIUE_V01_005', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
-                    imeta.TimeOfDay.DAY
             )
+            #(
+            #        '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+            #        'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+            #        imeta.TimeOfDay.DAY
+            #),
+            #(
+            #        '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+            #        'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+            #        imeta.TimeOfDay.DAY
+            #),
+            #(
+            #        '/media/john/Storage/simulators/AIUE_V01_005/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+            #        'AIUE_V01_005', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+            #        imeta.TimeOfDay.DAY
+            #)
         ]:
             if world_name not in self._simulators:
                 simulator_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
@@ -104,7 +104,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # Import KITTI dataset
         for sequence_num in range(11):
             path = os.path.expanduser(os.path.join('~', 'datasets', 'KITTI', 'dataset'))
-            if os.path.isdir(path) and os.path.isdir(os.path.join(path, "{0:02}".format(sequence_num))):
+            if os.path.isdir(path) and os.path.isdir(os.path.join(path, 'sequences', "{0:02}".format(sequence_num))):
                 task = task_manager.get_import_dataset_task(
                     module_name='dataset.kitti.kitti_loader',
                     path=path,
