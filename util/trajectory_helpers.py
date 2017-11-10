@@ -22,14 +22,14 @@ def get_trajectory_for_image_source(db_client: database.client.DatabaseClient,
                                                         {'images': True})
     trajectory = {}
     if images is not None:
-        prev_pose = None
+        first_pose = None
         for timestamp, image_id in images['images']:
             position_result = db_client.image_collection.find_one({'_id': image_id}, {'metadata.camera_pose': True})
             if position_result is not None:
                 current_pose = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
-                if prev_pose is None:
+                if first_pose is None:
                     trajectory[timestamp] = tf.Transform()
+                    first_pose = current_pose
                 else:
-                    trajectory[timestamp] = prev_pose.find_relative(current_pose)
-                prev_pose = current_pose
+                    trajectory[timestamp] = first_pose.find_relative(current_pose)
     return trajectory
