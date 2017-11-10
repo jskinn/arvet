@@ -375,7 +375,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         # Visualize the different trajectories in each group
-        self._plot_trajectories(db_client)
+        #self._plot_trajectories(db_client)
+        self._plot_relative_pose_error(db_client)
 
     def _plot_trajectories(self, db_client: database.client.DatabaseClient):
         """
@@ -391,7 +392,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         logging.getLogger(__name__).info("Plotting trajectories...")
         # Map system ids and simulator ids to printable names
         simulator_names = {v: k for k, v in self._simulators.items()}
-
         systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
 
         for trajectory_group in self._trajectory_groups.values():
@@ -404,19 +404,27 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     image_sources[simulator_id] = dataset_id
 
             for system_name, system_id in systems.items():
-                figure = pyplot.figure(figsize=(14, 10), dpi=80)
-                figure.suptitle("Computed trajectories for {0} with {1}".format(trajectory_group.name, system_name))
-                ax = figure.add_subplot(111, projection='3d')
-                ax.set_xlabel('x-location')
-                ax.set_ylabel('y-location')
-                ax.set_zlabel('z-location')
-                ax.plot([0], [0], [0], 'ko', label='origin')
-                added_ground_truth = False
 
-                # For each image source in this group
+                # Collect the trial results for each image source in this group
+                trial_results = {}
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
                     if trial_result_id is not None:
+                        trial_results[dataset_name] = trial_result_id
+
+                # Make sure we have at least one result to plot
+                if len(trial_results) > 1:
+                    figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                    figure.suptitle("Computed trajectories for {0} with {1}".format(trajectory_group.name, system_name))
+                    ax = figure.add_subplot(111, projection='3d')
+                    ax.set_xlabel('x-location')
+                    ax.set_ylabel('y-location')
+                    ax.set_zlabel('z-location')
+                    ax.plot([0], [0], [0], 'ko', label='origin')
+                    added_ground_truth = False
+
+                    # For each trial result
+                    for dataset_name, trial_result_id in trial_results.items():
                         trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
                         if trial_result is not None:
                             if trial_result.success:
@@ -435,11 +443,64 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                             else:
                                 print("Got failed trial: {0}".format(trial_result.reason))
 
-                logging.getLogger(__name__).info("... plotted trajectories for {0} with {1}".format(
-                    trajectory_group.name, system_name))
-                ax.legend()
-                pyplot.tight_layout()
-                pyplot.subplots_adjust(top=0.95, right=0.99)
+                    logging.getLogger(__name__).info("... plotted trajectories for {0} with {1}".format(
+                        trajectory_group.name, system_name))
+                    ax.legend()
+                    pyplot.tight_layout()
+                    pyplot.subplots_adjust(top=0.95, right=0.99)
+        pyplot.show()
+
+    def _plot_relative_pose_error(self, db_client: database.client.DatabaseClient):
+        import matplotlib.pyplot as pyplot
+
+        logging.getLogger(__name__).info("Plotting relative pose error...")
+        # Map system ids and simulator ids to printable names
+        simulator_names = {v: k for k, v in self._simulators.items()}
+        systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
+
+        for trajectory_group in self._trajectory_groups.values():
+            # Collect all the image sources for this trajectory group
+            image_sources = {'reference dataset': trajectory_group.reference_dataset}
+            for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
+                if simulator_id in simulator_names:
+                    image_sources[simulator_names[simulator_id]] = dataset_id
+                else:
+                    image_sources[simulator_id] = dataset_id
+
+            for system_name, system_id in systems.items():
+
+                # Collect the results for each image source in this group
+                results = {}
+                for dataset_name, dataset_id in image_sources.items():
+                    trial_result_id = self.get_trial_result(system_id, dataset_id)
+                    if trial_result_id is not None:
+                        result_id = self.get_benchmark_result(trial_result_id, self._benchmark_rpe)
+                        if result_id is not None:
+                            results[dataset_name] = result_id
+
+                if len(results) > 1:
+                    figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                    figure.suptitle("Relative pose error for {0} with {1}".format(trajectory_group.name, system_name))
+                    ax = figure.add_subplot(111)
+                    ax.set_xlabel('x-location')
+                    ax.set_ylabel('y-location')
+
+                    # For each trial result
+                    for dataset_name, result_id in results.items():
+                        result = dh.load_object(db_client, db_client.results_collection, result_id)
+                        if result is not None:
+                            if result.success:
+                                times = sorted(result.translational_error.keys())
+                                errors = [result.translational_error[time] for time in times]
+                                ax.plot(times, errors, label="{0} on {1}".format(system_name, dataset_name))
+                            else:
+                                print("Got failed result: {0}".format(result.reason))
+
+                    logging.getLogger(__name__).info("... plotted trajectories for {0} with {1}".format(
+                        trajectory_group.name, system_name))
+                    ax.legend()
+                    pyplot.tight_layout()
+                    pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
 
     def export_data(self, db_client: database.client.DatabaseClient):
