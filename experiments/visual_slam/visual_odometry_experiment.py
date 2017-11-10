@@ -171,17 +171,16 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         settings_list = [
             (sensor_mode, n_features, resolution)
             for sensor_mode in {orbslam2.SensorMode.STEREO, orbslam2.SensorMode.RGBD, orbslam2.SensorMode.MONOCULAR}
-            for n_features in {1000, 1500, 2500}
+            for n_features in {1500}
             for resolution in {(640, 480)}
         ]
         if len(self._orbslam_systems) < len(settings_list):
             for settings in settings_list:
-                name = 'ORBSLAM2 {mode} - {resolution} - {features} features'.format(
+                name = 'ORBSLAM2 {mode} ({features})'.format(
                     mode=settings[0].name.lower(),
-                    features=settings[1],
-                    resolution=settings[2]
+                    features=settings[1]
                 )
-                vocab_path = os.path.expanduser(os.path.join('~', 'code', 'ORBSLAM2', 'Vocabulary', 'ORBvoc.txt'))
+                vocab_path = os.path.join('systems', 'slam', 'ORBSLAM2', 'ORBvoc.txt')
                 if name not in self._orbslam_systems and os.path.isfile(vocab_path):
                     orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
                         vocabulary_file=vocab_path,
