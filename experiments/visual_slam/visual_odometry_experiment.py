@@ -655,7 +655,7 @@ class TrajectoryGroup:
                  simulators: dict = None, controller_id: bson.ObjectId = None, generated_datasets: dict = None):
         self.name = name
         self.reference_dataset = reference_id
-        self.baseline_configuration = baseline_configuration if baseline_configuration is not None else {}
+        self.baseline_configuration = baseline_configuration
         self.simulators = simulators if simulators is not None else {}
 
         self.follow_controller_id = controller_id
@@ -699,7 +699,7 @@ class TrajectoryGroup:
                 db_client, self.reference_dataset, sequence_type=core.sequence_type.ImageSequenceType.SEQUENTIAL)
             changed = True
         # Next, if we haven't already, compute baseline configuration from the reference dataset
-        if self.baseline_configuration is None:
+        if self.baseline_configuration is None or len(self.baseline_configuration) == 0:
             reference_dataset = dh.load_object(db_client, db_client.image_source_collection, self.reference_dataset)
             intrinsics = reference_dataset.get_camera_intrinsics()
             self.baseline_configuration = {
