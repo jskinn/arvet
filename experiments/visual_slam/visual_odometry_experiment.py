@@ -401,52 +401,56 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     image_sources[simulator_names[simulator_id]] = dataset_id
                 else:
                     image_sources[simulator_id] = dataset_id
+            if len(image_sources) <= 1:
+                continue
 
+            # Collect the trial results for each image source in this group
+            trial_results = {}
+            style = {}
             for system_name, system_id in systems.items():
-
-                # Collect the trial results for each image source in this group
-                trial_results = {}
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
                     if trial_result_id is not None:
-                        trial_results[dataset_name] = trial_result_id
+                        label = "{0} on {1}".format(system_name, dataset_name)
+                        trial_results[label] = trial_result_id
+                        style[label] = '-' if dataset_name == 'reference dataset' else '--'
 
-                # Make sure we have at least one result to plot
-                if len(trial_results) > 1:
-                    figure = pyplot.figure(figsize=(14, 10), dpi=80)
-                    figure.suptitle("Computed trajectories for {0} with {1}".format(trajectory_group.name, system_name))
-                    ax = figure.add_subplot(111, projection='3d')
-                    ax.set_xlabel('x-location')
-                    ax.set_ylabel('y-location')
-                    ax.set_zlabel('z-location')
-                    ax.plot([0], [0], [0], 'ko', label='origin')
-                    added_ground_truth = False
+                        # Make sure we have at least one result to plot
+            if len(trial_results) > 1:
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
+                ax = figure.add_subplot(111, projection='3d')
+                ax.set_xlabel('x-location')
+                ax.set_ylabel('y-location')
+                ax.set_zlabel('z-location')
+                ax.plot([0], [0], [0], 'ko', label='origin')
+                added_ground_truth = False
 
-                    # For each trial result
-                    for dataset_name, trial_result_id in trial_results.items():
-                        trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
-                        if trial_result is not None:
-                            if trial_result.success:
-                                if not added_ground_truth:
-                                    lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
-                                                                   'ground truth trajectory')
-                                    mean = (upper + lower) / 2
-                                    lower = 2 * lower - mean
-                                    upper = 2 * upper - mean
-                                    ax.set_xlim(lower, upper)
-                                    ax.set_ylim(lower, upper)
-                                    ax.set_zlim(lower, upper)
-                                    added_ground_truth = True
-                                plot_trajectory(ax, trial_result.get_computed_camera_poses(),
-                                                "{0} on {1}".format(system_name, dataset_name))
-                            else:
-                                print("Got failed trial: {0}".format(trial_result.reason))
+                # For each trial result
+                for label, trial_result_id in trial_results.items():
+                    trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
+                    if trial_result is not None:
+                        if trial_result.success:
+                            if not added_ground_truth:
+                                lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
+                                                               'ground truth trajectory')
+                                mean = (upper + lower) / 2
+                                lower = 1.2 * lower - mean
+                                upper = 1.2 * upper - mean
+                                ax.set_xlim(lower, upper)
+                                ax.set_ylim(lower, upper)
+                                ax.set_zlim(lower, upper)
+                                added_ground_truth = True
+                            plot_trajectory(ax, trial_result.get_computed_camera_poses(),
+                                            label=label,
+                                            style=style[label])
+                        else:
+                            print("Got failed trial: {0}".format(trial_result.reason))
 
-                    logging.getLogger(__name__).info("... plotted trajectories for {0} with {1}".format(
-                        trajectory_group.name, system_name))
-                    ax.legend()
-                    pyplot.tight_layout()
-                    pyplot.subplots_adjust(top=0.95, right=0.99)
+                logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
+                ax.legend()
+                pyplot.tight_layout()
+                pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
 
     def _plot_relative_pose_error(self, db_client: database.client.DatabaseClient):
@@ -588,7 +592,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
-def plot_trajectory(axis, trajectory, label):
+def plot_trajectory(axis, trajectory, label, style='-'):
     """
     Simple helper to plot a trajectory on a 3D axis.
     Will normalise the trajectory to start at (0,0,0) and facing down the x axis,
@@ -596,6 +600,7 @@ def plot_trajectory(axis, trajectory, label):
     :param axis: The axis on which to plot
     :param trajectory: A map of timestamps to camera poses
     :param label: The label for the series
+    :param style: The line style to use for the trajectory. Lets us distinguish virtual and real world results.
     :return: The minimum and maximum coordinate values, for axis sizing.
     """
     x = []
@@ -619,7 +624,7 @@ def plot_trajectory(axis, trajectory, label):
             x.append(pose.location[0])
             y.append(pose.location[1])
             z.append(pose.location[2])
-    axis.plot(x, y, z, '--', label=label)
+    axis.plot(x, y, z, style, label=label, alpha=0.7)
     return min_point, max_point
 
 
