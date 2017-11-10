@@ -467,40 +467,51 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                 else:
                     image_sources[simulator_id] = dataset_id
 
-            for system_name, system_id in systems.items():
+            if len(image_sources) <= 1:
+                # Skip where we've only got one image source, it's not interesting.
+                continue
 
-                # Collect the results for each image source in this group
-                results = {}
+            # Collect the results for each image source in this group
+            results = {}
+            styles = {}
+            for system_name, system_id in systems.items():
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
                     if trial_result_id is not None:
                         result_id = self.get_benchmark_result(trial_result_id, self._benchmark_rpe)
                         if result_id is not None:
-                            results[dataset_name] = result_id
+                            label = "{0} on {1}".format(system_name, dataset_name)
+                            results[label] = result_id
+                            styles[label] = '-' if dataset_name == 'reference dataset' else '--'
 
-                if len(results) > 1:
-                    figure = pyplot.figure(figsize=(14, 10), dpi=80)
-                    figure.suptitle("Relative pose error for {0} with {1}".format(trajectory_group.name, system_name))
-                    ax = figure.add_subplot(111)
-                    ax.set_xlabel('x-location')
-                    ax.set_ylabel('y-location')
+            if len(results) > 1:
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("Relative pose error for {0}".format(trajectory_group.name))
+                ax = figure.add_subplot(111)
+                ax.set_xlabel('time')
+                ax.set_ylabel('relative pose error')
 
-                    # For each trial result
-                    for dataset_name, result_id in results.items():
-                        result = dh.load_object(db_client, db_client.results_collection, result_id)
-                        if result is not None:
-                            if result.success:
-                                times = sorted(result.translational_error.keys())
-                                errors = [result.translational_error[time] for time in times]
-                                ax.plot(times, errors, label="{0} on {1}".format(system_name, dataset_name))
-                            else:
-                                print("Got failed result: {0}".format(result.reason))
+                # For each trial result
+                for label, result_id in results.items():
+                    result = dh.load_object(db_client, db_client.results_collection, result_id)
+                    if result is not None:
+                        if result.success:
+                            x = []
+                            y = []
+                            times = sorted(result.translational_error.keys())
+                            for time in times:
+                                error = result.translational_error[time]
+                                if error < 100:
+                                    x.append(time - times[0])
+                                    y.append(error)
+                            ax.plot(x, y, styles[label], label=label, alpha=0.7)
+                        else:
+                            print("Got failed result: {0}".format(result.reason))
 
-                    logging.getLogger(__name__).info("... plotted trajectories for {0} with {1}".format(
-                        trajectory_group.name, system_name))
-                    ax.legend()
-                    pyplot.tight_layout()
-                    pyplot.subplots_adjust(top=0.95, right=0.99)
+                logging.getLogger(__name__).info("... plotted rpe for {0}".format(trajectory_group.name))
+                ax.legend()
+                pyplot.tight_layout()
+                pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
 
     def export_data(self, db_client: database.client.DatabaseClient):
