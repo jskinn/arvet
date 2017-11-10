@@ -12,6 +12,8 @@ def get_trajectory_for_image_source(db_client: database.client.DatabaseClient,
     but we need to be able to do logic on their trajectores.
     This utility uses the database to get just the trajectory for a given image collection.
     Only works for image collections, due to their database structure.
+    The returned trajectory starts at (0, 0, 0) and performs the same relative motion as the original trajectory,
+    but does not have the same world coordinates.
     :param db_client: The database client
     :param image_collection_id: The id of the image collection to load
     :return: A trajectory, a map of timestamp to camera pose. Ignores right-camera for stereo
@@ -20,8 +22,14 @@ def get_trajectory_for_image_source(db_client: database.client.DatabaseClient,
                                                         {'images': True})
     trajectory = {}
     if images is not None:
+        prev_pose = None
         for timestamp, image_id in images['images']:
             position_result = db_client.image_collection.find_one({'_id': image_id}, {'metadata.camera_pose': True})
             if position_result is not None:
-                trajectory[timestamp] = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
+                current_pose = tf.Transform.deserialize(position_result['metadata']['camera_pose'])
+                if prev_pose is None:
+                    trajectory[timestamp] = tf.Transform()
+                else:
+                    trajectory[timestamp] = prev_pose.find_relative(current_pose)
+                prev_pose = current_pose
     return trajectory
