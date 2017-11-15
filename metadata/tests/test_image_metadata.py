@@ -220,7 +220,7 @@ class TestImageMetadata(unittest.TestCase):
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
             'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 124.8, 285.7, 640, 360)],
             'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 257.9, 670.12, 640, 360)],
-            'focal_distance': [22],
+            'lens_focal_distance': [22],
             'aperture': [1.2],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
@@ -324,7 +324,7 @@ class TestImageMetadata(unittest.TestCase):
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
             'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 184.9, 892.5, 640, 360)],
             'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 963.1, 816.2, 640, 360)],
-            'focal_distance': [22],
+            'lens_focal_distance': [22],
             'aperture': [1.2],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
@@ -431,7 +431,7 @@ class TestImageMetadata(unittest.TestCase):
             'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
             'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 894.7, 861.2, 640, 360)],
             'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 760.45, 405.1, 640, 360)],
-            'focal_distance': [22],
+            'lens_focal_distance': [22],
             'aperture': [1.2],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
@@ -547,16 +547,6 @@ class TestImageMetadata(unittest.TestCase):
                     self.assertNotEqual(a.time_of_day, b.time_of_day)
                 else:
                     self.assertEqual(a.time_of_day, b.time_of_day)
-                if key == 'height':
-                    self.assertEqual(val, b.height)
-                    self.assertNotEqual(a.height, b.height)
-                else:
-                    self.assertEqual(a.height, b.height)
-                if key == 'width':
-                    self.assertEqual(val, b.width)
-                    self.assertNotEqual(a.width, b.width)
-                else:
-                    self.assertEqual(a.width, b.width)
                 if key == 'camera_pose':
                     self.assertEqual(val, b.camera_pose)
                     self.assertNotEqual(a.camera_pose, b.camera_pose)
@@ -572,12 +562,14 @@ class TestImageMetadata(unittest.TestCase):
                     self.assertNotEqual(a.camera_intrinsics, b.camera_intrinsics)
                 else:
                     self.assertEqual(a.camera_intrinsics, b.camera_intrinsics)
+                    self.assertEqual(a.width, b.width)
+                    self.assertEqual(a.height, b.height)
                 if key == 'right_intrinsics':
                     self.assertEqual(val, b.right_camera_intrinsics)
                     self.assertNotEqual(a.right_camera_intrinsics, b.right_camera_intrinsics)
                 else:
                     self.assertEqual(a.right_camera_intrinsics, b.right_camera_intrinsics)
-                if key == 'focal_distance':
+                if key == 'lens_focal_distance':
                     self.assertEqual(val, b.lens_focal_distance)
                     self.assertNotEqual(a.lens_focal_distance, b.lens_focal_distance)
                 else:
