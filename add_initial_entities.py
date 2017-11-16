@@ -6,6 +6,7 @@ import util.database_helpers as db_help
 
 import experiments.visual_slam.visual_slam_experiment
 import experiments.visual_slam.visual_odometry_experiment
+import experiments.visual_slam.simple_motion_experiment
 
 
 def main():
@@ -20,7 +21,8 @@ def main():
     # Create the experiments
     c = db_client.experiments_collection
     # db_help.add_unique(c, experiments.visual_slam.visual_slam_experiment.VisualSlamExperiment())
-    db_help.add_unique(c, experiments.visual_slam.visual_odometry_experiment.VisualOdometryExperiment())
+    #db_help.add_unique(c, experiments.visual_slam.visual_odometry_experiment.VisualOdometryExperiment())
+    db_help.add_unique(c, experiments.visual_slam.simple_motion_experiment.SimpleMotionExperiment())
 
 
 if __name__ == '__main__':
