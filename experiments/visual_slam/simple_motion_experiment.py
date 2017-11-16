@@ -552,7 +552,7 @@ class TrajectoryGroup:
             serialized_representation['reference_id'] = serialized_representation['real_world_dataset']
         return cls(
             name=serialized_representation['name'],
-            simulators={name: tuple(data) for name, data in serialized_representation['simulators'].items()},
+            simulators=serialized_representation['simulators'],
             controller_id=serialized_representation['controller_id'],
             generated_datasets=serialized_representation['generated_datasets']
         )

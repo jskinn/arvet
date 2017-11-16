@@ -60,10 +60,10 @@ def kinect_depth_model(ground_truth_depth_left, ground_truth_depth_right, camera
         baseline = (-baseline[1], -baseline[2], baseline[0])
 
     # Step 1: Rescale the camera intrisics to the kinect resolution
-    fx = 640 * camera_intrinsics.fx
-    fy = 480 * camera_intrinsics.fy
-    cx = 640 * camera_intrinsics.cx
-    cy = 480 * camera_intrinsics.cy
+    fx = 640 * camera_intrinsics.fx / camera_intrinsics.width
+    fy = 480 * camera_intrinsics.fy / camera_intrinsics.height
+    cx = 640 * camera_intrinsics.cx / camera_intrinsics.width
+    cy = 480 * camera_intrinsics.cy / camera_intrinsics.height
 
     # Step 2: Image resolution - kinect images are 640x480
     if ground_truth_depth_left.shape == (480, 640):
