@@ -7,6 +7,7 @@ import signal
 import queue
 import multiprocessing
 import enum
+import transforms3d as tf3d
 import core.system
 import core.sequence_type
 import core.trial_result
@@ -254,11 +255,10 @@ class ORBSLAM2(core.system.VisionSystem):
             # completed successfully, return the trajectory
             self._child_process.join()    # explicitly join
 
+            # Build the trajectory from raw data
             trajectory = {}
             for timestamp, x, y, z, qx, qy, qz, qw in trajectory_list:
-                # ORB_SLAM by default uses ROS coordinate frame, so we shouldn't need to convert
-                trajectory[timestamp] = tf.Transform(location=(x, y, z),
-                                                     rotation=(qw, qx, qy, qz), w_first=True)
+                trajectory[timestamp] = make_relative_pose(x, y, z, qx, qy, qz, qw)
 
             result = trials.slam.visual_slam.SLAMTrialResult(
                 system_id=self.identifier,
@@ -387,14 +387,55 @@ def nested_to_dotted(data):
     result = {}
     for key, value in data.items():
         if isinstance(value, dict):
-            for inner_key, value in nested_to_dotted(value).items():
-                result[key + '.' + inner_key] = value
+            for inner_key, inner_value in nested_to_dotted(value).items():
+                result[key + '.' + inner_key] = inner_value
         else:
             result[key] = value
     return result
 
 
+def make_relative_pose(x: float, y: float, z: float, qx: float, qy: float, qz: float, qw: float) -> tf.Transform:
+    """
+    ORBSLAM2 is using the common CV coordinate frame Z forward, X right, Y down (I think)
+    this function handles the coordinate frame
+
+    Frame is: z forward, x right, y down
+    Not documented, worked out by trial and error
+
+    :param x: The x coordinate
+    :param y: The y coordinate
+    :param z: The z coordinate
+    :param qx: The quaternion x coordinate
+    :param qy: The quaternion y coordinate
+    :param qz: The quaternion z coordinate
+    :param qw: The quaternion w coordinate
+    :return: A Transform object representing the pose of the current frame with respect to the previous frame
+    """
+    tf_matrix = np.matrix([[1, 0, 0, x],
+                           [0, 1, 0, y],
+                           [0, 0, 1, z],
+                           [0, 0, 0, 1]])
+    tf_matrix[0:3, 0:3] = tf3d.quaternions.quat2mat((qw, qx, qy, qz))
+    coordinate_exchange = np.matrix([[0, 0, 1, 0],
+                                     [-1, 0, 0, 0],
+                                     [0, -1, 0, 0],
+                                     [0, 0, 0, 1]])
+    pose = np.dot(np.dot(coordinate_exchange, tf_matrix), coordinate_exchange.T)
+    return tf.Transform(pose)
+
+
 def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, resolution):
+    """
+    Actually run the orbslam system. This is done in a separate process to isolate memory leaks,
+    and in case it crashes.
+    :param output_queue:
+    :param input_queue:
+    :param vocab_file:
+    :param settings_file:
+    :param mode:
+    :param resolution:
+    :return:
+    """
     import orbslam2
     import logging
     import trials.slam.tracking_state
