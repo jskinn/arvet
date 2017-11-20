@@ -103,7 +103,8 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                     name=name, controller_id=controller_id, simulators={'BlockWorld2': self._simulators['BlockWorld2']})
                 self._set_property('trajectory_groups.{0}'.format(name), self._trajectory_groups[name].serialize())
         for group in self._trajectory_groups.values():
-            group.do_imports(task_manager, db_client)
+            if group.do_imports(task_manager, db_client):
+                self._set_property('trajectory_groups.{0}'.format(group.name), group.serialize())
 
         # --------- SYSTEMS -----------
         if self._libviso_system is None:
@@ -210,7 +211,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
         for trajectory_group in self._trajectory_groups.values():
             # Collect all the image sources for this trajectory group
-            image_sources = {'reference dataset': trajectory_group.reference_dataset}
+            image_sources = {}
             for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
                 if simulator_id in simulator_names:
                     image_sources[simulator_names[simulator_id]] = dataset_id
@@ -221,14 +222,12 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
             # Collect the trial results for each image source in this group
             trial_results = {}
-            style = {}
             for system_name, system_id in systems.items():
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
                     if trial_result_id is not None:
                         label = "{0} on {1}".format(system_name, dataset_name)
                         trial_results[label] = trial_result_id
-                        style[label] = '-' if dataset_name == 'reference dataset' else '--'
 
                         # Make sure we have at least one result to plot
             if len(trial_results) > 1:
@@ -238,7 +237,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                 ax.set_xlabel('x-location')
                 ax.set_ylabel('y-location')
                 ax.set_zlabel('z-location')
-                ax.plot([0], [0], [0], 'ko', label='origin')
+                #ax.plot([0], [0], [0], 'ko', label='origin')
                 added_ground_truth = False
 
                 # For each trial result
@@ -248,7 +247,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                         if trial_result.success:
                             if not added_ground_truth:
                                 lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
-                                                               'ground truth trajectory')
+                                                               'ground truth trajectory', style='k-')
                                 mean = (upper + lower) / 2
                                 lower = 1.2 * lower - mean
                                 upper = 1.2 * upper - mean
@@ -258,7 +257,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                                 added_ground_truth = True
                             plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                             label=label,
-                                            style=style[label])
+                                            style='--')
                         else:
                             print("Got failed trial: {0}".format(trial_result.reason))
 
@@ -278,7 +277,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
         for trajectory_group in self._trajectory_groups.values():
             # Collect all the image sources for this trajectory group
-            image_sources = {'reference dataset': trajectory_group.reference_dataset}
+            image_sources = {}
             for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
                 if simulator_id in simulator_names:
                     image_sources[simulator_names[simulator_id]] = dataset_id
@@ -291,7 +290,6 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
             # Collect the results for each image source in this group
             results = {}
-            styles = {}
             for system_name, system_id in systems.items():
                 for dataset_name, dataset_id in image_sources.items():
                     trial_result_id = self.get_trial_result(system_id, dataset_id)
@@ -300,7 +298,6 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                         if result_id is not None:
                             label = "{0} on {1}".format(system_name, dataset_name)
                             results[label] = result_id
-                            styles[label] = '-' if dataset_name == 'reference dataset' else '--'
 
             if len(results) > 1:
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)
@@ -322,7 +319,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                                 if error < 100:
                                     x.append(time - times[0])
                                     y.append(error)
-                            ax.plot(x, y, styles[label], label=label, alpha=0.7)
+                            ax.plot(x, y, '-', label=label, alpha=0.7)
                         else:
                             print("Got failed result: {0}".format(result.reason))
 
@@ -548,8 +545,6 @@ class TrajectoryGroup:
 
     @classmethod
     def deserialize(cls, serialized_representation: dict) -> 'TrajectoryGroup':
-        if 'reference_id' not in serialized_representation and 'real_world_dataset' in serialized_representation:
-            serialized_representation['reference_id'] = serialized_representation['real_world_dataset']
         return cls(
             name=serialized_representation['name'],
             simulators=serialized_representation['simulators'],
