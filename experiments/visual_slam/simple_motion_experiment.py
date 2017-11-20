@@ -238,32 +238,47 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                 ax.set_xlabel('x-location')
                 ax.set_ylabel('y-location')
                 ax.set_zlabel('z-location')
+
                 #ax.plot([0], [0], [0], 'ko', label='origin')
                 added_ground_truth = False
+                lowest = 0
+                highest = 0
 
                 # For each trial result
                 for label, trial_result_id in trial_results.items():
                     trial_result = dh.load_object(db_client, db_client.trials_collection, trial_result_id)
                     if trial_result is not None:
                         if trial_result.success:
+                            figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                            figure.suptitle("Rotation for {0} on {1}".format(trajectory_group.name, label))
+                            rot_ax = figure.add_subplot(111)
+                            rot_ax.set_xlabel('x-location')
+                            rot_ax.set_ylabel('y-location')
+                            trajectory = trial_result.get_ground_truth_camera_poses()
+                            plot_orientation(rot_ax, trajectory, 'ground truth trajectory', style='k--')
+
                             if not added_ground_truth:
-                                lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
-                                                               'ground truth trajectory', style='k--')
-                                mean = (upper + lower) / 2
-                                lower = 1.2 * lower - mean
-                                upper = 1.2 * upper - mean
-                                ax.set_xlim(lower, upper)
-                                ax.set_ylim(lower, upper)
-                                ax.set_zlim(lower, upper)
+                                lower, upper = plot_trajectory(ax, trajectory, 'ground truth trajectory', style='k--')
+                                #mean = (upper + lower) / 2
+                                #lower = 1.2 * lower - mean
+                                #upper = 1.2 * upper - mean
+                                lowest = min(lowest, lower)
+                                highest = max(highest, upper)
                                 added_ground_truth = True
-                            plot_trajectory(ax, trial_result.get_computed_camera_poses(),
-                                            label=label,
-                                            style='-')
+                            trajectory = trial_result.get_computed_camera_poses()
+                            plot_orientation(rot_ax, trajectory, label, style='-')
+                            lower, upper = plot_trajectory(ax, trajectory, label=label, style='-')
+                            lowest = min(lowest, lower)
+                            highest = max(highest, upper)
+                            rot_ax.legend()
                         else:
                             print("Got failed trial: {0}".format(trial_result.reason))
 
                 logging.getLogger(__name__).info("... plotted trajectories for {0}".format(trajectory_group.name))
                 ax.legend()
+                ax.set_xlim(lowest, highest)
+                ax.set_ylim(lowest, highest)
+                ax.set_zlim(lowest, highest)
                 pyplot.tight_layout()
                 pyplot.subplots_adjust(top=0.95, right=0.99)
         pyplot.show()
@@ -416,6 +431,37 @@ def plot_trajectory(axis, trajectory, label, style='-'):
             z.append(pose.location[2])
     axis.plot(x, y, z, style, label=label, alpha=0.7)
     return min_point, max_point
+
+
+def plot_orientation(axis, trajectory, label, style='-'):
+    """
+    Plot the changing orientation of the trajectory over time.
+    :param axis:
+    :param trajectory:
+    :param label:
+    :param style:
+    :return:
+    """
+    roll = []
+    pitch = []
+    yaw = []
+    times = sorted(trajectory.keys())
+    first_pose = None
+    for timestamp in times:
+        pose = trajectory[timestamp]
+        if first_pose is None:
+            first_pose = pose
+            roll.append(0)
+            pitch.append(0)
+            yaw.append(0)
+        else:
+            pose = first_pose.find_relative(pose)
+            roll.append(pose.euler[0])
+            pitch.append(pose.euler[1])
+            yaw.append(pose.euler[2])
+    axis.plot(times, roll, style, label="{0} roll".format(label), alpha=0.5)
+    axis.plot(times, pitch, style, label="{0} pitch".format(label), alpha=0.5)
+    axis.plot(times, yaw, style, label="{0} yaw".format(label), alpha=0.5)
 
 
 def update_schema(serialized: dict):
