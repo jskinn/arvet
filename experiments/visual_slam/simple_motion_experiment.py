@@ -207,7 +207,10 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
         logging.getLogger(__name__).info("Plotting trajectories...")
         # Map system ids and simulator ids to printable names
         simulator_names = {v: k for k, v in self._simulators.items()}
-        systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
+        systems = {'LIBVISO 2': self._libviso_system}
+        for outer_key, inner in self._orbslam_systems.items():
+            for inner_key, system_id in inner.items():
+                systems['{0} {1}'.format(outer_key, inner_key)] = system_id
 
         for trajectory_group in self._trajectory_groups.values():
             # Collect all the image sources for this trajectory group
@@ -217,8 +220,6 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                     image_sources[simulator_names[simulator_id]] = dataset_id
                 else:
                     image_sources[simulator_id] = dataset_id
-            if len(image_sources) <= 1:
-                continue
 
             # Collect the trial results for each image source in this group
             trial_results = {}
@@ -229,7 +230,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                         label = "{0} on {1}".format(system_name, dataset_name)
                         trial_results[label] = trial_result_id
 
-                        # Make sure we have at least one result to plot
+            # Make sure we have at least one result to plot
             if len(trial_results) > 1:
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)
                 figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
@@ -247,7 +248,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                         if trial_result.success:
                             if not added_ground_truth:
                                 lower, upper = plot_trajectory(ax, trial_result.get_ground_truth_camera_poses(),
-                                                               'ground truth trajectory', style='k-')
+                                                               'ground truth trajectory', style='k--')
                                 mean = (upper + lower) / 2
                                 lower = 1.2 * lower - mean
                                 upper = 1.2 * upper - mean
@@ -257,7 +258,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                                 added_ground_truth = True
                             plot_trajectory(ax, trial_result.get_computed_camera_poses(),
                                             label=label,
-                                            style='--')
+                                            style='-')
                         else:
                             print("Got failed trial: {0}".format(trial_result.reason))
 
