@@ -223,6 +223,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
+        patch_schema(serialized_representation, db_client)
         if 'enabled' in serialized_representation:
             kwargs['enabled'] = bool(serialized_representation['enabled'])
         if 'trial_map' in serialized_representation:
@@ -292,3 +293,42 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
             existing = (set(self._updates['$addToSet'][serialized_key]['$each'])
                         if serialized_key in self._updates['$addToSet'] else set())
             self._updates['$addToSet'][serialized_key] = {'$each': list(new_elements | existing)}
+
+
+def patch_schema(serialized_representation: dict, db_client: database.client.DatabaseClient):
+    """
+    Patch the experiment schema to remove invalid systems, trial results, etc..
+
+    TODO: Find a way of pushing these changes back to the database.
+    :param serialized_representation:
+    :param db_client:
+    :return:
+    """
+    if 'trial_map' in serialized_representation:
+        # Check the trial map for invalid keys
+        for s_sys_id, inner_map in serialized_representation['trial_map'].items():
+            sys_id = bson.ObjectId(s_sys_id)
+            if not dh.check_reference_is_valid(db_client.system_collection, sys_id):
+                # System in invalid remove all the trials for it
+                del serialized_representation['trial_map'][s_sys_id]
+            else:
+                for s_source_id, trial_id in inner_map:
+                    image_source_id = bson.ObjectId(s_source_id)
+                    if not dh.check_reference_is_valid(db_client.image_source_collection, image_source_id) or \
+                            not dh.check_reference_is_valid(db_client.trials_collection, trial_id):
+                        # Either the system or trial result is missing, remove it
+                        del serialized_representation['trial_map'][s_sys_id][s_source_id]
+    if 'result_map' in serialized_representation:
+        # Check the trial map for invalid keys
+        for s_trial_id, inner_map in serialized_representation['result_map'].items():
+            trial_id = bson.ObjectId(s_trial_id)
+            if not dh.check_reference_is_valid(db_client.trials_collection, trial_id):
+                # Trial is missing, remove all results for it
+                del serialized_representation['result_map'][s_trial_id]
+            else:
+                for s_benchmark_id, result_id in inner_map:
+                    benchmark_id = bson.ObjectId(s_benchmark_id)
+                    if not dh.check_reference_is_valid(db_client.benchmarks_collection, benchmark_id) or \
+                            not dh.check_reference_is_valid(db_client.results_collection, result_id):
+                        # Either the benchmark or the result is invalid, remove them
+                        del serialized_representation['result_map'][s_trial_id][s_benchmark_id]
