@@ -107,7 +107,8 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
                 # Then create a trajectory group for it
                 self._trajectory_groups[name] = TrajectoryGroup(
-                    name=name, controller_id=controller_id, simulators={'BlockWorld2': self._simulators['BlockWorld2']})
+                    name=name, controller_id=controller_id,
+                    simulators={'CorridorWorld': self._simulators['CorridorWorld']})
                 self._set_property('trajectory_groups.{0}'.format(name), self._trajectory_groups[name].serialize())
         for group in self._trajectory_groups.values():
             if group.do_imports(task_manager, db_client):
