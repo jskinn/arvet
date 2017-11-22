@@ -312,7 +312,7 @@ def patch_schema(serialized_representation: dict, db_client: database.client.Dat
                 # System in invalid remove all the trials for it
                 del serialized_representation['trial_map'][s_sys_id]
             else:
-                for s_source_id, trial_id in inner_map:
+                for s_source_id, trial_id in inner_map.items():
                     image_source_id = bson.ObjectId(s_source_id)
                     if not dh.check_reference_is_valid(db_client.image_source_collection, image_source_id) or \
                             not dh.check_reference_is_valid(db_client.trials_collection, trial_id):
@@ -326,7 +326,7 @@ def patch_schema(serialized_representation: dict, db_client: database.client.Dat
                 # Trial is missing, remove all results for it
                 del serialized_representation['result_map'][s_trial_id]
             else:
-                for s_benchmark_id, result_id in inner_map:
+                for s_benchmark_id, result_id in inner_map.items():
                     benchmark_id = bson.ObjectId(s_benchmark_id)
                     if not dh.check_reference_is_valid(db_client.benchmarks_collection, benchmark_id) or \
                             not dh.check_reference_is_valid(db_client.results_collection, result_id):

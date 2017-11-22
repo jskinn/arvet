@@ -79,7 +79,7 @@ def add_unique(collection: pymongo.collection.Collection, entity: database.entit
     if existing is not None:
         return existing['_id']
     else:
-        return collection.insert_one(s_object)
+        return collection.insert_one(s_object).inserted_id
 
 
 def add_schema_version(serialized: dict, schema_name: str, version_number: int):
