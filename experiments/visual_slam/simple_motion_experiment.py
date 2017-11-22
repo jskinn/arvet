@@ -68,8 +68,8 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
         # Add simulators explicitly, they have different metadata, so we can't just search
         for exe, world_name, environment_type, light_level, time_of_day in [
             (
-                    '/media/john/Storage/simulators/BlockWorld2/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                    'BlockWorld2', imeta.EnvironmentType.OUTDOOR_LANDSCAPE, imeta.LightingLevel.WELL_LIT,
+                    '/media/john/Storage/simulators/CorridorWorld/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                    'CorridorWorld', imeta.EnvironmentType.OUTDOOR_LANDSCAPE, imeta.LightingLevel.WELL_LIT,
                     imeta.TimeOfDay.DAY
             )
         ]:
@@ -87,8 +87,15 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
         # --------- TRAJECTORY GROUPS -----------
 
         for name, path in [
-            ('straight line', get_forwards_trajectory()),
-            ('on the spot', get_on_the_spot_trajectory())
+            ('forwards', get_forwards_trajectory()),
+            ('upwards', get_upward_trajectory()),
+            ('left', get_left_trajectory()),
+            ('on the spot roll', get_on_the_spot_roll_trajectory()),
+            ('on the spot pitch', get_on_the_spot_pitch_trajectory()),
+            ('on the spot yaw', get_on_the_spot_yaw_trajectory()),
+            ('circle roll', get_circle_roll_trajectory()),
+            ('circle pitch', get_circle_pitch_trajectory()),
+            ('circle yaw', get_circle_yaw_trajectory()),
         ]:
             if name not in self._trajectory_groups:
                 # First, create the trajectory follow controller with the desired trajectory
@@ -239,7 +246,6 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                 ax.set_ylabel('y-location')
                 ax.set_zlabel('z-location')
 
-                #ax.plot([0], [0], [0], 'ko', label='origin')
                 added_ground_truth = False
                 lowest = 0
                 highest = 0
@@ -475,29 +481,95 @@ def get_forwards_trajectory() -> typing.Mapping[float, tf.Transform]:
     :return: A map from timestamps to camera poses, with which we can create a controller.
     """
     framerate = 30  # frames per second
-    speed = 0.6     # meters per second
+    speed = 1.2     # meters per second (walking pace)
     return {time: tf.Transform(location=(time * speed - 10, 0, 0)) for time in np.arange(0, 20 / speed, 1 / framerate)}
 
 
-def get_on_the_spot_trajectory():
+def get_upward_trajectory() -> typing.Mapping[float, tf.Transform]:
     """
-    Get a trajectory that turns a circle on the spot. Pure rotation, no translational component.
+    Get a simple linear trajectory, moving in a straight line upwards from -10m to 10m
+    :return: A map from timestamps to camera poses, with which we can create a controller.
+    """
+    framerate = 30  # frames per second
+    speed = 1.2     # meters per second
+    return {time: tf.Transform(location=(0, 0, time * speed - 10)) for time in np.arange(0, 20 / speed, 1 / framerate)}
+
+
+def get_left_trajectory() -> typing.Mapping[float, tf.Transform]:
+    """
+    Get a simple linear trajectory, moving in a straight line left from -10m to 10m
+    :return: A map from timestamps to camera poses, with which we can create a controller.
+    """
+    framerate = 30  # frames per second
+    speed = 1.2     # meters per second
+    return {time: tf.Transform(location=(0, time * speed - 10, 0)) for time in np.arange(0, 20 / speed, 1 / framerate)}
+
+
+def get_on_the_spot_roll_trajectory():
+    """
+    Get a trajectory that turns a circle on the spot. Pure yaw, no translational component.
     :return:
     """
     framerate = 30  # frames per second
-    angular_vel = np.pi / 180   # radians per second
+    angular_vel = np.pi / 36   # radians per second
+    return {time: tf.Transform(rotation=(time * angular_vel, 0, 0))
+            for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
+
+
+def get_on_the_spot_pitch_trajectory():
+    """
+    Get a trajectory that turns a circle on the spot. Pure yaw, no translational component.
+    :return:
+    """
+    framerate = 30  # frames per second
+    angular_vel = np.pi / 36   # radians per second
     return {time: tf.Transform(rotation=(0, 0, time * angular_vel))
             for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
 
 
-def get_circle_trajectory():
+def get_on_the_spot_yaw_trajectory():
     """
-    Get a trajectory that moves in a 1m diameter circle, facing tangent to the circle
+    Get a trajectory that turns a circle on the spot. Pure yaw, no translational component.
     :return:
     """
     framerate = 30  # frames per second
-    angular_vel = np.pi / 180  # radians per second
-    relative_pose = tf.Transform(location=(0.5, 0, 0), rotation=(0, 0, np.pi / 2))
+    angular_vel = np.pi / 36   # radians per second
+    return {time: tf.Transform(rotation=(0, 0, time * angular_vel))
+            for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
+
+
+def get_circle_roll_trajectory():
+    """
+    Get a trajectory that moves in a 1m diameter circle, facing outwards
+    :return:
+    """
+    framerate = 30            # frames per second
+    angular_vel = np.pi / 36  # radians per second
+    relative_pose = tf.Transform(location=(0, 0, 0.5), rotation=(0, 0, 0))
+    return {time: (tf.Transform(rotation=(time * angular_vel, 0, 0))).find_independent(relative_pose)
+            for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
+
+
+def get_circle_pitch_trajectory():
+    """
+    Get a trajectory that moves in a 1m diameter circle, facing outwards
+    :return:
+    """
+    framerate = 30            # frames per second
+    angular_vel = np.pi / 36  # radians per second
+    relative_pose = tf.Transform(location=(0.5, 0, 0), rotation=(0, 0, 0))
+    return {time: (tf.Transform(rotation=(0, time * angular_vel, 0))).find_independent(relative_pose)
+            for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
+
+
+def get_circle_yaw_trajectory():
+    """
+    Get a trajectory that moves in a 1m diameter circle, facing outwards
+    :return:
+    """
+    framerate = 30            # frames per second
+    angular_vel = np.pi / 36  # radians per second
+    relative_pose = tf.Transform(location=(0.5, 0, 0), rotation=(0, 0, 0))
     return {time: (tf.Transform(rotation=(0, 0, time * angular_vel))).find_independent(relative_pose)
             for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
 
