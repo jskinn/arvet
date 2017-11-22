@@ -375,7 +375,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        update_schema(serialized_representation)
+        update_schema(serialized_representation, db_client)
 
         # Systems
         if 'libviso' in serialized_representation:
@@ -471,9 +471,32 @@ def plot_orientation(axis, trajectory, label, style='-'):
     axis.plot(times, yaw, style, label="{0} yaw".format(label), alpha=0.5)
 
 
-def update_schema(serialized: dict):
+def update_schema(serialized: dict, db_client: database.client.DatabaseClient):
     # version = dh.get_schema_version(serialized, 'experiments:visual_slam:SimpleMotionExperiment')
-    pass
+    if 'libviso' in serialized and not dh.check_reference_is_valid(db_client.system_collection, serialized['libviso']):
+        del serialized['libviso']
+    if 'orbslam_systems' in serialized:
+        keys = list(serialized['orbslam_systems'].keys())
+        for key in keys:
+            if not dh.check_reference_is_valid(db_client.system_collection, serialized['orbslam_systems'][key]):
+                del serialized['orbslam_systems'][key]
+    if 'simulators' in serialized:
+        keys = list(serialized['simulators'].keys())
+        for key in keys:
+            if not dh.check_reference_is_valid(db_client.image_source_collection, serialized['simulators'][key]):
+                del serialized['simulators'][key]
+    if 'benchmark_rpe' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_rpe']):
+        del serialized['benchmark_rpe']
+    if 'benchmark_ate' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_ate']):
+        del serialized['benchmark_ate']
+    if 'benchmark_trajectory_drift' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_trajectory_drift']):
+        del serialized['benchmark_trajectory_drift']
+    if 'benchmark_tracking' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_tracking']):
+        del serialized['benchmark_tracking']
 
 
 def get_forwards_trajectory() -> typing.Mapping[float, tf.Transform]:
