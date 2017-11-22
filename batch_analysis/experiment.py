@@ -305,30 +305,50 @@ def patch_schema(serialized_representation: dict, db_client: database.client.Dat
     :return:
     """
     if 'trial_map' in serialized_representation:
+        outer_keys_to_remove = []
+        inner_keys_to_remove = []
         # Check the trial map for invalid keys
         for s_sys_id, inner_map in serialized_representation['trial_map'].items():
             sys_id = bson.ObjectId(s_sys_id)
             if not dh.check_reference_is_valid(db_client.system_collection, sys_id):
                 # System in invalid remove all the trials for it
-                del serialized_representation['trial_map'][s_sys_id]
+                outer_keys_to_remove.append(s_sys_id)
             else:
                 for s_source_id, trial_id in inner_map.items():
                     image_source_id = bson.ObjectId(s_source_id)
                     if not dh.check_reference_is_valid(db_client.image_source_collection, image_source_id) or \
                             not dh.check_reference_is_valid(db_client.trials_collection, trial_id):
                         # Either the system or trial result is missing, remove it
-                        del serialized_representation['trial_map'][s_sys_id][s_source_id]
+                        inner_keys_to_remove.append(s_source_id)
+        # Actually delete the keys now we're not iterating over the dict
+        for outer_key in outer_keys_to_remove:
+            if outer_key in serialized_representation['trial_map']:
+                del serialized_representation['trial_map'][outer_key]
+        for inner_map in serialized_representation['trial_map'].values():
+            for inner_key in inner_keys_to_remove:
+                if inner_key in inner_map:
+                    del inner_map[inner_key]
     if 'result_map' in serialized_representation:
+        outer_keys_to_remove = []
+        inner_keys_to_remove = []
         # Check the trial map for invalid keys
         for s_trial_id, inner_map in serialized_representation['result_map'].items():
             trial_id = bson.ObjectId(s_trial_id)
             if not dh.check_reference_is_valid(db_client.trials_collection, trial_id):
                 # Trial is missing, remove all results for it
-                del serialized_representation['result_map'][s_trial_id]
+                outer_keys_to_remove.append(s_trial_id)
             else:
                 for s_benchmark_id, result_id in inner_map.items():
                     benchmark_id = bson.ObjectId(s_benchmark_id)
                     if not dh.check_reference_is_valid(db_client.benchmarks_collection, benchmark_id) or \
                             not dh.check_reference_is_valid(db_client.results_collection, result_id):
                         # Either the benchmark or the result is invalid, remove them
-                        del serialized_representation['result_map'][s_trial_id][s_benchmark_id]
+                        inner_keys_to_remove.append(s_benchmark_id)
+        # Actually delete the keys now we're not iterating over the dict
+        for outer_key in outer_keys_to_remove:
+            if outer_key in serialized_representation['trial_map']:
+                del serialized_representation['trial_map'][outer_key]
+        for inner_map in serialized_representation['trial_map'].values():
+            for inner_key in inner_keys_to_remove:
+                if inner_key in inner_map:
+                    del inner_map[inner_key]
