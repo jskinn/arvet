@@ -1,5 +1,5 @@
-#!/bin/python
-#Copyright (c) 2017, John Skinner
+#!/usr/bin/env python3
+# Copyright (c) 2017, John Skinner
 import bson
 import config.global_configuration as global_conf
 import database.client
@@ -14,7 +14,6 @@ def visualize_dataset(db_client, dataset_id):
         with image_source:
             while not image_source.is_complete():
                 image, _ = image_source.get_next_image()
-                print(image.data.dtype)
                 cv2.imshow('rgb', image.data[:, :, ::-1])
                 if isinstance(image, core.image.StereoImage):
                     cv2.imshow('right', image.right_data[:, :, ::-1])
@@ -43,7 +42,7 @@ def main():
     config = global_conf.load_global_config('config.yml')
     db_client = database.client.DatabaseClient(config=config)
 
-    visualize_dataset(db_client, bson.ObjectId("59a7ea656aacde4d5a5ab766"))
+    visualize_dataset(db_client, bson.ObjectId("5a00854936ed1e1fa9a4ae19"))
 
 
 if __name__ == '__main__':

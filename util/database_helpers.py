@@ -1,8 +1,14 @@
 # Copyright (c) 2017, John Skinner
 import copy
+import typing
+import bson
+import pymongo.collection
+import database.entity
+import database.client
 
 
-def load_object(db_client, collection, id_, **kwargs):
+def load_object(db_client: database.client.DatabaseClient, collection: pymongo.collection.Collection,
+                id_: bson.ObjectId, **kwargs) -> typing.Union[None, database.entity.Entity]:
     """
     Shorthand helper for pulling a single entity from the database.
     This just saves us creating temporaries for serialized objects all the time,
@@ -22,7 +28,7 @@ def load_object(db_client, collection, id_, **kwargs):
     return None
 
 
-def query_to_dot_notation(query, flatten_arrays=False):
+def query_to_dot_notation(query: dict, flatten_arrays: bool = False) -> dict:
     """
     Recursively transform a query containing nested dicts to mongodb dot notation.
     That is,
@@ -54,7 +60,7 @@ def query_to_dot_notation(query, flatten_arrays=False):
     return query
 
 
-def add_unique(collection, entity):
+def add_unique(collection: pymongo.collection.Collection, entity: database.entity.Entity) -> bson.ObjectId:
     """
     Add an object to a collection, if that object does not already exist.
     Treats the entire serialized object as the key, if only one entry is different, they're different objects.
@@ -73,7 +79,7 @@ def add_unique(collection, entity):
     if existing is not None:
         return existing['_id']
     else:
-        return collection.insert(s_object)
+        return collection.insert_one(s_object).inserted_id
 
 
 def add_schema_version(serialized: dict, schema_name: str, version_number: int):
@@ -106,3 +112,13 @@ def get_schema_version(serialized: dict, schema_name: str) -> int:
     if '_schema_version' not in serialized or schema_name not in serialized['_schema_version']:
         return 0
     return serialized['_schema_version'][schema_name]
+
+
+def check_reference_is_valid(collection: pymongo.collection.Collection, id_: bson.ObjectId) -> bool:
+    """
+    Check if a given id exists within the given collection
+    :param collection: The pymongo collection to search
+    :param id_: The id to find
+    :return: True if the id exists within the collection, false otherwise
+    """
+    return collection.find({'_id': id_}).count() > 0

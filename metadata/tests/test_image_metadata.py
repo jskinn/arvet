@@ -2,6 +2,7 @@
 import unittest
 import unittest.mock as mock
 import numpy as np
+import bson
 import util.transform as tf
 import util.dict_utils as du
 import metadata.camera_intrinsics as cam_intr
@@ -128,6 +129,7 @@ class TestImageMetadata(unittest.TestCase):
             'lens_focal_distance': 5,
             'aperture': 22,
 
+            'simulator': bson.ObjectId('5a14cf0e36ed1e17a55f1e35'),
             'simulation_world': 'TestSimulationWorld',
             'lighting_model': imeta.LightingModel.LIT,
             'texture_mipmap_bias': 1,
@@ -222,6 +224,7 @@ class TestImageMetadata(unittest.TestCase):
             'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 257.9, 670.12, 640, 360)],
             'lens_focal_distance': [22],
             'aperture': [1.2],
+            'simulator': [bson.ObjectId()],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
             'texture_mipmap_bias': [2],
@@ -326,6 +329,7 @@ class TestImageMetadata(unittest.TestCase):
             'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 963.1, 816.2, 640, 360)],
             'lens_focal_distance': [22],
             'aperture': [1.2],
+            'simulator': [bson.ObjectId()],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
             'texture_mipmap_bias': [2],
@@ -433,6 +437,7 @@ class TestImageMetadata(unittest.TestCase):
             'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 760.45, 405.1, 640, 360)],
             'lens_focal_distance': [22],
             'aperture': [1.2],
+            'simulator': [bson.ObjectId()],
             'simulation_world': ['TestSimulationWorld2'],
             'lighting_model': [imeta.LightingModel.UNLIT],
             'texture_mipmap_bias': [2],
@@ -643,6 +648,7 @@ class TestImageMetadata(unittest.TestCase):
         self.assertEqual(metadata1.right_camera_intrinsics, metadata2.right_camera_intrinsics)
         self.assertEqual(metadata1.lens_focal_distance, metadata2.lens_focal_distance)
         self.assertEqual(metadata1.aperture, metadata2.aperture)
+        self.assertEqual(metadata1.simulator, metadata2.simulator)
         self.assertEqual(metadata1.simulation_world, metadata2.simulation_world)
         self.assertEqual(metadata1.lighting_model, metadata2.lighting_model)
         self.assertEqual(metadata1.texture_mipmap_bias, metadata2.texture_mipmap_bias)

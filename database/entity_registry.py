@@ -1,4 +1,4 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 """
 A minimal module for mapping entity classes to their names in a global registry.
 Yes, this prevents effective dependency injection and unit testing,

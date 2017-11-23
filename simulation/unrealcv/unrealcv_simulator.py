@@ -686,6 +686,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
             environment_type=self._environment_type,
             light_level=self._light_level, time_of_day=self._time_of_day,
             lens_focal_distance=focus_length, aperture=aperture,
+            simulator=self.identifier,
             simulation_world=self._world_name,
             lighting_model=imeta.LightingModel.LIT if self._lit_mode else imeta.LightingModel.UNLIT,
             texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,

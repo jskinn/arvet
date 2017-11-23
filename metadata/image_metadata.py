@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import typing
 import enum
+import bson
 import numpy as np
 import util.transform as tf
 import util.dict_utils as du
@@ -145,8 +146,9 @@ class ImageMetadata:
     def __init__(self, source_type, hash_, camera_pose=None, right_camera_pose=None, intrinsics=None,
                  right_intrinsics=None, lens_focal_distance=None, aperture=None,
                  environment_type=None, light_level=None, time_of_day=None,
-                 simulation_world=None, lighting_model=None, texture_mipmap_bias=None, normal_maps_enabled=True,
-                 roughness_enabled=None, geometry_decimation=None, procedural_generation_seed=None,
+                 simulator=None, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
+                 normal_maps_enabled=True, roughness_enabled=None, geometry_decimation=None,
+                 procedural_generation_seed=None,
                  labelled_objects=None, average_scene_depth=None, base_image=None, transformation_matrix=None):
         self._hash = hash_
 
@@ -163,6 +165,7 @@ class ImageMetadata:
         self._aperture = float(aperture) if aperture is not None else None
 
         # Computer graphics settings, for measuring image quality
+        self._simulator = simulator
         self._simulation_world = str(simulation_world) if simulation_world is not None else None
         self._lighting_model = LightingModel(lighting_model) if lighting_model is not None else None
         self._texture_mipmap_bias = int(texture_mipmap_bias) if texture_mipmap_bias is not None else None
@@ -197,6 +200,7 @@ class ImageMetadata:
                 self.right_camera_intrinsics == other.right_camera_intrinsics and
                 self.lens_focal_distance == other.lens_focal_distance and
                 self.aperture == other.aperture and
+                self.simulator == other.simulator and
                 self.simulation_world == other.simulation_world and
                 self.lighting_model == other.lighting_model and
                 self.texture_mipmap_bias == other.texture_mipmap_bias and
@@ -213,7 +217,7 @@ class ImageMetadata:
         return hash((self.hash, self.source_type, self.environment_type, self.light_level, self.time_of_day,
                      self.camera_pose, self.right_camera_pose, self.camera_intrinsics,
                      self.right_camera_intrinsics, self.lens_focal_distance, self.aperture,
-                     self.simulation_world, self.lighting_model,
+                     self.simulator, self.simulation_world, self.lighting_model,
                      self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
                      self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth,
                      hash(self.base_image), tuple(tuple(row) for row in self.affine_transformation_matrix)) +
@@ -295,7 +299,11 @@ class ImageMetadata:
         return self._aperture
 
     @property
-    def simulation_world(self) -> str:
+    def simulator(self) -> typing.Union[None, bson.ObjectId]:
+        return self._simulator
+
+    @property
+    def simulation_world(self) -> typing.Union[str, None]:
         return self._simulation_world
 
     @property
@@ -373,6 +381,7 @@ class ImageMetadata:
             'time_of_day': self.time_of_day,
             'lens_focal_distance': self.lens_focal_distance,
             'aperture': self.aperture,
+            'simulator': self.simulator,
             'simulation_world': self.simulation_world,
             'lighting_model': self.lighting_model,
             'texture_mipmap_bias': self.texture_mipmap_bias,
@@ -409,6 +418,7 @@ class ImageMetadata:
             'lens_focal_distance': self.lens_focal_distance,
             'aperture': self.aperture,
 
+            'simulator': self.simulator,
             'simulation_world': self.simulation_world,
             'lighting_model': self.lighting_model.value if self.lighting_model is not None else None,
             'texture_mipmap_bias': self.texture_mipmap_bias,
@@ -432,7 +442,7 @@ class ImageMetadata:
         kwargs = {}
         update_schema(serialized)
         direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day',
-                            'lens_focal_distance', 'aperture', 'simulation_world', 'lighting_model',
+                            'lens_focal_distance', 'aperture', 'simulator', 'simulation_world', 'lighting_model',
                             'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
                             'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
         for key in direct_copy_keys:
@@ -514,6 +524,7 @@ def merge_stereo(left_image_metadata: ImageMetadata, right_image_metadata: Image
         environment_type=merge(left_image_metadata.environment_type, right_image_metadata.environment_type),
         light_level=merge(left_image_metadata.light_level, right_image_metadata.light_level),
         time_of_day=merge(left_image_metadata.time_of_day, right_image_metadata.time_of_day),
+        simulator=merge(left_image_metadata.simulator, right_image_metadata.simulator),
         simulation_world=merge(left_image_metadata.simulation_world, right_image_metadata.simulation_world),
         lighting_model=merge(left_image_metadata.lighting_model, right_image_metadata.lighting_model),
         texture_mipmap_bias=merge(left_image_metadata.texture_mipmap_bias, right_image_metadata.texture_mipmap_bias),
