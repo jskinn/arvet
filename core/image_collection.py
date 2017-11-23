@@ -6,9 +6,7 @@ import database.entity
 import core.image
 import core.sequence_type
 import core.image_source
-import metadata.camera_intrinsics as cam_intr
 import util.database_helpers as dh
-import util.transform as tf
 
 
 class ImageCollection(core.image_source.ImageSource, database.entity.Entity, metaclass=abc.ABCMeta):
@@ -69,7 +67,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         first_image = db_client_.deserialize_entity(s_first_image)
         self._camera_intrinsics = first_image.metadata.camera_intrinsics
         self._stereo_baseline = None
-        if (self.is_stereo_available):
+        if self.is_stereo_available:
             self._stereo_baseline = np.linalg.norm(first_image.left_camera_pose.location -
                                                    first_image.right_camera_pose.location)
 
@@ -243,16 +241,18 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         Only count the images that have a validate method
         :return: True if all the images are valid, false if not
         """
-        for image in self._images:
-            if hasattr(image, 'validate'):
-                if not image.validate():
-                    return False
+        with self:
+            while not self.is_complete():
+                image, _ = self.get_next_image()
+                if hasattr(image, 'validate'):
+                    if not image.validate():
+                        return False
         return True
 
     def serialize(self):
         serialized = super().serialize()
         # Only include the image IDs here, they'll get turned back into objects for us
-        serialized['images'] = [(stamp, image.identifier) for stamp, image in self._images.items()]
+        serialized['images'] = [(stamp, image_id) for stamp, image_id in self._images.items()]
         if self.sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL:
             serialized['sequence_type'] = 'SEQ'
         else:
@@ -260,7 +260,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_representation, db_client, **kwargs):
+    def deserialize(cls, serialized_representation, db_client, **kwargs) -> 'ImageCollection':
         """
         Load any collection of images.
         This handles the weird chicken-and-egg problem of deserializing

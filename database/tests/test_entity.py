@@ -1,17 +1,17 @@
-#Copyright (c) 2017, John Skinner
+# Copyright (c) 2017, John Skinner
 import unittest
-import unittest.mock as mock
 import abc
 import util.dict_utils as du
 import database.client
 import database.entity
 import database.entity_registry as reg
+import database.tests.mock_database_client as mock_db_client_fac
 
 
 class EntityContract(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def get_class(self):
+    def get_class(self) -> type:
         """
         Get the entity class under test
         :return:
@@ -56,10 +56,13 @@ class EntityContract(metaclass=abc.ABCMeta):
         """
         Create the mock database client fed to deserialize.
         The default behaviour here is sufficient if the client is not used,
-        override it to create specific return values
+        override it to create specific return values.
+        This uses the zombie mock structure in mock_database_client.py,
+        the zombie object is available after calling in self.zombie_db_client
         :return: 
         """
-        return mock.create_autospec(database.client.DatabaseClient)
+        self.zombie_db_client = mock_db_client_fac.create()
+        return self.zombie_db_client.mock
 
     def assert_keys_valid(self, dictionary):
         """

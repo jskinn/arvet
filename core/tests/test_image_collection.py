@@ -101,8 +101,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.images = {}
         for i in range(10):
             image = make_image(i)
-            self.image_map[str(image.identifier)] = image
-            self.images[i * 1.2] = image
+            self.image_map[image.identifier] = image
+            self.images[i * 1.2] = image.identifier
 
     def get_class(self):
         return ic.ImageCollection
@@ -152,11 +152,15 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertTrue(image_collection2.is_complete())
 
     def create_mock_db_client(self):
-        self.db_client = super().create_mock_db_client()
+        db_client = super().create_mock_db_client()
 
-        self.db_client.image_collection.find.return_value = [image.serialize() for image in self.images.values()]
-        self.db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[str(s_image['_id'])]
-        return self.db_client
+        # Add our images to the mock image collection
+        for image in self.image_map.values():
+            image.save_image_data(db_client)
+            db_client.image_collection.insert(image.serialize())
+
+        db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[s_image['_id']]
+        return db_client
 
     def test_timestamps_returns_all_timestamps_in_order(self):
         subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
@@ -166,59 +170,81 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
             self.assertIsNotNone(subject.get(stamp))
 
     def test_is_depth_available_is_true_iff_all_images_have_depth_data(self):
+        db_client = self.create_mock_db_client()
         subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     db_client_=self.create_mock_db_client())
+                                     db_client_=db_client)
         self.assertTrue(subject.is_depth_available)
+
+        image = make_image(depth_data=None)
+        image.save_image_data(db_client)
+        db_client.image_collection.insert(image.serialize())
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(depth_data=None)}, self.images),
-                                     db_client_=self.create_mock_db_client())
+                                     images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_depth_available)
 
     def test_is_per_pixel_labels_available_is_true_iff_all_images_have_labels_data(self):
+        db_client = self.create_mock_db_client()
         subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     db_client_=self.create_mock_db_client())
+                                     db_client_=db_client)
         self.assertTrue(subject.is_per_pixel_labels_available)
+
+        image = make_image(labels_data=None)
+        image.save_image_data(db_client)
+        db_client.image_collection.insert(image.serialize())
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(labels_data=None)}, self.images),
-                                     db_client_=self.create_mock_db_client())
+                                     images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_per_pixel_labels_available)
 
     def test_is_labels_available_is_true_iff_all_images_have_bounding_boxes(self):
+        db_client = self.create_mock_db_client()
         subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     db_client_=self.create_mock_db_client())
+                                     db_client_=db_client)
         self.assertTrue(subject.is_labels_available)
+
+        image = make_image(metadata=imeta.ImageMetadata(
+            hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
+            source_type=imeta.ImageSourceType.SYNTHETIC,
+            camera_pose=tf.Transform(location=(800, 2 + np.random.uniform(-1, 1), 3),
+                                     rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
+            intrinsics=cam_intr.CameraIntrinsics(800, 600, 550.2, 750.2, 400, 300),
+            environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
+            light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
+            lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
+            lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
+            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+            procedural_generation_seed=16234, labelled_objects=[],
+            average_scene_depth=90.12
+        ))
+        image.save_image_data(db_client)
+        db_client.image_collection.insert(image.serialize())
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(metadata=imeta.ImageMetadata(
-                                         hash_=b'\xf1\x9a\xe2|' + np.random.randint(0, 0xFFFFFFFF).to_bytes(4, 'big'),
-                                         source_type=imeta.ImageSourceType.SYNTHETIC,
-                                         camera_pose=tf.Transform(location=(800, 2 + np.random.uniform(-1, 1), 3),
-                                                                  rotation=(4, 5, 6, 7 + np.random.uniform(-4, 4))),
-                                         intrinsics=cam_intr.CameraIntrinsics(800, 600, 550.2, 750.2, 400, 300),
-                                         environment_type=imeta.EnvironmentType.INDOOR_CLOSE,
-                                         light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
-                                         lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
-                                         lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
-                                         normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
-                                         procedural_generation_seed=16234, labelled_objects=[],
-                                         average_scene_depth=90.12
-                                     ))}, self.images),
-                                     db_client_=self.create_mock_db_client())
+                                     images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_labels_available)
 
     def test_is_normals_available_is_true_iff_all_images_have_normals_data(self):
+        db_client = self.create_mock_db_client()
         subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     db_client_=self.create_mock_db_client())
+                                     db_client_=db_client)
         self.assertTrue(subject.is_normals_available)
+
+        image = make_image(world_normals_data=None)
+        image.save_image_data(db_client)
+        db_client.image_collection.insert(image.serialize())
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
-                                     images=du.defaults({1.7: make_image(world_normals_data=None)}, self.images),
-                                     db_client_=self.create_mock_db_client())
+                                     images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_normals_available)
 
     def test_is_stereo_available_is_true_iff_all_images_are_stereo_images(self):
-        stereo_images_list = {i * 1.3: make_stereo_image(index=i) for i in range(10)}
+        # Create some stereo images and add them to the map
+        stereo_images_list = {}
+        for i in range(10):
+            stereo_image = make_stereo_image(index=i)
+            self.image_map[stereo_image.identifier] = stereo_image
+            stereo_images_list[i * 1.3] = stereo_image.identifier
+        db_client = self.create_mock_db_client()
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=stereo_images_list,
-                                     db_client_=self.create_mock_db_client())
+                                     db_client_=db_client)
         self.assertTrue(subject.is_stereo_available)
         subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults(stereo_images_list, self.images),
@@ -231,8 +257,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         for stamp in timestamps:
             result_image, result_timestamp = subject.get_next_image()
             self.assertEqual(stamp, result_timestamp)
-            self.assertEqual(self.images[stamp].identifier, result_image.identifier)
-            self.assertTrue(np.array_equal(self.images[stamp].data, result_image.data))
+            self.assertEqual(self.images[stamp], result_image.identifier)
+            self.assertTrue(np.array_equal(self.image_map[self.images[stamp]].data, result_image.data))
         self.assertTrue(subject.is_complete())
         self.assertEqual((None, None), subject.get_next_image())
 
@@ -247,33 +273,20 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         for stamp in sorted(self.images.keys()):
             result_image, timestamp = subject.get_next_image()
             self.assertEqual(stamp, timestamp)
-            self.assertEqual(self.images[stamp].identifier, result_image.identifier)
-            self.assertTrue(np.array_equal(self.images[stamp].data, result_image.data))
+            self.assertEqual(self.images[stamp], result_image.identifier)
+            self.assertTrue(np.array_equal(self.image_map[self.images[stamp]].data, result_image.data))
         self.assertTrue(subject.is_complete())
         self.assertEqual((None, None), subject.get_next_image())
 
-    def test_deserializes_images(self):
-        s_image_collection = {
-            '_id': 12345,
-            'images': [(stamp, image.identifier) for stamp, image in self.images.items()],
-            '_type': 'ImageCollection',
-            'sequence_type': 'SEQ'
-        }
+    def test_loads_images_on_the_fly(self):
         db_client = self.create_mock_db_client()
+        subject = self.make_instance(db_client_=db_client)
 
-        ic.ImageCollection.deserialize(s_image_collection, db_client)
-        # Find a call requesting all images by id.
-        # Do it this way because we can't guarantee the order of the ids in the list.
-        found = False
-        for call in db_client.image_collection.find.call_args_list:
-            if (len(call[0][0]) == 1 and '_id' in call[0][0] and
-                    len(call[0][0]['_id']) == 1 and '$in' in call[0][0]['_id']):
-                if all(image.identifier in call[0][0]['_id']['$in'] for image in self.images.values()):
-                    found = True
-                    break
-        self.assertTrue(found, "Could not find call for all image ids")
-        for image in self.images.values():
-            self.assertIn(mock.call(image.serialize()), db_client.deserialize_entity.call_args_list)
+        with subject:
+            while not subject.is_complete():
+                image, stamp = subject.get_next_image()
+                # Check that we loaded the image
+                self.assertIn(mock.call({'_id': image.identifier}), db_client.image_collection.find_one.call_args_list)
 
     def test_create_and_save_checks_image_ids_and_stops_if_not_all_found(self):
         db_client = self.create_mock_db_client()
@@ -282,23 +295,18 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         db_client.image_collection.find.return_value = mock_cursor
 
         result = ic.ImageCollection.create_and_save(
-            db_client, {timestamp: image.identifier for timestamp, image in self.images.items()},
+            db_client, {timestamp: image_id for timestamp, image_id in self.images.items()},
             core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertIsNone(result)
         self.assertTrue(db_client.image_collection.find.called)
-        self.assertEqual({'_id': {'$in': [image.identifier for image in self.images.values()]}},
+        self.assertEqual({'_id': {'$in': [image_id for image_id in self.images.values()]}},
                          db_client.image_collection.find.call_args[0][0])
         self.assertFalse(db_client.image_source_collection.insert.called)
 
     def test_create_and_save_checks_for_existing_collection(self):
         db_client = self.create_mock_db_client()
-        mock_cursor = mock.MagicMock()
-        mock_cursor.count.return_value = len(self.image_map)
-        db_client.image_collection.find.return_value = mock_cursor
-        db_client.image_source_collection.find_one.return_value = None
-
         ic.ImageCollection.create_and_save(db_client,
-                                           {timestamp: image.identifier for timestamp, image in self.images.items()},
+                                           {timestamp: image_id for timestamp, image_id in self.images.items()},
                                            core.sequence_type.ImageSequenceType.SEQUENTIAL)
 
         self.assertTrue(db_client.image_source_collection.find_one.called)
@@ -311,8 +319,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         self.assertIn('$all', existing_query['images'])
         # Because dicts, we can't guarantee the order of this list
         # So we use $all, and make sure all the timestamp->image_id pairs are in it
-        for timestamp, image in self.images.items():
-            self.assertIn((timestamp, image.identifier), existing_query['images']['$all'])
+        for timestamp, image_id in self.images.items():
+            self.assertIn((timestamp, image_id), existing_query['images']['$all'])
 
     def test_create_and_save_makes_valid_collection(self):
         db_client = self.create_mock_db_client()
@@ -322,7 +330,7 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         db_client.image_source_collection.find_one.return_value = None
 
         ic.ImageCollection.create_and_save(db_client,
-                                           {timestamp: image.identifier for timestamp, image in self.images.items()},
+                                           {timestamp: image_id for timestamp, image_id in self.images.items()},
                                            core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertTrue(db_client.image_source_collection.insert.called)
         s_image_collection = db_client.image_source_collection.insert.call_args[0][0]
@@ -331,7 +339,8 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         collection = ic.ImageCollection.deserialize(s_image_collection, db_client)
         self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, collection.sequence_type)
         self.assertEqual(len(self.images), len(collection))
-        for stamp, image in self.images.items():
+        for stamp, image_id in self.images.items():
+            image = self.image_map[image_id]
             self.assertEqual(image.identifier, collection[stamp].identifier)
             self.assertTrue(np.array_equal(image.data, collection[stamp].data))
             self.assertEqual(image.camera_pose, collection[stamp].camera_pose)
