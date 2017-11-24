@@ -1,12 +1,13 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 
 
 class JobSystem(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def node_id(self):
+    def node_id(self) -> str:
         """
         All job systems should have a node id, controlled by the configuration.
         The idea is that different job systems on different computers have different
@@ -16,7 +17,7 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def can_generate_dataset(self, simulator, config):
+    def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
         """
         Can this job system generate synthetic datasets.
         This requires more setup than other jobs, so we have this check.
@@ -28,7 +29,7 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def is_job_running(self, job_id):
+    def is_job_running(self, job_id: int) -> bool:
         """
         Is the specified job id currently running through this job system.
         This is used by the task manager to work out which jobs have failed without notification, to reschedule them
@@ -38,8 +39,8 @@ class JobSystem(metaclass=abc.ABCMeta):
         return False
 
     @abc.abstractmethod
-    def run_task(self, task_id, num_cpus=1, num_gpus=0, memory_requirements='3GB',
-                 expected_duration='1:00:00'):
+    def run_task(self, task_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0, memory_requirements: str = '3GB',
+                 expected_duration: str = '1:00:00') -> int:
         """
         Run a particular task
         :param task_id: The id of the task to run

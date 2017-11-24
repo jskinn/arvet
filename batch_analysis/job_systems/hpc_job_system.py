@@ -4,6 +4,7 @@ import logging
 import subprocess
 import re
 import time
+import bson
 import batch_analysis.job_system
 import run_task
 
@@ -35,7 +36,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config: dict):
         """
         Takes configuration parameters in a dict with the following format:
         {
@@ -60,7 +61,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
 
     @property
-    def node_id(self):
+    def node_id(self) -> str:
         """
         All job systems should have a node id, controlled by the configuration.
         The idea is that different job systems on different computers have different
@@ -69,7 +70,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         return self._node_id
 
-    def can_generate_dataset(self, simulator, config):
+    def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
         """
         Can this job system generate synthetic datasets.
         HPC cannot generate datasets, because it is a server with
@@ -80,7 +81,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         """
         return False
 
-    def is_job_running(self, job_id):
+    def is_job_running(self, job_id: int) -> bool:
         """
         Is the specified job id currently running through this job system.
         This is used by the task manager to work out which jobs have failed without notification, to reschedule them.
@@ -105,8 +106,8 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         output = result.stdout.lower()  # Case insensitive
         return 'unknown job id' not in output and 'job has finished' not in output
 
-    def run_task(self, task_id, num_cpus=1, num_gpus=0, memory_requirements='3GB',
-                 expected_duration='1:00:00'):
+    def run_task(self, task_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0, memory_requirements: str = '3GB',
+                 expected_duration: str = '1:00:00') -> int:
         """
         Run a particular task
         :param task_id: The id of the task to run
@@ -162,7 +163,12 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         pass
 
 
-def quote(string):
+def quote(string: str) -> str:
+    """
+    Wrap a string with quotes iff it contains a space. Used for interacting with command line scripts.
+    :param string:
+    :return:
+    """
     if ' ' in string:
         return '"' + string + '"'
     return string
