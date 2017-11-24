@@ -30,6 +30,7 @@ class HorizontalFlip(aug_coll.ImageAugmenter):
             data=flipped_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(flipped_data)).digest(),
+                intrinsics=image.metadata.camera_intrinsics,
                 base_image=image.metadata.base_image if image.metadata.base_image is not None else image,
                 transformation_matrix=transformation_matrix,
                 labelled_objects=(imeta.LabelledObject(
@@ -70,6 +71,7 @@ class VerticalFlip(aug_coll.ImageAugmenter):
             data=flipped_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(flipped_data)).digest(),
+                intrinsics=image.metadata.camera_intrinsics,
                 base_image=image.metadata.base_image if image.metadata.base_image is not None else image,
                 transformation_matrix=transformation_matrix,
                 labelled_objects=(imeta.LabelledObject(
@@ -111,6 +113,7 @@ class Rotate90(aug_coll.ImageAugmenter):
             data=rotated_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(rotated_data)).digest(),
+                intrinsics=image.metadata.camera_intrinsics,
                 base_image=image.metadata.base_image if image.metadata.base_image is not None else image,
                 transformation_matrix=transformation_matrix,
                 labelled_objects=(imeta.LabelledObject(
@@ -150,6 +153,7 @@ class Rotate180(aug_coll.ImageAugmenter):
             data=rotated_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(rotated_data)).digest(),
+                intrinsics=image.metadata.camera_intrinsics,
                 base_image=image.metadata.base_image if image.metadata.base_image is not None else image,
                 transformation_matrix=transformation_matrix,
                 labelled_objects=(imeta.LabelledObject(
@@ -192,6 +196,7 @@ class Rotate270(aug_coll.ImageAugmenter):
             data=rotated_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(rotated_data)).digest(),
+                intrinsics=image.metadata.camera_intrinsics,
                 base_image=image.metadata.base_image if image.metadata.base_image is not None else image,
                 transformation_matrix=transformation_matrix,
                 labelled_objects=(imeta.LabelledObject(

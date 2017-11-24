@@ -347,7 +347,8 @@ def make_image(**kwargs):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
     metadata_kwargs = {
         'source_type': imeta.ImageSourceType.SYNTHETIC,
-        'hash_': b'\xa5\xc9\x08\xaf$\x0b\x116'
+        'hash_': b'\xa5\xc9\x08\xaf$\x0b\x116',
+        'intrinsics': cam_intr.CameraIntrinsics(100, 100, 55.2, 53.2, 50, 50)
     }
     if 'metadata' in kwargs and isinstance(kwargs['metadata'], dict):
         metadata_kwargs = du.defaults(kwargs['metadata'], metadata_kwargs)

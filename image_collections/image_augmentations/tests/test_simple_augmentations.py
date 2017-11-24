@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 import core.image
 import metadata.image_metadata as imeta
+import metadata.camera_intrinsics as cam_intr
 import image_collections.tests.test_augmented_collection as test_augmented
 import image_collections.image_augmentations.simple_augmentations as simp
 
@@ -38,6 +39,7 @@ class TestHorizontalFlip(test_augmented.ImageAugmenterContract, unittest.TestCas
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                intrinsics=cam_intr.CameraIntrinsics(100, 100, 55.2, 53.2, 50, 50),
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
                     bounding_box=(80, 20, 10, 20)
@@ -81,6 +83,7 @@ class TestVerticalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase)
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                intrinsics=cam_intr.CameraIntrinsics(100, 100, 55.2, 53.2, 50, 50),
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
                     bounding_box=(80, 20, 10, 20)
@@ -124,6 +127,7 @@ class TestRotate90(test_augmented.ImageAugmenterContract, unittest.TestCase):
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                intrinsics=cam_intr.CameraIntrinsics(100, 100, 55.2, 53.2, 50, 50),
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
                     bounding_box=(80, 20, 10, 20)
@@ -168,6 +172,7 @@ class TestRotate180(test_augmented.ImageAugmenterContract, unittest.TestCase):
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                intrinsics=cam_intr.CameraIntrinsics(100, 100, 55.2, 53.2, 50, 50),
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
                     bounding_box=(80, 20, 10, 20)
@@ -212,6 +217,7 @@ class TestRotate270(test_augmented.ImageAugmenterContract, unittest.TestCase):
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
                 hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
+                intrinsics=cam_intr.CameraIntrinsics(100, 100, 55.2, 53.2, 50, 50),
                 labelled_objects=[imeta.LabelledObject(
                     class_names={'cup'},
                     bounding_box=(80, 20, 10, 20)
