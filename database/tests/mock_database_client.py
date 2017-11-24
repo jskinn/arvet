@@ -42,7 +42,7 @@ class ZombieDatabaseClient:
         self._mock_db_client = mock_db_client
 
     @property
-    def mock(self) -> mock.Mock:
+    def mock(self) -> database.client.DatabaseClient:
         return self._mock_db_client
 
     def put(self, bytes_) -> bson.ObjectId:

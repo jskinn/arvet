@@ -30,13 +30,38 @@ class MockExperiment(ex.Experiment):
 
 class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContract):
 
+    def setUp(self):
+        # Some complete results, so that we can have a non-empty trial map and result map on entity tests
+        self.systems = [mock_core.MockSystem()]
+        self.image_sources = [mock_core.MockImageSource() for _ in range(2)]
+        self.trial_results = [core.trial_result.TrialResult(
+                    system.identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+            for _ in self.image_sources for system in self.systems]
+        self.benchmarks = [mock_core.MockBenchmark() for _ in range(2)]
+        self.benchmark_results = [core.benchmark.BenchmarkResult(benchmark.identifier, trial_result.identifier, True)
+                                  for benchmark in self.benchmarks for trial_result in self.trial_results]
+
     def get_class(self):
         return MockExperiment
 
     def make_instance(self, *args, **kwargs):
         du.defaults(kwargs, {
-            'trial_map': {bson.ObjectId(): {bson.ObjectId(): bson.ObjectId}},
-            'result_map': {bson.ObjectId(): {bson.ObjectId(): bson.ObjectId}}
+            'trial_map': {system.identifier: {image_source.identifier: trial_result.identifier
+                                              for trial_result in self.trial_results
+                                              if trial_result.identifier is not None and
+                                              trial_result.system_id == system.identifier
+                                              for image_source in self.image_sources
+                                              if image_source.identifier is not None}
+                          for system in self.systems if system.identifier is not None},
+            'result_map': {trial_result.identifier: {benchmark.identifier: benchmark_result.identifier
+                                                     for benchmark in self.benchmarks
+                                                     if benchmark.identifier is not None
+                                                     for benchmark_result in self.benchmark_results
+                                                     if benchmark_result.identifier is not None and
+                                                     benchmark_result.benchmark == benchmark.identifier and
+                                                     benchmark_result.trial_result == trial_result.identifier}
+                           for trial_result in self.trial_results
+                           if trial_result.identifier is not None}
         })
         return MockExperiment(*args, **kwargs)
 
@@ -54,6 +79,28 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         self.assertEqual(task1.identifier, task2.identifier)
         self.assertEqual(task1._trial_map, task2._trial_map)
         self.assertEqual(task1._result_map, task2._result_map)
+
+    def create_mock_db_client(self):
+        mock_db_client = super().create_mock_db_client()
+
+        # Insert all the background data we expect.
+        for system in self.systems:
+            result = mock_db_client.system_collection.insert_one(system.serialize())
+            system.refresh_id(result.inserted_id)
+        for image_source in self.image_sources:
+            result = mock_db_client.image_source_collection.insert_one(image_source.serialize())
+            image_source.refresh_id(result.inserted_id)
+        for trial_result in self.trial_results:
+            result = mock_db_client.trials_collection.insert_one(trial_result.serialize())
+            trial_result.refresh_id(result.inserted_id)
+        for benchmark in self.benchmarks:
+            result = mock_db_client.benchmarks_collection.insert_one(benchmark.serialize())
+            benchmark.refresh_id(result.inserted_id)
+        for benchmark_result in self.benchmark_results:
+            result = mock_db_client.results_collection.insert_one(benchmark_result.serialize())
+            benchmark_result.refresh_id(result.inserted_id)
+
+        return mock_db_client
 
     def test_constructor_works_with_minimal_arguments(self):
         MockExperiment()
@@ -108,17 +155,17 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         self.assertFalse(mock_db_client.experiments_collection.update.called)
 
     def test_schedule_all_schedules_all_trial_combinations(self):
-        zombie_db_client = mock_client_factory.create()
         zombie_task_manager = mock_manager_factory.create()
+        mock_db_client = self.create_mock_db_client()
         subject = MockExperiment()
         systems = []
         image_sources = []
         for _ in range(3):
             entity = mock_core.MockSystem()
-            systems.append(zombie_db_client.system_collection.insert(entity.serialize()))
+            systems.append(mock_db_client.system_collection.insert_one(entity.serialize()).inserted_id)
             entity = mock_core.MockImageSource()
-            image_sources.append(zombie_db_client.image_source_collection.insert(entity.serialize()))
-        subject.schedule_all(zombie_task_manager.mock, zombie_db_client.mock, systems, image_sources, [])
+            image_sources.append(mock_db_client.image_source_collection.insert_one(entity.serialize()).inserted_id)
+        subject.schedule_all(zombie_task_manager.mock, mock_db_client, systems, image_sources, [])
 
         for system_id in systems:
             for image_source_id in image_sources:
@@ -136,13 +183,14 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         benchmarks = []
         for _ in range(3):  # Create
             entity = mock_core.MockSystem()
-            systems.append(zombie_db_client.system_collection.insert(entity.serialize()))
+            systems.append(zombie_db_client.mock.system_collection.insert_one(entity.serialize()).inserted_id)
 
             entity = mock_core.MockImageSource()
-            image_sources.append(zombie_db_client.image_source_collection.insert(entity.serialize()))
+            image_sources.append(
+                zombie_db_client.mock.image_source_collection.insert_one(entity.serialize()).inserted_id)
 
             entity = mock_core.MockBenchmark()
-            benchmarks.append(zombie_db_client.benchmarks_collection.insert(entity.serialize()))
+            benchmarks.append(zombie_db_client.mock.benchmarks_collection.insert_one(entity.serialize()).inserted_id)
 
         for system_id in systems:
             for image_source_id in image_sources:
@@ -150,7 +198,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
                 # as if the run system tasks are complete
                 entity = core.trial_result.TrialResult(
                     system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
-                trial_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                trial_result_id = zombie_db_client.mock.trials_collection.insert_one(entity.serialize()).inserted_id
                 trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
                 task.mark_job_started('test', 0)
@@ -166,19 +214,17 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
                               zombie_task_manager.mock.get_benchmark_task.call_args_list)
 
     def test_schedule_all_stores_trial_results(self):
-
-        zombie_db_client = mock_client_factory.create()
+        mock_db_client = self.create_mock_db_client()
         zombie_task_manager = mock_manager_factory.create()
         subject = MockExperiment()
         systems = []
         image_sources = []
         trial_results = []
-        for _ in range(3):  # Create
+        for _ in range(3):  # Create systems and image sources
             entity = mock_core.MockSystem()
-            systems.append(zombie_db_client.system_collection.insert(entity.serialize()))
-
+            systems.append(mock_db_client.system_collection.insert_one(entity.serialize()).inserted_id)
             entity = mock_core.MockImageSource()
-            image_sources.append(zombie_db_client.image_source_collection.insert(entity.serialize()))
+            image_sources.append(mock_db_client.image_source_collection.insert_one(entity.serialize()).inserted_id)
 
         for system_id in systems:
             for image_source_id in image_sources:
@@ -186,13 +232,13 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
                 # as if the run system tasks are complete
                 entity = core.trial_result.TrialResult(
                     system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
-                trial_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                trial_result_id = mock_db_client.trials_collection.insert_one(entity.serialize()).inserted_id
                 trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
                 task.mark_job_started('test', 0)
                 task.mark_job_complete(trial_result_id)
 
-        subject.schedule_all(zombie_task_manager.mock, zombie_db_client.mock, systems, image_sources, [])
+        subject.schedule_all(zombie_task_manager.mock, mock_db_client, systems, image_sources, [])
 
         for system_id in systems:
             for image_source_id in image_sources:
@@ -212,13 +258,14 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         benchmark_results = []
         for _ in range(3):  # Create
             entity = mock_core.MockSystem()
-            systems.append(zombie_db_client.system_collection.insert(entity.serialize()))
+            systems.append(zombie_db_client.mock.system_collection.insert_one(entity.serialize()).inserted_id)
 
             entity = mock_core.MockImageSource()
-            image_sources.append(zombie_db_client.image_source_collection.insert(entity.serialize()))
+            image_sources.append(
+                zombie_db_client.mock.image_source_collection.insert_one(entity.serialize()).inserted_id)
 
             entity = mock_core.MockBenchmark()
-            benchmarks.append(zombie_db_client.benchmarks_collection.insert(entity.serialize()))
+            benchmarks.append(zombie_db_client.mock.benchmarks_collection.insert_one(entity.serialize()).inserted_id)
 
         for system_id in systems:
             for image_source_id in image_sources:
@@ -226,7 +273,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
                 # as if the run system tasks are complete
                 entity = core.trial_result.TrialResult(
                     system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
-                trial_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                trial_result_id = zombie_db_client.mock.trials_collection.insert_one(entity.serialize()).inserted_id
                 trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
                 task.mark_job_started('test', 0)
@@ -237,7 +284,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
                 # Create benchmark results for each combination of trial result and benchmark,
                 # as if the benchmark system tasks are complete
                 entity = core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True)
-                benchmark_result_id = zombie_db_client.trials_collection.insert(entity.serialize())
+                benchmark_result_id = zombie_db_client.mock.trials_collection.insert_one(entity.serialize()).inserted_id
                 benchmark_results.append(benchmark_result_id)
                 task = zombie_task_manager.get_benchmark_task(trial_result_id, benchmark_id)
                 task.mark_job_started('test', 0)
@@ -260,18 +307,51 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         self.assertEqual(trial_result_id, subject.get_trial_result(system_id, image_source_id))
 
     def test_store_trial_result_persists_when_serialized(self):
-        zombie_db_client = mock_client_factory.create()
+        mock_db_client = self.create_mock_db_client()
         subject = MockExperiment()
-        system_id = bson.ObjectId()
-        image_source_id = bson.ObjectId()
-        trial_result_id = bson.ObjectId()
+        # Create and store a system, image source, and trial result in the database.
+        # They should get removed if they don't exist.
+        system_id = mock_db_client.system_collection.insert_one(mock_core.MockSystem().serialize()).inserted_id
+        image_source_id = mock_db_client.image_source_collection.insert_one(
+            mock_core.MockImageSource().serialize()).inserted_id
+        trial_result_id = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
+                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
         subject.store_trial_result(system_id, image_source_id, trial_result_id)
 
         # Serialize and then deserialize the experiment
         s_subject = subject.serialize()
-        subject = MockExperiment.deserialize(s_subject, zombie_db_client.mock)
+        subject = MockExperiment.deserialize(s_subject, mock_db_client)
 
         self.assertEqual(trial_result_id, subject.get_trial_result(system_id, image_source_id))
+
+    def test_deserialize_clears_invalid_trials_from_trial_map(self):
+        mock_db_client = self.create_mock_db_client()
+        missing_system = bson.ObjectId()
+        missing_image_source = bson.ObjectId()
+        missing_trial = bson.ObjectId()
+
+        # Add some descendant objects, which should not on their own be removed from the map
+        missing_system_trial = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
+            missing_system, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+        missing_source_trial = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
+            self.systems[0].identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+        ).serialize()).inserted_id
+
+        subject = self.make_instance(trial_map={
+            missing_system: {self.image_sources[0].identifier: missing_system_trial},
+            self.systems[0].identifier: {missing_image_source: missing_source_trial,
+                                         self.image_sources[0].identifier: missing_trial,
+                                         self.image_sources[1].identifier: self.trial_results[0].identifier}
+        })
+
+        # Serialize and then deserialize the experiment
+        s_subject = subject.serialize()
+        subject = MockExperiment.deserialize(s_subject, mock_db_client)
+
+        self.assertIsNone(subject.get_trial_result(missing_system, self.image_sources[0].identifier))
+        self.assertIsNone(subject.get_trial_result(self.systems[0].identifier, missing_image_source))
+        self.assertIsNone(subject.get_trial_result(self.systems[0].identifier, self.image_sources[0].identifier))
+        self.assertIsNotNone(subject.get_trial_result(self.systems[0].identifier, self.image_sources[1].identifier))
 
     def test_store_and_get_benchmark_result_basic(self):
         subject = MockExperiment()
@@ -282,15 +362,50 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         self.assertEqual(benchmark_result_id, subject.get_benchmark_result(trial_result_id, benchmark_id))
 
     def test_store_benchmark_result_persists_when_serialized(self):
-        zombie_db_client = mock_client_factory.create()
+        mock_db_client = self.create_mock_db_client()
         subject = MockExperiment()
-        trial_result_id = bson.ObjectId()
-        benchmark_id = bson.ObjectId()
-        benchmark_result_id = bson.ObjectId()
+        trial_result_id = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
+            self.systems[0].identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+        ).serialize()).inserted_id
+        benchmark_id = mock_db_client.benchmarks_collection.insert_one(
+            mock_core.MockBenchmark().serialize()).inserted_id
+        benchmark_result_id = mock_db_client.results_collection.insert_one(
+            core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
         subject.store_benchmark_result(trial_result_id, benchmark_id, benchmark_result_id)
 
         # Serialize and then deserialize the experiment
         s_subject = subject.serialize()
-        subject = MockExperiment.deserialize(s_subject, zombie_db_client.mock)
+        subject = MockExperiment.deserialize(s_subject, mock_db_client)
 
         self.assertEqual(benchmark_result_id, subject.get_benchmark_result(trial_result_id, benchmark_id))
+
+    def test_deserialize_clears_invalid_results_from_result_map(self):
+        mock_db_client = self.create_mock_db_client()
+        missing_trial = bson.ObjectId()
+        missing_benchmark = bson.ObjectId()
+        missing_benchmark_result = bson.ObjectId()
+
+        # Add some descendant objects, which should not on their own be removed from the map
+        result_missing_trial = mock_db_client.results_collection.insert_one(
+            core.benchmark.BenchmarkResult(self.benchmarks[0].identifier, missing_trial, True).serialize()
+        ).inserted_id
+        result_missing_benchmark = mock_db_client.results_collection.insert_one(
+            core.benchmark.BenchmarkResult(missing_benchmark, self.trial_results[0].identifier, True).serialize()
+        ).inserted_id
+
+        subject = self.make_instance(result_map={
+            missing_trial: {self.benchmarks[0].identifier: result_missing_trial},
+            self.trial_results[0].identifier: {missing_benchmark: result_missing_benchmark,
+                                               self.benchmarks[0].identifier: missing_benchmark_result,
+                                               self.benchmarks[1].identifier: self.benchmark_results[0].identifier}
+        })
+
+        # Serialize and then deserialize the experiment
+        s_subject = subject.serialize()
+        subject = MockExperiment.deserialize(s_subject, mock_db_client)
+
+        self.assertIsNone(subject.get_benchmark_result(missing_trial, self.image_sources[0].identifier))
+        self.assertIsNone(subject.get_benchmark_result(self.trial_results[0].identifier, missing_benchmark))
+        self.assertIsNone(subject.get_benchmark_result(self.trial_results[0].identifier, self.benchmarks[0].identifier))
+        self.assertIsNotNone(subject.get_benchmark_result(self.trial_results[0].identifier,
+                                                          self.benchmarks[1].identifier))

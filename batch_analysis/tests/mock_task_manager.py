@@ -20,7 +20,7 @@ class ZombieTaskManager:
     the benefits of using a spec.
     """
 
-    def __init__(self, mock_task_manager: mock.Mock):
+    def __init__(self, mock_task_manager):
         self._import_dataset_tasks = {}
         self._generate_dataset_tasks = {}
         self._train_system_tasks = {}
@@ -56,7 +56,7 @@ class ZombieTaskManager:
         self._mock_task_manager = mock_task_manager
 
     @property
-    def mock(self) -> mock.Mock:
+    def mock(self) -> batch_analysis.task_manager.TaskManager:
         """
         Get the mock task manager this is attached to
         :return:

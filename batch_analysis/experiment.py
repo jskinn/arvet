@@ -346,9 +346,9 @@ def patch_schema(serialized_representation: dict, db_client: database.client.Dat
                         inner_keys_to_remove.append(s_benchmark_id)
         # Actually delete the keys now we're not iterating over the dict
         for outer_key in outer_keys_to_remove:
-            if outer_key in serialized_representation['trial_map']:
-                del serialized_representation['trial_map'][outer_key]
-        for inner_map in serialized_representation['trial_map'].values():
+            if outer_key in serialized_representation['result_map']:
+                del serialized_representation['result_map'][outer_key]
+        for inner_map in serialized_representation['result_map'].values():
             for inner_key in inner_keys_to_remove:
                 if inner_key in inner_map:
                     del inner_map[inner_key]
