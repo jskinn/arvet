@@ -215,10 +215,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
         logging.getLogger(__name__).info("Plotting trajectories...")
         # Map system ids and simulator ids to printable names
         simulator_names = {v: k for k, v in self._simulators.items()}
-        systems = {'LIBVISO 2': self._libviso_system}
-        for outer_key, inner in self._orbslam_systems.items():
-            for inner_key, system_id in inner.items():
-                systems['{0} {1}'.format(outer_key, inner_key)] = system_id
+        systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
 
         for trajectory_group in self._trajectory_groups.values():
             # Collect all the image sources for this trajectory group
