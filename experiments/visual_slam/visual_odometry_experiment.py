@@ -10,12 +10,14 @@ import database.client
 import core.image_source
 import core.sequence_type
 import core.benchmark
+import core.image_collection
 import metadata.image_metadata as imeta
 import batch_analysis.experiment
 import batch_analysis.task_manager
 import dataset.tum.tum_manager
 import systems.visual_odometry.libviso2.libviso2 as libviso2
 import systems.slam.orbslam2 as orbslam2
+import trials.slam.visual_slam
 import benchmarks.rpe.relative_pose_error as rpe
 import benchmarks.ate.absolute_trajectory_error as ate
 import benchmarks.trajectory_drift.trajectory_drift as traj_drift
@@ -563,7 +565,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):
-        update_schema(serialized_representation)
+        update_schema(serialized_representation, db_client)
 
         # Systems
         if 'libviso' in serialized_representation:
@@ -628,7 +630,7 @@ def plot_trajectory(axis, trajectory, label, style='-'):
     return min_point, max_point
 
 
-def update_schema(serialized: dict):
+def update_schema(serialized: dict, db_client: database.client.DatabaseClient):
     version = dh.get_schema_version(serialized, 'experiments:visual_slam:VisualSlamExperiment')
     if version < 1:  # unversioned -> 1
         if 'simulators' in serialized:
@@ -644,6 +646,32 @@ def update_schema(serialized: dict):
         if 'tum_simulators' in serialized:
             simulators = du.defaults(simulators, serialized['tum_simulators'])
         serialized['simulators'] = simulators
+
+    # Check references
+    if 'libviso' in serialized and not dh.check_reference_is_valid(db_client.system_collection, serialized['libviso']):
+        del serialized['libviso']
+    if 'orbslam_systems' in serialized:
+        keys = list(serialized['orbslam_systems'].keys())
+        for key in keys:
+            if not dh.check_reference_is_valid(db_client.system_collection, serialized['orbslam_systems'][key]):
+                del serialized['orbslam_systems'][key]
+    if 'simulators' in serialized:
+        keys = list(serialized['simulators'].keys())
+        for key in keys:
+            if not dh.check_reference_is_valid(db_client.image_source_collection, serialized['simulators'][key]):
+                del serialized['simulators'][key]
+    if 'benchmark_rpe' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_rpe']):
+        del serialized['benchmark_rpe']
+    if 'benchmark_ate' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_ate']):
+        del serialized['benchmark_ate']
+    if 'benchmark_trajectory_drift' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_trajectory_drift']):
+        del serialized['benchmark_trajectory_drift']
+    if 'benchmark_tracking' in serialized and \
+            not dh.check_reference_is_valid(db_client.system_collection, serialized['benchmark_tracking']):
+        del serialized['benchmark_tracking']
 
 
 class TrajectoryGroup:
@@ -705,36 +733,37 @@ class TrajectoryGroup:
         # Next, if we haven't already, compute baseline configuration from the reference dataset
         if self.baseline_configuration is None or len(self.baseline_configuration) == 0:
             reference_dataset = dh.load_object(db_client, db_client.image_source_collection, self.reference_dataset)
-            intrinsics = reference_dataset.get_camera_intrinsics()
-            self.baseline_configuration = {
-                    # Simulation execution config
-                    'stereo_offset': reference_dataset.get_stereo_baseline() \
-                    if reference_dataset.is_stereo_available else 0,
-                    'provide_rgb': True,
-                    'provide_depth': reference_dataset.is_depth_available,
-                    'provide_labels': reference_dataset.is_labels_available,
-                    'provide_world_normals': reference_dataset.is_normals_available,
+            if isinstance(reference_dataset, core.image_collection.ImageCollection):
+                intrinsics = reference_dataset.get_camera_intrinsics()
+                self.baseline_configuration = {
+                        # Simulation execution config
+                        'stereo_offset': reference_dataset.get_stereo_baseline() \
+                        if reference_dataset.is_stereo_available else 0,
+                        'provide_rgb': True,
+                        'provide_depth': reference_dataset.is_depth_available,
+                        'provide_labels': reference_dataset.is_labels_available,
+                        'provide_world_normals': reference_dataset.is_normals_available,
 
-                    # Simulator camera settings, be similar to the reference dataset
-                    'resolution': {'width': intrinsics.width, 'height': intrinsics.height},
-                    'fov': max(intrinsics.horizontal_fov, intrinsics.vertical_fov),
-                    'depth_of_field_enabled': False,
-                    'focus_distance': None,
-                    'aperture': 2.2,
+                        # Simulator camera settings, be similar to the reference dataset
+                        'resolution': {'width': intrinsics.width, 'height': intrinsics.height},
+                        'fov': max(intrinsics.horizontal_fov, intrinsics.vertical_fov),
+                        'depth_of_field_enabled': False,
+                        'focus_distance': None,
+                        'aperture': 2.2,
 
-                    # Quality settings - Maximum quality
-                    'lit_mode': True,
-                    'texture_mipmap_bias': 0,
-                    'normal_maps_enabled': True,
-                    'roughness_enabled': True,
-                    'geometry_decimation': 0,
-                    'depth_noise_quality': 1,
+                        # Quality settings - Maximum quality
+                        'lit_mode': True,
+                        'texture_mipmap_bias': 0,
+                        'normal_maps_enabled': True,
+                        'roughness_enabled': True,
+                        'geometry_decimation': 0,
+                        'depth_noise_quality': 1,
 
-                    # Simulation server config
-                    'host': 'localhost',
-                    'port': 9000,
-                }
-            changed = True
+                        # Simulation server config
+                        'host': 'localhost',
+                        'port': 9000,
+                    }
+                changed = True
 
         # Then, for each combination of simulator id and config, generate a dataset
         for sim_name, (simulator_id, simulator_config) in self.simulators.items():
