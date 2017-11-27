@@ -121,7 +121,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
 
         # ORBSLAM2 - Create orbslam systems in each sensor mode
         for sensor_mode in {orbslam2.SensorMode.STEREO, orbslam2.SensorMode.RGBD, orbslam2.SensorMode.MONOCULAR}:
-            name = 'ORBSLAM2 {mode}'.format(mode=sensor_mode)
+            name = 'ORBSLAM2 {mode}'.format(mode=sensor_mode.name.lower()).replace('.', '-')
             vocab_path = os.path.join('systems', 'slam', 'ORBSLAM2', 'ORBvoc.txt')
             if name not in self._orbslam_systems and os.path.isfile(vocab_path):
                 orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
@@ -239,7 +239,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                         trial_results[label] = trial_result_id
 
             # Make sure we have at least one result to plot
-            if len(trial_results) > 1:
+            if len(trial_results) >= 1:
                 figure = pyplot.figure(figsize=(14, 10), dpi=80)
                 figure.suptitle("Computed trajectories for {0}".format(trajectory_group.name))
                 ax = figure.add_subplot(111, projection='3d')

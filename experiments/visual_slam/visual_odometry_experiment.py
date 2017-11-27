@@ -179,7 +179,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                 name = 'ORBSLAM2 {mode} ({features})'.format(
                     mode=settings[0].name.lower(),
                     features=settings[1]
-                )
+                ).replace('.', '-')
                 vocab_path = os.path.join('systems', 'slam', 'ORBSLAM2', 'ORBvoc.txt')
                 if name not in self._orbslam_systems and os.path.isfile(vocab_path):
                     orbslam_id = dh.add_unique(db_client.system_collection, orbslam2.ORBSLAM2(
