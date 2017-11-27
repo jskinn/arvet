@@ -69,11 +69,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # --------- SIMULATORS -----------
         # Add simulators explicitly, they have different metadata, so we can't just search
         for exe, world_name, environment_type, light_level, time_of_day in [
-            (
-                    '/media/john/Storage/simulators/BlockWorld/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-                    'BlockWorld', imeta.EnvironmentType.OUTDOOR_LANDSCAPE, imeta.LightingLevel.WELL_LIT,
-                    imeta.TimeOfDay.DAY
-            )
             #(
             #        '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
             #        'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
@@ -84,11 +79,11 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
             #        'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
             #        imeta.TimeOfDay.DAY
             #),
-            #(
-            #        '/media/john/Storage/simulators/AIUE_V01_005/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-            #        'AIUE_V01_005', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
-            #        imeta.TimeOfDay.DAY
-            #)
+            (
+                    '/media/john/Storage/simulators/AIUE_V01_005/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                    'AIUE_V01_005', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+                    imeta.TimeOfDay.DAY
+            )
         ]:
             if world_name not in self._simulators:
                 simulator_id = dh.add_unique(db_client.image_source_collection, uecv_sim.UnrealCVSimulator(
@@ -284,9 +279,6 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         })]
 
         changed = False
-        # Add simulators for the different trajectory groups with different settings
-        if 'KITTI' in trajectory_group.name and 'BlockWorld' in self._simulators:
-            changed |= trajectory_group.add_simulator('BlockWorld', self._simulators['BlockWorld'], {})
         if trajectory_group.name == 'TUM rgbd_dataset_freiburg1_xyz' or \
                 trajectory_group.name == 'TUM rgbd_dataset_freiburg1_rpy':
             for sim_name, variant, offset in [
