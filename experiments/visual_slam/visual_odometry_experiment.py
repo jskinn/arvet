@@ -69,11 +69,11 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         # --------- SIMULATORS -----------
         # Add simulators explicitly, they have different metadata, so we can't just search
         for exe, world_name, environment_type, light_level, time_of_day in [
-            #(
-            #        '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
-            #        'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
-            #        imeta.TimeOfDay.DAY
-            #),
+            (
+                    '/media/john/Storage/simulators/AIUE_V01_001/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
+                    'AIUE_V01_001', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
+                    imeta.TimeOfDay.DAY
+            ),
             #(
             #        '/media/john/Storage/simulators/AIUE_V01_002/LinuxNoEditor/tempTest/Binaries/Linux/tempTest',
             #        'AIUE_V01_002', imeta.EnvironmentType.INDOOR, imeta.LightingLevel.WELL_LIT,
@@ -368,8 +368,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
         :return:
         """
         # Visualize the different trajectories in each group
-        #self._plot_trajectories(db_client)
-        self._plot_relative_pose_error(db_client)
+        self._plot_trajectories(db_client)
+        #self._plot_relative_pose_error(db_client)
 
     def _plot_trajectories(self, db_client: database.client.DatabaseClient):
         """
@@ -407,7 +407,7 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                     if trial_result_id is not None:
                         label = "{0} on {1}".format(system_name, dataset_name)
                         trial_results[label] = trial_result_id
-                        style[label] = '-' if dataset_name == 'reference dataset' else '--'
+                        style[label] = '--' if dataset_name == 'reference dataset' else '-'
 
                         # Make sure we have at least one result to plot
             if len(trial_results) > 1:
