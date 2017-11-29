@@ -35,37 +35,42 @@ class ORBSLAM2(core.system.VisionSystem):
     Python wrapper for ORB_SLAM2
     """
 
-    def __init__(self, vocabulary_file, settings, mode=SensorMode.RGBD, resolution=None, temp_folder='temp', id_=None):
+    def __init__(self, vocabulary_file, settings, mode=SensorMode.RGBD, temp_folder='temp', id_=None):
         super().__init__(id_=id_)
         self._vocabulary_file = vocabulary_file
 
         self._mode = mode if isinstance(mode, SensorMode) else SensorMode.RGBD
-        self._resolution = resolution if resolution is not None and len(resolution) == 2 else (640, 480)
         # Default settings based on UE4 calibration results
         self._orbslam_settings = du.defaults({}, settings, {
             'Camera': {
                 # Camera calibration and distortion parameters (OpenCV)
                 # Most of these get overridden with the camera intrinsics at the start of the run.
-                'fx': 900,
-                'fy': 900,
-                'cx': 480,
-                'cy': 272,
+                'fx': 640,
+                'fy': 480,
+                'cx': 320,
+                'cy': 240,
 
-                'k1': -0.1488979,
-                'k2': 1.34554205,
-                'p1': 0.00487404,
-                'p2': 0.0040448,
-                'k3': -2.98873439,
+                'k1': 0,
+                'k2': 0,
+                'p1': 0,
+                'p2': 0,
+                'k3': 0,
 
                 # Camera frames per second
                 'fps': 30.0,
 
                 # stereo baseline times fx
-                'bf': 387.5744,
+                'bf': 640,
 
                 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
                 # All the images in this system will be RGB order
                 'RGB': 1,
+
+                # Close/Far threshold. Baseline times. I don't know what this does.
+                'ThDepth': 35.0,
+
+                # Depthmap values factor (all my depth is in meters, rescaling is handled elsewhere)
+                'DepthMapFactor': 1.0
             },
             'ORBextractor': {
                 # ORB Extractor: Number of features per image
@@ -143,15 +148,14 @@ class ORBSLAM2(core.system.VisionSystem):
         :return:
         """
         if self._child_process is None:
-            x_scale = self._resolution[0] / camera_intrinsics.width
-            y_scale = self._resolution[1] / camera_intrinsics.height
-            new_fx = camera_intrinsics.fx * x_scale
-            self._orbslam_settings['Camera']['bf'] = (new_fx * self._orbslam_settings['Camera']['bf']
+            self._orbslam_settings['Camera']['width'] = camera_intrinsics.width
+            self._orbslam_settings['Camera']['height'] = camera_intrinsics.width
+            self._orbslam_settings['Camera']['bf'] = (camera_intrinsics.fx * self._orbslam_settings['Camera']['bf']
                                                       / self._orbslam_settings['Camera']['fx'])
-            self._orbslam_settings['Camera']['fx'] = new_fx
-            self._orbslam_settings['Camera']['fy'] = camera_intrinsics.fy * y_scale
-            self._orbslam_settings['Camera']['cx'] = camera_intrinsics.cx * x_scale
-            self._orbslam_settings['Camera']['cy'] = camera_intrinsics.cy * y_scale
+            self._orbslam_settings['Camera']['fx'] = camera_intrinsics.fx
+            self._orbslam_settings['Camera']['fy'] = camera_intrinsics.fy
+            self._orbslam_settings['Camera']['cx'] = camera_intrinsics.cx
+            self._orbslam_settings['Camera']['cy'] = camera_intrinsics.cy
             self._orbslam_settings['Camera']['k1'] = camera_intrinsics.k1
             self._orbslam_settings['Camera']['k2'] = camera_intrinsics.k2
             self._orbslam_settings['Camera']['k3'] = camera_intrinsics.k3
@@ -186,8 +190,7 @@ class ORBSLAM2(core.system.VisionSystem):
                                                             self._input_queue,
                                                             self._vocabulary_file,
                                                             self._settings_file,
-                                                            self._mode,
-                                                            self._resolution))
+                                                            self._mode))
         self._child_process.start()
         try:
             started = self._output_queue.get(block=True, timeout=self._expected_completion_timeout)
@@ -307,8 +310,6 @@ class ORBSLAM2(core.system.VisionSystem):
 
     def validate(self):
         valid = super().validate()
-        if self._resolution[0] <= 0 or self._resolution[1] <= 0:
-            valid = False
         if not os.path.isfile(self._vocabulary_file):
             valid = False
         return valid
@@ -317,7 +318,6 @@ class ORBSLAM2(core.system.VisionSystem):
         serialized = super().serialize()
         serialized['vocabulary_file'] = self._vocabulary_file
         serialized['mode'] = self._mode.value
-        serialized['resolution'] = self._resolution
         serialized['settings'] = self.get_settings()
         return serialized
 
@@ -327,8 +327,6 @@ class ORBSLAM2(core.system.VisionSystem):
             kwargs['vocabulary_file'] = serialized_representation['vocabulary_file']
         if 'mode' in serialized_representation:
             kwargs['mode'] = SensorMode(serialized_representation['mode'])
-        if 'resolution' in serialized_representation:
-            kwargs['resolution'] = serialized_representation['resolution']
         if 'settings' in serialized_representation:
             kwargs['settings'] = serialized_representation['settings']
         kwargs['temp_folder'] = db_client.temp_folder
@@ -424,7 +422,7 @@ def make_relative_pose(x: float, y: float, z: float, qx: float, qy: float, qz: f
     return tf.Transform(pose)
 
 
-def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, resolution):
+def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode):
     """
     Actually run the orbslam system. This is done in a separate process to isolate memory leaks,
     and in case it crashes.
@@ -433,7 +431,6 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
     :param vocab_file:
     :param settings_file:
     :param mode:
-    :param resolution:
     :return:
     """
     import orbslam2
@@ -448,7 +445,7 @@ def run_orbslam(output_queue, input_queue, vocab_file, settings_file, mode, reso
         sensor_mode = orbslam2.Sensor.STEREO
 
     tracking_stats = {}
-    orbslam_system = orbslam2.System(vocab_file, settings_file, resolution[0], resolution[1], sensor_mode)
+    orbslam_system = orbslam2.System(vocab_file, settings_file, sensor_mode)
     orbslam_system.set_use_viewer(False)
     orbslam_system.initialize()
     output_queue.put(True)  # Tell the parent process we've set-up correctly and are ready to go.

@@ -129,7 +129,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                     mode=sensor_mode,
                     settings={
                         'ORBextractor': {'nFeatures': 1500}
-                    }, resolution=(752, 480)
+                    }
                 ))
                 self._orbslam_systems[name] = orbslam_id
                 self._set_property('orbslam_systems.{}'.format(name), orbslam_id)

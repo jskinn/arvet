@@ -407,10 +407,9 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
 
         # ORBSLAM2 - now only a single variant
         settings_list = [
-            (sensor_mode, n_features, resolution)
+            (sensor_mode, n_features)
             for sensor_mode in {orbslam2.SensorMode.STEREO}
             for n_features in {1500}
-            for resolution in {(640, 480)}
         ]
         if len(self._orbslam_systems) < len(settings_list):
             for settings in settings_list:
@@ -426,7 +425,7 @@ class VisualSlamExperiment(batch_analysis.experiment.Experiment):
                         'ORBextractor': {
                             'nFeatures': settings[1]
                         }
-                    }, resolution=settings[2]
+                    }
                 ))
                 self._orbslam_systems[name] = orbslam_id
                 self._set_property('orbslam_systems.{}'.format(name), orbslam_id)
