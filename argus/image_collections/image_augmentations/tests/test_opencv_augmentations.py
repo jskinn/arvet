@@ -1,10 +1,12 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import numpy as np
+
 import core.image
-import metadata.image_metadata as imeta
-import image_collections.tests.test_augmented_collection as test_augmented
 import image_collections.image_augmentations.opencv_augmentations as cv_aug
+import metadata.image_metadata as imeta
+import numpy as np
+
+import argus.image_collections.tests.test_augmented_collection as test_augmented
 
 
 class TestRotateSimple(test_augmented.ImageAugmenterContract, unittest.TestCase):

@@ -1,13 +1,13 @@
 # Copyright (c) 2017, John Skinner
 import copy
 import database.client
-import core.trial_comparison
+import argus.core.trial_comparison
 import util.dict_utils as du
 import util.database_helpers as dbutil
 
 
 def compare_results(benchmark, database_client, config=None, trained_state_id=None):
-    if (not isinstance(benchmark, core.trial_comparison.TrialComparison) or
+    if (not isinstance(benchmark, argus.core.trial_comparison.TrialComparison) or
             not isinstance(database_client, database.client.DatabaseClient)):
         return
 

@@ -1,11 +1,13 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import numpy as np
+
 import core.image
-import metadata.image_metadata as imeta
-import metadata.camera_intrinsics as cam_intr
-import image_collections.tests.test_augmented_collection as test_augmented
 import image_collections.image_augmentations.simple_augmentations as simp
+import metadata.camera_intrinsics as cam_intr
+import metadata.image_metadata as imeta
+import numpy as np
+
+import argus.image_collections.tests.test_augmented_collection as test_augmented
 
 
 class TestHorizontalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase):
