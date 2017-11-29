@@ -147,13 +147,8 @@ class VisualOdometryExperiment(batch_analysis.experiment.Experiment):
                 else:
                     task_manager.do_task(task)
 
-        # Import TUM datasets using the manager.
-        tum_manager = dataset.tum.tum_manager.TUMManager({
-            'rgbd_dataset_freiburg1_xyz': True,
-            'rgbd_dataset_freiburg1_rpy': True,
-            'rgbd_dataset_freiburg2_xyz': True,
-            'rgbd_dataset_freiburg2_rpy': True
-        })
+        # Import TUM datasets using the manager. Load all the TUM datasets we can
+        tum_manager = dataset.tum.tum_manager.TUMManager({name: True for name in dataset.tum.tum_manager.dataset_names})
         tum_manager.do_imports(os.path.expanduser(os.path.join('~', 'datasets', 'TUM')), task_manager)
         for name, dataset_id in tum_manager.datasets:
             trajectory_group = self._add_trajectory_group("TUM {}".format(name), dataset_id)

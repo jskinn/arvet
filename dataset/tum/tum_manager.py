@@ -3,15 +3,61 @@ import os
 import util.dict_utils as du
 
 
+dataset_names = [
+    'rgbd_dataset_freiburg1_xyz',
+    'rgbd_dataset_freiburg1_rpy',
+    'rgbd_dataset_freiburg2_xyz',
+    'rgbd_dataset_freiburg2_rpy',
+    'rgbd_dataset_freiburg1_360',
+    'rgbd_dataset_freiburg1_floor',
+    'rgbd_dataset_freiburg1_desk',
+    'rgbd_dataset_freiburg1_desk2',
+    'rgbd_dataset_freiburg1_room',
+    'rgbd_dataset_freiburg2_360_hemisphere',
+    'rgbd_dataset_freiburg2_360_kidnap',
+    'rgbd_dataset_freiburg2_desk',
+    'rgbd_dataset_freiburg2_large_no_loop',
+    'rgbd_dataset_freiburg2_large_with_loop',
+    'rgbd_dataset_freiburg3_long_office_household',
+    'rgbd_dataset_freiburg2_pioneer_360',
+    'rgbd_dataset_freiburg2_pioneer_slam',
+    'rgbd_dataset_freiburg2_pioneer_slam2',
+    'rgbd_dataset_freiburg2_pioneer_slam3',
+    'rgbd_dataset_freiburg3_nostructure_notexture_far',
+    'rgbd_dataset_freiburg3_nostructure_notexture_near_withloop',
+    'rgbd_dataset_freiburg3_nostructure_texture_far',
+    'rgbd_dataset_freiburg3_nostructure_texture_near_withloop',
+    'rgbd_dataset_freiburg3_structure_notexture_far',
+    'rgbd_dataset_freiburg3_structure_notexture_near',
+    'rgbd_dataset_freiburg3_structure_texture_far',
+    'rgbd_dataset_freiburg3_structure_texture_near',
+    'rgbd_dataset_freiburg2_desk_with_person',
+    'rgbd_dataset_freiburg3_sitting_static',
+    'rgbd_dataset_freiburg3_sitting_xyz',
+    'rgbd_dataset_freiburg3_sitting_halfsphere',
+    'rgbd_dataset_freiburg3_sitting_rpy',
+    'rgbd_dataset_freiburg3_walking_static',
+    'rgbd_dataset_freiburg3_walking_xyz',
+    'rgbd_dataset_freiburg3_walking_halfsphere',
+    'rgbd_dataset_freiburg3_walking_rpy',
+    'rgbd_dataset_freiburg1_plant',
+    'rgbd_dataset_freiburg1_teddy',
+    'rgbd_dataset_freiburg2_coke',
+    'rgbd_dataset_freiburg2_dishes',
+    'rgbd_dataset_freiburg2_flowerbouquet',
+    'rgbd_dataset_freiburg2_flowerbouquet_brownbackground',
+    'rgbd_dataset_freiburg2_metallic_sphere',
+    'rgbd_dataset_freiburg2_metallic_sphere2',
+    'rgbd_dataset_freiburg3_cabinet',
+    'rgbd_dataset_freiburg3_large_cabinet',
+    'rgbd_dataset_freiburg3_teddy'
+]
+
+
 class TUMManager:
 
     def __init__(self, config, dataset_ids=None):
-        self._config = {
-            'rgbd_dataset_freiburg1_xyz': False,
-            'rgbd_dataset_freiburg1_rpy': False,
-            'rgbd_dataset_freiburg2_xyz': False,
-            'rgbd_dataset_freiburg2_rpy': False
-        }
+        self._config = {name: False for name in dataset_names}
         self._dataset_ids = {}
 
         for key in self._config.keys():
@@ -35,30 +81,6 @@ class TUMManager:
         :return:
         """
         return self._dataset_ids.items()
-
-    @property
-    def rgbd_dataset_freiburg1_xyz(self):
-        if 'rgbd_dataset_freiburg1_xyz' in self._dataset_ids:
-            return self._dataset_ids['rgbd_dataset_freiburg1_xyz']
-        return None
-
-    @property
-    def rgbd_dataset_freiburg1_rpy(self):
-        if 'rgbd_dataset_freiburg1_rpy' in self._dataset_ids:
-            return self._dataset_ids['rgbd_dataset_freiburg1_rpy']
-        return None
-
-    @property
-    def rgbd_dataset_freiburg2_xyz(self):
-        if 'rgbd_dataset_freiburg1_xyz' in self._dataset_ids:
-            return self._dataset_ids['rgbd_dataset_freiburg2_xyz']
-        return None
-
-    @property
-    def rgbd_dataset_freiburg2_rpy(self):
-        if 'rgbd_dataset_freiburg2_rpy' in self._dataset_ids:
-            return self._dataset_ids['rgbd_dataset_freiburg2_rpy']
-        return None
 
     def do_imports(self, root_folder, task_manager):
         to_import = {dataset_name for dataset_name, do_import in self._config.items()
@@ -102,3 +124,9 @@ class TUMManager:
         if 'dataset_ids' in serialized:
             du.defaults(dataset_ids, serialized['dataset_ids'])
         return cls(config, dataset_ids, **kwargs)
+
+
+# Add read-only properties to the manager class for each of the datasets
+# This means that specific datasets can be requested as tum_manager.rgbd_dataset_freiburg1_xyz
+for _name in dataset_names:
+    setattr(TUMManager, _name, property(lambda self: self._dataset_ids[_name] if _name in self._dataset_ids else None))
