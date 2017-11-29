@@ -26,6 +26,11 @@ def main():
         logging.getLogger(__name__).info("Invalidating system {0}".format(system_id['_id']))
         batch_analysis.invalidate.invalidate_system(db_client, system_id['_id'])
 
+    failed_trials = db_client.trials_collection.find({'success': False}, {'_id': True})
+    for trial_id in failed_trials:
+        logging.getLogger(__name__).info("Invalidating failed trial {0}".format(trial_id['_id']))
+        batch_analysis.invalidate.invalidate_trial_result(db_client, trial_id['_id'])
+
 
 if __name__ == '__main__':
     main()
