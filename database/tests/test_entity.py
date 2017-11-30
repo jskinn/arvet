@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import unittest.mock as mock
 import abc
 import util.dict_utils as du
 import database.client
 import database.entity
 import database.entity_registry as reg
+import database.tests.mock_database_client as mock_db_client_fac
 
 
 class EntityContract(metaclass=abc.ABCMeta):
@@ -59,7 +59,8 @@ class EntityContract(metaclass=abc.ABCMeta):
         override it to create specific return values
         :return: 
         """
-        return mock.create_autospec(database.client.DatabaseClient)
+        self.zombie_db_client = mock_db_client_fac.create()
+        return self.zombie_db_client.mock
 
     def assert_keys_valid(self, dictionary):
         """
