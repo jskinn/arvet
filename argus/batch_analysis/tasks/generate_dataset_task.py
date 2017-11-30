@@ -33,7 +33,7 @@ class GenerateDatasetTask(argus.batch_analysis.task.Task):
         import logging
         import traceback
         import argus.util.database_helpers as dh
-        import argus.dataset.image_collection_builder as collection_builder
+        import argus.image_collections.image_collection_builder as collection_builder
 
         # Try and import the desired loader module
         controller = dh.load_object(db_client, db_client.image_source_collection, self.controller_id)
