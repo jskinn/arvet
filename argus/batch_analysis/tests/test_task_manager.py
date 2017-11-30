@@ -3,24 +3,24 @@ import unittest
 import unittest.mock as mock
 import bson
 import pymongo.collection
-import database.client
-import batch_analysis.task_manager as manager
+import argus.database.client
+import argus.batch_analysis.task_manager as manager
 
-import batch_analysis.tasks.import_dataset_task as import_dataset_task
-import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
-import batch_analysis.tasks.train_system_task as train_system_task
-import batch_analysis.tasks.run_system_task as run_system_task
-import batch_analysis.tasks.benchmark_trial_task as benchmark_task
+import argus.batch_analysis.tasks.import_dataset_task as import_dataset_task
+import argus.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
+import argus.batch_analysis.tasks.train_system_task as train_system_task
+import argus.batch_analysis.tasks.run_system_task as run_system_task
+import argus.batch_analysis.tasks.benchmark_trial_task as benchmark_task
 # TODO: Tests for these two as well
-# import batch_analysis.tasks.compare_trials_task as compare_trials_task
-# import batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
+# import argus.batch_analysis.tasks.compare_trials_task as compare_trials_task
+# import argus.batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
 
 
 class TestTaskManager(unittest.TestCase):
 
     def test_get_import_dataset_task_checks_for_existing_task(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         module_name = 'test_module'
         path = '/tmp/dataset/thisisadataset'
@@ -41,7 +41,7 @@ class TestTaskManager(unittest.TestCase):
         mock_entity = mock.MagicMock()
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = s_task
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.deserialize_entity.return_value = mock_entity
         subject = manager.TaskManager(mock_collection, mock_db_client)
 
@@ -53,7 +53,7 @@ class TestTaskManager(unittest.TestCase):
     def test_get_import_dataset_task_returns_new_instance_if_no_existing(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = None
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         module_name = 'test_module'
         path = '/tmp/dataset/thisisadataset'
@@ -63,7 +63,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_get_generate_dataset_task_checks_for_existing_task(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         controller_id = bson.ObjectId()
         simulator_id = bson.ObjectId()
@@ -94,7 +94,7 @@ class TestTaskManager(unittest.TestCase):
         mock_entity = mock.MagicMock()
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = s_task
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.deserialize_entity.return_value = mock_entity
         subject = manager.TaskManager(mock_collection, mock_db_client)
 
@@ -106,7 +106,7 @@ class TestTaskManager(unittest.TestCase):
     def test_get_generate_dataset_task_returns_new_instance_if_no_existing(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = None
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         result = subject.get_generate_dataset_task(bson.ObjectId(), bson.ObjectId(), {'provide_rgb': True})
         self.assertIsInstance(result, generate_dataset_task.GenerateDatasetTask)
@@ -114,7 +114,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_get_train_system_task_checks_for_existing_task(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trainer_id = bson.ObjectId()
         trainee_id = bson.ObjectId()
@@ -132,7 +132,7 @@ class TestTaskManager(unittest.TestCase):
         mock_entity = mock.MagicMock()
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = s_task
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.deserialize_entity.return_value = mock_entity
         subject = manager.TaskManager(mock_collection, mock_db_client)
 
@@ -144,7 +144,7 @@ class TestTaskManager(unittest.TestCase):
     def test_get_train_system_task_returns_new_instance_if_no_existing(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = None
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trainer_id = bson.ObjectId()
         trainee_id = bson.ObjectId()
@@ -154,7 +154,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_get_run_system_task_checks_for_existing_task(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         system_id = bson.ObjectId()
         image_source_id = bson.ObjectId()
@@ -172,7 +172,7 @@ class TestTaskManager(unittest.TestCase):
         mock_entity = mock.MagicMock()
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = s_task
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.deserialize_entity.return_value = mock_entity
         subject = manager.TaskManager(mock_collection, mock_db_client)
 
@@ -184,7 +184,7 @@ class TestTaskManager(unittest.TestCase):
     def test_get_run_system_task_returns_new_instance_if_no_existing(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = None
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         system_id = bson.ObjectId()
         image_source_id = bson.ObjectId()
@@ -194,7 +194,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_get_benchmark_task_checks_for_existing_task(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trial_result_id = bson.ObjectId()
         benchmark_id = bson.ObjectId()
@@ -212,7 +212,7 @@ class TestTaskManager(unittest.TestCase):
         mock_entity = mock.MagicMock()
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = s_task
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.deserialize_entity.return_value = mock_entity
         subject = manager.TaskManager(mock_collection, mock_db_client)
 
@@ -224,7 +224,7 @@ class TestTaskManager(unittest.TestCase):
     def test_get_benchmark_returns_new_instance_if_no_existing(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find_one.return_value = None
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trial_result_id = bson.ObjectId()
         benchmark_id = bson.ObjectId()
@@ -234,7 +234,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_do_task_checks_import_benchmark_task_is_unique(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         module_name = 'test_module'
         path = '/tmp/dataset/thisisadataset'
@@ -250,7 +250,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_do_task_checks_train_system_task_is_unique(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trainer_id = bson.ObjectId()
         trainee_id = bson.ObjectId()
@@ -266,7 +266,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_do_task_checks_run_system_task_is_unique(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         system_id = bson.ObjectId()
         image_source_id = bson.ObjectId()
@@ -282,7 +282,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_do_task_checks_benchmark_task_is_unique(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trial_result_id = bson.ObjectId()
         benchmark_id = bson.ObjectId()
@@ -304,7 +304,7 @@ class TestTaskManager(unittest.TestCase):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_collection.find.return_value = mock_cursor
 
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
         system_id = bson.ObjectId()
         image_source_id = bson.ObjectId()

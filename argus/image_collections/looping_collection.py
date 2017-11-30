@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
-import database.entity
-import core.sequence_type
-import core.image_source
+import argus.database.entity
+import argus.core.sequence_type
+import argus.core.image_source
 
 
-class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
+class LoopingCollection(argus.core.image_source.ImageSource, argus.database.entity.Entity):
     """
     A wrapper around an image collection, which makes it repeat.
     Very simple.
@@ -21,7 +21,7 @@ class LoopingCollection(core.image_source.ImageSource, database.entity.Entity):
         super().__init__(id_=id_, **kwargs)
         self._inner = inner
         self._repeats = max(int(repeats), 0)
-        self._type_override = core.sequence_type.ImageSequenceType(type_override) if type_override is not None else None
+        self._type_override = argus.core.sequence_type.ImageSequenceType(type_override) if type_override is not None else None
         self._current_loop_count = 0
         self._max_timestamp = 0
 

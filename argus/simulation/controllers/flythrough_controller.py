@@ -1,14 +1,14 @@
 # Copyright (c) 2017, John Skinner
 import numpy as np
 import transforms3d as tf3d
-import core.sequence_type
-import database.entity
-import util.transform as tf
-import simulation.simulator
-import simulation.controller
+import argus.core.sequence_type
+import argus.database.entity
+import argus.util.transform as tf
+import argus.simulation.simulator
+import argus.simulation.controller
 
 
-class FlythroughController(simulation.controller.Controller, database.entity.Entity):
+class FlythroughController(argus.simulation.controller.Controller, argus.database.entity.Entity):
     """
     A controller that lazily flys around the level avoiding objects.
     This produces sequential image data
@@ -44,7 +44,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         Get the kind of image sequence produced by this controller.
         :return: ImageSequenceType.NON_SEQUENTIAL
         """
-        return core.sequence_type.ImageSequenceType.SEQUENTIAL
+        return argus.core.sequence_type.ImageSequenceType.SEQUENTIAL
 
     def supports_random_access(self):
         """
@@ -164,7 +164,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         Returning None indicates that this image source will produce no more images.
         The second return value must always be the time
 
-        :return: An Image object (see core.image) or None, and an index (or None)
+        :return: An Image object (see argus.core.image) or None, and an index (or None)
         """
         if self._simulator is not None:
             # Choose a new camera pose
@@ -242,7 +242,7 @@ class FlythroughController(simulation.controller.Controller, database.entity.Ent
         :param simulator: The simulator we may potentially control
         :return:
         """
-        return simulator is not None and isinstance(simulator, simulation.simulator.Simulator)
+        return simulator is not None and isinstance(simulator, argus.simulation.simulator.Simulator)
 
     def set_simulator(self, simulator):
         """

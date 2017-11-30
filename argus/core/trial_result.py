@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
-import database.entity
-import core.sequence_type
+import argus.database.entity
+import argus.core.sequence_type
 
 
-class TrialResult(database.entity.Entity):
+class TrialResult(argus.database.entity.Entity):
     """
     The result of running a particular system with images from a particular image source.
     Contains all the relevant information from the run, and is passed to the benchmark to measure the performance.
@@ -16,7 +16,7 @@ class TrialResult(database.entity.Entity):
     def __init__(self, system_id, success, sequence_type, system_settings, id_=None, **kwargs):
         super().__init__(id_, **kwargs)
         self._success = bool(success)
-        self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
+        self._sequence_type = argus.core.sequence_type.ImageSequenceType(sequence_type)
         self._settings = system_settings
         self._system_id = system_id
 
@@ -45,7 +45,7 @@ class TrialResult(database.entity.Entity):
         """
         Get the type of image sequence used to produce this trial result.
         Some benchmarks and metrics are only relevant when we can compare between successive frames.
-        :return: A core.sequence_type.ImageSequenceType
+        :return: A argus.core.sequence_type.ImageSequenceType
         """
         return self._sequence_type
 
@@ -76,7 +76,7 @@ class TrialResult(database.entity.Entity):
         serialized = super().serialize()
         serialized['system'] = self.system_id
         serialized['success'] = self.success
-        if self.sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL:
+        if self.sequence_type is argus.core.sequence_type.ImageSequenceType.SEQUENTIAL:
             serialized['sequence_type'] = 'SEQ'
         else:
             serialized['sequence_type'] = 'NON'
@@ -98,9 +98,9 @@ class TrialResult(database.entity.Entity):
         if 'success' in serialized_representation:
             kwargs['success'] = serialized_representation['success']
         if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] is 'SEQ':
-            kwargs['sequence_type'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
+            kwargs['sequence_type'] = argus.core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
-            kwargs['sequence_type'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+            kwargs['sequence_type'] = argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         if 'settings' in serialized_representation:
             kwargs['system_settings'] = serialized_representation['settings']
         return super().deserialize(serialized_representation, db_client, **kwargs)

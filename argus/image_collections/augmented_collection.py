@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.entity
-import core.sequence_type
-import core.image_source
+import argus.database.entity
+import argus.core.sequence_type
+import argus.core.image_source
 
 
-class AugmentedImageCollection(core.image_source.ImageSource, database.entity.Entity):
+class AugmentedImageCollection(argus.core.image_source.ImageSource, argus.database.entity.Entity):
     """
     A wrapper around an image collection, which performs data augmentation.
     This
@@ -49,7 +49,7 @@ class AugmentedImageCollection(core.image_source.ImageSource, database.entity.En
     def sequence_type(self):
         if len(self._augmenters) > 1:
             # Each image appears multiple times, it becomes non-sequential
-            return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+            return argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         return self._inner.sequence_type
 
     @property
@@ -152,7 +152,7 @@ def apply_augmenter(image, augmenter):
     return image
 
 
-class ImageAugmenter(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
+class ImageAugmenter(argus.database.entity.Entity, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     A simple base class for things that do image augmentation.
     Some have properties, and we need to be able to ave and load them from the database,

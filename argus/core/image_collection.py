@@ -2,16 +2,16 @@
 import abc
 import numpy as np
 import logging
-import database.entity
-import core.image
-import core.sequence_type
-import core.image_source
+import argus.database.entity
+import argus.core.image
+import argus.core.sequence_type
+import argus.core.image_source
 
-import util.database_helpers as dh
+import argus.util.database_helpers as dh
 
 
 
-class ImageCollection(core.image_source.ImageSource, database.entity.Entity, metaclass=abc.ABCMeta):
+class ImageCollection(argus.core.image_source.ImageSource, argus.database.entity.Entity, metaclass=abc.ABCMeta):
     """
     A collection of images stored in the database.
     This can be a sequential set of images like a video, or a random sampling of different pictures.
@@ -21,12 +21,12 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         super().__init__(id_=id_, **kwargs)
 
         self._images = images
-        if (isinstance(type_, core.sequence_type.ImageSequenceType) and
-                type_ is not core.sequence_type.ImageSequenceType.INTERACTIVE):
+        if (isinstance(type_, argus.core.sequence_type.ImageSequenceType) and
+                type_ is not argus.core.sequence_type.ImageSequenceType.INTERACTIVE):
             # image collections cannot be interactive
             self._sequence_type = type_
         else:
-            self._sequence_type = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+            self._sequence_type = argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         self._timestamps = sorted(self._images.keys())
         self._current_index = 0
 
@@ -105,7 +105,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         It is useful for determining which sources can run with which algorithms.
         Image collections can be NON_SEQUENTIAL or SEQUENTIAL, but not INTERACTIVE
         :return: The image sequence type enum
-        :rtype core.image_sequence.ImageSequenceType:
+        :rtype argus.core.image_sequence.ImageSequenceType:
         """
         return self._sequence_type
 
@@ -144,7 +144,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         Parallel versions of this may add a timeout parameter.
         Returning None indicates that this image source will produce no more images
 
-        :return: An Image object (see core.image) or None, and a timestamp or None
+        :return: An Image object (see argus.core.image) or None, and a timestamp or None
         """
         if not self.is_complete():
             timestamp = self._timestamps[self._current_index]
@@ -255,7 +255,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         serialized = super().serialize()
         # Only include the image IDs here, they'll get turned back into objects for us
         serialized['images'] = [(stamp, image_id) for stamp, image_id in self._images.items()]
-        if self.sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL:
+        if self.sequence_type is argus.core.sequence_type.ImageSequenceType.SEQUENTIAL:
             serialized['sequence_type'] = 'SEQ'
         else:
             serialized['sequence_type'] = 'NON'
@@ -269,7 +269,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         the image collection and the individual images.
 
         :param serialized_representation: 
-        :param db_client: An instance of database.client, from which to load the image collection
+        :param db_client: An instance of argus.database.client, from which to load the image collection
         :param kwargs: Additional arguments passed to the entity constructor.
         These will be overridden by values in serialized representation
         :return: A deserialized 
@@ -277,9 +277,9 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         if 'images' in serialized_representation:
             kwargs['images'] = {stamp: img_id for stamp, img_id in serialized_representation['images']}
         if 'sequence_type' in serialized_representation and serialized_representation['sequence_type'] == 'SEQ':
-            kwargs['type_'] = core.sequence_type.ImageSequenceType.SEQUENTIAL
+            kwargs['type_'] = argus.core.sequence_type.ImageSequenceType.SEQUENTIAL
         else:
-            kwargs['type_'] = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+            kwargs['type_'] = argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
         kwargs['db_client_'] = db_client
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
@@ -292,7 +292,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
 
         :param db_client: The database client, used to check image ids and for saving
         :param image_map: A map of timestamp to bson.objectid.ObjectId that refer to image objects in the database
-        :param sequence_type: core.sequence_type.ImageSequenceType
+        :param sequence_type: argus.core.sequence_type.ImageSequenceType
         :return: The id of the newly created image collection, or None if there is an error
         """
         found_images = db_client.image_collection.find({
@@ -303,7 +303,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
                 "Tried to create image collection with {0} missing ids".format(len(image_map) - found_images))
             return None
         s_images_list = [(stamp, image_id) for stamp, image_id in image_map.items()]
-        s_seq_type = 'SEQ' if sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
+        s_seq_type = 'SEQ' if sequence_type is argus.core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
         existing = db_client.image_source_collection.find_one({
             '_type': cls.__module__ + '.' + cls.__name__,
             'images': {'$all': s_images_list},

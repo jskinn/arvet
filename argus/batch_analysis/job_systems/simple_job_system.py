@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import logging
-import batch_analysis.job_system
-import run_task
+import argus.batch_analysis.job_system
+import argus.run_task
 
 
-class SimpleJobSystem(batch_analysis.job_system.JobSystem):
+class SimpleJobSystem(argus.batch_analysis.job_system.JobSystem):
     """
     The worst possible, and simplest, job system.
     Simply does the job as part of scheduling it.
@@ -69,5 +69,5 @@ class SimpleJobSystem(batch_analysis.job_system.JobSystem):
         """
         logging.getLogger(__name__).info("Running {0} jobs...".format(len(self._queue)))
         for task_id in self._queue:
-            run_task.main(task_id)
+            argus.run_task.main(task_id)
         self._queue = []

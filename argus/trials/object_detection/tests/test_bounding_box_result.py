@@ -3,10 +3,10 @@ import unittest
 import bson.objectid
 import numpy as np
 
-import database.tests.test_entity
-import core.sequence_type
-import trials.object_detection.bounding_box_result as bbox_result
-import util.dict_utils as du
+import argus.database.tests.test_entity
+import argus.core.sequence_type
+import argus.trials.object_detection.bounding_box_result as bbox_result
+import argus.util.dict_utils as du
 
 
 class TestBoundingBox(unittest.TestCase):
@@ -118,7 +118,7 @@ class TestBoundingBox(unittest.TestCase):
                 self.assertEqual(s_bbox1, s_bbox2)
 
 
-class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestBoundingBoxResult(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return bbox_result.BoundingBoxResult
@@ -152,7 +152,7 @@ class TestBoundingBoxResult(database.tests.test_entity.EntityContract, unittest.
                     for _ in range(np.random.randint(50)))
                 for _ in range(100)
             },
-            'sequence_type': core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
+            'sequence_type': argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
             }

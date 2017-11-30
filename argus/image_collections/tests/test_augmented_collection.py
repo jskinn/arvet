@@ -5,19 +5,19 @@ import abc
 import numpy as np
 import pymongo.collection
 import bson.objectid
-import database.tests.test_entity
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import core.image
-import core.sequence_type
-import core.image_collection
-import image_collections.augmented_collection as aug_coll
-import image_collections.image_augmentations.simple_augmentations as simple_augments
-import util.dict_utils as du
-import util.transform as tf
+import argus.database.tests.test_entity
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.core.image
+import argus.core.sequence_type
+import argus.core.image_collection
+import argus.image_collections.augmented_collection as aug_coll
+import argus.image_collections.image_augmentations.simple_augmentations as simple_augments
+import argus.util.dict_utils as du
+import argus.util.transform as tf
 
 
-class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestAugmentedCollection(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return aug_coll.AugmentedImageCollection
@@ -54,14 +54,14 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
         db_client = super().create_mock_db_client()
         db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
         db_client.image_source_collection.find_one.side_effect = lambda q: {
-            '_type': 'core.image_collection.ImageCollection',
+            '_type': 'argus.core.image_collection.ImageCollection',
             '_id': q['_id']
         }
         db_client.deserialize_entity.side_effect = mock_deserialize_entity
         return db_client
 
     def test_begin_calls_begin_on_inner(self):
-        inner = mock.create_autospec(core.image_collection.ImageCollection)
+        inner = mock.create_autospec(argus.core.image_collection.ImageCollection)
         inner.get_next_image.return_value = (make_image(), 10)
         subject = aug_coll.AugmentedImageCollection(inner, [None, simple_augments.HorizontalFlip()])
         subject.begin()
@@ -121,12 +121,12 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
     def test_multiple_augmenters_makes_non_sequential(self):
         images = {idx + np.random.uniform(-0.2, 0.2):
                   make_image(data=np.random.randint(0, 255, (10, 10, 3), dtype=np.uint8)) for idx in range(10)}
-        collection = make_image_collection(images=images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        collection = make_image_collection(images=images, type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL)
         subject = aug_coll.AugmentedImageCollection(collection, [simple_augments.Rotate270()])
-        self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, subject.sequence_type)
+        self.assertEqual(argus.core.sequence_type.ImageSequenceType.SEQUENTIAL, subject.sequence_type)
         subject = aug_coll.AugmentedImageCollection(collection, [simple_augments.Rotate270(),
                                                                  simple_augments.Rotate90()])
-        self.assertEqual(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, subject.sequence_type)
+        self.assertEqual(argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, subject.sequence_type)
 
     def assertNPEqual(self, arr1, arr2):
         self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
@@ -220,7 +220,7 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
 
     def test_preserves_other_metadata(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 hash_=b'\x04\xe2\x1f\x3d$\x7c\x116',
@@ -295,7 +295,7 @@ class ImageAugmenterContract(metaclass=abc.ABCMeta):
         data, augmented_data = self.create_base_and_augmented_data()
         image = make_image(data=data)
         result = self.do_augment(image)
-        self.assertIsInstance(result, core.image.Image)
+        self.assertIsInstance(result, argus.core.image.Image)
         self.assertNPEqual(augmented_data, result.data)
 
     # TODO: Augmenters should support stereo images as well
@@ -357,30 +357,30 @@ def make_image(**kwargs):
         'data': data,
         'metadata': imeta.ImageMetadata(**metadata_kwargs)
     })
-    return core.image.Image(**kwargs)
+    return argus.core.image.Image(**kwargs)
 
 
 def make_image_collection(**kwargs):
     if 'images' not in kwargs:
         kwargs['images'] = {1: make_image()}
     du.defaults(kwargs, {
-        'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        'type_': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
         'id_': bson.ObjectId()
     })
-    return core.image_collection.ImageCollection(**kwargs)
+    return argus.core.image_collection.ImageCollection(**kwargs)
 
 
 def mock_deserialize_entity(s_entity):
-    if s_entity['_type'] == 'core.image_collection.ImageCollection':
+    if s_entity['_type'] == 'argus.core.image_collection.ImageCollection':
         return make_image_collection(id_=s_entity['_id'])
-    elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.HorizontalFlip':
+    elif s_entity['_type'] == 'argus.image_collections.image_augmentations.simple_augmentations.HorizontalFlip':
         return simple_augments.HorizontalFlip()
-    elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.VerticalFlip':
+    elif s_entity['_type'] == 'argus.image_collections.image_augmentations.simple_augmentations.VerticalFlip':
         return simple_augments.VerticalFlip()
-    elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.Rotate90':
+    elif s_entity['_type'] == 'argus.image_collections.image_augmentations.simple_augmentations.Rotate90':
         return simple_augments.Rotate90()
-    elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.Rotate180':
+    elif s_entity['_type'] == 'argus.image_collections.image_augmentations.simple_augmentations.Rotate180':
         return simple_augments.Rotate180()
-    elif s_entity['_type'] == 'image_collections.image_augmentations.simple_augmentations.Rotate270':
+    elif s_entity['_type'] == 'argus.image_collections.image_augmentations.simple_augmentations.Rotate270':
         return simple_augments.Rotate270()
     return None

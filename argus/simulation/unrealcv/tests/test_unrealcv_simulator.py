@@ -10,13 +10,13 @@ import numpy as np
 import cv2
 import unrealcv
 
-import core.image
-import database.tests.test_entity
-import metadata.image_metadata as imeta
-import simulation.unrealcv.unrealcv_simulator as uecvsim
-import util.dict_utils as du
-import util.transform as tf
-import util.unreal_transform as uetf
+import argus.core.image
+import argus.database.tests.test_entity
+import argus.metadata.image_metadata as imeta
+import argus.simulation.unrealcv.unrealcv_simulator as uecvsim
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.util.unreal_transform as uetf
 
 
 # Patch the unrealcv Client API for mocking
@@ -26,7 +26,7 @@ class ClientPatch(unrealcv.Client):
     isconnected = unrealcv.BaseClient.isconnected
 
 
-class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestUnrealCVSimulator(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return uecvsim.UnrealCVSimulator
@@ -90,10 +90,10 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
                                             config={'provide_world_normals': False})
         self.assertFalse(subject.is_normals_available)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_saves_settings(self,  *_):
         port = np.random.randint(0, 1000)
         width = np.random.randint(10, 1000)
@@ -104,7 +104,7 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         })
 
         mock_open = mock.mock_open()
-        with mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock_open, create=True):
+        with mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock_open, create=True):
             subject.begin()
         self.assertTrue(mock_open.called)
         self.assertEqual(mock.call('temp/test_project/unrealcv.ini', 'w'), mock_open.call_args)
@@ -115,33 +115,33 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertIn('Width={0}'.format(width), file_contents)
         self.assertIn('Height={0}'.format(height), file_contents)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
     def test_begin_starts_simulator(self, mock_subprocess, *_):
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
         self.assertTrue(mock_subprocess.Popen.called)
         self.assertEqual(mock.call('temp/test_project/test.sh'), mock_subprocess.Popen.call_args)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_creates_client(self, mock_client, *_):
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
         self.assertTrue(mock_client.called)
         self.assertEqual(mock_client.call_args, mock.call(('localhost', 9000)))
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_connects_to_simulator(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client_instance.isconnected.return_value = False
@@ -151,11 +151,11 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         subject.begin()
         self.assertTrue(mock_client_instance.connect.called)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_sets_camera_properties(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client_instance.isconnected.return_value = True
@@ -180,11 +180,11 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertIn(mock.call("vset /camera/0/focus-distance {0}".format(focus_distance * 100)),
                       mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_sets_quality_properties(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client_instance.isconnected.return_value = True
@@ -218,12 +218,12 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertIsNone(result[0])
         self.assertIsNone(result[1])
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_lit(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -236,12 +236,12 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertTrue(mock_client_instance.request.called)
         self.assertIn(mock.call("vget /camera/0/lit"), mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_depth(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -254,12 +254,12 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertTrue(mock_client_instance.request.called)
         self.assertIn(mock.call("vget /camera/0/depth"), mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_labels(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -272,12 +272,12 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertTrue(mock_client_instance.request.called)
         self.assertIn(mock.call("vget /camera/0/object_mask"), mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_captures_world_normals(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -291,12 +291,12 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         self.assertTrue(mock_client_instance.request.called)
         self.assertIn(mock.call("vget /camera/0/normal"), mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_returns_image_and_none(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client.return_value = make_mock_unrealcv_client()
@@ -304,15 +304,15 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         subject.begin()
         result = subject.get_next_image()
         self.assertEqual(2, len(result))
-        self.assertIsInstance(result[0], core.image.Image)
+        self.assertIsInstance(result[0], argus.core.image.Image)
         self.assertIsNone(result[1])
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_cleans_up_image_files(self, mock_client, mock_cv2, mock_os_remove, *_):
         mock_cv2.imread.side_effect = (lambda x, _=None: make_mock_image('object_mask')
                                        if 'label' in x else make_mock_image(x))
@@ -337,11 +337,11 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         for path in filenames.values():
             self.assertIn(mock.call(path), mock_os_remove.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_set_camera_pose_handles_frame_conversion(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -376,11 +376,11 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
                                                                               ue_pose.roll))),
                       mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_set_field_of_view(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -391,11 +391,11 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         subject.set_field_of_view(30.23)
         self.assertIn(mock.call("vset /camera/0/fov 30.23"), mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_set_focus_distance(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
@@ -406,11 +406,11 @@ class TestUnrealCVSimulator(database.tests.test_entity.EntityContract, unittest.
         subject.set_focus_distance(19.043)     # Distance is in meters
         self.assertIn(mock.call("vset /camera/0/focus-distance 1904.3"), mock_client_instance.request.call_args_list)
 
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
-    @mock.patch('simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.cv2', autospec=cv2)
+    @mock.patch('argus.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_set_fstop(self, mock_client, mock_cv2, *_):
         mock_cv2.imread.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()

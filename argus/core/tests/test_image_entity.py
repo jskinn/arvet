@@ -6,14 +6,14 @@ import numpy as np
 import gridfs
 import pickle
 import bson.objectid
-import util.dict_utils as du
-import util.transform as tf
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import database.client
-import database.tests.test_entity as entity_test
-import core.image
-import core.image_entity as ie
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.database.client
+import argus.database.tests.test_entity as entity_test
+import argus.core.image
+import argus.core.image_entity as ie
 
 
 class MockReadable:
@@ -421,7 +421,7 @@ class TestImageToEntity(unittest.TestCase):
         self.assertEqual(entity, result)
 
     def test_image_to_image_entity_turns_image_to_image_entity(self):
-        image = core.image.Image(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
+        image = argus.core.image.Image(data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                  metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                                                               camera_pose=tf.Transform(location=(10, 13, -67),
                                                                                        rotation=(0.5, 0.1, 0.2)),
@@ -433,7 +433,7 @@ class TestImageToEntity(unittest.TestCase):
         self.assertEqual(image.camera_pose, entity.camera_pose)
 
     def test_image_to_image_entity_turns_stereo_image_to_stereo_image_entity(self):
-        image = core.image.StereoImage(left_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
+        image = argus.core.image.StereoImage(left_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                        right_data=np.random.randint(0, 255, (256, 256, 3), dtype='uint8'),
                                        metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                                                                     camera_pose=tf.Transform(location=(10, 13, -67),
@@ -454,7 +454,7 @@ class TestImageToEntity(unittest.TestCase):
 class TestSaveImage(unittest.TestCase):
 
     def setUp(self):
-        self.mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        self.mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         self.mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
         self.mock_db_client.image_collection.find_one.return_value = None
         self.mock_db_client.image_collection.insert.return_value = bson.objectid.ObjectId()
@@ -468,7 +468,7 @@ class TestSaveImage(unittest.TestCase):
 
     def test_save_image_does_not_use_data_keys_to_check_for_existing_image(self):
         self.mock_db_client.image_collection.find_one.return_value = {'_id': bson.objectid.ObjectId()}
-        image = core.image_entity.ImageEntity(
+        image = argus.core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
             depth_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
@@ -492,7 +492,7 @@ class TestSaveImage(unittest.TestCase):
 
     def test_save_image_does_not_use_data_keys_to_check_for_existing_stereo_image(self):
         self.mock_db_client.image_collection.find_one.return_value = {'_id': bson.objectid.ObjectId()}
-        image = core.image_entity.StereoImageEntity(
+        image = argus.core.image_entity.StereoImageEntity(
             left_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             left_data_id=0,
             right_data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
@@ -533,7 +533,7 @@ class TestSaveImage(unittest.TestCase):
     def test_save_image_does_not_insert_if_already_exists(self):
         existing_id = bson.objectid.ObjectId()
         self.mock_db_client.image_collection.find_one.return_value = {'_id': existing_id}
-        image = core.image_entity.ImageEntity(
+        image = argus.core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
@@ -544,7 +544,7 @@ class TestSaveImage(unittest.TestCase):
         self.assertFalse(self.mock_db_client.image_collection.insert.called)
 
     def test_save_image_stores_data_in_gridfs(self):
-        image = core.image_entity.ImageEntity(
+        image = argus.core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=None,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
@@ -555,7 +555,7 @@ class TestSaveImage(unittest.TestCase):
     def test_save_image_stores_image_in_database_and_returns_id(self):
         new_id = bson.objectid.ObjectId()
         self.mock_db_client.image_collection.insert.return_value = new_id
-        image = core.image_entity.ImageEntity(
+        image = argus.core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
@@ -568,7 +568,7 @@ class TestSaveImage(unittest.TestCase):
     def test_save_image_stores_updated_data_ids(self):
         new_id = bson.objectid.ObjectId()
         self.mock_db_client.grid_fs.put.return_value = new_id
-        image = core.image_entity.ImageEntity(
+        image = argus.core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=None,
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',

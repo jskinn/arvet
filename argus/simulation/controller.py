@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import core.image_source
+import argus.core.image_source
 
 
-class Controller(core.image_source.ImageSource, metaclass=abc.ABCMeta):
+class Controller(argus.core.image_source.ImageSource, metaclass=abc.ABCMeta):
     """
     A controller wraps an interactive image source and turns it into a static one.
     That is, it controls the simulator in a predefined way to output images without requiring input.

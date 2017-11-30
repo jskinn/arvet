@@ -3,11 +3,11 @@ import cv2
 import logging
 import pickle
 import bson.objectid as oid
-import core.trial_result
-import util.transform as tf
+import argus.core.trial_result
+import argus.util.transform as tf
 
 
-class FeatureDetectorResult(core.trial_result.TrialResult):
+class FeatureDetectorResult(argus.core.trial_result.TrialResult):
     """
     Trial result for any feature detector.
     Contains the list of key points produced by that detector

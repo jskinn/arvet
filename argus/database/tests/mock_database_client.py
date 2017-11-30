@@ -2,7 +2,7 @@ import unittest.mock as mock
 import mongomock
 import bson
 import gridfs
-import database.client
+import argus.database.client
 
 
 class ZombieDatabaseClient:
@@ -38,11 +38,11 @@ class ZombieDatabaseClient:
         # Actually call through for deserialize entity
         mock_db_client.deserialize_entity.side_effect = (
             lambda s_entity, **kwargs:
-                database.client.DatabaseClient.deserialize_entity(mock_db_client, s_entity, **kwargs))
+                argus.database.client.DatabaseClient.deserialize_entity(mock_db_client, s_entity, **kwargs))
         self._mock_db_client = mock_db_client
 
     @property
-    def mock(self) -> database.client.DatabaseClient:
+    def mock(self) -> argus.database.client.DatabaseClient:
         return self._mock_db_client
 
     def put(self, bytes_) -> bson.ObjectId:
@@ -63,4 +63,4 @@ class MockReadable:
 
 
 def create() -> ZombieDatabaseClient:
-    return ZombieDatabaseClient(mock.create_autospec(database.client.DatabaseClient))
+    return ZombieDatabaseClient(mock.create_autospec(argus.database.client.DatabaseClient))

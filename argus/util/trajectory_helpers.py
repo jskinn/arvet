@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import typing
-import database.client
+import argus.database.client
 import bson
-import util.transform as tf
+import argus.util.transform as tf
 
 
-def get_trajectory_for_image_source(db_client: database.client.DatabaseClient,
+def get_trajectory_for_image_source(db_client: argus.database.client.DatabaseClient,
                                     image_collection_id: bson.ObjectId) -> typing.Mapping[float, tf.Transform]:
     """
     Image collections are too large for us to load into memory here,

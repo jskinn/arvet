@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import operator
-import database.entity
+import argus.database.entity
 
 
-class ContinuousParameter(database.entity.Entity):
+class ContinuousParameter(argus.database.entity.Entity):
 
     def __init__(self, name, min_ = None, max_ = None, id_ = None, **kwargs):
         super().__init__(id_=id_, **kwargs)
@@ -70,17 +70,17 @@ class ContinuousParameter(database.entity.Entity):
             for i in range(1, len(existing_samples)):
                 candidate_sample = 0.5 * (existing_samples[i] - existing_samples[i-1])
                 gradient = gradients[i-1]
-                if i > 2:
-                    score +=
+                #if i > 2:
+                #    score += gradients[1]
 
             # Sort the candidate samples by score
             candidate_samples.sort(key=operator.itemgetter(1), reverse=True)
-            for i in range(0, min(len(candidate_samples), ))
+            # for i in range(0, min(len(candidate_samples), ))
 
         return new_samples
 
 
-class IntegerParameter(database.entity.Entity):
+class IntegerParameter(argus.database.entity.Entity):
 
     def __init__(self, name, min_ = None, max_ = None, id_ = None, **kwargs):
         super().__init__(id_=id_, **kwargs)
@@ -89,7 +89,7 @@ class IntegerParameter(database.entity.Entity):
         self._max = max_
 
 
-class DiscreteEnumParameter(database.entity.Entity):
+class DiscreteEnumParameter(argus.database.entity.Entity):
     """
     Parameters of this type are discretized examples of unmeasurable quantities
     like light level or time of day.
@@ -97,6 +97,6 @@ class DiscreteEnumParameter(database.entity.Entity):
     pass
 
 
-class IndependentEnum(database.entity.Entity):
+class IndependentEnum(argus.database.entity.Entity):
     pass
 

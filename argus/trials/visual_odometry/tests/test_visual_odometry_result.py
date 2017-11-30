@@ -1,14 +1,14 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import bson.objectid
-import util.dict_utils as du
-import database.tests.test_entity
-import util.transform as tf
-import core.sequence_type
-import trials.visual_odometry.visual_odometry_result as vo_res
+import argus.util.dict_utils as du
+import argus.database.tests.test_entity
+import argus.util.transform as tf
+import argus.core.sequence_type
+import argus.trials.visual_odometry.visual_odometry_result as vo_res
 
 
-class TestLibVisO(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestLibVisO(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return vo_res.VisualOdometryResult
@@ -16,7 +16,7 @@ class TestLibVisO(database.tests.test_entity.EntityContract, unittest.TestCase):
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'system_id': bson.objectid.ObjectId(),
-            'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+            'sequence_type': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {'a': 1051},
             'frame_deltas': {
                 0.3333: tf.Transform((0.1, 0.01, -0.01), (-0.01, 0.06, 1.001)),

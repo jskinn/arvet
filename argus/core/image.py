@@ -1,6 +1,6 @@
 # Copyright (c) 2017, John Skinner
-import util.dict_utils as du
-import metadata.image_metadata as imeta
+import argus.util.dict_utils as du
+import argus.metadata.image_metadata as imeta
 
 
 class Image:

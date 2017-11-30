@@ -1,15 +1,15 @@
 # Copyright (c) 2017, John Skinner
 import copy
-import util.database_helpers as dh
-import util.dict_utils as du
-import batch_analysis.task
-import batch_analysis.tasks.import_dataset_task as import_dataset_task
-import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
-import batch_analysis.tasks.train_system_task as train_system_task
-import batch_analysis.tasks.run_system_task as run_system_task
-import batch_analysis.tasks.benchmark_trial_task as benchmark_task
-import batch_analysis.tasks.compare_trials_task as compare_trials_task
-import batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
+import argus.util.database_helpers as dh
+import argus.util.dict_utils as du
+import argus.batch_analysis.task
+import argus.batch_analysis.tasks.import_dataset_task as import_dataset_task
+import argus.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
+import argus.batch_analysis.tasks.train_system_task as train_system_task
+import argus.batch_analysis.tasks.run_system_task as run_system_task
+import argus.batch_analysis.tasks.benchmark_trial_task as benchmark_task
+import argus.batch_analysis.tasks.compare_trials_task as compare_trials_task
+import argus.batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
 
 
 class TaskManager:
@@ -281,7 +281,7 @@ class TaskManager:
         :param task: The task object to run, must be an instance of Task returned by the above get methods
         :return: void
         """
-        if isinstance(task, batch_analysis.task.Task) and task.identifier is None and task.is_unstarted:
+        if isinstance(task, argus.batch_analysis.task.Task) and task.identifier is None and task.is_unstarted:
             existing_query = {}
             # Each different task type has a different set of properties that identify it.
             if isinstance(task, import_dataset_task.ImportDatasetTask):
@@ -326,7 +326,7 @@ class TaskManager:
         """
         # First, check the jobs that should already be running on this node
         all_running = self._collection.find({
-            'state': batch_analysis.task.JobState.RUNNING.value,
+            'state': argus.batch_analysis.task.JobState.RUNNING.value,
             'node_id': job_system.node_id
         })
         for s_running in all_running:
@@ -337,7 +337,7 @@ class TaskManager:
                 task_entity.save_updates(self._collection)
 
         # Then, schedule all the unscheduled tasks that we are configured to allow
-        all_unscheduled = self._collection.find({'state': batch_analysis.task.JobState.UNSTARTED.value})
+        all_unscheduled = self._collection.find({'state': argus.batch_analysis.task.JobState.UNSTARTED.value})
         for s_unscheduled in all_unscheduled:
             task_entity = self._db_client.deserialize_entity(s_unscheduled)
             if ((isinstance(task_entity, import_dataset_task.ImportDatasetTask) and self._allow_import_dataset) or

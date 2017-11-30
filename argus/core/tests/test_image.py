@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
-import util.transform as tf
-import util.dict_utils as du
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import core.image as im
+import argus.util.transform as tf
+import argus.util.dict_utils as du
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.core.image as im
 
 
 class TestImage(unittest.TestCase):

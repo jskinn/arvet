@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class ImportDatasetTask(batch_analysis.task.Task):
+class ImportDatasetTask(argus.batch_analysis.task.Task):
     """
     A task for importing a dataset. Result will be an image source id
     """

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # Copyright (c) 2017, John Skinner
 import bson
-import config.global_configuration as global_conf
-import database.client
-import core.image
+import argus.config.global_configuration as global_conf
+import argus.database.client
+import argus.core.image
 import cv2
 
 
@@ -15,14 +15,14 @@ def visualize_dataset(db_client, dataset_id):
             while not image_source.is_complete():
                 image, _ = image_source.get_next_image()
                 cv2.imshow('rgb', image.data[:, :, ::-1])
-                if isinstance(image, core.image.StereoImage):
+                if isinstance(image, argus.core.image.StereoImage):
                     cv2.imshow('right', image.right_data[:, :, ::-1])
                 cv2.waitKey(100)
 
 
 def visualize_generated_dataset(db_client):
     generate_tasks = db_client.tasks_collection.find({
-        '_type': 'batch_analysis.tasks.generate_dataset_task.GenerateDatasetTask', 'state': 2}).limit(2)
+        '_type': 'argus.batch_analysis.tasks.generate_dataset_task.GenerateDatasetTask', 'state': 2}).limit(2)
     for s_generate_task in generate_tasks:
         task = db_client.deserialize_entity(s_generate_task)
         result_ids = task.result
@@ -40,7 +40,7 @@ def main():
     :return:
     """
     config = global_conf.load_global_config('config.yml')
-    db_client = database.client.DatabaseClient(config=config)
+    db_client = argus.database.client.DatabaseClient(config=config)
 
     visualize_dataset(db_client, bson.ObjectId("5a00854936ed1e1fa9a4ae19"))
 

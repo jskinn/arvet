@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import database.client
-import core.system
-import core.trained_system
-import util.dict_utils as du
+import argus.database.client
+import argus.core.system
+import argus.core.trained_system
+import argus.util.dict_utils as du
 
 
 def test_vision_system(system, database_client, config=None):
@@ -32,7 +32,7 @@ def test_vision_system(system, database_client, config=None):
             'dataset': dataset.identifier,
             'system': system.identifier
         }
-        if isinstance(system, core.trained_system.TrainedVisionSystem):
+        if isinstance(system, argus.core.trained_system.TrainedVisionSystem):
             existing_trials_criteria['trained_state'] = system.trained_state
         num_existing_trials = database_client.trials_collection.find(existing_trials_criteria).count()
 
@@ -47,8 +47,8 @@ def test_vision_system(system, database_client, config=None):
 
 
 def test_trained_vision_system(system, database_client, config=None):
-    if (not isinstance(system, core.trained_system.TrainedVisionSystem) or
-            not isinstance(database_client, database.client.DatabaseClient)):
+    if (not isinstance(system, argus.core.trained_system.TrainedVisionSystem) or
+            not isinstance(database_client, argus.database.client.DatabaseClient)):
         return
 
     # Load and store all the state ids, to get around the cursor timing out.

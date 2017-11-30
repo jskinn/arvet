@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import pickle
 import bson
-import core.trial_result
+import argus.core.trial_result
 
 
-class SLAMTrialResult(core.trial_result.TrialResult):
+class SLAMTrialResult(argus.core.trial_result.TrialResult):
     """
     The results of running a Monocular SLAM system.
     Has the ground truth and computed trajectories,

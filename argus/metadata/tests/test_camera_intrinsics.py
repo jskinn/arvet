@@ -1,7 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
-import metadata.camera_intrinsics as cam_intr
+import argus.metadata.camera_intrinsics as cam_intr
 
 
 class TestImageMetadata(unittest.TestCase):

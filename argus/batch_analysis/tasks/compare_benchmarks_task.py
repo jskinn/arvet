@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class CompareBenchmarksTask(batch_analysis.task.Task):
+class CompareBenchmarksTask(argus.batch_analysis.task.Task):
     """
     A task for comparing two benchmark results against each other. Result is a BenchmarkComparison id
     """
@@ -27,7 +27,7 @@ class CompareBenchmarksTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dh
+        import argus.util.database_helpers as dh
 
         benchmark_result_1 = dh.load_object(db_client, db_client.results_collection, self.benchmark_result1)
         benchmark_result_2 = dh.load_object(db_client, db_client.results_collection, self.benchmark_result2)

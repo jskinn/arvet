@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import copy
-import core.trial_result
+import argus.core.trial_result
 
 
-class LoopClosureTrialResult(core.trial_result.TrialResult):
+class LoopClosureTrialResult(argus.core.trial_result.TrialResult):
     """
     The results of running a place recognition system.
     That is, a confusion matrix of place identification probabilities (I think)

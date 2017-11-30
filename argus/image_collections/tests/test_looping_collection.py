@@ -4,16 +4,16 @@ import unittest.mock as mock
 import numpy as np
 import pymongo.collection
 import bson.objectid
-import database.tests.test_entity
-import metadata.image_metadata as imeta
-import core.image
-import core.sequence_type
-import core.image_collection
-import image_collections.looping_collection as looper
-import util.dict_utils as du
+import argus.database.tests.test_entity
+import argus.metadata.image_metadata as imeta
+import argus.core.image
+import argus.core.sequence_type
+import argus.core.image_collection
+import argus.image_collections.looping_collection as looper
+import argus.util.dict_utils as du
 
 
-class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestAugmentedCollection(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return looper.LoopingCollection
@@ -22,7 +22,7 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
         kwargs = du.defaults(kwargs, {
             'inner': make_image_collection(),
             'repeats': 3,
-            'type_override': core.sequence_type.ImageSequenceType.SEQUENTIAL
+            'type_override': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL
         })
         return looper.LoopingCollection(*args, **kwargs)
 
@@ -45,14 +45,14 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
         db_client = super().create_mock_db_client()
         db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection)
         db_client.image_source_collection.find_one.side_effect = lambda q: {
-            '_type': 'core.image_collection.ImageCollection',
+            '_type': 'argus.core.image_collection.ImageCollection',
             '_id': q['_id']
         }
         db_client.deserialize_entity.side_effect = mock_deserialize_entity
         return db_client
 
     def test_begin_calls_begin_on_inner(self):
-        inner = mock.create_autospec(core.image_collection.ImageCollection)
+        inner = mock.create_autospec(argus.core.image_collection.ImageCollection)
         inner.get_next_image.return_value = (make_image(), 10)
         subject = looper.LoopingCollection(inner, 3)
         subject.begin()
@@ -110,11 +110,11 @@ class TestAugmentedCollection(database.tests.test_entity.EntityContract, unittes
         self.assertTrue(subject.is_complete())
 
     def test_can_override_sequence_type(self):
-        inner = mock.create_autospec(core.image_collection.ImageCollection)
+        inner = mock.create_autospec(argus.core.image_collection.ImageCollection)
         inner.get_next_image.return_value = (make_image(), 10)
-        inner.sequence_type.return_value = core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-        subject = looper.LoopingCollection(inner, 3, type_override=core.sequence_type.ImageSequenceType.SEQUENTIAL)
-        self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, subject.sequence_type)
+        inner.sequence_type.return_value = argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+        subject = looper.LoopingCollection(inner, 3, type_override=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL)
+        self.assertEqual(argus.core.sequence_type.ImageSequenceType.SEQUENTIAL, subject.sequence_type)
 
     def assertNPEqual(self, arr1, arr2):
         self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
@@ -139,20 +139,20 @@ def make_image(**kwargs):
         'data': data,
         'metadata': imeta.ImageMetadata(**metadata_kwargs)
     })
-    return core.image.Image(**kwargs)
+    return argus.core.image.Image(**kwargs)
 
 
 def make_image_collection(**kwargs):
     if 'images' not in kwargs:
         kwargs['images'] = {1: make_image()}
     du.defaults(kwargs, {
-        'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        'type_': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
         'id_': bson.ObjectId()
     })
-    return core.image_collection.ImageCollection(**kwargs)
+    return argus.core.image_collection.ImageCollection(**kwargs)
 
 
 def mock_deserialize_entity(s_entity):
-    if s_entity['_type'] == 'core.image_collection.ImageCollection':
+    if s_entity['_type'] == 'argus.core.image_collection.ImageCollection':
         return make_image_collection(id_=s_entity['_id'])
     return None

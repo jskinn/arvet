@@ -4,7 +4,7 @@ import unittest.mock as mock
 import os
 import time
 import yaml
-import config.global_configuration as global_conf
+import argus.config.global_configuration as global_conf
 
 
 class TestGlobalConfiguration(unittest.TestCase):
@@ -12,26 +12,26 @@ class TestGlobalConfiguration(unittest.TestCase):
     def test_save_global_config_writes_to_file(self):
         mock_open = mock.mock_open()
         filename = 'test_config_file_1'
-        with mock.patch('config.global_configuration.open', mock_open, create=True):
+        with mock.patch('argus.config.global_configuration.open', mock_open, create=True):
             global_conf.save_global_config(filename, {'a': 1})
         self.assertTrue(mock_open.called)
         self.assertEqual(filename, mock_open.call_args[0][0])
 
-    @mock.patch('config.global_configuration.yaml.load', autospec=yaml.load)
-    @mock.patch('config.global_configuration.os.path.isfile', autospec=os.path.isfile)
+    @mock.patch('argus.config.global_configuration.yaml.load', autospec=yaml.load)
+    @mock.patch('argus.config.global_configuration.os.path.isfile', autospec=os.path.isfile)
     def test_load_global_config_reads_config_file_if_available(self, mock_isfile, mock_yaml_load):
         mock_isfile.return_value = True
         mock_yaml_load.return_value = {}
         mock_open = mock.mock_open()
         filename = 'test_config_file_2'
-        with mock.patch('config.global_configuration.open', mock_open, create=True):
+        with mock.patch('argus.config.global_configuration.open', mock_open, create=True):
             global_conf.load_global_config(filename)
         self.assertTrue(mock_open.called)
         self.assertEqual(filename, mock_open.call_args[0][0])
 
-    @mock.patch('config.global_configuration.save_global_config', autospec=global_conf.save_global_config)
-    @mock.patch('config.global_configuration.yaml.load', autospec=yaml.load)
-    @mock.patch('config.global_configuration.os.path.isfile', autospec=os.path.isfile)
+    @mock.patch('argus.config.global_configuration.save_global_config', autospec=global_conf.save_global_config)
+    @mock.patch('argus.config.global_configuration.yaml.load', autospec=yaml.load)
+    @mock.patch('argus.config.global_configuration.os.path.isfile', autospec=os.path.isfile)
     def test_load_global_config_saves_config_file_if_not_available(self, mock_isfile, mock_yaml_load, mock_save):
         mock_isfile.return_value = False
         mock_yaml_load.return_value = {}
@@ -40,31 +40,31 @@ class TestGlobalConfiguration(unittest.TestCase):
         self.assertTrue(mock_save.called)
         self.assertEqual(filename, mock_save.call_args[0][0])
 
-    @mock.patch('config.global_configuration.save_global_config', autospec=global_conf.save_global_config)
-    @mock.patch('config.global_configuration.yaml.load', autospec=yaml.load)
-    @mock.patch('config.global_configuration.os.path.isfile', autospec=os.path.isfile)
+    @mock.patch('argus.config.global_configuration.save_global_config', autospec=global_conf.save_global_config)
+    @mock.patch('argus.config.global_configuration.yaml.load', autospec=yaml.load)
+    @mock.patch('argus.config.global_configuration.os.path.isfile', autospec=os.path.isfile)
     def test_load_global_config_does_not_save_config_file_if_available(self, mock_isfile, mock_yaml_load, mock_save):
         mock_isfile.return_value = True
         mock_yaml_load.return_value = {}
         filename = 'test_config_file_4'
-        with mock.patch('config.global_configuration.open', mock.mock_open(), create=True):
+        with mock.patch('argus.config.global_configuration.open', mock.mock_open(), create=True):
             global_conf.load_global_config(filename)
         self.assertFalse(mock_save.called)
 
-    @mock.patch('config.global_configuration.time.sleep', autospec=time.sleep)
-    @mock.patch('config.global_configuration.yaml.load', autospec=yaml.load)
-    @mock.patch('config.global_configuration.os.path.isfile', autospec=os.path.isfile)
+    @mock.patch('argus.config.global_configuration.time.sleep', autospec=time.sleep)
+    @mock.patch('argus.config.global_configuration.yaml.load', autospec=yaml.load)
+    @mock.patch('argus.config.global_configuration.os.path.isfile', autospec=os.path.isfile)
     def test_load_global_config_waits_and_retries_three_times_if_load_failed(self, mock_isfile, mock_yaml_load,
                                                                              mock_sleep):
         mock_isfile.return_value = True
         mock_yaml_load.return_value = None
-        with mock.patch('config.global_configuration.open', mock.mock_open(), create=True):
+        with mock.patch('argus.config.global_configuration.open', mock.mock_open(), create=True):
             global_conf.load_global_config('test_config_file_5')
         self.assertEqual(3, mock_yaml_load.call_count)
         self.assertEqual(3, mock_sleep.call_count)
 
-    @mock.patch('config.global_configuration.yaml.load', autospec=yaml.load)
-    @mock.patch('config.global_configuration.os.path.isfile', autospec=os.path.isfile)
+    @mock.patch('argus.config.global_configuration.yaml.load', autospec=yaml.load)
+    @mock.patch('argus.config.global_configuration.os.path.isfile', autospec=os.path.isfile)
     def test_load_global_config_returns_read_config_merged_with_defaults(self, mock_isfile, mock_yaml_load):
         mock_isfile.return_value = True
         config = {
@@ -86,7 +86,7 @@ class TestGlobalConfiguration(unittest.TestCase):
             }
         }
         mock_yaml_load.return_value = config
-        with mock.patch('config.global_configuration.open', mock.mock_open(), create=True):
+        with mock.patch('argus.config.global_configuration.open', mock.mock_open(), create=True):
             result = global_conf.load_global_config('test_config_file_6')
         for key, val in config.items():
             self.assertIn(key, result)

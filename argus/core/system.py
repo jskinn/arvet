@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.entity
+import argus.database.entity
 
 
-class VisionSystem(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
+class VisionSystem(argus.database.entity.Entity, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     A Vision system, something that will be run, benchmarked, and analysed by this program.
     This is the standard interface that everything must implement to work with this system.

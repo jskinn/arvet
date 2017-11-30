@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import abc
-import util.dict_utils as du
-import database.client
-import database.entity
-import database.entity_registry as reg
-import database.tests.mock_database_client as mock_db_client_fac
+import argus.util.dict_utils as du
+import argus.database.client
+import argus.database.entity
+import argus.database.entity_registry as reg
+import argus.database.tests.mock_database_client as mock_db_client_fac
 
 
 class EntityContract(metaclass=abc.ABCMeta):
@@ -16,7 +16,7 @@ class EntityContract(metaclass=abc.ABCMeta):
         Get the entity class under test
         :return:
         """
-        return database.entity.Entity
+        return argus.database.entity.Entity
 
     @abc.abstractmethod
     def make_instance(self, *args, **kwargs):
@@ -125,13 +125,13 @@ class EntityContract(metaclass=abc.ABCMeta):
 class TestEntity(EntityContract, unittest.TestCase):
 
     def get_class(self):
-        return database.entity.Entity
+        return argus.database.entity.Entity
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'id_': 1
         })
-        return database.entity.Entity(*args, **kwargs)
+        return argus.database.entity.Entity(*args, **kwargs)
 
     def assert_models_equal(self, model1, model2):
         self.assertEqual(model1.identifier, model2.identifier)

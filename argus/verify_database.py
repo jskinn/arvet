@@ -7,12 +7,12 @@ import traceback
 import numpy as np
 import pymongo.collection
 import cv2
-import config.global_configuration as global_conf
-import database.client
-import database.entity_registry
+import argus.config.global_configuration as global_conf
+import argus.database.client
+import argus.database.entity_registry
 
 
-def remove_orphan_images(db_client: database.client.DatabaseClient, dry_run=False):
+def remove_orphan_images(db_client: argus.database.client.DatabaseClient, dry_run=False):
     """
     Remove all the images that don't appear in an image collection
     :param db_client: The database client
@@ -31,7 +31,7 @@ def remove_orphan_images(db_client: database.client.DatabaseClient, dry_run=Fals
         db_client.image_collection.remove({'_id': {'$nin': list(image_ids)}})
 
 
-def recalculate_derivative_metadata(db_client: database.client.DatabaseClient):
+def recalculate_derivative_metadata(db_client: argus.database.client.DatabaseClient):
     """
     Update the images in the database to
     :return:
@@ -51,7 +51,7 @@ def recalculate_derivative_metadata(db_client: database.client.DatabaseClient):
                 })
 
 
-def check_collection(collection: pymongo.collection.Collection, db_client: database.client.DatabaseClient):
+def check_collection(collection: pymongo.collection.Collection, db_client: argus.database.client.DatabaseClient):
     """
     Check all the entities in a collection
     :param collection:
@@ -62,7 +62,7 @@ def check_collection(collection: pymongo.collection.Collection, db_client: datab
     for s_entity in all_entities:
         # patch the entity type if appropriate
         if '.' not in s_entity['_type']:
-            qual_types = database.entity_registry.find_potential_entity_classes(s_entity['_type'])
+            qual_types = argus.database.entity_registry.find_potential_entity_classes(s_entity['_type'])
             if len(qual_types) == 1 and qual_types[0] != s_entity['_type']:
                 logging.getLogger(__name__).error("Entity {0} had unqualified type {1}".format(
                     s_entity['_id'], s_entity['_type']))
@@ -90,7 +90,7 @@ def main(check_collections: bool = True, remove_orphans: bool = False, recalcula
     config = global_conf.load_global_config('config.yml')
     if __name__ == '__main__':
         logging.config.dictConfig(config['logging'])
-    db_client = database.client.DatabaseClient(config=config)
+    db_client = argus.database.client.DatabaseClient(config=config)
 
     if remove_orphans:
         remove_orphan_images(db_client)

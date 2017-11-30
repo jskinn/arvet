@@ -1,5 +1,5 @@
 # Copyright (c) 2017, John Skinner
-import database.entity
+import argus.database.entity
 import enum
 
 
@@ -24,7 +24,7 @@ class TaskType(enum.Enum):
     COMPARE_BENCHMARKS = 7
 
 
-class Task(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
+class Task(argus.database.entity.Entity, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     A Task entity tracks performing a specific task.
     The only two properties you should use here are 'is_finished' and 'result',

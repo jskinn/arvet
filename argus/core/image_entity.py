@@ -3,13 +3,13 @@ import xxhash
 import numpy as np
 import copy
 import pickle
-import database.entity
-import util.database_helpers as db_help
-import metadata.image_metadata as imeta
-import core.image
+import argus.database.entity
+import argus.util.database_helpers as db_help
+import argus.metadata.image_metadata as imeta
+import argus.core.image
 
 
-class ImageEntity(core.image.Image, database.entity.Entity):
+class ImageEntity(argus.core.image.Image, argus.database.entity.Entity):
 
     def __init__(self, data_id=None, depth_id=None, ground_truth_depth_id=None, labels_id=None, world_normals_id=None,
                  **kwargs):
@@ -100,7 +100,7 @@ class ImageEntity(core.image.Image, database.entity.Entity):
         return super().deserialize(serialized_representation, db_client, **kwargs)
 
 
-class StereoImageEntity(core.image.StereoImage, ImageEntity):
+class StereoImageEntity(argus.core.image.StereoImage, ImageEntity):
 
     def __init__(self, left_data_id=None, left_depth_id=None, left_ground_truth_depth_id=None,
                  left_labels_id=None, left_world_normals_id=None,
@@ -231,7 +231,7 @@ def image_to_entity(image):
     """
     if isinstance(image, ImageEntity):
         return image
-    elif isinstance(image, core.image.StereoImage):
+    elif isinstance(image, argus.core.image.StereoImage):
         return StereoImageEntity(left_data=image.left_data,
                                  right_data=image.right_data,
                                  metadata=image.metadata,
@@ -244,7 +244,7 @@ def image_to_entity(image):
                                  right_ground_truth_depth_data=image.right_ground_truth_depth_data,
                                  right_labels_data=image.right_labels_data,
                                  right_world_normals_data=image.right_world_normals_data)
-    elif isinstance(image, core.image.Image):
+    elif isinstance(image, argus.core.image.Image):
         return ImageEntity(data=image.data,
                            metadata=image.metadata,
                            additional_metadata=image.additional_metadata,
@@ -266,7 +266,7 @@ def save_image(db_client, image):
     :return: the id of the image in the database
     """
     if not isinstance(image, ImageEntity):
-        if isinstance(image, core.image.Image):
+        if isinstance(image, argus.core.image.Image):
             image = image_to_entity(image)
         else:
             return None

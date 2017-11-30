@@ -3,12 +3,12 @@ import copy
 import typing
 import bson
 import pymongo.collection
-import database.entity
-import database.client
+import argus.database.entity
+import argus.database.client
 
 
-def load_object(db_client: database.client.DatabaseClient, collection: pymongo.collection.Collection,
-                id_: bson.ObjectId, **kwargs) -> typing.Union[None, database.entity.Entity]:
+def load_object(db_client: argus.database.client.DatabaseClient, collection: pymongo.collection.Collection,
+                id_: bson.ObjectId, **kwargs) -> typing.Union[None, argus.database.entity.Entity]:
     """
     Shorthand helper for pulling a single entity from the database.
     This just saves us creating temporaries for serialized objects all the time,
@@ -60,7 +60,7 @@ def query_to_dot_notation(query: dict, flatten_arrays: bool = False) -> dict:
     return query
 
 
-def add_unique(collection: pymongo.collection.Collection, entity: database.entity.Entity) -> bson.ObjectId:
+def add_unique(collection: pymongo.collection.Collection, entity: argus.database.entity.Entity) -> bson.ObjectId:
     """
     Add an object to a collection, if that object does not already exist.
     Treats the entire serialized object as the key, if only one entry is different, they're different objects.
@@ -86,7 +86,7 @@ def add_schema_version(serialized: dict, schema_name: str, version_number: int):
     """
     Add a schema version to a serialized representation. This lets us handle patching and updating dynamically.
     All schemas have a unique name, and a given document may have multiple schemas due to it's inheritance hierarchy.
-    For instance, A robot vision system will have schemas for base database.entity.Entity, core.system.VisionSystem,
+    For instance, A robot vision system will have schemas for base argus.database.entity.Entity, argus.core.system.VisionSystem,
     and then a third schema for data specific to that system.
     Using this method gives us a standardized way of storing schema versions in the serialized document,
     and helps prevent collisions between the version numbers for different partial schema on the same document.

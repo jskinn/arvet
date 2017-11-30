@@ -1,7 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import training.image_sampler
+import argus.training.image_sampler
 
 
 class MockImageSource:
@@ -30,12 +30,12 @@ class TestImageSampler(unittest.TestCase):
     def test_constructor_splits_existing_image_sources(self):
         image_source_1 = MockImageSource(range(0, 10))
         image_source_2 = MockImageSource(range(100, 110))
-        subject = training.image_sampler.ImageSampler((image_source_1, image_source_2), default_validation_fraction=0.3)
+        subject = argus.training.image_sampler.ImageSampler((image_source_1, image_source_2), default_validation_fraction=0.3)
         self.assertEqual(14, subject.num_training)
         self.assertEqual(6, subject.num_validation)
 
     def test_augmenters_increase_data(self):
-        subject = training.image_sampler.ImageSampler(
+        subject = argus.training.image_sampler.ImageSampler(
             image_sources=(MockImageSource(range(0, 10)),),
             augmenters=(lambda x: x + 10, lambda x: x + 20),
             default_validation_fraction=0.3
@@ -45,7 +45,7 @@ class TestImageSampler(unittest.TestCase):
         self.assertEqual(9, subject.num_validation)
 
     def test_augmenters_can_be_objects(self):
-        subject = training.image_sampler.ImageSampler(
+        subject = argus.training.image_sampler.ImageSampler(
             image_sources=(MockImageSource(range(0, 10)),),
             augmenters=(MockAugmenter(),),
             default_validation_fraction=0
@@ -54,7 +54,7 @@ class TestImageSampler(unittest.TestCase):
         self.assertIn(13, {subject.get(idx) for idx in range(subject.num_training)})
 
     def test_same_value_doesnt_appear_in_training_and_validation(self):
-        subject = training.image_sampler.ImageSampler(
+        subject = argus.training.image_sampler.ImageSampler(
             image_sources=(MockImageSource(range(0, 10)),),
             augmenters=(lambda x: x + 10, lambda x: x + 20),
             default_validation_fraction=0.3
@@ -65,7 +65,7 @@ class TestImageSampler(unittest.TestCase):
             self.assertNotIn(subject.get_validation(idx) % 10, training_values)
 
     def test_get_raises_index_error_when_out_of_range(self):
-        subject = training.image_sampler.ImageSampler(
+        subject = argus.training.image_sampler.ImageSampler(
             image_sources=(MockImageSource(range(0, 10)),),
             default_validation_fraction=0.3, loop=False
         )
@@ -79,7 +79,7 @@ class TestImageSampler(unittest.TestCase):
             subject.get_validation(100)
 
     def test_loop_allows_out_of_range_indexing(self):
-        subject = training.image_sampler.ImageSampler(
+        subject = argus.training.image_sampler.ImageSampler(
             image_sources=(MockImageSource(range(0, 10)),),
             default_validation_fraction=0.3, loop=True
         )
@@ -92,7 +92,7 @@ class TestImageSampler(unittest.TestCase):
         image_source_1 = MockImageSource(range(0, 10))
         image_source_2 = MockImageSource(range(10, 20))
         image_source_3 = MockImageSource(range(20, 30))
-        subject = training.image_sampler.ImageSampler((image_source_1, image_source_2, image_source_3),
+        subject = argus.training.image_sampler.ImageSampler((image_source_1, image_source_2, image_source_3),
                                                       default_validation_fraction=0.3)
         training_values = {subject.get(idx) for idx in range(subject.num_training)}
         validation_values = {subject.get_validation(idx) for idx in range(subject.num_validation)}
@@ -108,7 +108,7 @@ class TestImageSampler(unittest.TestCase):
         self.assertEqual({i for i in range(0, 30)}, training_values | validation_values)
 
     def test_shuffle_changes_order(self):
-        subject = training.image_sampler.ImageSampler(
+        subject = argus.training.image_sampler.ImageSampler(
             image_sources=(MockImageSource(range(0, 10)),),
             default_validation_fraction=0.3, loop=True
         )
@@ -122,7 +122,7 @@ class TestImageSampler(unittest.TestCase):
         image_source_1 = mock.create_autospec(MockImageSource(range(0, 10)))
         image_source_2 = mock.create_autospec(MockImageSource(range(10, 20)))
         image_source_3 = mock.create_autospec(MockImageSource(range(20, 30)))
-        subject = training.image_sampler.ImageSampler((image_source_1, image_source_2, image_source_3),
+        subject = argus.training.image_sampler.ImageSampler((image_source_1, image_source_2, image_source_3),
                                                       default_validation_fraction=0.3)
         self.assertFalse(image_source_1.begin.called)
         self.assertFalse(image_source_2.begin.called)

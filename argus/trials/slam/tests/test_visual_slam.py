@@ -2,15 +2,15 @@
 import unittest
 import numpy as np
 import pickle
-import database.tests.test_entity
-import util.dict_utils as du
-import util.transform as tf
-import core.sequence_type
-import trials.slam.visual_slam as vs
-import trials.slam.tracking_state as ts
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.core.sequence_type
+import argus.trials.slam.visual_slam as vs
+import argus.trials.slam.tracking_state as ts
 
 
-class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestSLAMTrialResult(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return vs.SLAMTrialResult
@@ -33,7 +33,7 @@ class TestSLAMTrialResult(database.tests.test_entity.EntityContract, unittest.Te
                 np.random.uniform(0, 600): states[np.random.randint(0, len(states))]
                 for _ in range(100)
             },
-            'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+            'sequence_type': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
             }

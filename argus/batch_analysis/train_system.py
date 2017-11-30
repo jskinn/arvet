@@ -1,7 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import copy
-import util.dict_utils
-import util.database_helpers
+import argus.util.dict_utils as du
+import argus.util.database_helpers as dh
 
 
 def train_system(trainer, db_client, consolidated_folder, settings_variations, dataset_variations):
@@ -19,11 +19,11 @@ def train_system(trainer, db_client, consolidated_folder, settings_variations, d
 
         for dataset_criteria in dataset_variations:
             dataset_ids = db_client.dataset_collection.find(
-                util.dict_utils.defaults(trainer.get_training_dataset_criteria(), dataset_criteria), {'_id': True})
+                du.defaults(trainer.get_training_dataset_criteria(), dataset_criteria), {'_id': True})
             dataset_ids = [temp['_id'] for temp in dataset_ids]
 
             # Make sure this trained state doesn't already exist.
-            existing_query = util.database_helpers.query_to_dot_notation({'settings': copy.deepcopy(system_config)})
+            existing_query = dh.query_to_dot_notation({'settings': copy.deepcopy(system_config)})
             existing_query['datasets'] = {'$all': dataset_ids}
             existing_count = db_client.trained_state_collection.find(existing_query).count()
 
@@ -42,7 +42,7 @@ def train_system(trainer, db_client, consolidated_folder, settings_variations, d
                 trained_state.consolidate_files(consolidated_folder)
 
                 # store the updated filenames in the database,
-                update_query = util.database_helpers.query_to_dot_notation(trained_state.serialize())
+                update_query = dh.query_to_dot_notation(trained_state.serialize())
                 del update_query['_id']     # Cannot update the id
                 update_query = {'$set': update_query}
                 db_client.trained_state_collection.update({'_id': id_}, update_query)

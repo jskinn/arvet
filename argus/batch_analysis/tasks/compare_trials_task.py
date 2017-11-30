@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class CompareTrialTask(batch_analysis.task.Task):
+class CompareTrialTask(argus.batch_analysis.task.Task):
     """
     A task for comparing two trial results against each other. Result is a TrialComparison id
     """
@@ -27,7 +27,7 @@ class CompareTrialTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dh
+        import argus.util.database_helpers as dh
 
         trial_result_1 = dh.load_object(db_client, db_client.trials_collection, self.trial_result1)
         trial_result_2 = dh.load_object(db_client, db_client.trials_collection, self.trial_result2)

@@ -1,17 +1,17 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import core.sequence_type
-import util.transform as tf
-import simulation.simulator
-import simulation.controllers.combinatorial_sampling_controller as comb_controller
+import argus.core.sequence_type
+import argus.util.transform as tf
+import argus.simulation.simulator
+import argus.simulation.controllers.combinatorial_sampling_controller as comb_controller
 
 
 class TestCombinatorialSampleController(unittest.TestCase):
 
     def test_sequence_type_is_nonsequential(self):
         subject = comb_controller.CombinatorialSampleController(10, 10, 10, 0.5, 0.5, 0.5)
-        self.assertEqual(core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, subject.sequence_type)
+        self.assertEqual(argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, subject.sequence_type)
 
     def test_is_depth_available_false_without_sim(self):
         subject = comb_controller.CombinatorialSampleController(10, 10, 10, 0.5, 0.5, 0.5)
@@ -134,5 +134,5 @@ class TestCombinatorialSampleController(unittest.TestCase):
 
 
 def create_mock_simulator():
-    mock_simulator = mock.create_autospec(simulation.simulator.Simulator)
+    mock_simulator = mock.create_autospec(argus.simulation.simulator.Simulator)
     return mock_simulator

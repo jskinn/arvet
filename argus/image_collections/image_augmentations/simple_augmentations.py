@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import numpy as np
 import xxhash
-import core.image
-import metadata.image_metadata as imeta
-import image_collections.augmented_collection as aug_coll
+import argus.core.image
+import argus.metadata.image_metadata as imeta
+import argus.image_collections.augmented_collection as aug_coll
 
 
 class HorizontalFlip(aug_coll.ImageAugmenter):
@@ -26,7 +26,7 @@ class HorizontalFlip(aug_coll.ImageAugmenter):
                                           [0, 0, 1]])
         if image.metadata.affine_transformation_matrix is not None:
             transformation_matrix = np.dot(transformation_matrix, image.metadata.affine_transformation_matrix)
-        return core.image.Image(
+        return argus.core.image.Image(
             data=flipped_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(flipped_data)).digest(),
@@ -67,7 +67,7 @@ class VerticalFlip(aug_coll.ImageAugmenter):
                                           [0, 0, 1]])
         if image.metadata.affine_transformation_matrix is not None:
             transformation_matrix = np.dot(transformation_matrix, image.metadata.affine_transformation_matrix)
-        return core.image.Image(
+        return argus.core.image.Image(
             data=flipped_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(flipped_data)).digest(),
@@ -109,7 +109,7 @@ class Rotate90(aug_coll.ImageAugmenter):
                                           [0, 0, 1]])
         if image.metadata.affine_transformation_matrix is not None:
             transformation_matrix = np.dot(transformation_matrix, image.metadata.affine_transformation_matrix)
-        return core.image.Image(
+        return argus.core.image.Image(
             data=rotated_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(rotated_data)).digest(),
@@ -149,7 +149,7 @@ class Rotate180(aug_coll.ImageAugmenter):
                                           [0, 0, 1]])
         if image.metadata.affine_transformation_matrix is not None:
             transformation_matrix = np.dot(transformation_matrix, image.metadata.affine_transformation_matrix)
-        return core.image.Image(
+        return argus.core.image.Image(
             data=rotated_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(rotated_data)).digest(),
@@ -192,7 +192,7 @@ class Rotate270(aug_coll.ImageAugmenter):
                                           [0, 0, 1]])
         if image.metadata.affine_transformation_matrix is not None:
             transformation_matrix = np.dot(transformation_matrix, image.metadata.affine_transformation_matrix)
-        return core.image.Image(
+        return argus.core.image.Image(
             data=rotated_data,
             metadata=image.metadata.clone(
                 hash_=xxhash.xxh64(np.ascontiguousarray(rotated_data)).digest(),

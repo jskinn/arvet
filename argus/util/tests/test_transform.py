@@ -1,7 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
-import util.transform as trans
+import argus.util.transform as trans
 
 
 def _make_quat(axis, theta):

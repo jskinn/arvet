@@ -6,9 +6,9 @@ import traceback
 import pymongo
 import gridfs
 import importlib
-import database.entity
-import database.entity_registry
-import util.dict_utils as du
+import argus.database.entity
+import argus.database.entity_registry
+import argus.util.dict_utils as du
 
 
 class DatabaseClient:
@@ -157,7 +157,7 @@ class DatabaseClient:
                 logging.getLogger(__name__).error("Could not import module {0} containing type {1}:\{2}".format(
                     module_, type_name, traceback.format_exc()))
                 pass
-        entity_type = database.entity_registry.get_entity_type(type_name)
+        entity_type = argus.database.entity_registry.get_entity_type(type_name)
         if entity_type:
             return entity_type.deserialize(s_entity, self, **kwargs)
         raise ValueError("Could not deserialize entity type: {0}, make sure it's imported".format(type_name))

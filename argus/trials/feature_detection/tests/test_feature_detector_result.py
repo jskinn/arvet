@@ -9,11 +9,11 @@ import pickle
 import cv2
 import numpy as np
 
-import core.sequence_type
-import database.tests.test_entity
-import trials.feature_detection.feature_detector_result as feature_result
-import util.dict_utils as du
-import util.transform as tf
+import argus.core.sequence_type
+import argus.database.tests.test_entity
+import argus.trials.feature_detection.feature_detector_result as feature_result
+import argus.util.dict_utils as du
+import argus.util.transform as tf
 
 
 class MockReadable:
@@ -27,7 +27,7 @@ class MockReadable:
         return self._thing_bytes
 
 
-class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestFeatureDetectorResult(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
@@ -55,7 +55,7 @@ class TestFeatureDetectorResult(database.tests.test_entity.EntityContract, unitt
         kwargs = du.defaults(kwargs, {
             'system_id': np.random.randint(10, 20),
             'keypoints': self.keypoints,
-            'sequence_type': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+            'sequence_type': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'system_settings': {
                 'a': np.random.randint(20, 30)
             },

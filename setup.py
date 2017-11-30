@@ -15,5 +15,5 @@ setup(
               'argus.simulation.controllers', 'argus.simulation.unrealcv', 'argus.training', 'argus.trials', 'argus.trials.feature_detection',
               'argus.trials.loop_closure_detection', 'argus.trials.object_detection', 'argus.trials.slam', 'argus.trials.visual_odometry',
               'argus.util'],
-    requires=['pymongo', 'numpy', 'transforms3d', 'mongomock']
+    requires=['pymongo', 'numpy', 'transforms3d', 'mongomock', 'xxhash', 'PyYAML']
 )

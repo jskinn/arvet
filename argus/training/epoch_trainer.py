@@ -1,14 +1,14 @@
 # Copyright (c) 2017, John Skinner
 import itertools
 import numpy as np
-import metadata.image_metadata as imeta
-import core.sequence_type
-import core.trained_system
-import core.image
-import training.image_sampler
+import argus.metadata.image_metadata as imeta
+import argus.core.sequence_type
+import argus.core.trained_system
+import argus.core.image
+import argus.training.image_sampler
 
 
-class EpochTrainer(core.trained_system.VisionSystemTrainer):
+class EpochTrainer(argus.core.trained_system.VisionSystemTrainer):
     """
     A Trainer that performs Deep-learning style epoch-based training.
     This is based on parts of the Keras-FRCNN training approach.
@@ -81,7 +81,7 @@ class EpochTrainer(core.trained_system.VisionSystemTrainer):
         :param potential_trainee: A VisionSystemTrainee that
         :return:
         """
-        return (potential_trainee.required_training_type == core.sequence_type.ImageSequenceType.NON_SEQUENTIAL and
+        return (potential_trainee.required_training_type == argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL and
                 any(potential_trainee.is_image_source_appropriate(image_source)
                     for image_source in self._image_sources))
 
@@ -111,9 +111,9 @@ class EpochTrainer(core.trained_system.VisionSystemTrainer):
 
         # Create a new image sampler to handle shuffling and unify image sources
         # We want the sampler to loop
-        image_sampler = training.image_sampler.ImageSampler(image_sources=image_sources, augmenters=data_augments,
-                                                            loop=True,
-                                                            default_validation_fraction=self._validation_fraction)
+        image_sampler = argus.training.image_sampler.ImageSampler(image_sources=image_sources, augmenters=data_augments,
+                                                                  loop=True,
+                                                                  default_validation_fraction=self._validation_fraction)
 
         # Start training!
         epoch_length = image_sampler.num_training if self._use_image_source_length else self._epoch_length
@@ -247,7 +247,7 @@ class DataAugmenter:
 
 
 def horizontal_flip(image):
-    return core.image.Image(
+    return argus.core.image.Image(
         data=np.fliplr(image.data),
         metadata=image.metadata.clone(
             camera_pose=image.camera_pose,
@@ -271,7 +271,7 @@ def horizontal_flip(image):
 
 
 def vertical_flip(image):
-    return core.image.Image(
+    return argus.core.image.Image(
         data=np.flipud(image.data),
         metadata=image.metadata.clone(
             camera_pose=image.camera_pose,
@@ -295,7 +295,7 @@ def vertical_flip(image):
 
 
 def rotate_90(image):
-    return core.image.Image(
+    return argus.core.image.Image(
         data=np.rot90(image.data, k=1),
         metadata=image.metadata.clone(
             camera_pose=image.camera_pose,
@@ -319,7 +319,7 @@ def rotate_90(image):
 
 
 def rotate_180(image):
-    return core.image.Image(
+    return argus.core.image.Image(
         data=np.rot90(image.data, k=2),
         metadata=image.metadata.clone(
             camera_pose=image.camera_pose,
@@ -343,7 +343,7 @@ def rotate_180(image):
 
 
 def rotate_270(image):
-    return core.image.Image(
+    return argus.core.image.Image(
         data=np.rot90(image.data, k=3),
         metadata=image.metadata.clone(
             camera_pose=image.camera_pose,

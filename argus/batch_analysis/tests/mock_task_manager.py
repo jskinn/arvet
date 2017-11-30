@@ -1,12 +1,12 @@
 import unittest.mock as mock
-import batch_analysis.task_manager
-import batch_analysis.tasks.import_dataset_task as idt
-import batch_analysis.tasks.generate_dataset_task as gdt
-import batch_analysis.tasks.train_system_task as tst
-import batch_analysis.tasks.run_system_task as rst
-import batch_analysis.tasks.benchmark_trial_task as btt
-import batch_analysis.tasks.compare_trials_task as ctt
-import batch_analysis.tasks.compare_benchmarks_task as cbt
+import argus.batch_analysis.task_manager
+import argus.batch_analysis.tasks.import_dataset_task as idt
+import argus.batch_analysis.tasks.generate_dataset_task as gdt
+import argus.batch_analysis.tasks.train_system_task as tst
+import argus.batch_analysis.tasks.run_system_task as rst
+import argus.batch_analysis.tasks.benchmark_trial_task as btt
+import argus.batch_analysis.tasks.compare_trials_task as ctt
+import argus.batch_analysis.tasks.compare_benchmarks_task as cbt
 
 
 class ZombieTaskManager:
@@ -56,7 +56,7 @@ class ZombieTaskManager:
         self._mock_task_manager = mock_task_manager
 
     @property
-    def mock(self) -> batch_analysis.task_manager.TaskManager:
+    def mock(self) -> argus.batch_analysis.task_manager.TaskManager:
         """
         Get the mock task manager this is attached to
         :return:
@@ -226,4 +226,4 @@ def create() -> ZombieTaskManager:
     Use the zombie object itself to construct the initial state, and then inject the mock object.
     :return: A new ZombieTaskManager
     """
-    return ZombieTaskManager(mock.create_autospec(batch_analysis.task_manager.TaskManager))
+    return ZombieTaskManager(mock.create_autospec(argus.batch_analysis.task_manager.TaskManager))

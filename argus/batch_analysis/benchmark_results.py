@@ -1,12 +1,12 @@
 # Copyright (c) 2017, John Skinner
-import database.client
-import core.benchmark
-import util.dict_utils as du
+import argus.database.client
+import argus.core.benchmark
+import argus.util.dict_utils as du
 
 
 def benchmark_results(benchmark, database_client, config=None, trained_state_id=None):
-    if (not isinstance(benchmark, core.benchmark.Benchmark) or
-            not isinstance(database_client, database.client.DatabaseClient)):
+    if (not isinstance(benchmark, argus.core.benchmark.Benchmark) or
+            not isinstance(database_client, argus.database.client.DatabaseClient)):
         return
 
     if config is None:

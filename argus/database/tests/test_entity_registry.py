@@ -1,7 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import database.entity_registry as reg
+import argus.database.entity_registry as reg
 
 
 class MockEntity:

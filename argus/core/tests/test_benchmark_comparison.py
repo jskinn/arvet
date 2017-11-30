@@ -1,14 +1,14 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import util.dict_utils as du
-import database.tests.test_entity as entity_test
-import core.benchmark_comparison
+import argus.util.dict_utils as du
+import argus.database.tests.test_entity as entity_test
+import argus.core.benchmark_comparison
 
 
 class TestBenchmarkComparisonResult(entity_test.EntityContract, unittest.TestCase):
 
     def get_class(self):
-        return core.benchmark_comparison.BenchmarkComparisonResult
+        return argus.core.benchmark_comparison.BenchmarkComparisonResult
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
@@ -17,7 +17,7 @@ class TestBenchmarkComparisonResult(entity_test.EntityContract, unittest.TestCas
             'reference_benchmark_result': 3,
             'success': True
         })
-        return core.benchmark_comparison.BenchmarkComparisonResult(*args, **kwargs)
+        return argus.core.benchmark_comparison.BenchmarkComparisonResult(*args, **kwargs)
 
     def assert_models_equal(self, benchmark_result1, benchmark_result2):
         """
@@ -26,8 +26,8 @@ class TestBenchmarkComparisonResult(entity_test.EntityContract, unittest.TestCas
         :param benchmark_result2: Dataset
         :return:
         """
-        if (not isinstance(benchmark_result1, core.benchmark_comparison.BenchmarkComparisonResult) or
-                not isinstance(benchmark_result2, core.benchmark_comparison.BenchmarkComparisonResult)):
+        if (not isinstance(benchmark_result1, argus.core.benchmark_comparison.BenchmarkComparisonResult) or
+                not isinstance(benchmark_result2, argus.core.benchmark_comparison.BenchmarkComparisonResult)):
             self.fail('object was not a BenchmarkResult')
         self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
         self.assertEqual(benchmark_result1.success, benchmark_result2.success)

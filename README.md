@@ -15,7 +15,7 @@ Several separate nodes can run the code from the same MongoDB database, to distr
 
 ### Creating an experiment
 
-To define an experiment, override `batch_analysis.experiment.Experiment`,
+To define an experiment, override `argus.batch_analysis.experiment.Experiment`,
 in particular the `do_imports`, `schedule_tasks`, and `plot_results` methods.
 - `do_imports` method should import and store references to whatever image datasets
 - `schedule_tasks` indicates which systems should be run with which image datasets, and how each result should be assessed
@@ -36,12 +36,12 @@ Then, run `scheduler.py` repeatedly to incrementally schedule systems to be run 
 Configuration information is stored in config.yml,
 allowing you to specify how to connect and structure data in the MongoDB database,
 which types of tasks to run on this node, what kind of job system should be used to run
-the jobs (see `batch_analysis.job_systems`), and the log output.
+the jobs (see `argus.batch_analysis.job_systems`), and the log output.
 
 ## Structure
 
 - The key abstractions are in the core module, with implementations of the base types in the `benchmarks`, `dataset`, `simulation`, `systems`, and `trials` modules.
-- the `batch_analysis` module contains code to perform analysis based on these abstractions, including defining experiments, the task management system, and the different job systems.
+- the `argus.batch_analysis` module contains code to perform analysis based on these abstractions, including defining experiments, the task management system, and the different job systems.
 - The `database` module contains util code for connecting to the MongoDB database, and saving and loading objects from it.
 - The `metadata` module contains management structures for image metadata, including camera intrinsics, object labels, camera pose, and many other properties. See `metadata.image_metadata` for the full implementation. 
  

@@ -3,9 +3,9 @@ import unittest
 import unittest.mock as mock
 import abc
 import bson.objectid
-import database.tests.test_entity
-import util.dict_utils as du
-import core.trained_system
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.core.trained_system
 
 
 class TrainerContract(metaclass=abc.ABCMeta):
@@ -27,7 +27,7 @@ class TrainerContract(metaclass=abc.ABCMeta):
         can be trained by the trainer.
         :return: An instance of VisionSystemTrainee
         """
-        return mock.create_autospec(core.trained_system.VisionSystemTrainee)
+        return mock.create_autospec(argus.core.trained_system.VisionSystemTrainee)
 
     def test_calls_trainee_in_correct_order(self):
         mock_trainee = self.make_mock_trainee()
@@ -82,7 +82,7 @@ class TrainerContract(metaclass=abc.ABCMeta):
         self.assertEqual(0, open_validating)  # Make sure we start and finish validating the same number of times
 
 
-class MockTrainedSystem(core.trained_system.TrainedVisionSystem):
+class MockTrainedSystem(argus.core.trained_system.TrainedVisionSystem):
     """
     A simple mock for the trained system, with trivial implementations of the abstract methods.
     They're not what is under test here anyway.
@@ -108,7 +108,7 @@ class MockTrainedSystem(core.trained_system.TrainedVisionSystem):
         return None
 
 
-class TestTrainedSystem(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestTrainedSystem(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return MockTrainedSystem
@@ -136,8 +136,8 @@ class TestTrainedSystem(database.tests.test_entity.EntityContract, unittest.Test
         :param trial_result2: Dataset
         :return:
         """
-        if (not isinstance(trial_result1, core.trained_system.TrainedVisionSystem) or
-                not isinstance(trial_result2, core.trained_system.TrainedVisionSystem)):
+        if (not isinstance(trial_result1, argus.core.trained_system.TrainedVisionSystem) or
+                not isinstance(trial_result2, argus.core.trained_system.TrainedVisionSystem)):
             self.fail('object was not a TrainedVisionSystem')
         self.assertEqual(trial_result1.identifier, trial_result2.identifier)
         self.assertEqual(trial_result1.vision_system_trainer, trial_result2.vision_system_trainer)

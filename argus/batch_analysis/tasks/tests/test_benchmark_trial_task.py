@@ -2,13 +2,13 @@
 import unittest
 import numpy as np
 import bson
-import database.tests.test_entity
-import util.dict_utils as du
-import batch_analysis.task
-import batch_analysis.tasks.benchmark_trial_task as task
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.batch_analysis.task
+import argus.batch_analysis.tasks.benchmark_trial_task as task
 
 
-class TestBenchmarkTrialTask(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestBenchmarkTrialTask(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return task.BenchmarkTrialTask
@@ -17,7 +17,7 @@ class TestBenchmarkTrialTask(database.tests.test_entity.EntityContract, unittest
         kwargs = du.defaults(kwargs, {
             'trial_result_id': bson.ObjectId(),
             'benchmark_id': bson.ObjectId(),
-            'state': batch_analysis.task.JobState.RUNNING,
+            'state': argus.batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
             'num_gpus': np.random.randint(0, 1000),
             'memory_requirements': '{}MB'.format(np.random.randint(0, 50000)),

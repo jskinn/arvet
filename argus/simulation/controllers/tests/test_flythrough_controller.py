@@ -1,12 +1,12 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
-import database.tests.test_entity
-import util.dict_utils as du
-import simulation.controllers.flythrough_controller as fly
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.simulation.controllers.flythrough_controller as fly
 
 
-class TestFlythroughController(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestFlythroughController(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return fly.FlythroughController

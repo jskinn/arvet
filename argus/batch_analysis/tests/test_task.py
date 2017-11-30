@@ -4,12 +4,12 @@ import unittest.mock as mock
 import numpy as np
 import bson
 import pymongo.collection
-import database.tests.test_entity
-import util.dict_utils as du
-import batch_analysis.task as task
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.batch_analysis.task as task
 
 
-class TestTask(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestTask(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return task.Task

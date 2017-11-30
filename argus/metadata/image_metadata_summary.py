@@ -1,5 +1,5 @@
 # Copyright (c) 2017, John Skinner
-import metadata.image_metadata as imeta
+import argus.metadata.image_metadata as imeta
 
 
 class ImageMetadataSummaryBuilder:

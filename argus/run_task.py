@@ -6,9 +6,9 @@ import logging.config
 import traceback
 import bson.objectid
 
-import config.global_configuration as global_conf
-import database.client
-import util.database_helpers as dh
+import argus.config.global_configuration as global_conf
+import argus.database.client
+import argus.util.database_helpers as dh
 
 
 def main(*args):
@@ -24,7 +24,7 @@ def main(*args):
         if __name__ == '__main__':
             # Only configure the logging if this is the main function, don't reconfigure
             logging.config.dictConfig(config['logging'])
-        db_client = database.client.DatabaseClient(config=config)
+        db_client = argus.database.client.DatabaseClient(config=config)
 
         task = dh.load_object(db_client, db_client.tasks_collection, task_id)
         if task is not None:

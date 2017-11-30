@@ -1,9 +1,9 @@
 import logging
 import bson
-import database.client
+import argus.database.client
 
 
-def invalidate_image_source(db_client: database.client.DatabaseClient, image_source_id: bson.ObjectId):
+def invalidate_image_source(db_client: argus.database.client.DatabaseClient, image_source_id: bson.ObjectId):
     """
     Invalidate the data associated with a particular image source.
     This cascades to derived trial results, and from there to benchmark results.
@@ -29,7 +29,7 @@ def invalidate_image_source(db_client: database.client.DatabaseClient, image_sou
     logging.getLogger(__name__).info("removed {0} image sources".format(result['n'] if 'n' in result else 0))
 
 
-def invalidate_system(db_client: database.client.DatabaseClient, system_id: bson.ObjectId):
+def invalidate_system(db_client: argus.database.client.DatabaseClient, system_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this system, and remove them
     result = db_client.tasks_collection.remove({'system_id': system_id})
     logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
@@ -44,7 +44,7 @@ def invalidate_system(db_client: database.client.DatabaseClient, system_id: bson
     logging.getLogger(__name__).info("removed {0} systems".format(result['n'] if 'n' in result else 0))
 
 
-def invalidate_trial_result(db_client: database.client.DatabaseClient, trial_result_id: bson.ObjectId):
+def invalidate_trial_result(db_client: argus.database.client.DatabaseClient, trial_result_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this trial result, and remove them
     result = db_client.tasks_collection.remove({'$or': [{'result': trial_result_id},
                                                         {'trial_result_id': trial_result_id},
@@ -62,7 +62,7 @@ def invalidate_trial_result(db_client: database.client.DatabaseClient, trial_res
     logging.getLogger(__name__).info("removed {0} trials".format(result['n'] if 'n' in result else 0))
 
 
-def invalidate_benchmark(db_client: database.client.DatabaseClient, benchmark_id: bson.ObjectId):
+def invalidate_benchmark(db_client: argus.database.client.DatabaseClient, benchmark_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this benchmark, and remove them
     result = db_client.tasks_collection.remove({'$or': [{'benchmark_id': benchmark_id},
                                                         {'comparison_id': benchmark_id},
@@ -80,7 +80,7 @@ def invalidate_benchmark(db_client: database.client.DatabaseClient, benchmark_id
     logging.getLogger(__name__).info("removed {0} benchmarks".format(result['n'] if 'n' in result else 0))
 
 
-def invalidate_benchmark_result(db_client: database.client.DatabaseClient, benchmark_result_id: bson.ObjectId):
+def invalidate_benchmark_result(db_client: argus.database.client.DatabaseClient, benchmark_result_id: bson.ObjectId):
     result = db_client.tasks_collection.remove({'result_id': benchmark_result_id})
     logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
     result = db_client.results_collection.remove({'_id': benchmark_result_id})

@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class RunSystemTask(batch_analysis.task.Task):
+class RunSystemTask(argus.batch_analysis.task.Task):
     """
     A task for running a system with an image source. Result will be a trial result id.
     """
@@ -31,7 +31,7 @@ class RunSystemTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dbhelp
+        import argus.util.database_helpers as dbhelp
 
         system = dbhelp.load_object(db_client, db_client.system_collection, self.system)
         image_source = dbhelp.load_object(db_client, db_client.image_source_collection, self.image_source)

@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 
-import core.image
-import image_collections.image_augmentations.opencv_augmentations as cv_aug
-import metadata.image_metadata as imeta
+import argus.core.image
+import argus.image_collections.image_augmentations.opencv_augmentations as cv_aug
+import argus.metadata.image_metadata as imeta
 import numpy as np
 
 import argus.image_collections.tests.test_augmented_collection as test_augmented
@@ -38,7 +38,7 @@ class TestRotateSimple(test_augmented.ImageAugmenterContract, unittest.TestCase)
 
     def test_repeated_applications_returns_to_original(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,

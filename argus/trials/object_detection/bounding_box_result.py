@@ -1,6 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import bson.objectid as oid
-import core.trial_result
+import argus.core.trial_result
 
 
 class BoundingBox:
@@ -73,7 +73,7 @@ class BoundingBox:
         return cls(**serialized)
 
 
-class BoundingBoxResult(core.trial_result.TrialResult):
+class BoundingBoxResult(argus.core.trial_result.TrialResult):
     """
     Trial result for a object detector producing bounding boxes.
     Contains the list of bounding boxes with class names and confidence; and ground-truth bounding boxes.

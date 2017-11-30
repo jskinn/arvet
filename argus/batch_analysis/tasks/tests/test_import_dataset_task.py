@@ -1,13 +1,13 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
-import database.tests.test_entity
-import util.dict_utils as du
-import batch_analysis.task
-import batch_analysis.tasks.import_dataset_task as task
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.batch_analysis.task
+import argus.batch_analysis.tasks.import_dataset_task as task
 
 
-class TestImportDatasetTask(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestImportDatasetTask(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return task.ImportDatasetTask
@@ -17,7 +17,7 @@ class TestImportDatasetTask(database.tests.test_entity.EntityContract, unittest.
             'module_name': 'datasets.generated.import_generated_dataset',
             'path': 'datasets/TestDataset/',
             'additional_args': {'foo': 'bar'},
-            'state': batch_analysis.task.JobState.RUNNING,
+            'state': argus.batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
             'num_gpus': np.random.randint(0, 1000),
             'memory_requirements': '{}MB'.format(np.random.randint(0, 50000)),

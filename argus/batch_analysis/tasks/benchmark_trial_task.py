@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class BenchmarkTrialTask(batch_analysis.task.Task):
+class BenchmarkTrialTask(argus.batch_analysis.task.Task):
     """
     A task for benchmarking a trial result. Result is a BenchmarkResult id.
     """
@@ -22,7 +22,7 @@ class BenchmarkTrialTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dh
+        import argus.util.database_helpers as dh
 
         trial_result = dh.load_object(db_client, db_client.trials_collection, self.trial_result)
         benchmark = dh.load_object(db_client, db_client.benchmarks_collection, self.benchmark)

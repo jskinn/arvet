@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.entity
-import core.benchmark
+import argus.database.entity
+import argus.core.benchmark
 
 
-class TrialComparison(database.entity.Entity, metaclass=abc.ABCMeta):
+class TrialComparison(argus.database.entity.Entity, metaclass=abc.ABCMeta):
     """
     Some benchmarks and performance measures only make sense when comparing two different trial results,
     that is, by comparing two similar runs and measuring the difference in some way.
@@ -48,7 +48,7 @@ class TrialComparison(database.entity.Entity, metaclass=abc.ABCMeta):
         pass
 
 
-class TrialComparisonResult(core.benchmark.BenchmarkResult):
+class TrialComparisonResult(argus.core.benchmark.BenchmarkResult):
     """
     A general superclass for benchmark results that compare two trials.
     """

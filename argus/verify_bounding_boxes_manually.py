@@ -3,10 +3,10 @@ import sys
 import bson.objectid
 import cv2
 import numpy as np
-import config.global_configuration as global_conf
-import database.client
-import core.image_collection
-import core.image_entity
+import argus.config.global_configuration as global_conf
+import argus.database.client
+import argus.core.image_collection
+import argus.core.image_entity
 
 
 def main(*args):
@@ -22,7 +22,7 @@ def main(*args):
         image_source_id = bson.objectid.ObjectId(args[0])
 
         config = global_conf.load_global_config('config.yml')
-        db_client = database.client.DatabaseClient(config=config)
+        db_client = argus.database.client.DatabaseClient(config=config)
 
         image_source = None
         s_image_source = db_client.image_source_collection.find_one({'_id': image_source_id})

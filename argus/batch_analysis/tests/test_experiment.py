@@ -3,16 +3,16 @@ import unittest
 import unittest.mock as mock
 import pymongo
 import bson
-import core.trial_result
-import core.benchmark
-import core.sequence_type
-import core.tests.mock_types as mock_core
-import batch_analysis.tests.mock_task_manager as mock_manager_factory
-import database.tests.mock_database_client as mock_client_factory
-import database.tests.test_entity
-import database.client
-import util.dict_utils as du
-import batch_analysis.experiment as ex
+import argus.core.trial_result
+import argus.core.benchmark
+import argus.core.sequence_type
+import argus.core.tests.mock_types as mock_core
+import argus.batch_analysis.tests.mock_task_manager as mock_manager_factory
+import argus.database.tests.mock_database_client as mock_client_factory
+import argus.database.tests.test_entity
+import argus.database.client
+import argus.util.dict_utils as du
+import argus.batch_analysis.experiment as ex
 
 
 # A minimal experiment, so we can instantiate the abstract class
@@ -28,17 +28,17 @@ class MockExperiment(ex.Experiment):
         pass
 
 
-class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContract):
+class TestExperiment(unittest.TestCase, argus.database.tests.test_entity.EntityContract):
 
     def setUp(self):
         # Some complete results, so that we can have a non-empty trial map and result map on entity tests
         self.systems = [mock_core.MockSystem()]
         self.image_sources = [mock_core.MockImageSource() for _ in range(2)]
-        self.trial_results = [core.trial_result.TrialResult(
-                    system.identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+        self.trial_results = [argus.core.trial_result.TrialResult(
+                    system.identifier, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
             for _ in self.image_sources for system in self.systems]
         self.benchmarks = [mock_core.MockBenchmark() for _ in range(2)]
-        self.benchmark_results = [core.benchmark.BenchmarkResult(benchmark.identifier, trial_result.identifier, True)
+        self.benchmark_results = [argus.core.benchmark.BenchmarkResult(benchmark.identifier, trial_result.identifier, True)
                                   for benchmark in self.benchmarks for trial_result in self.trial_results]
 
     def get_class(self):
@@ -107,7 +107,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
 
     def test_save_updates_inserts_if_no_id(self):
         new_id = bson.ObjectId()
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_db_client.experiments_collection.insert.return_value = new_id
 
@@ -125,7 +125,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         self.assertEqual(new_id, subject.identifier)
 
     def test_save_updates_stores_accumulated_changes(self):
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
 
         test_id = bson.ObjectId()
@@ -148,7 +148,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         }), mock_db_client.experiments_collection.update.call_args)
 
     def test_save_updates_does_nothing_if_no_changes(self):
-        mock_db_client = mock.create_autospec(database.client.DatabaseClient)
+        mock_db_client = mock.create_autospec(argus.database.client.DatabaseClient)
         mock_db_client.experiments_collection = mock.create_autospec(pymongo.collection.Collection)
         subject = MockExperiment(id_=bson.ObjectId())
         subject.save_updates(mock_db_client)
@@ -196,8 +196,8 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
             for image_source_id in image_sources:
                 # Create trial results for each combination of systems and image sources,
                 # as if the run system tasks are complete
-                entity = core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+                entity = argus.core.trial_result.TrialResult(
+                    system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
                 trial_result_id = zombie_db_client.mock.trials_collection.insert_one(entity.serialize()).inserted_id
                 trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
@@ -230,8 +230,8 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
             for image_source_id in image_sources:
                 # Create trial results for each combination of systems and image sources,
                 # as if the run system tasks are complete
-                entity = core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+                entity = argus.core.trial_result.TrialResult(
+                    system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
                 trial_result_id = mock_db_client.trials_collection.insert_one(entity.serialize()).inserted_id
                 trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
@@ -271,8 +271,8 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
             for image_source_id in image_sources:
                 # Create trial results for each combination of systems and image sources,
                 # as if the run system tasks are complete
-                entity = core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+                entity = argus.core.trial_result.TrialResult(
+                    system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
                 trial_result_id = zombie_db_client.mock.trials_collection.insert_one(entity.serialize()).inserted_id
                 trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
@@ -283,7 +283,7 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
             for benchmark_id in benchmarks:
                 # Create benchmark results for each combination of trial result and benchmark,
                 # as if the benchmark system tasks are complete
-                entity = core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True)
+                entity = argus.core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True)
                 benchmark_result_id = zombie_db_client.mock.trials_collection.insert_one(entity.serialize()).inserted_id
                 benchmark_results.append(benchmark_result_id)
                 task = zombie_task_manager.get_benchmark_task(trial_result_id, benchmark_id)
@@ -314,8 +314,8 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         system_id = mock_db_client.system_collection.insert_one(mock_core.MockSystem().serialize()).inserted_id
         image_source_id = mock_db_client.image_source_collection.insert_one(
             mock_core.MockImageSource().serialize()).inserted_id
-        trial_result_id = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+        trial_result_id = mock_db_client.trials_collection.insert_one(argus.core.trial_result.TrialResult(
+                    system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
         subject.store_trial_result(system_id, image_source_id, trial_result_id)
 
         # Serialize and then deserialize the experiment
@@ -331,10 +331,10 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
         missing_trial = bson.ObjectId()
 
         # Add some descendant objects, which should not on their own be removed from the map
-        missing_system_trial = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-            missing_system, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
-        missing_source_trial = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-            self.systems[0].identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+        missing_system_trial = mock_db_client.trials_collection.insert_one(argus.core.trial_result.TrialResult(
+            missing_system, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+        missing_source_trial = mock_db_client.trials_collection.insert_one(argus.core.trial_result.TrialResult(
+            self.systems[0].identifier, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
         ).serialize()).inserted_id
 
         subject = self.make_instance(trial_map={
@@ -364,13 +364,13 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
     def test_store_benchmark_result_persists_when_serialized(self):
         mock_db_client = self.create_mock_db_client()
         subject = MockExperiment()
-        trial_result_id = mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-            self.systems[0].identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+        trial_result_id = mock_db_client.trials_collection.insert_one(argus.core.trial_result.TrialResult(
+            self.systems[0].identifier, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
         ).serialize()).inserted_id
         benchmark_id = mock_db_client.benchmarks_collection.insert_one(
             mock_core.MockBenchmark().serialize()).inserted_id
         benchmark_result_id = mock_db_client.results_collection.insert_one(
-            core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
+            argus.core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
         subject.store_benchmark_result(trial_result_id, benchmark_id, benchmark_result_id)
 
         # Serialize and then deserialize the experiment
@@ -387,10 +387,10 @@ class TestExperiment(unittest.TestCase, database.tests.test_entity.EntityContrac
 
         # Add some descendant objects, which should not on their own be removed from the map
         result_missing_trial = mock_db_client.results_collection.insert_one(
-            core.benchmark.BenchmarkResult(self.benchmarks[0].identifier, missing_trial, True).serialize()
+            argus.core.benchmark.BenchmarkResult(self.benchmarks[0].identifier, missing_trial, True).serialize()
         ).inserted_id
         result_missing_benchmark = mock_db_client.results_collection.insert_one(
-            core.benchmark.BenchmarkResult(missing_benchmark, self.trial_results[0].identifier, True).serialize()
+            argus.core.benchmark.BenchmarkResult(missing_benchmark, self.trial_results[0].identifier, True).serialize()
         ).inserted_id
 
         subject = self.make_instance(result_map={

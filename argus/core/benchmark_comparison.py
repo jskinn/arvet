@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.entity
+import argus.database.entity
 
 
-class BenchmarkComparison(database.entity.Entity, metaclass=abc.ABCMeta):
+class BenchmarkComparison(argus.database.entity.Entity, metaclass=abc.ABCMeta):
     """
     Some benchmarks and performance measures only make sense when comparing two different trial results,
     that is, by comparing two similar runs and measuring the difference in some way.
@@ -52,7 +52,7 @@ class BenchmarkComparison(database.entity.Entity, metaclass=abc.ABCMeta):
         pass
 
 
-class BenchmarkComparisonResult(database.entity.Entity):
+class BenchmarkComparisonResult(argus.database.entity.Entity):
     """
     A general superclass for benchmark results for all
     """

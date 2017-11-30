@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class TrainSystemTask(batch_analysis.task.Task):
+class TrainSystemTask(argus.batch_analysis.task.Task):
     """
     A task for training a system. Result will be a system id
     """
@@ -22,7 +22,7 @@ class TrainSystemTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dh
+        import argus.util.database_helpers as dh
 
         trainer = dh.load_object(db_client, db_client.trainer_collection, self.trainer)
         trainee = dh.load_object(db_client, db_client.trainee_collection, self.trainee)

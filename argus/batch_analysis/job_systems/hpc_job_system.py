@@ -5,8 +5,8 @@ import subprocess
 import re
 import time
 import bson
-import batch_analysis.job_system
-import run_task
+import argus.batch_analysis.job_system
+import argus.run_task
 
 
 # This is the template for python scripts run by the hpc
@@ -30,7 +30,7 @@ GPU_ARGS_TEMPLATE = """
 """
 
 
-class HPCJobSystem(batch_analysis.job_system.JobSystem):
+class HPCJobSystem(argus.batch_analysis.job_system.JobSystem):
     """
     A job system using HPC to run tasks.
 
@@ -133,7 +133,7 @@ class HPCJobSystem(batch_analysis.job_system.JobSystem):
         env = ('source ' + quote(self._virtual_env)) if self._virtual_env is not None else ''
 
         # Parameter args
-        script_path = run_task.__file__
+        script_path = argus.run_task.__file__
         job_file_path = os.path.join(self._job_folder, name + '.sub')
         with open(job_file_path, 'w+') as job_file:
             job_file.write(JOB_TEMPLATE.format(

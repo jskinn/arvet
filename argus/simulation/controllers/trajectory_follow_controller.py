@@ -2,15 +2,15 @@
 import pickle
 import bson
 import numpy as np
-import core.sequence_type
-import database.entity
-import simulation.simulator
-import simulation.controller
-import util.associate
-import util.trajectory_helpers as traj_help
+import argus.core.sequence_type
+import argus.database.entity
+import argus.simulation.simulator
+import argus.simulation.controller
+import argus.util.associate
+import argus.util.trajectory_helpers as traj_help
 
 
-class TrajectoryFollowController(simulation.controller.Controller, database.entity.Entity):
+class TrajectoryFollowController(argus.simulation.controller.Controller, argus.database.entity.Entity):
     """
     A controller that follows a fixed sequence of poses.
     This is useful for copying the path of one sequence in a new generated sequence.
@@ -27,7 +27,7 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
         super().__init__(id_=id_)
         self._trajectory = trajectory
         self._trajectory_source = trajectory_source
-        self._sequence_type = core.sequence_type.ImageSequenceType(sequence_type)
+        self._sequence_type = argus.core.sequence_type.ImageSequenceType(sequence_type)
         self._timestamps = sorted(trajectory.keys())
         self._current_index = 0
         self._simulator = None
@@ -164,7 +164,7 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
         Returning None indicates that this image source will produce no more images.
         The second return value must always be the time
 
-        :return: An Image object (see core.image) or None, and an index (or None)
+        :return: An Image object (see argus.core.image) or None, and an index (or None)
         """
         if self._simulator is not None:
             timestamp = self._timestamps[self._current_index]
@@ -199,7 +199,7 @@ class TrajectoryFollowController(simulation.controller.Controller, database.enti
         :param simulator: The simulator we may potentially control
         :return:
         """
-        return simulator is not None and isinstance(simulator, simulation.simulator.Simulator)
+        return simulator is not None and isinstance(simulator, argus.simulation.simulator.Simulator)
 
     def set_simulator(self, simulator):
         """
@@ -256,7 +256,7 @@ def create_follow_controller(db_client, image_collection_id, sequence_type):
         '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__})
     for s_follow_controller in existing:
         controller = TrajectoryFollowController.deserialize(s_follow_controller, db_client)
-        matches = util.associate.associate(trajectory, controller.trajectory, max_difference=0.1, offset=0)
+        matches = argus.util.associate.associate(trajectory, controller.trajectory, max_difference=0.1, offset=0)
         if len(matches) < len(trajectory):
             continue
         ok = True

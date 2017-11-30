@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.task
+import argus.batch_analysis.task
 
 
-class GenerateDatasetTask(batch_analysis.task.Task):
+class GenerateDatasetTask(argus.batch_analysis.task.Task):
     """
     A task for generating a dataset. Result will be an image source id or list of image source ids.
     """
@@ -32,8 +32,8 @@ class GenerateDatasetTask(batch_analysis.task.Task):
     def run_task(self, db_client):
         import logging
         import traceback
-        import util.database_helpers as dh
-        import dataset.image_collection_builder as collection_builder
+        import argus.util.database_helpers as dh
+        import argus.dataset.image_collection_builder as collection_builder
 
         # Try and import the desired loader module
         controller = dh.load_object(db_client, db_client.image_source_collection, self.controller_id)

@@ -3,8 +3,8 @@ import unittest
 import unittest.mock as mock
 import os
 import bson
-import batch_analysis.job_systems.hpc_job_system as hpc
-import run_task
+import argus.batch_analysis.job_systems.hpc_job_system as hpc
+import argus.run_task
 
 
 class TestHPCJobSystem(unittest.TestCase):
@@ -25,8 +25,8 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId())
         self.assertTrue(mock_open.called)
@@ -41,8 +41,8 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open.return_value = mock.MagicMock()
         target_folder = os.path.join('/tmp', 'trial-{}'.format(bson.ObjectId()))
         subject = hpc.HPCJobSystem({'job_location': target_folder})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId())
         self.assertTrue(mock_open.called)
@@ -55,8 +55,8 @@ class TestHPCJobSystem(unittest.TestCase):
         task_id = bson.ObjectId()
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(task_id)
         self.assertTrue(mock_open.called)
@@ -64,13 +64,13 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1}".format(hpc.quote(run_task.__file__), task_id), script_contents)
+        self.assertIn("python {0} {1}".format(hpc.quote(argus.run_task.__file__), task_id), script_contents)
 
     def test_run_task_indicates_desired_cpus(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId(), num_cpus=15789, num_gpus=0)
         self.assertTrue(mock_open.called)
@@ -83,8 +83,8 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_indicates_desired_gpus(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId(), num_gpus=8026)
         self.assertTrue(mock_open.called)
@@ -98,8 +98,8 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_indicates_desired_memory(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId(), memory_requirements='1542GB')
         self.assertTrue(mock_open.called)
@@ -111,8 +111,8 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_indicates_expected_run_time(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId(), expected_duration='125:23:16')
         self.assertTrue(mock_open.called)
@@ -124,8 +124,8 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_queue_import_dataset_job_name_matches_filename(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId())
         self.assertTrue(mock_open.called)
@@ -143,8 +143,8 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_job_name_has_configured_prefix(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId())
         self.assertTrue(mock_open.called)
@@ -163,8 +163,8 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
         subject = hpc.HPCJobSystem({'environment': virtualenv_path})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId())
         mock_file = mock_open()
@@ -175,10 +175,10 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_queue_import_dataset_uses_virtualenv_from_environment(self):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'
         mock_open = mock.mock_open()
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
             subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
                 subject.run_task(bson.ObjectId())
         mock_file = mock_open()
@@ -186,13 +186,13 @@ class TestHPCJobSystem(unittest.TestCase):
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
 
-    @mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run')
+    @mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run')
     def test_run_task_submits_job(self, mock_run):
         mock_open = mock.mock_open()
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_task(bson.ObjectId())
         filename = mock_open.call_args[0][0]
         self.assertIn(mock.call(['qsub', filename], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
@@ -200,8 +200,8 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_returns_job_id(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
-        with mock.patch('batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+        with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('argus.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, job_id=25798)
                 result = subject.run_task(bson.ObjectId())
         self.assertEqual(25798, result)

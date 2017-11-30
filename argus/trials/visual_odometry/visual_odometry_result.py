@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
-import core.trial_result
-import util.transform as tf
+import argus.core.trial_result
+import argus.util.transform as tf
 
 
-class VisualOdometryResult(core.trial_result.TrialResult):
+class VisualOdometryResult(argus.core.trial_result.TrialResult):
     """
     The results of running visual odometry over a dataset.
     This should be consistent for all VO algorithms,

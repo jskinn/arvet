@@ -6,11 +6,11 @@ import argparse
 import typing
 import traceback
 import bson
-import config.global_configuration as global_conf
-import database.client
-import util.database_helpers as dh
-import batch_analysis.task_manager
-import batch_analysis.job_systems.job_system_factory as job_system_factory
+import argus.config.global_configuration as global_conf
+import argus.database.client
+import argus.util.database_helpers as dh
+import argus.batch_analysis.task_manager
+import argus.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
 def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool = True,
@@ -26,8 +26,8 @@ def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool =
     config = global_conf.load_global_config('config.yml')
     if __name__ == '__main__':
         logging.config.dictConfig(config['logging'])
-    db_client = database.client.DatabaseClient(config=config)
-    task_manager = batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
+    db_client = argus.database.client.DatabaseClient(config=config)
+    task_manager = argus.batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
 
     if do_imports or schedule_tasks:
         query = {'enabled': {'$ne': False}}

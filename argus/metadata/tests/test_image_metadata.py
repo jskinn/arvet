@@ -3,11 +3,11 @@ import unittest
 import unittest.mock as mock
 import numpy as np
 import bson
-import util.transform as tf
-import util.dict_utils as du
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import core.image
+import argus.util.transform as tf
+import argus.util.dict_utils as du
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.core.image
 
 
 class TestLabelledObject(unittest.TestCase):
@@ -110,7 +110,7 @@ class TestLabelledObject(unittest.TestCase):
 
 class TestImageMetadata(unittest.TestCase):
 
-    parent_image = core.image.Image(
+    parent_image = argus.core.image.Image(
         data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
         metadata=imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, hash_=b'\x1f`\xa8\x8aR\xed\x9f\x0b'))
 
@@ -233,7 +233,7 @@ class TestImageMetadata(unittest.TestCase):
             'geometry_decimation': [0.3],
             'procedural_generation_seed': [7329],
             'average_scene_depth': [102.33],
-            'base_image': [mock.create_autospec(core.image.Image)],
+            'base_image': [mock.create_autospec(argus.core.image.Image)],
             'transformation_matrix': [np.random.uniform(0, 1, (3, 3))],
             'labelled_objects': [tuple(), (
                 imeta.LabelledObject(
@@ -338,7 +338,7 @@ class TestImageMetadata(unittest.TestCase):
             'geometry_decimation': [0.3],
             'procedural_generation_seed': [7329],
             'average_scene_depth': [102.33],
-            'base_image': [mock.create_autospec(core.image.Image)],
+            'base_image': [mock.create_autospec(argus.core.image.Image)],
             'transformation_matrix': [np.random.uniform(0, 1, (3, 3))],
             'labelled_objects': [tuple(), (
                 imeta.LabelledObject(
@@ -446,7 +446,7 @@ class TestImageMetadata(unittest.TestCase):
             'geometry_decimation': [0.3],
             'procedural_generation_seed': [7329],
             'average_scene_depth': [102.33],
-            'base_image': [mock.create_autospec(core.image.Image)],
+            'base_image': [mock.create_autospec(argus.core.image.Image)],
             'transformation_matrix': [np.random.uniform(0, 1, (3, 3))],
             'labelled_objects': [tuple(), (
                 imeta.LabelledObject(

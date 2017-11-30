@@ -7,15 +7,15 @@ import numpy as np
 import cv2
 import unrealcv
 
-import core.image as im
-import database.entity
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import simulation.simulator
-import simulation.depth_noise
-import util.dict_utils as du
-import util.transform as tf
-import util.unreal_transform as uetf
+import argus.core.image as im
+import argus.database.entity
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.simulation.simulator
+import argus.simulation.depth_noise
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.util.unreal_transform as uetf
 
 
 TEMPLATE_UNREALCV_SETTINGS = """
@@ -61,7 +61,7 @@ def stop_simulator():
         _simulator_process = None
 
 
-class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
+class UnrealCVSimulator(argus.simulation.simulator.Simulator, argus.database.entity.Entity):
 
     def __init__(self, executable_path, world_name, environment_type=imeta.EnvironmentType.INDOOR,
                  light_level=imeta.LightingLevel.EVENLY_LIT, time_of_day=imeta.TimeOfDay.DAY, config=None, id_=None):
@@ -291,7 +291,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
         Parallel versions of this may add a timeout parameter.
         Returning None indicates that this image source will produce no more images
 
-        :return: An Image object (see core.image) or None, and None for the timestamp
+        :return: An Image object (see argus.core.image) or None, and None for the timestamp
         """
         if self._client is not None:
             # Get and return the image from the simulator
@@ -612,7 +612,7 @@ class UnrealCVSimulator(simulation.simulator.Simulator, database.entity.Entity):
                     right_ground_truth_depth_data = np.sum(right_ground_truth_depth_data * (65536, 256, 1), axis=2)
                     # Convert to meters.
                     right_ground_truth_depth_data /= 100
-                    depth_data = simulation.depth_noise.generate_depth_noise(
+                    depth_data = argus.simulation.depth_noise.generate_depth_noise(
                         ground_truth_depth_data,
                         right_ground_truth_depth_data,
                         self.get_camera_intrinsics(),

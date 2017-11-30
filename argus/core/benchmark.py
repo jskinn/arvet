@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.entity
+import argus.database.entity
 
 
-class Benchmark(database.entity.Entity, metaclass=abc.ABCMeta):
+class Benchmark(argus.database.entity.Entity, metaclass=abc.ABCMeta):
     """
     A class that benchmarks SLAM algorithms.
 
@@ -44,7 +44,7 @@ class Benchmark(database.entity.Entity, metaclass=abc.ABCMeta):
         pass
 
 
-class BenchmarkResult(database.entity.Entity):
+class BenchmarkResult(argus.database.entity.Entity):
     """
     A general superclass for benchmark results for all benchmarks
     """

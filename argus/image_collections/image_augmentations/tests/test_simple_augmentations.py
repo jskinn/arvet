@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 
-import core.image
-import image_collections.image_augmentations.simple_augmentations as simp
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
+import argus.core.image
+import argus.image_collections.image_augmentations.simple_augmentations as simp
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
 import numpy as np
 
 import argus.image_collections.tests.test_augmented_collection as test_augmented
@@ -36,7 +36,7 @@ class TestHorizontalFlip(test_augmented.ImageAugmenterContract, unittest.TestCas
 
     def test_inverts_itself(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
@@ -80,7 +80,7 @@ class TestVerticalFlip(test_augmented.ImageAugmenterContract, unittest.TestCase)
 
     def test_inverts_itself(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
@@ -124,7 +124,7 @@ class TestRotate90(test_augmented.ImageAugmenterContract, unittest.TestCase):
 
     def test_repeated_applications(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
@@ -169,7 +169,7 @@ class TestRotate180(test_augmented.ImageAugmenterContract, unittest.TestCase):
 
     def test_repeated_applications(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,
@@ -214,7 +214,7 @@ class TestRotate270(test_augmented.ImageAugmenterContract, unittest.TestCase):
 
     def test_repeated_applications(self):
         data = np.array([list(range(i, i + 100)) for i in range(100)])
-        image = core.image.Image(
+        image = argus.core.image.Image(
             data=data,
             metadata=imeta.ImageMetadata(
                 source_type=imeta.ImageSourceType.SYNTHETIC,

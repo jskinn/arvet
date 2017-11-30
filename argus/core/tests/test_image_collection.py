@@ -1,16 +1,16 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import database.tests.test_entity
+import argus.database.tests.test_entity
 import numpy as np
 import bson.objectid
-import util.dict_utils as du
-import util.transform as tf
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import core.image_entity as ie
-import core.image_collection as ic
-import core.sequence_type
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.core.image_entity as ie
+import argus.core.image_collection as ic
+import argus.core.sequence_type
 
 
 def make_image(index=1, **kwargs):
@@ -94,7 +94,7 @@ def make_stereo_image(index=1, **kwargs):
     return ie.StereoImageEntity(**kwargs)
 
 
-class TestImageCollection(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestImageCollection(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):
         self.image_map = {}
@@ -110,7 +110,7 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'images': self.images,
-            'type_': core.sequence_type.ImageSequenceType.SEQUENTIAL,
+            'type_': argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
             'db_client_': self.create_mock_db_client()
         })
         return ic.ImageCollection(*args, **kwargs)
@@ -163,7 +163,7 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         return db_client
 
     def test_timestamps_returns_all_timestamps_in_order(self):
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(images=self.images, type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      db_client_=self.create_mock_db_client())
         self.assertEqual([1.2 * t for t in range(10)], subject.timestamps)
         for stamp in subject.timestamps:
@@ -171,33 +171,33 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
 
     def test_is_depth_available_is_true_iff_all_images_have_depth_data(self):
         db_client = self.create_mock_db_client()
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(images=self.images, type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      db_client_=db_client)
         self.assertTrue(subject.is_depth_available)
 
         image = make_image(depth_data=None)
         image.save_image_data(db_client)
         db_client.image_collection.insert(image.serialize())
-        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_depth_available)
 
     def test_is_per_pixel_labels_available_is_true_iff_all_images_have_labels_data(self):
         db_client = self.create_mock_db_client()
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(images=self.images, type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      db_client_=db_client)
         self.assertTrue(subject.is_per_pixel_labels_available)
 
         image = make_image(labels_data=None)
         image.save_image_data(db_client)
         db_client.image_collection.insert(image.serialize())
-        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_per_pixel_labels_available)
 
     def test_is_labels_available_is_true_iff_all_images_have_bounding_boxes(self):
         db_client = self.create_mock_db_client()
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(images=self.images, type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      db_client_=db_client)
         self.assertTrue(subject.is_labels_available)
 
@@ -217,20 +217,20 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         ))
         image.save_image_data(db_client)
         db_client.image_collection.insert(image.serialize())
-        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_labels_available)
 
     def test_is_normals_available_is_true_iff_all_images_have_normals_data(self):
         db_client = self.create_mock_db_client()
-        subject = ic.ImageCollection(images=self.images, type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(images=self.images, type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      db_client_=db_client)
         self.assertTrue(subject.is_normals_available)
 
         image = make_image(world_normals_data=None)
         image.save_image_data(db_client)
         db_client.image_collection.insert(image.serialize())
-        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_normals_available)
 
@@ -242,11 +242,11 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
             self.image_map[stereo_image.identifier] = stereo_image
             stereo_images_list[i * 1.3] = stereo_image.identifier
         db_client = self.create_mock_db_client()
-        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=stereo_images_list,
                                      db_client_=db_client)
         self.assertTrue(subject.is_stereo_available)
-        subject = ic.ImageCollection(type_=core.sequence_type.ImageSequenceType.SEQUENTIAL,
+        subject = ic.ImageCollection(type_=argus.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults(stereo_images_list, self.images),
                                      db_client_=self.create_mock_db_client())
         self.assertFalse(subject.is_stereo_available)
@@ -296,7 +296,7 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
 
         result = ic.ImageCollection.create_and_save(
             db_client, {timestamp: image_id for timestamp, image_id in self.images.items()},
-            core.sequence_type.ImageSequenceType.SEQUENTIAL)
+            argus.core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertIsNone(result)
         self.assertTrue(db_client.image_collection.find.called)
         self.assertEqual({'_id': {'$in': [image_id for image_id in self.images.values()]}},
@@ -307,12 +307,12 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
         db_client = self.create_mock_db_client()
         ic.ImageCollection.create_and_save(db_client,
                                            {timestamp: image_id for timestamp, image_id in self.images.items()},
-                                           core.sequence_type.ImageSequenceType.SEQUENTIAL)
+                                           argus.core.sequence_type.ImageSequenceType.SEQUENTIAL)
 
         self.assertTrue(db_client.image_source_collection.find_one.called)
         existing_query = db_client.image_source_collection.find_one.call_args[0][0]
         self.assertIn('_type', existing_query)
-        self.assertEqual('core.image_collection.ImageCollection', existing_query['_type'])
+        self.assertEqual('argus.core.image_collection.ImageCollection', existing_query['_type'])
         self.assertIn('sequence_type', existing_query)
         self.assertEqual('SEQ', existing_query['sequence_type'])
         self.assertIn('images', existing_query)
@@ -331,13 +331,13 @@ class TestImageCollection(database.tests.test_entity.EntityContract, unittest.Te
 
         ic.ImageCollection.create_and_save(db_client,
                                            {timestamp: image_id for timestamp, image_id in self.images.items()},
-                                           core.sequence_type.ImageSequenceType.SEQUENTIAL)
+                                           argus.core.sequence_type.ImageSequenceType.SEQUENTIAL)
         self.assertTrue(db_client.image_source_collection.insert.called)
         s_image_collection = db_client.image_source_collection.insert.call_args[0][0]
 
         db_client = self.create_mock_db_client()
         collection = ic.ImageCollection.deserialize(s_image_collection, db_client)
-        self.assertEqual(core.sequence_type.ImageSequenceType.SEQUENTIAL, collection.sequence_type)
+        self.assertEqual(argus.core.sequence_type.ImageSequenceType.SEQUENTIAL, collection.sequence_type)
         self.assertEqual(len(self.images), len(collection))
         for stamp, image_id in self.images.items():
             image = self.image_map[image_id]

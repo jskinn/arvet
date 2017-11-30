@@ -3,8 +3,8 @@ import os.path
 import unittest
 import numpy as np
 import cv2
-import metadata.camera_intrinsics as cam_intr
-import simulation.depth_noise as depth_noise
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.simulation.depth_noise as depth_noise
 
 
 class TestDepthNoise(unittest.TestCase):

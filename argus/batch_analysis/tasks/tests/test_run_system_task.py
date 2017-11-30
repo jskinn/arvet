@@ -3,15 +3,15 @@ import unittest
 import unittest.mock as mock
 import numpy as np
 import bson
-import database.tests.test_entity
-import core.image_source
-import core.system
-import util.dict_utils as du
-import batch_analysis.task
-import batch_analysis.tasks.run_system_task as task
+import argus.database.tests.test_entity
+import argus.core.image_source
+import argus.core.system
+import argus.util.dict_utils as du
+import argus.batch_analysis.task
+import argus.batch_analysis.tasks.run_system_task as task
 
 
-class TestRunSystemTask(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestRunSystemTask(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return task.RunSystemTask
@@ -21,7 +21,7 @@ class TestRunSystemTask(database.tests.test_entity.EntityContract, unittest.Test
             'system_id': bson.ObjectId(),
             'image_source_id': bson.ObjectId(),
             'repeat': np.random.randint(0, 1000),
-            'state': batch_analysis.task.JobState.RUNNING,
+            'state': argus.batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
             'num_gpus': np.random.randint(0, 1000),
             'memory_requirements': '{}MB'.format(np.random.randint(0, 50000)),
@@ -62,11 +62,11 @@ class TestTrialRunner(unittest.TestCase):
     def setUp(self):
         self._trial_result = mock.Mock()
 
-        self._system = mock.create_autospec(core.system.VisionSystem)
+        self._system = mock.create_autospec(argus.core.system.VisionSystem)
         self._system.is_image_source_appropriate.return_value = True
         self._system.finish_trial.return_value = self._trial_result
 
-        self._image_source = mock.create_autospec(core.image_source.ImageSource)
+        self._image_source = mock.create_autospec(argus.core.image_source.ImageSource)
         self._image_source.get_stereo_baseline.return_value = None
         self._image_source.get_camera_intrinsics.return_value = mock.Mock()
         self._image_source._image_count = 0

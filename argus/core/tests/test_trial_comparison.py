@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 
-import database.tests.test_entity as entity_test
-import util.dict_utils as du
+import argus.database.tests.test_entity as entity_test
+import argus.util.dict_utils as du
 
 import argus.core.trial_comparison
 

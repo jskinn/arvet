@@ -2,20 +2,20 @@
 import unittest
 import numpy as np
 import bson.objectid
-import util.dict_utils as du
-import util.transform as tf
-import database.tests.test_entity
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import core.image_entity as ie
-import core.image_collection as ic
-import core.sequence_type
-import core.tests.test_trained_system
-import training.epoch_trainer
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.database.tests.test_entity
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.core.image_entity as ie
+import argus.core.image_collection as ic
+import argus.core.sequence_type
+import argus.core.tests.test_trained_system
+import argus.training.epoch_trainer
 
 
-class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
-                       database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestEpochTrainer(argus.core.tests.test_trained_system.TrainerContract,
+                       argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def setUp(self):
         self.image_map = {}
@@ -26,7 +26,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
             self.images_list.append(image)
 
     def get_class(self):
-        return training.epoch_trainer.EpochTrainer
+        return argus.training.epoch_trainer.EpochTrainer
 
     def make_instance(self, *args, **kwargs):
         self.make_image_collection_map()
@@ -40,7 +40,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
             'rot_90': bool(np.random.randint(0, 2)),
             'validation_fraction': np.random.uniform(0, 1)
         })
-        return training.epoch_trainer.EpochTrainer(*args, **kwargs)
+        return argus.training.epoch_trainer.EpochTrainer(*args, **kwargs)
 
     def assert_models_equal(self, result1, result2):
         """
@@ -49,8 +49,8 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
         :param result2:
         :return:
         """
-        if (not isinstance(result1, training.epoch_trainer.EpochTrainer) or
-                not isinstance(result2, training.epoch_trainer.EpochTrainer)):
+        if (not isinstance(result1, argus.training.epoch_trainer.EpochTrainer) or
+                not isinstance(result2, argus.training.epoch_trainer.EpochTrainer)):
             self.fail('object was not a EpochTrainer')
         self.assertEqual(result1.identifier, result2.identifier)
         self.assertEqual(result1.num_image_sources, result2.num_image_sources)
@@ -96,7 +96,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
     def test_calls_validate_each_epoch(self):
         collection = make_mock_image_collection(10)
         trainee = self.make_mock_trainee()
-        subject = training.epoch_trainer.EpochTrainer(
+        subject = argus.training.epoch_trainer.EpochTrainer(
             image_sources=[collection],
             num_epochs=13,
             horizontal_flips=False,
@@ -117,7 +117,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
     def test_calls_each_image_exactly_once_when_using_source_length(self):
         collection = make_mock_image_collection(10)
         trainee = self.make_mock_trainee()
-        subject = training.epoch_trainer.EpochTrainer(
+        subject = argus.training.epoch_trainer.EpochTrainer(
             image_sources=[collection],
             num_epochs=13,
             use_source_length=True,
@@ -139,7 +139,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
     def test_can_use_a_fixed_number_of_images_per_epoch(self):
         collection = make_mock_image_collection(10)
         trainee = self.make_mock_trainee()
-        subject = training.epoch_trainer.EpochTrainer(
+        subject = argus.training.epoch_trainer.EpochTrainer(
             image_sources=[collection],
             num_epochs=5,
             use_source_length=False,
@@ -157,7 +157,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
     def test_can_stack_data_augmentations_for_massive_data(self):
         collection = make_mock_image_collection(3)
         trainee = self.make_mock_trainee()
-        subject = training.epoch_trainer.EpochTrainer(
+        subject = argus.training.epoch_trainer.EpochTrainer(
             image_sources=[collection],
             num_epochs=1,
             use_source_length=True,
@@ -174,7 +174,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
     def test_provides_images_in_a_different_order_each_epoch(self):
         collection = make_mock_image_collection(5)
         trainee = self.make_mock_trainee()
-        subject = training.epoch_trainer.EpochTrainer(
+        subject = argus.training.epoch_trainer.EpochTrainer(
             image_sources=[collection],
             num_epochs=5,
             use_source_length=True,
@@ -198,7 +198,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
 
     def test_create_serialized_makes_deserializeable_collection(self):
         db_client = self.create_mock_db_client()
-        s_trainer1 = training.epoch_trainer.EpochTrainer.create_serialized(
+        s_trainer1 = argus.training.epoch_trainer.EpochTrainer.create_serialized(
             image_sources=[coll.identifier for coll in self.image_collection_map.values()],
             num_epochs=13,
             epoch_length=142,
@@ -208,7 +208,7 @@ class TestEpochTrainer(core.tests.test_trained_system.TrainerContract,
             rot_90=False,
             validation_fraction=0.3175172
         )
-        trainer1 = training.epoch_trainer.EpochTrainer.deserialize(s_trainer1, db_client)
+        trainer1 = argus.training.epoch_trainer.EpochTrainer.deserialize(s_trainer1, db_client)
 
         self.assertEqual(s_trainer1['num_epochs'], trainer1._num_epochs)
         self.assertEqual(s_trainer1['epoch_length'], trainer1._epoch_length)
@@ -285,7 +285,7 @@ def make_image(**kwargs):
 def make_mock_image_collection(num_images):
     return ic.ImageCollection(
         id_=bson.objectid.ObjectId(),
-        type_=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
+        type_=argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
         images={1.2 * idx: make_image() for idx in range(num_images)},
         db_client_=None
     )

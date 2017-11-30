@@ -3,15 +3,15 @@
 Minimal types for many of the core abstract base classes.
 This allows other tests to use instances of these types.
 """
-import core.system
-import core.image_source
-import core.trial_result
-import core.benchmark
-import core.sequence_type
-import database.entity
+import argus.core.system
+import argus.core.image_source
+import argus.core.trial_result
+import argus.core.benchmark
+import argus.core.sequence_type
+import argus.database.entity
 
 
-class MockSystem(core.system.VisionSystem):
+class MockSystem(argus.core.system.VisionSystem):
     def is_deterministic(self):
         return True
 
@@ -28,13 +28,13 @@ class MockSystem(core.system.VisionSystem):
         pass
 
     def finish_trial(self):
-        return core.trial_result.TrialResult(
-            self.identifier, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+        return argus.core.trial_result.TrialResult(
+            self.identifier, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
 
 
-class MockImageSource(core.image_source.ImageSource, database.entity.Entity):
+class MockImageSource(argus.core.image_source.ImageSource, argus.database.entity.Entity):
     def sequence_type(self):
-        return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+        return argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
     @property
     def supports_random_access(self):
@@ -80,7 +80,7 @@ class MockImageSource(core.image_source.ImageSource, database.entity.Entity):
         return True
 
 
-class MockBenchmark(core.benchmark.Benchmark):
+class MockBenchmark(argus.core.benchmark.Benchmark):
 
     @classmethod
     def get_trial_requirements(cls):
@@ -90,4 +90,4 @@ class MockBenchmark(core.benchmark.Benchmark):
         return True
 
     def benchmark_results(self, trial_result):
-        return core.benchmark.BenchmarkResult(self.identifier, trial_result.identifier, True)
+        return argus.core.benchmark.BenchmarkResult(self.identifier, trial_result.identifier, True)

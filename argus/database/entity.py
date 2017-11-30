@@ -1,7 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.identifiable as identifiable
-import database.entity_registry as reg
+import argus.database.identifiable as identifiable
+import argus.database.entity_registry as reg
 
 
 class EntityMetaclass(type):

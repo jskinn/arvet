@@ -1,17 +1,17 @@
 # Copyright (c) 2017, John Skinner
 import unittest, unittest.mock as mock
-import database.client
-import core.system
+import argus.database.client
+import argus.core.system
 
 
 class TestRunSystem(unittest.TestCase):
 
     def setUp(self):
 
-        self._mock_vision_system_patch = mock.patch('core.benchmark.Benchmark', spec=core.system.VisionSystem)
+        self._mock_vision_system_patch = mock.patch('argus.core.benchmark.Benchmark', spec=argus.core.system.VisionSystem)
         self._mock_vision_system = self._mock_vision_system_patch.start()
 
-        self._mock_db_client_patch = mock.patch('database.client.DatabaseClient', spec=database.client.DatabaseClient)
+        self._mock_db_client_patch = mock.patch('argus.database.client.DatabaseClient', spec=argus.database.client.DatabaseClient)
         self._mock_db_client = self._mock_db_client_patch.start()
 
         self.existing_datasets = [{'trial_result': 1},{'trial_result': 2},{'trial_result': 3}]

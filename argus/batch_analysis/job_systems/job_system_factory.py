@@ -1,6 +1,6 @@
 # Copyright (c) 2017, John Skinner
-import batch_analysis.job_systems.hpc_job_system
-import batch_analysis.job_systems.simple_job_system
+import argus.batch_analysis.job_systems.hpc_job_system
+import argus.batch_analysis.job_systems.simple_job_system
 
 
 def create_job_system(config):
@@ -22,5 +22,5 @@ def create_job_system(config):
     job_system_type = job_system_config['job_system'] if 'job_system' in job_system_config else 'simple'
     job_system_type = job_system_type.lower()
     if job_system_type == 'hpc':
-        return batch_analysis.job_systems.hpc_job_system.HPCJobSystem(job_system_config)
-    return batch_analysis.job_systems.simple_job_system.SimpleJobSystem(job_system_config)
+        return argus.batch_analysis.job_systems.hpc_job_system.HPCJobSystem(job_system_config)
+    return argus.batch_analysis.job_systems.simple_job_system.SimpleJobSystem(job_system_config)

@@ -2,13 +2,13 @@
 import collections
 import itertools
 import numpy as np
-import core.sequence_type
-import util.transform as tf
-import simulation.simulator
-import simulation.controller
+import argus.core.sequence_type
+import argus.util.transform as tf
+import argus.simulation.simulator
+import argus.simulation.controller
 
 
-class CombinatorialSampleController(simulation.controller.Controller):
+class CombinatorialSampleController(argus.simulation.controller.Controller):
     """
     A controller that loops through every combination of samples over several properties.
     This takes lists of values for each property, and iterates through the
@@ -70,7 +70,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Get the kind of image sequence produced by this controller.
         :return: ImageSequenceType.NON_SEQUENTIAL
         """
-        return core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
+        return argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
     def supports_random_access(self):
         """
@@ -190,7 +190,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         Returning None indicates that this image source will produce no more images.
         The second return value must always be
 
-        :return: An Image object (see core.image) or None, and an index (or None)
+        :return: An Image object (see argus.core.image) or None, and an index (or None)
         """
         if self._simulator is not None and self._current_index is not None:
             idx = self._current_index
@@ -224,7 +224,7 @@ class CombinatorialSampleController(simulation.controller.Controller):
         :param simulator: The simulator we may potentially control
         :return:
         """
-        return simulator is not None and isinstance(simulator, simulation.simulator.Simulator)
+        return simulator is not None and isinstance(simulator, argus.simulation.simulator.Simulator)
 
     def set_simulator(self, simulator):
         """

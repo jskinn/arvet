@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import core.sequence_type
-import core.image_source
+import argus.core.sequence_type
+import argus.core.image_source
 
 
-class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
+class Simulator(argus.core.image_source.ImageSource, metaclass=abc.ABCMeta):
     """
     A Simulator, which produces images interactively with the system under test.
     This is the base type for all image sources with an INTERACTIVE sequence type,
@@ -20,7 +20,7 @@ class Simulator(core.image_source.ImageSource, metaclass=abc.ABCMeta):
         Simulators always produce images interactively
         :return:
         """
-        return core.sequence_type.ImageSequenceType.INTERACTIVE
+        return argus.core.sequence_type.ImageSequenceType.INTERACTIVE
 
     @property
     @abc.abstractmethod

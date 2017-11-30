@@ -1,10 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import database.entity
-import core.system
+import argus.database.entity
+import argus.core.system
 
 
-class VisionSystemTrainer(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
+class VisionSystemTrainer(argus.database.entity.Entity, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     This class manages image sources, and how they are used for training.
     This includes handling multiple image sources, shuffling,
@@ -41,7 +41,7 @@ class VisionSystemTrainer(database.entity.Entity, metaclass=database.entity.Abst
         pass
 
 
-class VisionSystemTrainee(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
+class VisionSystemTrainee(argus.database.entity.Entity, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     A separate class like a builder for training Vision Systems.
     It holds all the algorithm specific state during training,
@@ -63,7 +63,7 @@ class VisionSystemTrainee(database.entity.Entity, metaclass=database.entity.Abst
         What kind of training does this system require?
 
         :return: NON_SEQUENTIAL for systems trained on random images, and SEQUENTIAL for systems trained on video
-        :rtype core.sequence_type.ImageSequenceType:
+        :rtype argus.core.sequence_type.ImageSequenceType:
         """
         pass
 
@@ -148,7 +148,7 @@ class VisionSystemTrainee(database.entity.Entity, metaclass=database.entity.Abst
         pass
 
 
-class TrainedVisionSystem(core.system.VisionSystem, metaclass=database.entity.AbstractEntityMetaclass):
+class TrainedVisionSystem(argus.core.system.VisionSystem, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     A subclass of a vision system that are produced by training.
     Instances of this class are built by VisionSystemTrainers using VisionSystemTrainees.

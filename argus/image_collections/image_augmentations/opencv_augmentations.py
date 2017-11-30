@@ -2,9 +2,9 @@
 import numpy as np
 import cv2
 import xxhash
-import core.image
-import metadata.image_metadata as imeta
-import image_collections.augmented_collection as aug_coll
+import argus.core.image
+import argus.metadata.image_metadata as imeta
+import argus.image_collections.augmented_collection as aug_coll
 
 
 class Rotate(aug_coll.ImageAugmenter):
@@ -126,7 +126,7 @@ def warp_image(image, transformation_matrix):
     else:
         transformed_normals = None
 
-    return core.image.Image(
+    return argus.core.image.Image(
         data=transformed_data,
         metadata=image.metadata.clone(
             hash_=xxhash.xxh64(transformed_data).digest(),

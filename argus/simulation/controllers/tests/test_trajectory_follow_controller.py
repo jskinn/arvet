@@ -2,14 +2,14 @@
 import unittest
 import numpy as np
 import pickle
-import core.sequence_type
-import database.tests.test_entity
-import util.dict_utils as du
-import util.transform as tf
-import simulation.controllers.trajectory_follow_controller as follow
+import argus.core.sequence_type
+import argus.database.tests.test_entity
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.simulation.controllers.trajectory_follow_controller as follow
 
 
-class TestTrajectoryFollowController(database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestTrajectoryFollowController(argus.database.tests.test_entity.EntityContract, unittest.TestCase):
 
     def get_class(self):
         return follow.TrajectoryFollowController
@@ -19,7 +19,7 @@ class TestTrajectoryFollowController(database.tests.test_entity.EntityContract, 
             'trajectory': {i + np.random.uniform(-0.2, 0.2): tf.Transform(np.random.uniform(-1000, 1000, 3),
                                                                           np.random.uniform(-1, 1, 4))
                            for i in range(1000)},
-            'sequence_type': core.sequence_type.ImageSequenceType(np.random.randint(0, 2))
+            'sequence_type': argus.core.sequence_type.ImageSequenceType(np.random.randint(0, 2))
         })
         return follow.TrajectoryFollowController(*args, **kwargs)
 

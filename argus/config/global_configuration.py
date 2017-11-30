@@ -9,14 +9,14 @@ try:
 except ImportError:
     from yaml import Dumper as YamlDumper, Loader as YamlLoader
 
-import util.dict_utils as du
+import argus.util.dict_utils as du
 
 
 def load_global_config(filename):
     # Default global configuration.
     # This is what you get if you don't have a configuration file.
     config = {
-        'database_config': {    # Copied from database.config. Keep them in sync
+        'database_config': {    # Copied from argus.database.config. Keep them in sync
             'connection_parameters': {},
             'database_name': 'benchmark_system',
             'gridfs_bucket': 'fs',

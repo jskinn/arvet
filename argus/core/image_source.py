@@ -53,7 +53,7 @@ class ImageSource(metaclass=abc.ABCMeta):
         This may change with the configuration of the image source.
         It is useful for determining which sources can run with which algorithms.
         :return: The image sequence type enum
-        :rtype core.image_sequence.ImageSequenceType:
+        :rtype argus.core.image_sequence.ImageSequenceType:
         """
         pass
 
@@ -176,7 +176,7 @@ class ImageSource(metaclass=abc.ABCMeta):
         Returning None indicates that this image source will produce no more images.
         The second return value must always be
 
-        :return: An Image object (see core.image) or None, and an index (or None)
+        :return: An Image object (see argus.core.image) or None, and an index (or None)
         """
         return None, None
 

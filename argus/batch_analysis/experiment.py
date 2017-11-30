@@ -3,13 +3,13 @@ import abc
 import collections
 import typing
 import bson
-import batch_analysis.task_manager
-import database.client
-import database.entity
-import util.database_helpers as dh
+import argus.batch_analysis.task_manager
+import argus.database.client
+import argus.database.entity
+import argus.util.database_helpers as dh
 
 
-class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntityMetaclass):
+class Experiment(argus.database.entity.Entity, metaclass=argus.database.entity.AbstractEntityMetaclass):
     """
     A model for an experiment. The role of the experiment is to decide which systems should be run with
     which datasets, and which benchmarks should be used to measure them.
@@ -30,8 +30,8 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         self._updates = {}
 
     @abc.abstractmethod
-    def do_imports(self, task_manager: batch_analysis.task_manager.TaskManager,
-                   db_client: database.client.DatabaseClient):
+    def do_imports(self, task_manager: argus.batch_analysis.task_manager.TaskManager,
+                   db_client: argus.database.client.DatabaseClient):
         """
         Perform imports for this experiment,
         This is where object creation should be performed (like creating benchmarks or untrained systems)
@@ -44,8 +44,8 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         pass
 
     @abc.abstractmethod
-    def schedule_tasks(self, task_manager: batch_analysis.task_manager.TaskManager,
-                       db_client: database.client.DatabaseClient):
+    def schedule_tasks(self, task_manager: argus.batch_analysis.task_manager.TaskManager,
+                       db_client: argus.database.client.DatabaseClient):
         """
         This is where you schedule the core tasks to train a system, run a system, or perform a benchmark,
         :param task_manager: The the task manager used to create tasks
@@ -54,7 +54,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         """
         pass
 
-    def save_updates(self, db_client: database.client.DatabaseClient):
+    def save_updates(self, db_client: argus.database.client.DatabaseClient):
         """
         Save accumulated changes to the database.
         If the object is not already in the database (the identifier is None),
@@ -72,7 +72,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
             db_client.experiments_collection.update({'_id': self.identifier}, self._updates)
             self._updates = {}
 
-    def plot_results(self, db_client: database.client.DatabaseClient):
+    def plot_results(self, db_client: argus.database.client.DatabaseClient):
         """
         Visualise the results from this experiment.
         Non-compulsory, but will be called from plot_results.py
@@ -81,7 +81,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         """
         pass
 
-    def export_data(self, db_client: database.client.DatabaseClient):
+    def export_data(self, db_client: argus.database.client.DatabaseClient):
         """
         Allow experiments to export some data, usually to file.
         I'm currently using this to dump camera trajectories so I can build simulations around them,
@@ -91,8 +91,8 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
         """
         pass
 
-    def schedule_all(self, task_manager: batch_analysis.task_manager.TaskManager,
-                     db_client: database.client.DatabaseClient,
+    def schedule_all(self, task_manager: argus.batch_analysis.task_manager.TaskManager,
+                     db_client: argus.database.client.DatabaseClient,
                      systems: typing.List[bson.ObjectId],
                      image_sources: typing.List[bson.ObjectId],
                      benchmarks: typing.List[bson.ObjectId]):
@@ -295,7 +295,7 @@ class Experiment(database.entity.Entity, metaclass=database.entity.AbstractEntit
             self._updates['$addToSet'][serialized_key] = {'$each': list(new_elements | existing)}
 
 
-def patch_schema(serialized_representation: dict, db_client: database.client.DatabaseClient):
+def patch_schema(serialized_representation: dict, db_client: argus.database.client.DatabaseClient):
     """
     Patch the experiment schema to remove invalid systems, trial results, etc..
 
