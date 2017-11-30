@@ -6,9 +6,8 @@ import database.entity
 import core.image
 import core.sequence_type
 import core.image_source
-import metadata.camera_intrinsics as cam_intr
 import util.database_helpers as dh
-import util.transform as tf
+import core.image_entity
 
 
 class ImageCollection(core.image_source.ImageSource, database.entity.Entity, metaclass=abc.ABCMeta):
@@ -69,7 +68,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
         first_image = db_client_.deserialize_entity(s_first_image)
         self._camera_intrinsics = first_image.metadata.camera_intrinsics
         self._stereo_baseline = None
-        if (self.is_stereo_available):
+        if self.is_stereo_available:
             self._stereo_baseline = np.linalg.norm(first_image.left_camera_pose.location -
                                                    first_image.right_camera_pose.location)
 
@@ -254,7 +253,7 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
     def serialize(self):
         serialized = super().serialize()
         # Only include the image IDs here, they'll get turned back into objects for us
-        serialized['images'] = [(stamp, image.identifier) for stamp, image in self._images.items()]
+        serialized['images'] = [(stamp, image) for stamp, image in self._images.items()]
         if self.sequence_type is core.sequence_type.ImageSequenceType.SEQUENTIAL:
             serialized['sequence_type'] = 'SEQ'
         else:
@@ -317,3 +316,21 @@ class ImageCollection(core.image_source.ImageSource, database.entity.Entity, met
                 'images': s_images_list,
                 'sequence_type': s_seq_type
             })
+
+
+def delete_image_collection(db_client, image_collection_id):
+    """
+    A helper to delete image collections and all the images contained therein.
+    Images contained in more than one collection will be retained.
+
+    :param db_client:
+    :param image_collection_id:
+    :return:
+    """
+    # Find all the images.
+    s_collection = db_client.image_source_collection.find_one({'_id': image_collection_id}, {'images': True})
+    for _, image_id in s_collection['images']:
+        # Find the number of image collections containing this image id
+        if db_client.image_source_collection.find({'images': image_id}, limit=2).count() <= 1:
+            core.image_entity.delete_image(db_client, image_id)
+    db_client.image_source_collection.delete_one({'_id': image_collection_id})

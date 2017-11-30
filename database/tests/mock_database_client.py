@@ -26,7 +26,7 @@ class ZombieDatabaseClient:
             'experiments_collection',
             'tasks_collection'
         ]:
-            setattr(mock_db_client, coll_name, mock.Mock(wraps=mongomock_client.db.collection))
+            setattr(mock_db_client, coll_name, mock.Mock(wraps=getattr(mongomock_client.db, coll_name)))
 
         # Model the data storage for gridfs
         self._gridfs_data = {}
