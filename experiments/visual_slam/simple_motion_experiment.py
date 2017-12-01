@@ -556,7 +556,7 @@ def get_on_the_spot_pitch_trajectory():
     """
     framerate = 30  # frames per second
     angular_vel = np.pi / 36   # radians per second
-    return {time: tf.Transform(rotation=(0, 0, time * angular_vel))
+    return {time: tf.Transform(rotation=(0, time * angular_vel, 0))
             for time in np.arange(0, 2 * np.pi / angular_vel, 1 / framerate)}
 
 
