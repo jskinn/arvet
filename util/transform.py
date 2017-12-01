@@ -133,7 +133,7 @@ class Transform:
         transformed to the outer coordinate frame.
         :return: The direction the pose is "facing"
         """
-        return self.find_independent((1, 0, 0))
+        return tf.quaternions.rotate_vector((1, 0, 0), (self._qw, self._qx, self._qy, self._qz))
 
     @property
     def back(self):
@@ -152,7 +152,7 @@ class Transform:
         That is
         :return: The "up" direction for this transform.
         """
-        return self.find_independent((0, 1, 0))
+        return tf.quaternions.rotate_vector((0, 0, 1), (self._qw, self._qx, self._qy, self._qz))
 
     @property
     def down(self):
@@ -160,11 +160,11 @@ class Transform:
 
     @property
     def right(self):
-        return self.find_independent((0, 0, 1))
+        return -1 * self.left
 
     @property
     def left(self):
-        return -1 * self.right
+        return tf.quaternions.rotate_vector((0, 1, 0), (self._qw, self._qx, self._qy, self._qz))
 
     def find_relative(self, pose):
         """
