@@ -2,24 +2,24 @@ import unittest
 import unittest.mock as mock
 import numpy as np
 import bson
-import util.dict_utils as du
-import util.transform as tf
-import database.client
-import metadata.camera_intrinsics as cam_intr
-import metadata.image_metadata as imeta
-import core.tests.mock_types as mock_core
-import core.image_collection
-import core.image_entity as ie
-import core.sequence_type
-import core.trial_result
-import core.benchmark
-import database.tests.mock_database_client as mock_client_factory
-import batch_analysis.task
-import batch_analysis.tasks.generate_dataset_task as generate_dataset_task
-import batch_analysis.tasks.run_system_task as run_system_task
-import batch_analysis.tasks.benchmark_trial_task as benchmark_trial_task
-import simulation.controllers.trajectory_follow_controller as traj_follow_controller
-import batch_analysis.invalidate as invalidate
+import argus.util.dict_utils as du
+import argus.util.transform as tf
+import argus.database.client
+import argus.metadata.camera_intrinsics as cam_intr
+import argus.metadata.image_metadata as imeta
+import argus.core.tests.mock_types as mock_core
+import argus.core.image_collection
+import argus.core.image_entity as ie
+import argus.core.sequence_type
+import argus.core.trial_result
+import argus.core.benchmark
+import argus.database.tests.mock_database_client as mock_client_factory
+import argus.batch_analysis.task
+import argus.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
+import argus.batch_analysis.tasks.run_system_task as run_system_task
+import argus.batch_analysis.tasks.benchmark_trial_task as benchmark_trial_task
+import argus.simulation.controllers.trajectory_follow_controller as traj_follow_controller
+import argus.batch_analysis.invalidate as invalidate
 
 
 class TestInvalidateImageCollection(unittest.TestCase):
@@ -40,7 +40,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
             image_collection_id: self.mock_db_client.tasks_collection.insert_one(
                 generate_dataset_task.GenerateDatasetTask(
                     bson.ObjectId(), bson.ObjectId(), {}, result=image_collection_id,
-                    state=batch_analysis.task.JobState.DONE).serialize()
+                    state=argus.batch_analysis.task.JobState.DONE).serialize()
             ).inserted_id
             for image_collection_id in self.image_collections
         }
@@ -50,7 +50,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
             image_collection_id: self.mock_db_client.image_source_collection.insert_one(
                 traj_follow_controller.TrajectoryFollowController(
                     trajectory={}, trajectory_source=image_collection_id,
-                    sequence_type=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL).serialize()
+                    sequence_type=argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL).serialize()
             ).inserted_id
             for image_collection_id in self.image_collections
         }
@@ -63,12 +63,15 @@ class TestInvalidateImageCollection(unittest.TestCase):
             self.trial_results[image_collection_id] = []
 
             for system_id in self.systems:
-                trial_result_id = self.mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+                trial_result_id = self.mock_db_client.trials_collection.insert_one(
+                    argus.core.trial_result.TrialResult(
+                        system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+                    ).serialize()
+                ).inserted_id
                 self.trial_results[image_collection_id].append(trial_result_id)
                 self.run_system_tasks[image_collection_id].append(self.mock_db_client.tasks_collection.insert_one(
                     run_system_task.RunSystemTask(system_id, image_collection_id, result=trial_result_id,
-                                                  state=batch_analysis.task.JobState.DONE).serialize()
+                                                  state=argus.batch_analysis.task.JobState.DONE).serialize()
                 ).inserted_id)
 
     def test_invalidate_image_collection_removes_tasks(self):
@@ -94,7 +97,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
                 self.assertEqual(1, self.mock_db_client.tasks_collection.find({'_id': run_system_task_id}).count())
 
     def test_invalidate_image_collection_invalidates_descendant_trials(self):
-        with mock.patch('batch_analysis.invalidate.invalidate_trial_result') as mock_invalidate_trial:
+        with mock.patch('argus.batch_analysis.invalidate.invalidate_trial_result') as mock_invalidate_trial:
             invalidate.invalidate_image_collection(self.mock_db_client, self.image_collections[0])
 
             # Check that all the descendant trials are invalidated
@@ -109,7 +112,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
                                      mock_invalidate_trial.call_args_list)
 
     def test_invalidate_image_collection_invalidates_descendant_controllers(self):
-        with mock.patch('batch_analysis.invalidate.invalidate_controller') as mock_invalidate_controller:
+        with mock.patch('argus.batch_analysis.invalidate.invalidate_controller') as mock_invalidate_controller:
             invalidate.invalidate_image_collection(self.mock_db_client, self.image_collections[0])
 
             # Check that all the descendant controllers are invalidated
@@ -162,7 +165,7 @@ class TestInvalidateController(unittest.TestCase):
             self.mock_db_client.image_source_collection.insert_one(
                 traj_follow_controller.TrajectoryFollowController(
                     trajectory={}, trajectory_source=None,
-                    sequence_type=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL).serialize()
+                    sequence_type=argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL).serialize()
             ).inserted_id
             for _ in range(2)
         ]
@@ -176,7 +179,9 @@ class TestInvalidateController(unittest.TestCase):
             self.generate_dataset_tasks[controller_id] = self.mock_db_client.tasks_collection.insert_one(
                 generate_dataset_task.GenerateDatasetTask(
                     simulator_id=bson.ObjectId(), controller_id=controller_id, simulator_config={},
-                    result=self.image_collections[controller_id], state=batch_analysis.task.JobState.DONE).serialize()
+                    result=self.image_collections[controller_id],
+                    state=argus.batch_analysis.task.JobState.DONE
+                ).serialize()
             ).inserted_id
 
     def test_invalidate_controller_removes_tasks(self):
@@ -198,7 +203,7 @@ class TestInvalidateController(unittest.TestCase):
                 '_id': self.generate_dataset_tasks[self.controllers[i]]}).count())
 
     def test_invalidate_controller_invalidates_generated_image_collections(self):
-        with mock.patch('batch_analysis.invalidate.invalidate_image_collection') as mock_invalidate_source:
+        with mock.patch('argus.batch_analysis.invalidate.invalidate_image_collection') as mock_invalidate_source:
             invalidate.invalidate_controller(self.mock_db_client, self.controllers[0])
 
             # Check that all the generated image collections are invalidated
@@ -242,12 +247,15 @@ class TestInvalidateSystem(unittest.TestCase):
             self.trial_results[system_id] = []
 
             for image_collection_id in self.image_collections:
-                trial_result_id = self.mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+                trial_result_id = self.mock_db_client.trials_collection.insert_one(
+                    argus.core.trial_result.TrialResult(
+                        system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+                    ).serialize()
+                ).inserted_id
                 self.trial_results[system_id].append(trial_result_id)
                 self.run_system_tasks[system_id].append(self.mock_db_client.tasks_collection.insert_one(
                     run_system_task.RunSystemTask(system_id, image_collection_id, result=trial_result_id,
-                                                  state=batch_analysis.task.JobState.DONE).serialize()
+                                                  state=argus.batch_analysis.task.JobState.DONE).serialize()
                 ).inserted_id)
 
     def test_invalidate_system_removes_tasks(self):
@@ -269,7 +277,7 @@ class TestInvalidateSystem(unittest.TestCase):
                 self.assertEqual(1, self.mock_db_client.tasks_collection.find({'_id': run_system_task_id}).count())
 
     def test_invalidate_system_invalidates_trials(self):
-        with mock.patch('batch_analysis.invalidate.invalidate_trial_result') as mock_invalidate_trial:
+        with mock.patch('argus.batch_analysis.invalidate.invalidate_trial_result') as mock_invalidate_trial:
             invalidate.invalidate_system(self.mock_db_client, self.systems[0])
 
             # Check that all the descendant trials are invalidated
@@ -312,12 +320,15 @@ class TestInvalidateTrial(unittest.TestCase):
         self.trial_results = []
         for image_collection_id in self.image_collections:
             for system_id in self.systems:
-                trial_result_id = self.mock_db_client.trials_collection.insert_one(core.trial_result.TrialResult(
-                    system_id, True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+                trial_result_id = self.mock_db_client.trials_collection.insert_one(
+                    argus.core.trial_result.TrialResult(
+                        system_id, True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+                    ).serialize()
+                ).inserted_id
                 self.trial_results.append(trial_result_id)
                 self.run_system_tasks[trial_result_id] = self.mock_db_client.tasks_collection.insert_one(
                     run_system_task.RunSystemTask(system_id, image_collection_id, result=trial_result_id,
-                                                  state=batch_analysis.task.JobState.DONE).serialize()
+                                                  state=argus.batch_analysis.task.JobState.DONE).serialize()
                 ).inserted_id
 
         self.benchmark_trial_tasks = {}
@@ -327,13 +338,13 @@ class TestInvalidateTrial(unittest.TestCase):
             self.benchmark_results[trial_result_id] = []
             for benchmark_id in self.benchmarks:
                 result_id = self.mock_db_client.results_collection.insert_one(
-                    core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
+                    argus.core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
                 self.benchmark_results[trial_result_id].append(result_id)
                 self.benchmark_trial_tasks[trial_result_id].append(
                     self.mock_db_client.tasks_collection.insert_one(
                         benchmark_trial_task.BenchmarkTrialTask(
                             trial_result_id, benchmark_id,
-                            result=result_id, state=batch_analysis.task.JobState.DONE).serialize()
+                            result=result_id, state=argus.batch_analysis.task.JobState.DONE).serialize()
                     ).inserted_id
                 )
 
@@ -360,7 +371,7 @@ class TestInvalidateTrial(unittest.TestCase):
                 self.assertEqual(1, self.mock_db_client.tasks_collection.find({'_id': benchmark_task}).count())
 
     def test_invalidate_trial_invalidates_results(self):
-        with mock.patch('batch_analysis.invalidate.invalidate_benchmark_result') as mock_invalidate_result:
+        with mock.patch('argus.batch_analysis.invalidate.invalidate_benchmark_result') as mock_invalidate_result:
             invalidate.invalidate_trial_result(self.mock_db_client, self.trial_results[0])
 
             # Check that all the descendant results are invalidated
@@ -393,8 +404,8 @@ class TestInvalidateBenchmark(unittest.TestCase):
 
         # Create the basic trial results and benchmarks
         self.trial_results = [self.mock_db_client.trials_collection.insert_one(
-            core.trial_result.TrialResult(
-                bson.ObjectId(), True, core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()
+            argus.core.trial_result.TrialResult(
+                bson.ObjectId(), True, argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()
         ).inserted_id for _ in range(2)]
         self.benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
             mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
@@ -408,13 +419,13 @@ class TestInvalidateBenchmark(unittest.TestCase):
             self.benchmark_results[benchmark_id] = []
             for trial_result_id in self.trial_results:
                 result_id = self.mock_db_client.results_collection.insert_one(
-                    core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
+                    argus.core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
                 self.benchmark_results[benchmark_id].append(result_id)
                 self.benchmark_trial_tasks[benchmark_id].append(
                     self.mock_db_client.tasks_collection.insert_one(
                         benchmark_trial_task.BenchmarkTrialTask(
                             trial_result_id, benchmark_id,
-                            result=result_id, state=batch_analysis.task.JobState.DONE).serialize()
+                            result=result_id, state=argus.batch_analysis.task.JobState.DONE).serialize()
                     ).inserted_id
                 )
 
@@ -437,7 +448,7 @@ class TestInvalidateBenchmark(unittest.TestCase):
                 self.assertEqual(1, self.mock_db_client.tasks_collection.find({'_id': benchmark_task}).count())
 
     def test_invalidate_benchmark_invalidates_results(self):
-        with mock.patch('batch_analysis.invalidate.invalidate_benchmark_result') as mock_invalidate_result:
+        with mock.patch('argus.batch_analysis.invalidate.invalidate_benchmark_result') as mock_invalidate_result:
             invalidate.invalidate_benchmark(self.mock_db_client, self.benchmarks[0])
 
             # Check that all the descendant results are invalidated
@@ -473,12 +484,12 @@ class TestInvalidateResult(unittest.TestCase):
         self.benchmark_results = []
         for _ in range(2):
             result_id = self.mock_db_client.results_collection.insert_one(
-                core.benchmark.BenchmarkResult(bson.ObjectId(), bson.ObjectId(), True).serialize()).inserted_id
+                argus.core.benchmark.BenchmarkResult(bson.ObjectId(), bson.ObjectId(), True).serialize()).inserted_id
             self.benchmark_results.append(result_id)
             self.benchmark_trial_tasks[result_id] = self.mock_db_client.tasks_collection.insert_one(
                 benchmark_trial_task.BenchmarkTrialTask(
                     bson.ObjectId(), bson.ObjectId(),
-                    result=result_id, state=batch_analysis.task.JobState.DONE).serialize()
+                    result=result_id, state=argus.batch_analysis.task.JobState.DONE).serialize()
             ).inserted_id
 
     def test_invalidate_result_removes_tasks(self):
@@ -510,20 +521,20 @@ class TestInvalidateResult(unittest.TestCase):
                 '_id': self.benchmark_results[i]}).count())
 
 
-def make_image_collection(db_client: database.client.DatabaseClient, length=3)\
-        -> core.image_collection.ImageCollection:
+def make_image_collection(db_client: argus.database.client.DatabaseClient, length=3)\
+        -> argus.core.image_collection.ImageCollection:
     images = {}
     for i in range(length):
         image_entity = make_image(i)
         image_entity.save_image_data(db_client)
         images[i] = db_client.image_collection.insert_one(image_entity.serialize()).inserted_id
-    image_collection = core.image_collection.ImageCollection(images=images, db_client_=db_client,
-                                                             type_=core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
+    image_collection = argus.core.image_collection.ImageCollection(
+        images=images, db_client_=db_client, type_=argus.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL)
     image_collection.refresh_id(db_client.image_source_collection.insert_one(image_collection.serialize()).inserted_id)
     return image_collection
 
 
-def make_image(index=1, **kwargs) -> core.image_entity.ImageEntity:
+def make_image(index=1, **kwargs) -> argus.core.image_entity.ImageEntity:
     kwargs = du.defaults(kwargs, {
         'id_': bson.objectid.ObjectId(),
         'data': np.random.uniform(0, 255, (32, 32, 3)),

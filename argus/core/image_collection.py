@@ -7,10 +7,10 @@ import argus.core.image
 import argus.core.sequence_type
 import argus.core.image_source
 import argus.core.image_entity
-
 import argus.util.database_helpers as dh
 
-class ImageCollection(core.image_source.ImageSource, database.entity.Entity, metaclass=abc.ABCMeta):
+
+class ImageCollection(argus.core.image_source.ImageSource, argus.database.entity.Entity, metaclass=abc.ABCMeta):
     """
     A collection of images stored in the database.
     This can be a sequential set of images like a video, or a random sampling of different pictures.
@@ -332,5 +332,5 @@ def delete_image_collection(db_client, image_collection_id):
     for _, image_id in s_collection['images']:
         # Find the number of image collections containing this image id
         if db_client.image_source_collection.find({'images': image_id}, limit=2).count() <= 1:
-            core.image_entity.delete_image(db_client, image_id)
+            argus.core.image_entity.delete_image(db_client, image_id)
     db_client.image_source_collection.delete_one({'_id': image_collection_id})
