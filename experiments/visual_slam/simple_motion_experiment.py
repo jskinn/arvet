@@ -218,6 +218,7 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
         systems = du.defaults({'LIBVISO 2': self._libviso_system}, self._orbslam_systems)
 
         for trajectory_group in self._trajectory_groups.values():
+
             # Collect all the image sources for this trajectory group
             image_sources = {}
             for simulator_id, dataset_id in trajectory_group.generated_datasets.items():
@@ -244,6 +245,8 @@ class SimpleMotionExperiment(batch_analysis.experiment.Experiment):
                 ax.set_ylabel('y-location')
                 ax.set_zlabel('z-location')
 
+                figure = pyplot.figure(figsize=(14, 10), dpi=80)
+                figure.suptitle("Computed orientation for {0}".format(trajectory_group.name))
                 oax = figure.add_subplot(111, projection='3d')
                 oax.set_xlabel('x-location')
                 oax.set_ylabel('y-location')
