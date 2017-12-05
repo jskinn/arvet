@@ -11,7 +11,6 @@ import dataset.image_collection_builder
 
 
 def make_camera_pose(tx, ty, tz, qx, qy, qz, qw):
-    # TODO: Check the TUM dataset coordinate frame
     """
     TUM dataset use a different coordinate frame to the one I'm using, which is the same as the Libviso2 frame.
     This function is to convert dataset ground-truth poses to transform objects.
@@ -28,8 +27,8 @@ def make_camera_pose(tx, ty, tz, qx, qy, qz, qw):
     :return: A Transform object representing the world pose of the current frame
     """
     return tf.Transform(
-        location=(tx, ty, tz),
-        rotation=(qw, qx, qy, qz),
+        location=(tz, -tx, -ty),
+        rotation=(qw, qz, -qx, -qy),
         w_first=True
     )
 
@@ -55,6 +54,7 @@ def read_trajectory(trajectory_filepath):
     :return: A map of timestamp to camera pose.
     """
     trajectory = {}
+    first_pose = None
     with open(trajectory_filepath, 'r') as trajectory_file:
         for line in trajectory_file:
             if line.startswith('#'):
@@ -63,8 +63,14 @@ def read_trajectory(trajectory_filepath):
             parts = line.split(' ')
             if len(parts) >= 8:
                 timestamp, tx, ty, tz, qx, qy, qz, qw = parts[0:8]
-                trajectory[float(timestamp)] = make_camera_pose(float(tx), float(ty), float(tz),
+                pose = make_camera_pose(float(tx), float(ty), float(tz),
                                                                 float(qx), float(qy), float(qz), float(qw))
+                # Find the pose relative to the first frame, which we fix as 0,0,0
+                if first_pose is None:
+                    first_pose = pose
+                    trajectory[float(timestamp)] = tf.Transform()
+                else:
+                    trajectory[float(timestamp)] = first_pose.find_relative(pose)
     return trajectory
 
 

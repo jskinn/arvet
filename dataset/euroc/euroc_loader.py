@@ -3,6 +3,7 @@ import os.path
 import numpy as np
 import xxhash
 import cv2
+import transforms3d as tf3d
 import util.associate
 import metadata.camera_intrinsics as cam_intr
 import metadata.image_metadata as imeta
@@ -18,7 +19,8 @@ except ImportError:
 
 def make_camera_pose(tx, ty, tz, qx, qy, qz, qw):
     """
-    As far as I can tell, EuRoC uses ROS coordinates, which are the same as my coordinates.
+    As far as I can tell, EuRoC uses Z forward coordinates, the same as everything else.
+    I need to switch it to X-forward coordinates.
 
     :param tx: The x coordinate of the location
     :param ty: The y coordinate of the location
@@ -30,8 +32,8 @@ def make_camera_pose(tx, ty, tz, qx, qy, qz, qw):
     :return: A Transform object representing the world pose of the current frame
     """
     return tf.Transform(
-        location=(tx, ty, tz),
-        rotation=(qw, qx, qy, qz),
+        location=(tz, -tx, -ty),
+        rotation=(qw, qz, -qx, -qy),
         w_first=True
     )
 
@@ -57,6 +59,7 @@ def read_trajectory(trajectory_filepath):
     :return: A map of timestamp to camera pose.
     """
     trajectory = {}
+    first_pose = None
     with open(trajectory_filepath, 'r') as trajectory_file:
         for line in trajectory_file:
             if line.startswith('#'):
@@ -65,8 +68,14 @@ def read_trajectory(trajectory_filepath):
             parts = line.split(',')
             if len(parts) >= 8:
                 timestamp, tx, ty, tz, qw, qx, qy, qz = parts[0:8]
-                trajectory[float(timestamp)] = make_camera_pose(float(tx), float(ty), float(tz),
-                                                                float(qx), float(qy), float(qz), float(qw))
+                pose = make_camera_pose(float(tx), float(ty), float(tz),
+                                        float(qx), float(qy), float(qz), float(qw))
+                # Find the pose relative to the first frame, which we fix as 0,0,0
+                if first_pose is None:
+                    first_pose = pose
+                    trajectory[float(timestamp)] = tf.Transform()
+                else:
+                    trajectory[float(timestamp)] = first_pose.find_relative(pose)
     return trajectory
 
 

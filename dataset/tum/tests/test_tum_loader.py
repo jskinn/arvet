@@ -13,32 +13,34 @@ class TestTUMLoader(unittest.TestCase):
         self.assertIsInstance(pose, tf.Transform)
 
     def test_make_camera_pose_location_coordinates(self):
+        # Order here is right, down, forward
         pose = tum_loader.make_camera_pose(10, -22.4, 13.2, 0, 0, 0, 1)
-        self.assertNPEqual((10, -22.4, 13.2), pose.location)
+        # Change coordinate order to forward, left, up
+        self.assertNPEqual((13.2, -10, 22.4), pose.location)
 
     def test_make_camera_pose_changes_rotation_each_axis(self):
-        # Roll, rotation around x-axis?
-        quat = tf3d.quaternions.axangle2quat((1, 0, 0), np.pi / 6)
+        # Roll, rotation around z-axis
+        quat = tf3d.quaternions.axangle2quat((0, 0, 1), np.pi / 6)
         pose = tum_loader.make_camera_pose(10, -22.4, 13.2, quat[1], quat[2], quat[3], quat[0])
         self.assertNPClose((np.pi / 6, 0, 0), pose.euler)
 
-        # Pitch, rotation around y-axis?
+        # Pitch, rotation around x-axis
+        quat = tf3d.quaternions.axangle2quat((1, 0, 0), np.pi / 6)
+        pose = tum_loader.make_camera_pose(10, -22.4, 13.2, quat[1], quat[2], quat[3], quat[0])
+        self.assertNPClose((0, -np.pi / 6, 0), pose.euler)
+
+        # Yaw, rotation around y-axis
         quat = tf3d.quaternions.axangle2quat((0, 1, 0), np.pi / 6)
         pose = tum_loader.make_camera_pose(10, -22.4, 13.2, quat[1], quat[2], quat[3], quat[0])
-        self.assertNPClose((0, np.pi / 6, 0), pose.euler)
-
-        # Yaw, rotation around z-axis?
-        quat = tf3d.quaternions.axangle2quat((0, 0, 1), np.pi / 6)
-        pose = tum_loader.make_camera_pose(10, -22.4, 13.2, quat[1], quat[2], quat[3], quat[0])
-        self.assertNPClose((0, 0, np.pi / 6), pose.euler)
+        self.assertNPClose((0, 0, -np.pi / 6), pose.euler)
 
     def test_make_camera_pose_combined(self):
         for _ in range(10):
             loc = np.random.uniform(-1000, 1000, 3)
             rot_axis = np.random.uniform(-1, 1, 3)
             rot_angle = np.random.uniform(-np.pi, np.pi)
-            quat = tf3d.quaternions.axangle2quat(rot_axis, rot_angle)
-            pose = tum_loader.make_camera_pose(loc[0], loc[1], loc[2], quat[1], quat[2], quat[3], quat[0])
+            quat = tf3d.quaternions.axangle2quat((-rot_axis[1], -rot_axis[2], rot_axis[0]), rot_angle)
+            pose = tum_loader.make_camera_pose(-loc[1], -loc[2], loc[0], quat[1], quat[2], quat[3], quat[0])
             self.assertNPEqual(loc, pose.location)
             self.assertNPClose(tf3d.quaternions.axangle2quat(rot_axis, rot_angle, False), pose.rotation_quat(True))
 
