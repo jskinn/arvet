@@ -291,3 +291,28 @@ def save_image(db_client, image):
     else:
         # An identical image already exists, use that.
         return existing['_id']
+
+
+def delete_image(db_client, image_id):
+    """
+    Delete an image by id, including removing the data stored in GridFS.
+    :param db_client: The database client
+    :param image_id: The image id.
+    :return:
+    """
+    # Generate the keys that may point to GridFS data
+    delete_keys = ['data', 'depth_data', 'ground_truth_depth_data', 'labels_data', 'world_normals_data']
+    delete_keys = [prefix + key for key in delete_keys for prefix in ('', 'left_', '_right_')]
+
+    s_image = db_client.image_collection.find_one({'_id': image_id}, {key: True for key in delete_keys})
+
+    # Delete the data from the GridFS keys
+    for key in delete_keys:
+        if key in s_image:
+            db_client.grid_fs.delete(s_image[key])
+        if 'left_' + key in s_image:
+            db_client.grid_fs.delete(s_image['left_' + key])
+        if 'right_' + key in s_image:
+            db_client.grid_fs.delete(s_image['right_' + key])
+
+    db_client.image_collection.delete_one({'_id': image_id})

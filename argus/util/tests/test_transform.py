@@ -220,6 +220,96 @@ class TestTransform(unittest.TestCase):
                 self.assertEqual(entity1, entity2)
                 self.assertEqual(s_entity1, s_entity2)
 
+    def test_forward_is_forward_vector(self):
+        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        self.assert_close((np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.forward)
+
+        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        self.assert_close((np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.forward)
+
+    def test_forward_is_independent_of_location(self):
+        quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
+        pose = trans.Transform(rotation=quat, w_first=True)
+        forward = pose.forward
+        for _ in range(10):
+            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            self.assert_array(forward, pose.forward)
+
+    def test_back_is_back_vector(self):
+        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        self.assert_close((-np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.back)
+
+        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        self.assert_close((-np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.back)
+
+    def test_back_is_independent_of_location(self):
+        quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
+        pose = trans.Transform(rotation=quat, w_first=True)
+        back = pose.back
+        for _ in range(10):
+            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            self.assert_array(back, pose.back)
+
+    def test_left_is_left_vector(self):
+        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        self.assert_close((0, np.sqrt(2) / 2, np.sqrt(2) / 2), pose.left)
+
+        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        self.assert_close((-np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.left)
+
+    def test_left_is_independent_of_location(self):
+        quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
+        pose = trans.Transform(rotation=quat, w_first=True)
+        left = pose.left
+        for _ in range(10):
+            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            self.assert_array(left, pose.left)
+
+    def test_right_is_left_vector(self):
+        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        self.assert_close((0, -np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.right)
+
+        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        self.assert_close((np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.right)
+
+    def test_right_is_independent_of_location(self):
+        quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
+        pose = trans.Transform(rotation=quat, w_first=True)
+        right = pose.right
+        for _ in range(10):
+            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            self.assert_array(right, pose.right)
+
+    def test_up_is_up_vector(self):
+        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        self.assert_close((0, -np.sqrt(2) / 2, np.sqrt(2) / 2), pose.up)
+
+        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        self.assert_close((np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.up)
+
+    def test_up_is_independent_of_location(self):
+        quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
+        pose = trans.Transform(rotation=quat, w_first=True)
+        up = pose.up
+        for _ in range(10):
+            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            self.assert_array(up, pose.up)
+
+    def test_down_is_down_vector(self):
+        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        self.assert_close((0, np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.down)
+
+        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        self.assert_close((-np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.down)
+
+    def test_down_is_independent_of_location(self):
+        quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
+        pose = trans.Transform(rotation=quat, w_first=True)
+        down = pose.down
+        for _ in range(10):
+            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            self.assert_array(down, pose.down)
+
     def assert_array(self, arr1, arr2, msg=None):
         a1 = np.asarray(arr1)
         a2 = np.asarray(arr2)
