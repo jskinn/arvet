@@ -12,7 +12,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='argus',
+    name='arvet',
     version='0.1.0',
     description='Framework and utilities for performing robotic vision experiments',
     long_description=long_description,
@@ -43,7 +43,7 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
 
-    url='https://gitub.com/jskinn/argus',
+    url='https://gitub.com/jskinn/arvet',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=['pymongo', 'numpy', 'transforms3d', 'mongomock', 'xxhash', 'PyYAML'],
     python_requires='>=3'
