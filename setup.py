@@ -44,7 +44,7 @@ setup(
     ],
 
     url='https://gitub.com/jskinn/arvet',
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=find_packages(exclude=[]), #find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=['pymongo', 'numpy', 'transforms3d', 'mongomock', 'xxhash', 'PyYAML'],
     python_requires='>=3'
 )
