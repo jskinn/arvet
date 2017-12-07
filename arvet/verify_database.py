@@ -6,10 +6,10 @@ import argparse
 import traceback
 import numpy as np
 import pymongo.collection
-import cv2
 import arvet.config.global_configuration as global_conf
 import arvet.database.client
 import arvet.database.entity_registry
+import arvet.util.image_utils as image_utils
 
 
 def remove_orphan_images(db_client: arvet.database.client.DatabaseClient, dry_run=False):
@@ -43,10 +43,10 @@ def recalculate_derivative_metadata(db_client: arvet.database.client.DatabaseCli
             # Recalculate label bounding boxes
             for idx, labelled_object in enumerate(image.metadata.labelled_objects):
                 color = labelled_object.label_color
-                label_points = cv2.findNonZero(np.asarray(np.all(image.labels_data == color, axis=2), dtype='uint8'))
                 db_client.image_collection.update({'_id': image.identifier}, {
                     '$set': {
-                        'metadata.labelled_objects.{}.bounding_box'.format(idx): cv2.boundingRect(label_points)
+                        'metadata.labelled_objects.{}.bounding_box'.format(idx):
+                            image_utils.get_bounding_box(np.all(image.labels_data == color, axis=2))
                     }
                 })
 
