@@ -4,7 +4,6 @@ import time
 import subprocess
 import xxhash
 import numpy as np
-import cv2
 import unrealcv
 
 import arvet.core.image as im
@@ -16,6 +15,7 @@ import arvet.simulation.depth_noise
 import arvet.util.dict_utils as du
 import arvet.util.transform as tf
 import arvet.util.unreal_transform as uetf
+import arvet.util.image_utils as image_utils
 
 
 TEMPLATE_UNREALCV_SETTINGS = """
@@ -556,22 +556,18 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                                                              width=self._resolution[0],
                                                              height=self._resolution[1]))
 
-    def _request_image(self, viewmode, datatype=cv2.IMREAD_COLOR):
+    def _request_image(self, viewmode):
         filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
-        data = cv2.imread(filename, datatype)
+        data = image_utils.read_colour(filename)
         os.remove(filename)     # Clean up after ourselves, now that we have the image data
-        if len(data.shape) == 3:
-            # Its a color image, rearrange the channels, because opencv
-            return data[:, :, ::-1]
-        else:
-            return data
+        return data
 
     def _get_image(self):
         if self._client is not None:
             if self._lit_mode:
-                image_data = self._request_image('lit', cv2.IMREAD_COLOR)
+                image_data = self._request_image('lit')
             else:
-                image_data = self._request_image('unlit', cv2.IMREAD_COLOR)
+                image_data = self._request_image('unlit')
             image_data = np.ascontiguousarray(image_data)
             depth_data = None
             ground_truth_depth_data = None
@@ -579,7 +575,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             world_normals_data = None
 
             if self.is_depth_available:
-                ground_truth_depth_data = self._request_image('depth', cv2.IMREAD_COLOR)
+                ground_truth_depth_data = self._request_image('depth')
                 # I've encoded the depth into all three channels, Red is depth / 65536, green depth on 256,
                 # and blue raw depth. Green and blue channels loop within their ranges, red clamps.
                 ground_truth_depth_data = np.asarray(ground_truth_depth_data, dtype=np.float32)   # Back to floats
@@ -587,7 +583,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                 # We now have depth in unreal world units, ie, centimenters. Convert to meters.
                 ground_truth_depth_data /= 100
             if self.is_per_pixel_labels_available:
-                labels_data = self._request_image('object_mask', cv2.IMREAD_COLOR)
+                labels_data = self._request_image('object_mask')
             if self.is_normals_available:
                 world_normals_data = self._request_image('normal')
 
@@ -665,13 +661,12 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                     class_names = self._client.request("vget /object/{0}/labels".format(name))
                     class_names = set(class_names.lower().split(','))
 
-                    label_points = cv2.findNonZero(np.asarray(np.all(label_data == color, axis=2), dtype='uint8'))
                     # TODO: Other ground-truth bounding boxes could be useful, and are trivial to calculate here
                     # E.g.: Oriented bounding boxes, or fit ellipses. see:
                     # http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html
                     labelled_objects.append(imeta.LabelledObject(
                         class_names=class_names,
-                        bounding_box=cv2.boundingRect(label_points),
+                        bounding_box=image_utils.get_bounding_box(np.all(label_data == color, axis=2)),
                         label_color=color,
                         relative_pose=self.get_object_pose(name),
                         object_id=name

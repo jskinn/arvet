@@ -1,12 +1,16 @@
 # Copyright (c) 2017, John Skinner
 import sys
 import bson.objectid
-import cv2
-import numpy as np
 import arvet.config.global_configuration as global_conf
 import arvet.database.client
 import arvet.core.image_collection
 import arvet.core.image_entity
+
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 
 def main(*args):
@@ -18,7 +22,7 @@ def main(*args):
     (note that args[0] should be the x
     :return:
     """
-    if len(args) >= 1:
+    if len(args) >= 1 and cv2 is not None:
         image_source_id = bson.objectid.ObjectId(args[0])
 
         config = global_conf.load_global_config('config.yml')

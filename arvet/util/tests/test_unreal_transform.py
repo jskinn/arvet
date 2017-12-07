@@ -63,6 +63,14 @@ class TestToAndFromUnreal(unittest.TestCase):
         ue_pose = uetrans.transform_to_unreal(pose)
         self.assert_close((0, 0, 30), ue_pose.euler)
 
+    def test_to_unreal_is_consistent(self):
+        pose = mytf.Transform((17, -21, 3), (0.1, 0.7, -0.3, 0.5))
+        ue_pose = uetrans.transform_to_unreal(pose)
+        ue_pose2 = uetrans.transform_to_unreal(pose)
+        self.assert_array(ue_pose.location, ue_pose2.location)
+        self.assert_array(ue_pose.euler, ue_pose2.euler)
+        #self.assertEqual(ue_pose, ue_pose2)
+
     def test_pose_from_unreal(self):
         ue_pose = uetrans.UnrealTransform(location=(37, 113, -97),
                                           rotation=(-21.688360, -31.675301, 31.189531))
@@ -102,6 +110,12 @@ class TestToAndFromUnreal(unittest.TestCase):
         ue_pose = uetrans.UnrealTransform(location=(0, 0, 0), rotation=(0, 0, -30))
         pose = uetrans.transform_from_unreal(ue_pose)
         self.assert_close(tf.quaternions.axangle2quat((0, 0, 1), np.pi / 6), pose.rotation_quat(w_first=True))
+
+    def test_from_unreal_is_consistent(self):
+        ue_pose = uetrans.UnrealTransform((-19, -23, 300), (32.1, -21.15, -112.16))
+        pose = uetrans.transform_from_unreal(ue_pose)
+        pose2 = uetrans.transform_from_unreal(ue_pose)
+        self.assertEqual(pose, pose2)
 
     def test_to_and_from_unreal_is_reflexive_for_transforms(self):
         pose = mytf.Transform((-19, -23, 300), (0.6, -0.7, -0.3, 1.4))

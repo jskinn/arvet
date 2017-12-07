@@ -4,10 +4,16 @@ import bson
 import arvet.config.global_configuration as global_conf
 import arvet.database.client
 import arvet.core.image
-import cv2
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 
 def visualize_dataset(db_client, dataset_id):
+    if cv2 is None:
+        return
     s_image_source = db_client.image_source_collection.find_one({'_id': dataset_id})
     if s_image_source is not None:
         image_source = db_client.deserialize_entity(s_image_source)
@@ -21,6 +27,8 @@ def visualize_dataset(db_client, dataset_id):
 
 
 def visualize_generated_dataset(db_client):
+    if cv2 is None:
+        return
     generate_tasks = db_client.tasks_collection.find({
         '_type': 'arvet.batch_analysis.tasks.generate_dataset_task.GenerateDatasetTask', 'state': 2}).limit(2)
     for s_generate_task in generate_tasks:
