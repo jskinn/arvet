@@ -117,6 +117,68 @@ class TestImageUtils(unittest.TestCase):
         logical_image[top:bottom, left:right] = 1.0
         self.assertEqual((left, top, right, bottom), image_utils.get_bounding_box(logical_image))
 
+    def test_resize_image_up_nearest(self):
+        image = np.array([[1, 64], [128, 255]], np.uint8)
+        result = image_utils.resize_image(image, (4, 4), interpolation=image_utils.Interpolation.NEAREST)
+        self.assertNPEqual([
+            [1, 1, 64, 64],
+            [1, 1, 64, 64],
+            [128, 128, 255, 255],
+            [128, 128, 255, 255]
+        ], result)
+
+    def test_resize_image_down_nearest(self):
+        image = np.array([
+            [1, 1, 64, 64],
+            [1, 1, 64, 64],
+            [128, 128, 255, 255],
+            [128, 128, 255, 255]
+        ], np.uint8)
+        result = image_utils.resize_image(image, (2, 2), interpolation=image_utils.Interpolation.NEAREST)
+        self.assertNPEqual([[1, 64], [128, 255]], result)
+
+    def test_resize_image_box_up(self):
+        image = np.array([[1, 64], [128, 255]], np.uint8)
+        result = image_utils.resize_image(image, (4, 4), interpolation=image_utils.Interpolation.BOX)
+        self.assertNPEqual([
+            [1, 1, 64, 64],
+            [1, 1, 64, 64],
+            [128, 128, 255, 255],
+            [128, 128, 255, 255]
+        ], result)
+
+    def test_resize_image_box_down(self):
+        image = np.array([list(range(i, i+10)) for i in range(0, 100, 10)], np.uint8)
+        result = image_utils.resize_image(image, (2, 2), interpolation=image_utils.Interpolation.BOX)
+        self.assertNPEqual([
+            [22, 27],
+            [72, 77]
+        ], result)
+
+    def test_resize_image_binlear_up(self):
+        image = np.array([[1, 63], [127, 255]], np.uint8)
+        result = image_utils.resize_image(image, (3, 3), interpolation=image_utils.Interpolation.BILINEAR)
+        self.assertNPEqual([
+            [1, 32, 63],
+            [64, 112, 159],
+            [127, 191, 255]
+        ], result)
+
+    def test_resize_image_binlear_down(self):
+        image = np.array([
+            [10, 15, 20, 25],
+            [30, 35, 40, 45],
+            [50, 55, 60, 65],
+            [70, 75, 80, 85]
+        ], np.uint8)
+
+        result = image_utils.resize_image(image, (3, 3), interpolation=image_utils.Interpolation.BILINEAR)
+        self.assertNPEqual([
+            [17, 24, 30],
+            [41, 48, 54],
+            [65, 72, 78]
+        ], result)
+
     def test_show_image_float(self):
         image_data = np.array([[0.0 for _ in range(100)] for _ in range(100)], dtype=np.float32)
         image_data[12:56, 34:75] = 1.0

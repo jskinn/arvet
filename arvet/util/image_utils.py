@@ -1,8 +1,19 @@
 # Copyright (c) 2017, John Skinner
 import os
 import typing
+import enum
 import numpy as np
 import PIL.Image
+
+
+class Interpolation(enum.Enum):
+    """
+    Enum specifying different interpolation types, for image resizing
+    """
+    NEAREST = 0
+    BOX = 1
+    BILINEAR = 2
+    BICUBIC = 3
 
 
 def read_colour(filename: str) -> typing.Union[None, np.ndarray]:
@@ -54,6 +65,29 @@ def get_bounding_box(image_data: np.ndarray) -> typing.Union[typing.Tuple[int, i
         image_data = image_data.astype(dtype=np.uint8)
     pil_image = PIL.Image.fromarray(image_data)
     return pil_image.getbbox()
+
+
+def resize_image(image_data: np.ndarray, new_size: typing.Tuple[int, int],
+                 interpolation: Interpolation = Interpolation.NEAREST) -> np.ndarray:
+    """
+    Resize an image to a new resolution
+
+    http://pillow.readthedocs.io/en/latest/reference/Image.html#PIL.Image.Image.resize
+
+    :param image_data: The image to resize
+    :param new_size: The new size to change it to.
+    :param interpolation: The interpolation mode, as an enum. Default NEAREST.
+    :return: The resized image.
+    """
+    pil_image = PIL.Image.fromarray(image_data)
+    pil_interpolation = PIL.Image.NEAREST
+    if interpolation == Interpolation.BOX:
+        pil_interpolation = PIL.Image.BOX
+    elif interpolation == Interpolation.BILINEAR:
+        pil_interpolation = PIL.Image.BILINEAR
+    elif interpolation == Interpolation.BICUBIC:
+        pil_interpolation = PIL.Image.BICUBIC
+    return np.array(pil_image.resize(new_size, resample=pil_interpolation))
 
 
 def show_image(image_data: np.ndarray, window_name: str = 'temp') -> None:
