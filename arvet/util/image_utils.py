@@ -67,8 +67,8 @@ def get_bounding_box(image_data: np.ndarray) -> typing.Union[typing.Tuple[int, i
     return pil_image.getbbox()
 
 
-def resize_image(image_data: np.ndarray, new_size: typing.Tuple[int, int],
-                 interpolation: Interpolation = Interpolation.NEAREST) -> np.ndarray:
+def resize(image_data: np.ndarray, new_size: typing.Tuple[int, int],
+           interpolation: Interpolation = Interpolation.NEAREST) -> np.ndarray:
     """
     Resize an image to a new resolution
 
