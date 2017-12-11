@@ -5,7 +5,7 @@ import arvet.database.client
 import arvet.batch_analysis.experiment as ex
 
 
-def create_experiment(experiment: typing.Union[ex.Experiment, typing.Type[ex.Experiment]]) -> None:
+def create_experiment(experiment: typing.Type[ex.Experiment]) -> None:
     """
     A helper to create experiments within the database.
     :param experiment: An experiment type or object

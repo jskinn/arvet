@@ -355,19 +355,14 @@ def patch_schema(serialized_representation: dict, db_client: arvet.database.clie
 
 
 def create_experiment(db_client: arvet.database.client.DatabaseClient,
-                      experiment: typing.Union[Experiment, typing.Type[Experiment]]) -> None:
+                      experiment_type: typing.Type[Experiment]) -> None:
     """
     Store an experiment in the database. Experiments are uniquely identified by type,
     so it will not store it if another experiment of that type already exists.
     :param db_client: The database client
-    :param experiment: The experiment to store, either as an object or as a type.
+    :param experiment_type: The experiment type to create
     :return: void
     """
-    if isinstance(experiment, type):
-        experiment_type = experiment
-        experiment = experiment()
-    else:
-        experiment_type = type(experiment)
     if db_client.experiments_collection.find({
             '_type': experiment_type.__module__ + '.' + experiment_type.__name__}).count() <= 0:
-        db_client.experiments_collection.insert_one(experiment.serialize())
+        db_client.experiments_collection.insert_one(experiment_type().serialize())
