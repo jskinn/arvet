@@ -14,6 +14,13 @@ and to interface with external job managers and batch systems (such as exist on 
 Experiment data and state is stored in a MongoDB database.
 Several separate nodes can run the code from the same MongoDB database, to distribute computation.
 
+This module defines core types and automates the evaluation process, but actually conducting experiments requires
+explicit creation of systems, datasets, and benchmarks under test;
+as well as intermediate types for storing their output.
+This is made easier through extension modules such as `arvet_slam`_
+
+.. _arvet_slam: https://github.com/jskinn/arvet-slam
+
 Usage
 =====
 
@@ -22,11 +29,10 @@ Creating an experiment
 
 To define an experiment, override `arvet.batch_analysis.experiment.Experiment`,
 in particular the `do_imports`, `schedule_tasks`, and `plot_results` methods.
+
 - `do_imports` method should import and store references to whatever image datasets
 - `schedule_tasks` indicates which systems should be run with which image datasets, and how each result should be assessed
 - `plot results` visualizes the performance output
-
-See the `experiments` module for examples, particularly `experiments.visual_slam.visual_odometry_experiment`.
 
 Lastly, create and store an instance of the experiment in `add_initial_entities.py`.
 
@@ -55,27 +61,26 @@ Structure
 
 Data and state is stored in a MongoDB database, which can be configured in config.yml.
 
+License
+=======
+
+Except where otherwise noted in the relevant file, this code is licensed under the BSD 2-Clause licence, see LICENSE.
+
 Python Dependencies
 ===================
 
 The code is in python 3, tested with both 3.4 and 3.5. Does not support python 2.
-The core structure depends on the following python libraries, which can be installed with pip:
-- pickle
+The core structure depends on the following python libraries, which will be installed automatically by pip:
+
+- pymongo
 - numpy
 - transforms3d
-- pymongo
-- unittest
+- mongomock
+- xxhash
+- PyYAML
+- pillow
+- unrealcv
 
-Image dataset importing and image feature systems (module systems.features) depend on:
-- opencv 3.0
-
-Unreal Engine simulators depend on:
-- unrealcv (use my fork from my github for additional camera features and python3 support)
-
-Deep-learning depends on:
-- keras (requires scikit-learn, pillow, h5py)
-- tensorflow (see [https://www.tensorflow.org/install/install_linux], best with GPU and CUDA)
-
-Libviso can be downloaded from:http://www.cvlibs.net/software/libviso/ .
-Libviso is written in C++, use within the framework requres python bindings,
-which can be downloaded here: https://github.com/jlowenz/pyviso2
+Additionally, some of the possible image augmentations (`arvet.image_collections.image_augmentations.opencv_augmentations`),
+and certain visualizations (`arvet.visualize_dataset` and `arvet.verify_bounding_boxes_manually` require OpenCV.
+They should not occur as part of normal operation, but will produce ImportErrors if OpenCV is unavailable.
