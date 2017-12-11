@@ -31,7 +31,7 @@ def main(*args):
         task = dh.load_object(db_client, db_client.tasks_collection, task_id)
         if task is not None:
             try:
-                task.run_task(db_client)
+                task.run_task(path_manger, db_client)
             except Exception:
                 logging.getLogger(__name__).error("Exception occurred while running {0}: {1}".format(
                     type(task).__name__, traceback.format_exc()
