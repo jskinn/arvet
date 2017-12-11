@@ -1,6 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import arvet.database.entity
 import enum
+import arvet.database.client
+import arvet.config.path_manager
 
 
 class JobState(enum.Enum):
@@ -107,10 +109,13 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
     def expected_duration(self):
         return self._expected_duration
 
-    def run_task(self, db_client):
+    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
+                 db_client: arvet.database.client.DatabaseClient):
         """
         Actually perform the task.
         Different subtypes do different things.
+        :param path_manager: A path manager, to resolve file system paths
+        :param db_client: The database client, for loading the objects used in the task.
         :return:
         """
         pass

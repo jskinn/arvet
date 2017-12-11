@@ -1,5 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
+import arvet.database.client
+import arvet.config.path_manager
 
 
 class RunSystemTask(arvet.batch_analysis.task.Task):
@@ -28,7 +30,8 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
     def image_source(self):
         return self._image_source
 
-    def run_task(self, db_client):
+    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
+                 db_client: arvet.database.client.DatabaseClient):
         import logging
         import traceback
         import arvet.util.database_helpers as dbhelp

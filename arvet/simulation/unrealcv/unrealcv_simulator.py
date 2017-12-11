@@ -8,6 +8,7 @@ import unrealcv
 
 import arvet.core.image as im
 import arvet.database.entity
+import arvet.config.path_manager
 import arvet.metadata.camera_intrinsics as cam_intr
 import arvet.metadata.image_metadata as imeta
 import arvet.simulation.simulator
@@ -139,6 +140,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         # Additional metatada included in the config
         self._additional_metadata = dict(config['metadata'])
 
+        self._actual_executable = None
         self._client = None
         self._current_pose = None
 
@@ -192,6 +194,14 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         """
         return False
 
+    def resolve_paths(self, path_manager: arvet.config.path_manager.PathManager):
+        """
+        Find the actual executable to launch this simulator.
+        :param path_manager:
+        :return:
+        """
+        self._actual_executable = path_manager.find_file(self._executable)
+
     def get_camera_intrinsics(self):
         """
         Get the current camera intrinsics from the simulator, based on its fov and aspect ratio
@@ -228,7 +238,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                 self._client.disconnect()
                 self._client = None
             self._store_config()
-            start_simulator(self._executable)
+            start_simulator(self._actual_executable)
             # Wait for the UnrealCV server to start, pulling lines from stdout to check
             time.sleep(2)   # Wait, we can't capture some of the output right now
 #            while self._simulator_process.poll() is not None:
@@ -550,8 +560,8 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         This makes sure we're connecting on the right port, and generating the desired resolution.
         :return: void
         """
-        if self._host == 'localhost' and self._executable is not None:
-            with open(os.path.join(os.path.dirname(self._executable), 'unrealcv.ini'), 'w') as file:
+        if self._host == 'localhost' and self._actual_executable is not None:
+            with open(os.path.join(os.path.dirname(self._actual_executable), 'unrealcv.ini'), 'w') as file:
                 file.write(TEMPLATE_UNREALCV_SETTINGS.format(port=self._port,
                                                              width=self._resolution[0],
                                                              height=self._resolution[1]))

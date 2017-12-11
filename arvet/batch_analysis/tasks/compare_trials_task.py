@@ -1,5 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
+import arvet.database.client
+import arvet.config.path_manager
 
 
 class CompareTrialTask(arvet.batch_analysis.task.Task):
@@ -24,7 +26,8 @@ class CompareTrialTask(arvet.batch_analysis.task.Task):
     def comparison(self):
         return self._comparison_id
 
-    def run_task(self, db_client):
+    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
+                 db_client: arvet.database.client.DatabaseClient):
         import logging
         import traceback
         import arvet.util.database_helpers as dh

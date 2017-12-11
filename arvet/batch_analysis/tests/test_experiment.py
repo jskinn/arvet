@@ -21,7 +21,7 @@ class MockExperiment(ex.Experiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def do_imports(self, task_manager, db_client):
+    def do_imports(self, task_manager, path_manager, db_client):
         pass
 
     def schedule_tasks(self, task_manager, db_client):

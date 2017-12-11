@@ -2,6 +2,7 @@
 import abc
 import arvet.core.sequence_type
 import arvet.core.image_source
+import arvet.config.path_manager
 
 
 class Simulator(arvet.core.image_source.ImageSource, metaclass=abc.ABCMeta):
@@ -12,6 +13,17 @@ class Simulator(arvet.core.image_source.ImageSource, metaclass=abc.ABCMeta):
     TODO: We will need more methods to control the simulator.
     TODO: Support multiple cameras
     """
+
+    def resolve_paths(self, path_manager: arvet.config.path_manager.PathManager):
+        """
+        Most simulators will contain something stored on the hard drive,
+        use the configured path manager to locate the actual simulator on this device.
+        If the simulator can not be found, raise FileNotFoundError
+        Do nothing if the simulator doesn't need any files.
+        :param path_manager: The path manager to help us find the simulator
+        :return: void
+        """
+        pass
 
     @property
     def sequence_type(self):

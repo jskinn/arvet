@@ -16,6 +16,7 @@ def load_global_config(filename):
     # Default global configuration.
     # This is what you get if you don't have a configuration file.
     config = {
+        'paths': ['~'],
         'database_config': {    # Copied from arvet.database.config. Keep them in sync
             'connection_parameters': {},
             'database_name': 'benchmark_system',

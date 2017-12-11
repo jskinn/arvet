@@ -99,10 +99,14 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         port = np.random.randint(0, 1000)
         width = np.random.randint(10, 1000)
         height = np.random.randint(10, 1000)
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
+        subject = uecvsim.UnrealCVSimulator('temp/blah/notreal.sh', 'sim-world', config={
             'port': port,
             'resolution': {'width': width, 'height': height},
         })
+
+        mock_path_manager = mock.Mock()
+        mock_path_manager.find_file.return_value = 'temp/test_project/test.sh'
+        subject.resolve_paths(mock_path_manager)
 
         mock_open = mock.mock_open()
         with mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock_open, create=True):
@@ -123,7 +127,12 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
     def test_begin_starts_simulator(self, mock_subprocess, *_):
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/not-real.sh', 'sim-world')
+
+        mock_path_manager = mock.Mock()
+        mock_path_manager.find_file.return_value = 'temp/test_project/test.sh'
+        subject.resolve_paths(mock_path_manager)
+
         subject.begin()
         self.assertTrue(mock_subprocess.Popen.called)
         self.assertEqual('temp/test_project/test.sh', mock_subprocess.Popen.call_args[0][0])

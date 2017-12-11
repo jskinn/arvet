@@ -7,6 +7,7 @@ import typing
 import traceback
 import bson
 import arvet.config.global_configuration as global_conf
+import arvet.config.path_manager
 import arvet.database.client
 import arvet.util.database_helpers as dh
 import arvet.batch_analysis.task_manager
@@ -26,6 +27,7 @@ def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool =
     config = global_conf.load_global_config('config.yml')
     if __name__ == '__main__':
         logging.config.dictConfig(config['logging'])
+    path_manger = arvet.config.path_manager.PathManager(paths=config['paths'])
     db_client = arvet.database.client.DatabaseClient(config=config)
     task_manager = arvet.batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
 
@@ -42,7 +44,7 @@ def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool =
                 logging.getLogger(__name__).info(" ... experiment {0}".format(experiment.identifier))
                 try:
                     if do_imports:
-                        experiment.do_imports(task_manager, db_client)
+                        experiment.do_imports(task_manager, path_manger, db_client)
                     if schedule_tasks:
                         experiment.schedule_tasks(task_manager, db_client)
                     experiment.save_updates(db_client)

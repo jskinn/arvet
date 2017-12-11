@@ -1,5 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
+import arvet.database.client
+import arvet.config.path_manager
 
 
 class ImportDatasetTask(arvet.batch_analysis.task.Task):
@@ -24,7 +26,8 @@ class ImportDatasetTask(arvet.batch_analysis.task.Task):
     def additional_args(self):
         return self._additional_args
 
-    def run_task(self, db_client):
+    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
+                 db_client: arvet.database.client.DatabaseClient):
         import logging
         import traceback
         import importlib
@@ -35,6 +38,15 @@ class ImportDatasetTask(arvet.batch_analysis.task.Task):
         except ImportError:
             loader_module = None
 
+        # Try and find the root directory or file to load the dataset from
+        try:
+            actual_path = path_manager.find_path(self.path)
+        except FileNotFoundError:
+            logging.getLogger(__name__).error(
+                "Could not find dataset path {0}".format(self.path))
+            self.mark_job_failed()
+            actual_path = None
+
         if loader_module is None:
             logging.getLogger(__name__).error(
                 "Could not load module {0} for importing dataset, check it  exists".format(self.module_name))
@@ -43,22 +55,22 @@ class ImportDatasetTask(arvet.batch_analysis.task.Task):
             logging.getLogger(__name__).error(
                 "Module {0} does not have method 'import_dataset'".format(self.module_name))
             self.mark_job_failed()
-        else:
+        elif actual_path is not None:
             logging.getLogger(__name__).info(
-                "Importing dataset from {0} using module {1}".format(self.path, self.module_name))
+                "Importing dataset from {0} using module {1}".format(actual_path, self.module_name))
             # noinspection PyBroadException
             try:
-                dataset_id = loader_module.import_dataset(self.path, db_client, **self.additional_args)
+                dataset_id = loader_module.import_dataset(actual_path, db_client, **self.additional_args)
             except Exception:
                 dataset_id = None
                 logging.getLogger(__name__).error(
                     "Exception occurred while importing dataset from {0} with module {1}:\n{2}".format(
-                        self.path, self.module_name, traceback.format_exc()
+                        actual_path, self.module_name, traceback.format_exc()
                     ))
 
             if dataset_id is None:
                 logging.getLogger(__name__).error("Failed to import dataset from {0} with module {1}".format(
-                    self.path, self.module_name))
+                    actual_path, self.module_name))
                 self.mark_job_failed()
             else:
                 self.mark_job_complete(dataset_id)

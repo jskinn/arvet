@@ -1,5 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
+import arvet.database.client
+import arvet.config.path_manager
 
 
 class GenerateDatasetTask(arvet.batch_analysis.task.Task):
@@ -29,7 +31,8 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
     def repeat(self):
         return self._repeat
 
-    def run_task(self, db_client):
+    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
+                 db_client: arvet.database.client.DatabaseClient):
         import logging
         import traceback
         import arvet.util.database_helpers as dh
@@ -51,6 +54,15 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
                 "Controller {0} can not control simulator {1}".format(self.controller_id, self.simulator_id))
             self.mark_job_failed()
         else:
+            # Find the executable for the simulator
+            try:
+                simulator.resolve_paths(path_manager)
+            except FileNotFoundError:
+                logging.getLogger(__name__).error(
+                    "Simulator {0} could not find it's executable".format(self.simulator_id))
+                self.mark_job_failed()
+                return
+
             controller.set_simulator(simulator)
             logging.getLogger(__name__).info(
                 "Generating dataset from {0} using controller {1}".format(self.simulator_id, self.controller_id))

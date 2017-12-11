@@ -1,5 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
+import arvet.database.client
+import arvet.config.path_manager
 
 
 class TrainSystemTask(arvet.batch_analysis.task.Task):
@@ -19,7 +21,8 @@ class TrainSystemTask(arvet.batch_analysis.task.Task):
     def trainee(self):
         return self._trainee
 
-    def run_task(self, db_client):
+    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
+                 db_client: arvet.database.client.DatabaseClient):
         import logging
         import traceback
         import arvet.util.database_helpers as dh

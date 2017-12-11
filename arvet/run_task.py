@@ -7,6 +7,7 @@ import traceback
 import bson.objectid
 
 import arvet.config.global_configuration as global_conf
+import arvet.config.path_manager
 import arvet.database.client
 import arvet.util.database_helpers as dh
 
@@ -24,6 +25,7 @@ def main(*args):
         if __name__ == '__main__':
             # Only configure the logging if this is the main function, don't reconfigure
             logging.config.dictConfig(config['logging'])
+        path_manger = arvet.config.path_manager.PathManager(paths=config['paths'])
         db_client = arvet.database.client.DatabaseClient(config=config)
 
         task = dh.load_object(db_client, db_client.tasks_collection, task_id)

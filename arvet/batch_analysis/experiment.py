@@ -4,6 +4,7 @@ import collections
 import typing
 import bson
 import arvet.batch_analysis.task_manager
+import arvet.config.path_manager
 import arvet.database.client
 import arvet.database.entity
 import arvet.util.database_helpers as dh
@@ -31,6 +32,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
 
     @abc.abstractmethod
     def do_imports(self, task_manager: arvet.batch_analysis.task_manager.TaskManager,
+                   path_manager: arvet.config.path_manager.PathManager,
                    db_client: arvet.database.client.DatabaseClient):
         """
         Perform imports for this experiment,
@@ -38,6 +40,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         We should also use the task manager to create import tasks, but not any other kinds of tasks.
 
         :param task_manager: The task manager, for creating import tasks (import datasets, generate datasets)
+        :param path_manager: A path manager for locating files and folders on disk
         :param db_client: The database client, to save declared objects that are too small for an import
         :return: void
         """
