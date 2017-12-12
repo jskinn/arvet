@@ -186,6 +186,18 @@ class TestHPCJobSystem(unittest.TestCase):
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
 
+    def test_queue_import_dataset_uses_current_working_directory(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                subject.run_task(bson.ObjectId())
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn('cd {0}'.format(os.getcwd()), script_contents)
+
     @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
     def test_run_task_submits_job(self, mock_run):
         mock_open = mock.mock_open()

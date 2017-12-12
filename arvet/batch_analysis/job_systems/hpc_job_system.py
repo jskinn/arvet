@@ -143,7 +143,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 cpus=int(num_cpus),
                 job_params=job_params,
                 env=env,
-                working_directory=quote(os.path.dirname(script_path)),
+                working_directory=quote(os.getcwd()),
                 script=quote(script_path),
                 args=str(task_id)
             ))
