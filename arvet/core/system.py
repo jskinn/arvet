@@ -53,6 +53,15 @@ class VisionSystem(arvet.database.entity.Entity, metaclass=arvet.database.entity
         """
         pass
 
+    def resolve_paths(self, path_manager):
+        """
+        If the system requires some external data,
+        resolve paths to those files using the path manager
+        :param path_manager: the path manager, for finding files
+        :return: void
+        """
+        pass
+
     @abc.abstractmethod
     def start_trial(self, sequence_type):
         """

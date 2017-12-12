@@ -50,6 +50,7 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
                 self.image_source, self.system))
             self.mark_job_failed()
         else:
+            system.resolve_paths(path_manager)
             logging.getLogger(__name__).info("Start running system {0} ({1}) with image source {2}".format(
                 self.system,
                 system.__module__ + '.' + system.__class__.__name__,
