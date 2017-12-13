@@ -11,11 +11,24 @@ import arvet.database.client
 import arvet.core.image
 
 
-def update_figure(idx, image_source, display_image, *_, **__):
+def make_display_image(image, stereo=False):
+    if stereo:
+        shape = list(image.data.shape)
+        shape[1] *= 2   # Double the width, so that we can
+        composite_image = np.zeros(shape, dtype=np.uint8)
+        composite_image[:, 0:image.data.shape[1]] = image.data
+        if hasattr(image, 'right_data'):
+            composite_image[:, image.data.shape[1]:shape[1]] = image.right_data
+        return composite_image
+    else:
+        return image.data
+
+
+def update_figure(idx, image_source, matplotlib_im, stereo=False, *_, **__):
     with image_source:
         image = image_source.get(idx)
-    display_image.set_array(image.data)
-    return display_image,
+    matplotlib_im.set_array(make_display_image(image, stereo))
+    return matplotlib_im,  # Comma is important
 
 
 def visualize_dataset(db_client, dataset_id):
@@ -24,10 +37,13 @@ def visualize_dataset(db_client, dataset_id):
         image_source = db_client.deserialize_entity(s_image_source)
         if image_source is not None:
             fig = pyplot.figure()
-            im = pyplot.imshow(np.zeros((480, 640)))
+            with image_source:
+                first_image = image_source.get(min(image_source.timestamps))
+            im = pyplot.imshow(make_display_image(first_image, image_source.is_stereo_available))
             # Note, we apparently have to store the animation, at least temporarily, or it doesn't play
             ani = animation.FuncAnimation(
-                fig, functools.partial(update_figure, image_source=image_source, display_image=im),
+                fig, functools.partial(update_figure, image_source=image_source, matplotlib_im=im,
+                                       stereo=image_source.is_stereo_available),
                 frames=image_source.timestamps, blit=True)
             pyplot.show()
 
