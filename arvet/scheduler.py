@@ -39,7 +39,12 @@ def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool =
 
         logging.getLogger(__name__).info("Scheduling experiments...")
         for experiment_id in experiment_ids:
-            experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
+            try:
+                experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
+            except ValueError:
+                # Cannot deserialize experiment, skip to the next one.
+                continue
+
             if experiment is not None and experiment.enabled:
                 logging.getLogger(__name__).info(" ... experiment {0}".format(experiment.identifier))
                 try:

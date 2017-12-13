@@ -19,7 +19,12 @@ def main():
     db_client = arvet.database.client.DatabaseClient(config=config)
     experiment_ids = db_client.experiments_collection.find({'enabled': {'$ne': False}}, {'_id': True})
     for ex_id in experiment_ids:
-        experiment = dh.load_object(db_client, db_client.experiments_collection, ex_id['_id'])
+        try:
+            experiment = dh.load_object(db_client, db_client.experiments_collection, ex_id['_id'])
+        except ValueError:
+            # Cannot deserialize experiment, skip to the next one.
+            continue
+
         if experiment is not None and experiment.enabled:
             experiment.export_data(db_client)
 
