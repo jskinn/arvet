@@ -47,5 +47,12 @@ setup(
     packages=find_packages(exclude=[]),  # find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=['setuptools', 'pymongo', 'numpy', 'transforms3d',
                       'mongomock', 'xxhash', 'PyYAML', 'pillow', 'unrealcv'],
-    python_requires='>=3'
+    python_requires='>=3',
+    entry_points={
+        'console_scripts': [
+            'arvet_schedule = arvet.scheduler:main',
+            'arvet_plot = arvet.plot_results:main',
+            'arvet_export = arvet.export_data:main'
+        ]
+    }
 )

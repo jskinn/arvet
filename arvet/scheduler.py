@@ -14,7 +14,7 @@ import arvet.batch_analysis.task_manager
 import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
-def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool = True,
+def schedule(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool = True,
          experiment_ids: typing.List[str] = None):
     """
     Schedule tasks for all experiments.
@@ -66,7 +66,12 @@ def main(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool =
         job_system.run_queued_jobs()
 
 
-if __name__ == '__main__':
+def main():
+    """
+    Run the scheduler from the command line.
+    Calls scheduler, above.
+    :return:
+    """
     parser = argparse.ArgumentParser(
         description='Update and schedule tasks from experiments.'
                     'By default, this will update and schedule tasks for all experiments.')
@@ -81,4 +86,8 @@ if __name__ == '__main__':
                              'You may specify any number of ids.')
 
     args = parser.parse_args()
-    main(not args.skip_imports, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
+    schedule(not args.skip_imports, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
+
+
+if __name__ == '__main__':
+    main()

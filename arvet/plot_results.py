@@ -6,7 +6,7 @@ import arvet.config.global_configuration as global_conf
 import arvet.util.database_helpers as dh
 
 
-def main(*args):
+def main():
     config = global_conf.load_global_config("config.yml")
     if __name__ == '__main__':
         logging.config.dictConfig(config['logging'])
