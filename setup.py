@@ -46,7 +46,7 @@ setup(
     url='https://gitub.com/jskinn/arvet',
     packages=find_packages(exclude=[]),  # find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=['setuptools', 'pymongo', 'numpy', 'transforms3d',
-                      'mongomock', 'xxhash', 'PyYAML', 'pillow', 'unrealcv'],
+                      'mongomock', 'xxhash', 'PyYAML', 'pillow', 'unrealcv', 'matplotlib'],
     python_requires='>=3',
     entry_points={
         'console_scripts': [
