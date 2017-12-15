@@ -23,6 +23,7 @@ def main():
             experiment = dh.load_object(db_client, db_client.experiments_collection, ex_id['_id'])
         except ValueError:
             # Cannot deserialize experiment, skip to the next one.
+            logging.getLogger(__name__).info("... Cannot deserialize experiment {0} skipping".format(ex_id['_id']))
             continue
 
         if experiment is not None and experiment.enabled:

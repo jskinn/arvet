@@ -15,7 +15,7 @@ import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
 def schedule(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool = True,
-         experiment_ids: typing.List[str] = None):
+             experiment_ids: typing.List[str] = None):
     """
     Schedule tasks for all experiments.
     We need to find a way of running this repeatedly as a daemon
@@ -43,6 +43,8 @@ def schedule(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bo
                 experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
             except ValueError:
                 # Cannot deserialize experiment, skip to the next one.
+                logging.getLogger(__name__).info(
+                    "... Cannot deserialize experiment {0} skipping".format(experiment_id['_id']))
                 continue
 
             if experiment is not None and experiment.enabled:
