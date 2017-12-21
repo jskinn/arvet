@@ -184,6 +184,89 @@ class TestImageUtils(unittest.TestCase):
         image_data[12:56, 34:75] = 1.0
         image_utils.show_image(image_data, 'test window')
 
+    def test_to_uint_image_handles_grey_floats(self):
+        for dtype in [
+            np.float,
+            np.float16,
+            np.float32,
+            np.float64,
+            np.double
+        ]:
+            image_data = np.array([[1 / (0.001 * x * y + 1) for y in range(100)] for x in range(100)], dtype=dtype)
+            result = image_utils.to_uint_image(image_data)
+            self.assertEqual(np.uint8, result.dtype)
+            self.assertEqual((100, 100), result.shape)
+            self.assertEqual(255, result.max())
+
+    def test_to_uint_image_handles_color_floats(self):
+        for dtype in [
+            np.float,
+            np.float16,
+            np.float32,
+            np.float64,
+            np.double
+        ]:
+            image_data = np.array([[[1 / (0.001 * x * y + 1),
+                                     1 / (0.001 * (100 - x) * y + 1),
+                                     1 / (0.001 * x * (100 - y) + 1)]
+                                    for y in range(100)] for x in range(100)], dtype=dtype)
+            result = image_utils.to_uint_image(image_data)
+            self.assertEqual(np.uint8, result.dtype)
+            self.assertEqual((100, 100, 3), result.shape)
+            self.assertEqual(255, result.max())
+
+    def test_to_uint_image_handles_bools(self):
+        image_data = np.array([[1 / (0.001 * x * y + 1) for y in range(100)] for x in range(100)])
+        image_data = image_data > 0.5
+        result = image_utils.to_uint_image(image_data)
+        self.assertEqual(np.uint8, result.dtype)
+        self.assertEqual((100, 100), result.shape)
+        self.assertEqual(255, result.max())
+        self.assertEqual(0, result.min())
+
+    def test_to_uint_image_handles_grey_integer(self):
+        for dtype in [
+            np.int,
+            np.uint,
+            np.uint8,
+            np.int16,
+            np.uint16,
+            np.int32,
+            np.uint32,
+            np.int64,
+            np.uint64,
+            np.long,
+            np.ulonglong
+        ]:
+            image_data = np.array([[255 / (0.001 * x * y + 1) for y in range(100)] for x in range(100)], dtype=dtype)
+            result = image_utils.to_uint_image(image_data)
+            self.assertEqual(np.uint8, result.dtype)
+            self.assertEqual((100, 100), result.shape)
+            self.assertEqual(255, result.max())
+
+    def test_to_uint_image_handles_color_integer(self):
+        for dtype in [
+            np.int,
+            np.uint,
+            np.uint8,
+            np.int16,
+            np.uint16,
+            np.int32,
+            np.uint32,
+            np.int64,
+            np.uint64,
+            np.long,
+            np.ulonglong
+        ]:
+            image_data = np.array([[[255 / (0.001 * x * y + 1),
+                                     255 / (0.001 * (100 - x) * y + 1),
+                                     255 / (0.001 * x * (100 - y) + 1)]
+                                    for y in range(100)] for x in range(100)], dtype=dtype)
+            result = image_utils.to_uint_image(image_data)
+            self.assertEqual(np.uint8, result.dtype)
+            self.assertEqual((100, 100, 3), result.shape)
+            self.assertEqual(255, result.max())
+
     def assertNPEqual(self, arr1, arr2):
         self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
 

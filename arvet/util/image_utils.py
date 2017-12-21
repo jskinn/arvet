@@ -48,7 +48,7 @@ def convert_to_grey(image_data: np.ndarray) -> np.ndarray:
     :return: The image in greyscale, single channel
     """
     if len(image_data.shape) > 2 and image_data.shape[2] == 3:
-        pil_image = PIL.Image.fromarray(image_data)
+        pil_image = PIL.Image.fromarray(to_uint_image(image_data))
         return np.array(pil_image.convert('L'))
     return image_data
 
@@ -60,10 +60,7 @@ def get_bounding_box(image_data: np.ndarray) -> typing.Union[typing.Tuple[int, i
     :param image_data: The image data, as a numpy array.
     :return: A tuple of (left, upper, right, lower) pixel coordinates, or None if the image is empty
     """
-    if image_data.dtype == np.bool:
-        # PIL won't handle logical np arrays, it expects everything as uint8
-        image_data = image_data.astype(dtype=np.uint8)
-    pil_image = PIL.Image.fromarray(image_data)
+    pil_image = PIL.Image.fromarray(to_uint_image(image_data))
     return pil_image.getbbox()
 
 
@@ -79,7 +76,7 @@ def resize(image_data: np.ndarray, new_size: typing.Tuple[int, int],
     :param interpolation: The interpolation mode, as an enum. Default NEAREST.
     :return: The resized image.
     """
-    pil_image = PIL.Image.fromarray(image_data)
+    pil_image = PIL.Image.fromarray(to_uint_image(image_data))
     pil_interpolation = PIL.Image.NEAREST
     if interpolation == Interpolation.BOX:
         pil_interpolation = PIL.Image.BOX
@@ -99,11 +96,22 @@ def show_image(image_data: np.ndarray, window_name: str = 'temp') -> None:
     :return:
     """
     # PIL basically only handles integer images, so convert to that.
+    pil_image = PIL.Image.fromarray(to_uint_image(image_data))
+    pil_image.show(window_name)
+
+
+def to_uint_image(image_data: np.ndarray) -> np.ndarray:
+    """
+    Convert an image object to an array of uint8 values.
+    Many systems and libraries expect this format, so we coerce all other image types
+    to this format
+    :param image_data: An image, color or grey, in some format (often float range 0-1)
+    :return: A uint8 image, range 0 to 255
+    """
+    if image_data.dtype == np.uint8:
+        return image_data
     if (image_data.dtype == np.float or image_data.dtype == np.float16 or
             image_data.dtype == np.float32 or image_data.dtype == np.float64 or
-            image_data.dtype == np.double) and image_data.max() <= 1:
-        image_data = (255 * image_data).astype(dtype=np.uint8)
-    elif image_data.dtype == np.bool:
-        image_data = image_data.astype(dtype=np.uint8)
-    pil_image = PIL.Image.fromarray(image_data)
-    pil_image.show(window_name)
+            image_data.dtype == np.double or image_data.dtype == np.bool) and image_data.max() <= 1:
+        return (255 * image_data).astype(dtype=np.uint8)
+    return image_data.astype(np.uint8)
