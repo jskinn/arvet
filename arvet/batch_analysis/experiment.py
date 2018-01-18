@@ -98,7 +98,8 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
                      db_client: arvet.database.client.DatabaseClient,
                      systems: typing.List[bson.ObjectId],
                      image_sources: typing.List[bson.ObjectId],
-                     benchmarks: typing.List[bson.ObjectId]):
+                     benchmarks: typing.List[bson.ObjectId],
+                     repeats: int = 1):
         """
         Schedule all combinations of running some list of systems with some list of image sources,
         and then benchmarking the results with some list of benchmarks.
@@ -110,6 +111,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         :param systems: The list of system ids to test
         :param image_sources: The list of image source ids to use
         :param benchmarks: The list of benchmark ids to measure the results
+        :param repeats: The number of times to repeat
         :return: void
         """
         # Trial results will be collected as we go
@@ -123,17 +125,19 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
             for system_id in systems:
                 system = dh.load_object(db_client, db_client.system_collection, system_id)
                 if system is not None and system.is_image_source_appropriate(image_source):
-                    task = task_manager.get_run_system_task(
-                        system_id=system.identifier,
-                        image_source_id=image_source.identifier,
-                        expected_duration='8:00:00',
-                        memory_requirements='12GB'
-                    )
-                    if not task.is_finished:
-                        task_manager.do_task(task)
-                    else:
-                        trial_results.add(task.result)
-                        self.store_trial_result(system_id, image_source_id, task.result)
+                    for repeat in range(max(repeats, 1)):
+                        task = task_manager.get_run_system_task(
+                            system_id=system.identifier,
+                            image_source_id=image_source.identifier,
+                            repeat=repeat,
+                            expected_duration='8:00:00',
+                            memory_requirements='12GB'
+                        )
+                        if not task.is_finished:
+                            task_manager.do_task(task)
+                        else:
+                            trial_results.add(task.result)
+                            self.store_trial_result(system_id, image_source_id, task.result)
 
         # Benchmark trial results
         for trial_result_id in trial_results:
@@ -167,11 +171,14 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         """
         if system_id not in self._trial_map:
             self._trial_map[system_id] = {}
-        self._trial_map[system_id][image_source_id] = trial_result_id
-        self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id), trial_result_id)
+        if image_source_id not in self._trial_map[system_id]:
+            self._trial_map[system_id][image_source_id] = []
+        if trial_result_id not in self._trial_map[system_id][image_source_id]:
+            self._trial_map[system_id][image_source_id].append(trial_result_id)
+            self._add_to_set('trial_map.{0}.{1}'.format(system_id, image_source_id), [trial_result_id])
 
-    def get_trial_result(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId)\
-            -> typing.Union[bson.ObjectId, None]:
+    def get_trial_results(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId) \
+            -> typing.List[bson.ObjectId]:
         """
         Get the trial result produced by running a given system with a given image source.
         Return None if the system has not been run with that image source.
@@ -181,7 +188,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         """
         if system_id in self._trial_map and image_source_id in self._trial_map[system_id]:
             return self._trial_map[system_id][image_source_id]
-        return None
+        return []
 
     def store_benchmark_result(self, trial_result_id: bson.ObjectId, benchmark_id: bson.ObjectId,
                                benchmark_result_id: bson.ObjectId):
@@ -215,9 +222,10 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         :return:
         """
         serialized = super().serialize()
+        dh.add_schema_version(serialized, 'arvet:batch_analysis:experiment:Experiment', 1)
         serialized['enabled'] = self.enabled
-        serialized['trial_map'] = {str(sys_id): {str(source_id): trial_id
-                                                 for source_id, trial_id in inner_map.items()}
+        serialized['trial_map'] = {str(sys_id): {str(source_id): trial_ids
+                                                 for source_id, trial_ids in inner_map.items()}
                                    for sys_id, inner_map in self._trial_map.items()}
         serialized['result_map'] = {str(trial_id): {str(bench_id): res_id
                                                     for bench_id, res_id in inner_map.items()}
@@ -230,8 +238,8 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         if 'enabled' in serialized_representation:
             kwargs['enabled'] = bool(serialized_representation['enabled'])
         if 'trial_map' in serialized_representation:
-            kwargs['trial_map'] = {bson.ObjectId(sys_id): {bson.ObjectId(source_id): trial_id
-                                                           for source_id, trial_id in inner_map.items()}
+            kwargs['trial_map'] = {bson.ObjectId(sys_id): {bson.ObjectId(source_id): trial_ids
+                                                           for source_id, trial_ids in inner_map.items()}
                                    for sys_id, inner_map in serialized_representation['trial_map'].items()}
         if 'result_map' in serialized_representation:
             kwargs['result_map'] = {bson.ObjectId(trial_id): {bson.ObjectId(bench_id): res_id
@@ -307,6 +315,17 @@ def patch_schema(serialized_representation: dict, db_client: arvet.database.clie
     :param db_client:
     :return:
     """
+    # Patch the schema
+    version = dh.get_schema_version(serialized_representation, 'arvet:batch_analysis:experiment:Experiment')
+    if version < 1:
+        # unversioned -> 1: Patch the trial map to store lists of results rather than single values
+        if 'trial_map' in serialized_representation:
+            for inner_map in serialized_representation['trial_map'].values():
+                for source_id in inner_map.keys():
+                    if not isinstance(inner_map[source_id], list):
+                        inner_map[source_id] = [inner_map[source_id]]
+
+    # Remove invalid ids
     if 'trial_map' in serialized_representation:
         outer_keys_to_remove = []
         inner_keys_to_remove = []
@@ -317,12 +336,21 @@ def patch_schema(serialized_representation: dict, db_client: arvet.database.clie
                 # System in invalid remove all the trials for it
                 outer_keys_to_remove.append(s_sys_id)
             else:
-                for s_source_id, trial_id in inner_map.items():
+                for s_source_id, trial_id_list in inner_map.items():
                     image_source_id = bson.ObjectId(s_source_id)
-                    if not dh.check_reference_is_valid(db_client.image_source_collection, image_source_id) or \
-                            not dh.check_reference_is_valid(db_client.trials_collection, trial_id):
-                        # Either the system or trial result is missing, remove it
+                    if not dh.check_reference_is_valid(db_client.image_source_collection, image_source_id):
+                        # Either the image source is missing, remove it
                         inner_keys_to_remove.append(s_source_id)
+                    else:
+                        clean_list = [trial_id for trial_id in trial_id_list
+                                      if dh.check_reference_is_valid(db_client.trials_collection, trial_id)]
+                        if len(clean_list) <= 0:
+                            # None of the trial result ids are valid, remove the inner key
+                            inner_keys_to_remove.append(s_source_id)
+                        elif len(clean_list) != len(trial_id_list):
+                            # The list has changed length, replace it.
+                            inner_map[s_source_id] = clean_list
+
         # Actually delete the keys now we're not iterating over the dict
         for outer_key in outer_keys_to_remove:
             if outer_key in serialized_representation['trial_map']:

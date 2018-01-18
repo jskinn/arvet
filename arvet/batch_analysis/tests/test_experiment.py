@@ -33,12 +33,13 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
     def setUp(self):
         # Some complete results, so that we can have a non-empty trial map and result map on entity tests
         self.systems = [mock_core.MockSystem()]
-        self.image_sources = [mock_core.MockImageSource() for _ in range(2)]
+        self.image_sources = [mock_core.MockImageSource() for _ in range(3)]
         self.trial_results = [arvet.core.trial_result.TrialResult(
                     system.identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
             for _ in self.image_sources for system in self.systems]
         self.benchmarks = [mock_core.MockBenchmark() for _ in range(2)]
-        self.benchmark_results = [arvet.core.benchmark.BenchmarkResult(benchmark.identifier, trial_result.identifier, True)
+        self.benchmark_results = [arvet.core.benchmark.BenchmarkResult(benchmark.identifier, trial_result.identifier,
+                                                                       True)
                                   for benchmark in self.benchmarks for trial_result in self.trial_results]
 
     def get_class(self):
@@ -169,9 +170,30 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
 
         for system_id in systems:
             for image_source_id in image_sources:
-                self.assertIn(mock.call(system_id=system_id, image_source_id=image_source_id,
+                self.assertIn(mock.call(system_id=system_id, image_source_id=image_source_id, repeat=0,
                                         memory_requirements=mock.ANY, expected_duration=mock.ANY),
                               zombie_task_manager.mock.get_run_system_task.call_args_list)
+
+    def test_schedule_all_schedules_repeats(self):
+        zombie_task_manager = mock_manager_factory.create()
+        mock_db_client = self.create_mock_db_client()
+        subject = MockExperiment()
+        systems = []
+        image_sources = []
+        repeats = 5
+        for _ in range(3):
+            entity = mock_core.MockSystem()
+            systems.append(mock_db_client.system_collection.insert_one(entity.serialize()).inserted_id)
+            entity = mock_core.MockImageSource()
+            image_sources.append(mock_db_client.image_source_collection.insert_one(entity.serialize()).inserted_id)
+        subject.schedule_all(zombie_task_manager.mock, mock_db_client, systems, image_sources, [], repeats=repeats)
+
+        for system_id in systems:
+            for image_source_id in image_sources:
+                for repeat in range(repeats):
+                    self.assertIn(mock.call(system_id=system_id, image_source_id=image_source_id, repeat=repeat,
+                                            memory_requirements=mock.ANY, expected_duration=mock.ANY),
+                                  zombie_task_manager.mock.get_run_system_task.call_args_list)
 
     def test_schedule_all_schedules_all_benchmark_combinations(self):
         zombie_db_client = mock_client_factory.create()
@@ -219,7 +241,7 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
         subject = MockExperiment()
         systems = []
         image_sources = []
-        trial_results = []
+        expected_trial_results = []
         for _ in range(3):  # Create systems and image sources
             entity = mock_core.MockSystem()
             systems.append(mock_db_client.system_collection.insert_one(entity.serialize()).inserted_id)
@@ -233,7 +255,7 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
                 entity = arvet.core.trial_result.TrialResult(
                     system_id, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
                 trial_result_id = mock_db_client.trials_collection.insert_one(entity.serialize()).inserted_id
-                trial_results.append(trial_result_id)
+                expected_trial_results.append(trial_result_id)
                 task = zombie_task_manager.get_run_system_task(system_id, image_source_id)
                 task.mark_job_started('test', 0)
                 task.mark_job_complete(trial_result_id)
@@ -242,9 +264,10 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
 
         for system_id in systems:
             for image_source_id in image_sources:
-                trial_result_id = subject.get_trial_result(system_id, image_source_id)
-                self.assertIsNotNone(trial_result_id)
-                self.assertIn(trial_result_id, trial_results)
+                trial_result_ids = subject.get_trial_results(system_id, image_source_id)
+                self.assertIsNotNone(trial_result_ids)
+                for trial_result_id in trial_result_ids:
+                    self.assertIn(trial_result_id, expected_trial_results)
 
     def test_schedule_all_stores_benchmark_results(self):
 
@@ -304,7 +327,7 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
         image_source_id = bson.ObjectId()
         trial_result_id = bson.ObjectId()
         subject.store_trial_result(system_id, image_source_id, trial_result_id)
-        self.assertEqual(trial_result_id, subject.get_trial_result(system_id, image_source_id))
+        self.assertEqual([trial_result_id], subject.get_trial_results(system_id, image_source_id))
 
     def test_store_trial_result_persists_when_serialized(self):
         mock_db_client = self.create_mock_db_client()
@@ -315,14 +338,15 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
         image_source_id = mock_db_client.image_source_collection.insert_one(
             mock_core.MockImageSource().serialize()).inserted_id
         trial_result_id = mock_db_client.trials_collection.insert_one(arvet.core.trial_result.TrialResult(
-                    system_id, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+                    system_id, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+        ).serialize()).inserted_id
         subject.store_trial_result(system_id, image_source_id, trial_result_id)
 
         # Serialize and then deserialize the experiment
         s_subject = subject.serialize()
         subject = MockExperiment.deserialize(s_subject, mock_db_client)
 
-        self.assertEqual(trial_result_id, subject.get_trial_result(system_id, image_source_id))
+        self.assertEqual([trial_result_id], subject.get_trial_results(system_id, image_source_id))
 
     def test_deserialize_clears_invalid_trials_from_trial_map(self):
         mock_db_client = self.create_mock_db_client()
@@ -332,26 +356,32 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
 
         # Add some descendant objects, which should not on their own be removed from the map
         missing_system_trial = mock_db_client.trials_collection.insert_one(arvet.core.trial_result.TrialResult(
-            missing_system, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()).inserted_id
+            missing_system, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+        ).serialize()).inserted_id
         missing_source_trial = mock_db_client.trials_collection.insert_one(arvet.core.trial_result.TrialResult(
             self.systems[0].identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
         ).serialize()).inserted_id
 
         subject = self.make_instance(trial_map={
-            missing_system: {self.image_sources[0].identifier: missing_system_trial},
-            self.systems[0].identifier: {missing_image_source: missing_source_trial,
-                                         self.image_sources[0].identifier: missing_trial,
-                                         self.image_sources[1].identifier: self.trial_results[0].identifier}
+            missing_system: {self.image_sources[0].identifier: [missing_system_trial]},
+            self.systems[0].identifier: {missing_image_source: [missing_source_trial],
+                                         self.image_sources[0].identifier: [missing_trial],
+                                         self.image_sources[1].identifier: [self.trial_results[0].identifier],
+                                         self.image_sources[2].identifier: [self.trial_results[0].identifier,
+                                                                            missing_trial]}
         })
 
         # Serialize and then deserialize the experiment
         s_subject = subject.serialize()
         subject = MockExperiment.deserialize(s_subject, mock_db_client)
 
-        self.assertIsNone(subject.get_trial_result(missing_system, self.image_sources[0].identifier))
-        self.assertIsNone(subject.get_trial_result(self.systems[0].identifier, missing_image_source))
-        self.assertIsNone(subject.get_trial_result(self.systems[0].identifier, self.image_sources[0].identifier))
-        self.assertIsNotNone(subject.get_trial_result(self.systems[0].identifier, self.image_sources[1].identifier))
+        self.assertEqual([], subject.get_trial_results(missing_system, self.image_sources[0].identifier))
+        self.assertEqual([], subject.get_trial_results(self.systems[0].identifier, missing_image_source))
+        self.assertEqual([], subject.get_trial_results(self.systems[0].identifier, self.image_sources[0].identifier))
+        self.assertEqual([self.trial_results[0].identifier],
+                         subject.get_trial_results(self.systems[0].identifier, self.image_sources[1].identifier))
+        self.assertEqual([self.trial_results[0].identifier],
+                         subject.get_trial_results(self.systems[0].identifier, self.image_sources[2].identifier))
 
     def test_store_and_get_benchmark_result_basic(self):
         subject = MockExperiment()
