@@ -127,7 +127,7 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
         """
         if name not in self._benchmarks:
             self._benchmarks[name] = dh.add_unique(db_client.benchmarks_collection, benchmark)
-            self._set_property('benchmarks.{0}'.format(name), self._benchmark_rpe)
+            self._set_property('benchmarks.{0}'.format(name), self._benchmarks[name])
 
     def serialize(self) -> dict:
         serialized = super().serialize()
