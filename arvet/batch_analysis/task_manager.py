@@ -301,6 +301,7 @@ class TaskManager:
             elif isinstance(task, run_system_task.RunSystemTask):
                 existing_query['system_id'] = task.system
                 existing_query['image_source_id'] = task.image_source
+                existing_query['repeat'] = task.repeat
             elif isinstance(task, benchmark_task.BenchmarkTrialTask):
                 existing_query['trial_result_id'] = task.trial_result
                 existing_query['benchmark_id'] = task.benchmark

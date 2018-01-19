@@ -30,6 +30,10 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
     def image_source(self):
         return self._image_source
 
+    @property
+    def repeat(self):
+        return self._repeat
+
     def run_task(self, path_manager: arvet.config.path_manager.PathManager,
                  db_client: arvet.database.client.DatabaseClient):
         import logging

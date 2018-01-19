@@ -270,7 +270,8 @@ class TestTaskManager(unittest.TestCase):
         subject = manager.TaskManager(mock_collection, mock_db_client)
         system_id = bson.ObjectId()
         image_source_id = bson.ObjectId()
-        task = run_system_task.RunSystemTask(system_id, image_source_id)
+        repeat = 13
+        task = run_system_task.RunSystemTask(system_id, image_source_id, repeat)
         subject.do_task(task)
 
         self.assertTrue(mock_collection.find.called)
@@ -279,6 +280,8 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(system_id, query['system_id'])
         self.assertIn('image_source_id', query)
         self.assertEqual(image_source_id, query['image_source_id'])
+        self.assertIn('repeat', query)
+        self.assertEqual(repeat, query['repeat'])
 
     def test_do_task_checks_benchmark_task_is_unique(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
