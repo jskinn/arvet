@@ -4,6 +4,23 @@ import arvet.database.client
 import arvet.core.image_collection
 
 
+def invalidate_dataset_loader(db_client: arvet.database.client.DatabaseClient, loader_module: str):
+    """
+    Invalidate all image collections created by importing using a particular dataset loader module.
+    Useful when there are bugs in the dataset loader
+    :param db_client:
+    :param loader_module:
+    :return:
+    """
+    # Step 1: Find all tasks with this module and invalidate the collections
+    # The tasks themselves will be removed in invalidate_image_collection
+    image_collection_ids = [
+        s_task['result'] for s_task in db_client.tasks_collection.find({'module_name': loader_module}, {'result': True})
+    ]
+    for image_collection_id in image_collection_ids:
+        invalidate_image_collection(db_client, image_collection_id)
+
+
 def invalidate_image_collection(db_client: arvet.database.client.DatabaseClient, image_source_id: bson.ObjectId):
     """
     Invalidate the data associated with a particular image source.
