@@ -138,8 +138,8 @@ if __name__ == '__main__':
     main(
         systems=args.system,
         datasets=args.dataset,
-        image_collections=args.image_collections,
-        controllers=args.controllers,
+        image_collections=args.image_collection,
+        controllers=args.controller,
         trial_results=args.trial_result,
         benchmarks=args.benchmark,
         benchmark_results=args.benchmark_result,

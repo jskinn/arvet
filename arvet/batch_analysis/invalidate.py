@@ -31,7 +31,8 @@ def invalidate_image_collection(db_client: arvet.database.client.DatabaseClient,
     :return:
     """
     # Step 1: Find all the descendant trials from the generate dataset tasks
-    for s_task in db_client.tasks_collection.find({'image_source_id': image_source_id}, {'result': True}):
+    for s_task in db_client.tasks_collection.find({'image_source_id': image_source_id, 'result': {'$exists': True}},
+                                                  {'result': True}):
         invalidate_trial_result(db_client, s_task['result'])
 
     # Step 2: Invalidate controllers based on this image collection
@@ -39,9 +40,9 @@ def invalidate_image_collection(db_client: arvet.database.client.DatabaseClient,
         invalidate_controller(db_client, s_controller['_id'])
 
     # Step 3: Find all the tasks that involve this image source, and remove them
-    result = db_client.tasks_collection.remove({'$or': [{'image_source_id': image_source_id},
-                                                        {'result': image_source_id}]})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
+    result = db_client.tasks_collection.delete_many({'$or': [{'image_source_id': image_source_id},
+                                                             {'result': image_source_id}]})
+    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
 
     # Step 4: Remove the image collection
     arvet.core.image_collection.delete_image_collection(db_client, image_source_id)
@@ -56,7 +57,8 @@ def invalidate_controller(db_client: arvet.database.client.DatabaseClient, contr
     :return:
     """
     # Step 1: Find all the descendant image collections from the generate dataset tasks
-    for s_task in db_client.tasks_collection.find({'controller_id': controller_id}, {'result': True}):
+    for s_task in db_client.tasks_collection.find({'controller_id': controller_id, 'result': {'$exists': True}},
+                                                  {'result': True}):
         invalidate_image_collection(db_client, s_task['result'])
 
     # Step 2: Remove all the tasks associated with this controller
@@ -70,8 +72,8 @@ def invalidate_controller(db_client: arvet.database.client.DatabaseClient, contr
 
 def invalidate_system(db_client: arvet.database.client.DatabaseClient, system_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this system, and remove them
-    result = db_client.tasks_collection.remove({'system_id': system_id})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
+    result = db_client.tasks_collection.delete_one({'system_id': system_id})
+    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
 
     # Step 2: Find all the trial results that use this image source, and invalidate them
     trials = db_client.trials_collection.find({'system': system_id}, {'_id': True})
@@ -79,17 +81,17 @@ def invalidate_system(db_client: arvet.database.client.DatabaseClient, system_id
         invalidate_trial_result(db_client, s_trial_result['_id'])
 
     # Step 3: Actually remove the system
-    result = db_client.system_collection.remove({'_id': system_id})
-    logging.getLogger(__name__).info("removed {0} systems".format(result['n'] if 'n' in result else 0))
+    result = db_client.system_collection.delete_one({'_id': system_id})
+    logging.getLogger(__name__).info("removed {0} systems".format(result.deleted_count))
 
 
 def invalidate_trial_result(db_client: arvet.database.client.DatabaseClient, trial_result_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this trial result, and remove them
-    result = db_client.tasks_collection.remove({'$or': [{'result': trial_result_id},
-                                                        {'trial_result_id': trial_result_id},
-                                                        {'trial_result1_id': trial_result_id},
-                                                        {'trial_result2_id': trial_result_id}]})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
+    result = db_client.tasks_collection.delete_many({'$or': [{'result': trial_result_id},
+                                                             {'trial_result_id': trial_result_id},
+                                                             {'trial_result1_id': trial_result_id},
+                                                             {'trial_result2_id': trial_result_id}]})
+    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
 
     # Step 2: Find all the benchmark results that use this trial result, and invalidate them
     results = db_client.results_collection.find({'trial_result': trial_result_id}, {'_id': True})
@@ -97,17 +99,17 @@ def invalidate_trial_result(db_client: arvet.database.client.DatabaseClient, tri
         invalidate_benchmark_result(db_client, s_result['_id'])
 
     # Step 3: actually remove the trial result
-    result = db_client.trials_collection.remove({'_id': trial_result_id})
-    logging.getLogger(__name__).info("removed {0} trials".format(result['n'] if 'n' in result else 0))
+    result = db_client.trials_collection.delete_one({'_id': trial_result_id})
+    logging.getLogger(__name__).info("removed {0} trials".format(result.deleted_count))
 
 
 def invalidate_benchmark(db_client: arvet.database.client.DatabaseClient, benchmark_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this benchmark, and remove them
-    result = db_client.tasks_collection.remove({'$or': [{'benchmark_id': benchmark_id},
-                                                        {'comparison_id': benchmark_id},
-                                                        {'benchmark_result1_id': benchmark_id},
-                                                        {'benchmark_result2_id': benchmark_id}]})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
+    result = db_client.tasks_collection.delete_many({'$or': [{'benchmark_id': benchmark_id},
+                                                             {'comparison_id': benchmark_id},
+                                                             {'benchmark_result1_id': benchmark_id},
+                                                             {'benchmark_result2_id': benchmark_id}]})
+    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
 
     # Step 2: Find all the benchmark results that use this benchmark, and invalidate them
     results = db_client.results_collection.find({'benchmark': benchmark_id}, {'_id': True})
@@ -115,12 +117,12 @@ def invalidate_benchmark(db_client: arvet.database.client.DatabaseClient, benchm
         invalidate_benchmark_result(db_client, s_result['_id'])
 
     # Step 3: actually remove the benchmark
-    result = db_client.benchmarks_collection.remove({'_id': benchmark_id})
-    logging.getLogger(__name__).info("removed {0} benchmarks".format(result['n'] if 'n' in result else 0))
+    result = db_client.benchmarks_collection.delete_one({'_id': benchmark_id})
+    logging.getLogger(__name__).info("removed {0} benchmarks".format(result.deleted_count))
 
 
 def invalidate_benchmark_result(db_client: arvet.database.client.DatabaseClient, benchmark_result_id: bson.ObjectId):
-    result = db_client.tasks_collection.remove({'result': benchmark_result_id})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result['n'] if 'n' in result else 0))
-    result = db_client.results_collection.remove({'_id': benchmark_result_id})
-    logging.getLogger(__name__).info("removed {0} results".format(result['n'] if 'n' in result else 0))
+    result = db_client.tasks_collection.delete_many({'result': benchmark_result_id})
+    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
+    result = db_client.results_collection.delete_one({'_id': benchmark_result_id})
+    logging.getLogger(__name__).info("removed {0} results".format(result.deleted_count))
