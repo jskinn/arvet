@@ -116,14 +116,20 @@ class Transform:
         return tf.taitbryan.quat2euler((self._qw, self._qx, self._qy, self._qz))[::-1]
 
     @property
+    def rotation_matrix(self):
+        """
+        Get the rotation of this transform in matrix form
+        :return:
+        """
+        return tf.quaternions.quat2mat(self.rotation_quat(w_first=True))
+
+    @property
     def transform_matrix(self):
         """
         Get the homogenous transformation matrix for this pose
         :return:
         """
-        return tf.affines.compose(self.location,
-                                  tf.quaternions.quat2mat(self.rotation_quat(w_first=True)),
-                                  np.ones(3))
+        return tf.affines.compose(self.location, self.rotation_matrix, np.ones(3))
 
     @property
     def forward(self):

@@ -67,6 +67,12 @@ class TestTransform(unittest.TestCase):
         tf = trans.Transform(hom)
         self.assert_close(tf.rotation_quat(True), (0.92387953, 0.22094238, 0.22094238, 0.22094238))
 
+    def test_rotation_matrix(self):
+        tf = trans.Transform(rotation=(0.92387953, 0.22094238, 0.22094238, 0.22094238), w_first=True)
+        self.assert_close(tf.rotation_matrix, np.array([[0.80473785, -0.31061722, 0.50587936],
+                                                        [0.50587936, 0.80473785, -0.31061722],
+                                                        [-0.31061722, 0.50587936, 0.80473785]]))
+
     def test_euler_each_axis(self):
         # Yaw
         qrot = _make_quat((0, 0, 1), np.pi / 6)
