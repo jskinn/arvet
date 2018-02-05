@@ -68,7 +68,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
         first_image = db_client_.deserialize_entity(s_first_image)
         self._camera_intrinsics = first_image.metadata.camera_intrinsics
         self._stereo_baseline = None
-        if self.is_stereo_available:
+        if first_image.right_camera_pose is not None:
             self._stereo_baseline = np.linalg.norm(first_image.left_camera_pose.location -
                                                    first_image.right_camera_pose.location)
 

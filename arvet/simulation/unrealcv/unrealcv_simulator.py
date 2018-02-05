@@ -76,11 +76,16 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             config = {}
         du.defaults(config, {
             # Simulation execution config
-            'stereo_offset': 0,  # meters
+            'stereo_offset': 0,     # meters
             'provide_rgb': True,
-            'provide_depth': False,
+            'provide_ground_truth_depth': False,
             'provide_labels': False,
             'provide_world_normals': False,
+
+            # Depth settings
+            'provide_depth': False,
+            'depth_offset': 0.,      # meters
+            'projector_offset': 0,  # meters
 
             # Simulator settings
             'origin': {},
@@ -89,7 +94,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             'depth_of_field_enabled': True,
             'focus_distance': None,     # None indicates autofocus
             'aperture': 2.2,
-            #'exposure': None,           # None indicates histogram auto-exposure. Not implemented yet.
+            # 'exposure': None,           # None indicates histogram auto-exposure. Not implemented yet.
 
             # Quality settings
             'lit_mode': True,
@@ -114,9 +119,12 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
 
         # Configuration loaded at run time, and specified in GenerateDatasetTask
         self._stereo_offset = float(config['stereo_offset'])
-        self._provide_depth = bool(config['provide_depth'])
         self._provide_labels = bool(config['provide_labels'])
         self._provide_world_normals = bool(config['provide_world_normals'])
+
+        self._provide_depth = bool(config['provide_depth'])
+        self._depth_offset = float(config['depth_offset'])
+        self._projector_offset = float(config['projector_offset'])
 
         self._origin = uetf.deserialize(config['origin'])
         self._resolution = (config['resolution']['width'], config['resolution']['height'])
@@ -124,7 +132,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         self._use_dof = bool(config['depth_of_field_enabled'])
         self._focus_distance = float(config['focus_distance']) if config['focus_distance'] is not None else None
         self._aperture = float(config['aperture'])
-        #self._exposure = float(config['exposure']) if config['exposure'] is not None else None
+        # self._exposure = float(config['exposure']) if config['exposure'] is not None else None
 
         self._lit_mode = bool(config['lit_mode'])
         self._texture_mipmap_bias = int(config['texture_mipmap_bias'])
@@ -565,6 +573,13 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                                                              height=self._resolution[1]))
 
     def _request_image(self, viewmode):
+        """
+        Request a particular image from UnrealCV
+        :param viewmode:
+        :return:
+        """
+        if viewmode == 'depth':
+            return self._request_depth_image()
         filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
         data = image_utils.read_colour(filename)
         os.remove(filename)     # Clean up after ourselves, now that we have the image data
@@ -573,115 +588,156 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             data = data[:, :, 0:3]
         return data
 
+    def _request_depth_image(self):
+        filename = self._client.request('vget /camera/0/depth')
+        data = image_utils.read_colour(filename)
+        os.remove(filename)  # Clean up after ourselves, now that we have the image data
+
+        data = np.asarray(data, dtype=np.float32)
+        data = np.sum(data * (255, 1, 1 / 255), axis=2)
+        # Convert to meters.
+        return data / 100
+
     def _get_image(self):
+        """
+        Get an image based on the current simulator configuration.
+        Returns a stereo image by preference, then an RGB-D image, then a mono image if neither is configured.
+        :return:
+        """
+        if self._client is None:
+            return None
+        elif self.is_stereo_available:
+            return self._get_stereo_image()
+        elif self.is_depth_available:
+            return self._get_depth_image()
+        else:
+            return self._get_mono_image()
+
+    def _get_mono_image(self):
+        """
+        Get a monocular image from the current position of the simulator
+
+        :return: An Image object
+        """
+        if self._client is None:
+            return None
+        image_data = self._request_image('lit' if self._lit_mode else 'unlit')
+        image_data = np.ascontiguousarray(image_data)
+        labels_data = None
+        world_normals_data = None
+
+        if self.is_per_pixel_labels_available:
+            labels_data = self._request_image('object_mask')
+
+        if self.is_normals_available:
+            world_normals_data = self._request_image('normal')
+
+        return im.Image(data=image_data,
+                        metadata=self._make_metadata(image_data, labels_data, self.current_pose),
+                        additional_metadata=self._additional_metadata,
+                        labels_data=labels_data,
+                        world_normals_data=world_normals_data)
+
+    def _get_stereo_image(self):
+        """
+        Get a stereo image from the current location of the simulator
+        :return:
+        """
         if self._client is not None:
-            if self._lit_mode:
-                image_data = self._request_image('lit')
-            else:
-                image_data = self._request_image('unlit')
-            image_data = np.ascontiguousarray(image_data)
-            depth_data = None
-            ground_truth_depth_data = None
-            labels_data = None
-            world_normals_data = None
+            return None
 
-            # Generate depth
-            if self.is_depth_available:
-                ground_truth_depth_data = self._request_image('depth')
-                # I've encoded the depth into all three channels, Red is depth / 65536, green depth on 256,
-                # and blue raw depth. Green and blue channels loop within their ranges, red clamps.
-                ground_truth_depth_data = np.asarray(ground_truth_depth_data, dtype=np.float32)   # Back to floats
-                ground_truth_depth_data = np.sum(ground_truth_depth_data * (255, 1, 1/255), axis=2)   # Rescale the channels and combine.
-                # We now have depth in unreal world units, ie, centimenters. Convert to meters.
-                ground_truth_depth_data /= 100
+        left_image_data = self._request_image('lit' if self._lit_mode else 'unlit')
+        left_image_data = np.ascontiguousarray(left_image_data)
+        left_labels_data = None
+        left_world_normals_data = None
 
-            if self.is_per_pixel_labels_available:
-                labels_data = self._request_image('object_mask')
+        if self.is_per_pixel_labels_available:
+            left_labels_data = self._request_image('object_mask')
+        if self.is_normals_available:
+            left_world_normals_data = self._request_image('normal')
 
-            if self.is_normals_available:
-                world_normals_data = self._request_image('normal')
+        # Move the camera to the right stereo position
+        cached_pose = self.current_pose
+        right_relative_pose = tf.Transform((0, -1 * self._stereo_offset, 0))
+        right_pose = self.current_pose.find_independent(right_relative_pose)
+        self.set_camera_pose(right_pose)
 
-            if self.is_stereo_available:
-                cached_pose = self.current_pose
-                right_relative_pose = tf.Transform((0, -1 * self._stereo_offset, 0))
-                right_pose = self.current_pose.find_independent(right_relative_pose)
-                self.set_camera_pose(right_pose)
+        # Capture the right stereo image
+        right_image_data = self._request_image('lit' if self._lit_mode else 'unlit')
+        right_labels = None
+        right_world_normals = None
 
-                if self._lit_mode:
-                    right_image_data = self._request_image('lit')
-                else:
-                    right_image_data = self._request_image('unlit')
-                right_ground_truth_depth_data = None
-                right_labels = None
-                right_world_normals = None
+        if self.is_per_pixel_labels_available:
+            right_labels = self._request_image('object_mask')
+        if self.is_normals_available:
+            right_world_normals = self._request_image('normal')
 
-                if self.is_depth_available:
-                    right_ground_truth_depth_data = self._request_image('depth')
-                    # This is the same as for the base depth, above.
-                    right_ground_truth_depth_data = np.asarray(right_ground_truth_depth_data, dtype=np.float32)
-                    right_ground_truth_depth_data = np.sum(right_ground_truth_depth_data * (255, 1, 1/255), axis=2)
-                    # Convert to meters.
-                    right_ground_truth_depth_data /= 100
-                    depth_data = arvet.simulation.depth_noise.kinect_depth_model(
-                        ground_truth_depth_data,
-                        right_ground_truth_depth_data,
-                        self.get_camera_intrinsics(),
-                        right_relative_pose)
-                if self.is_per_pixel_labels_available:
-                    right_labels = self._request_image('object_mask')
-                if self.is_normals_available:
-                    right_world_normals = self._request_image('normal')
+        # Reset the camera pose, so that we don't drift right
+        self.set_camera_pose(cached_pose)
 
-                # Reset the camera pose, so that we don't drift right
-                self.set_camera_pose(cached_pose)
+        return im.StereoImage(left_data=left_image_data,
+                              right_data=right_image_data,
+                              metadata=self._make_metadata(left_image_data, left_labels_data,
+                                                           cached_pose, right_pose),
+                              additional_metadata=self._additional_metadata,
+                              left_labels_data=left_labels_data,
+                              left_world_normals_data=left_world_normals_data,
+                              right_labels_data=right_labels,
+                              right_world_normals_data=right_world_normals)
 
-                return im.StereoImage(left_data=image_data,
-                                      right_data=right_image_data,
-                                      metadata=self._make_metadata(image_data, ground_truth_depth_data, labels_data,
-                                                                   cached_pose, right_pose),
-                                      additional_metadata=self._additional_metadata,
-                                      left_depth_data=depth_data,
-                                      left_ground_truth_depth_data=ground_truth_depth_data,
-                                      left_labels_data=labels_data,
-                                      left_world_normals_data=world_normals_data,
-                                      right_ground_truth_depth_data=right_ground_truth_depth_data,
-                                      right_labels_data=right_labels,
-                                      right_world_normals_data=right_world_normals)
-            else:
-                # No stereo, but we still need noisy depth, this is repeated from above
-                if self.is_depth_available and ground_truth_depth_data is not None and depth_data is None:
-                    # We haven't generated noisy depth yet, we need stereo depth to do that
-                    cached_pose = self.current_pose
-                    right_relative_pose = tf.Transform((0, -0.15, 0))   # A default separation of 15 cm
-                    right_pose = self.current_pose.find_independent(right_relative_pose)
-                    self.set_camera_pose(right_pose)
+    def _get_depth_image(self):
+        if self._client is None:
+            return None
 
-                    right_ground_truth_depth_data = self._request_image('depth')
-                    # This is the same as for the base depth, above.
-                    right_ground_truth_depth_data = np.asarray(right_ground_truth_depth_data, dtype=np.float32)
-                    right_ground_truth_depth_data = np.sum(right_ground_truth_depth_data * (255, 1, 1 / 255), axis=2)
-                    # Convert to meters.
-                    right_ground_truth_depth_data /= 100
+        image_data = self._request_image('lit' if self._lit_mode else 'unlit')
+        image_data = np.ascontiguousarray(image_data)
+        labels_data = None
+        world_normals_data = None
 
-                    depth_data = arvet.simulation.depth_noise.kinect_depth_model(
-                        ground_truth_depth_data,
-                        right_ground_truth_depth_data,
-                        self.get_camera_intrinsics(),
-                        right_relative_pose)
+        if self.is_per_pixel_labels_available:
+            labels_data = self._request_image('object_mask')
+        if self.is_normals_available:
+            world_normals_data = self._request_image('normal')
 
-                    # Reset the camera pose, so that we don't drift right
-                    self.set_camera_pose(cached_pose)
+        # We're using a model of a kinect as depth camera
+        # http://wiki.ros.org/kinect_calibration/technical
+        # TODO: Capture sensor depth from not the same place as the RGB camera
+        cached_pose = self.current_pose
+        # depth_sensor_pose = self.current_pose.find_independent(tf.Transform((0, -1 * self._depth_offset, 0)))
+        depth_sensor_pose = cached_pose
+        projector_relative_pose = tf.Transform((0, -1 * self._projector_offset, 0))
+        projector_pose = depth_sensor_pose.find_independent(projector_relative_pose)
 
-                return im.Image(data=image_data,
-                                metadata=self._make_metadata(image_data, ground_truth_depth_data, labels_data, self.current_pose),
-                                additional_metadata=self._additional_metadata,
-                                depth_data=depth_data,
-                                ground_truth_depth_data=ground_truth_depth_data,
-                                labels_data=labels_data,
-                                world_normals_data=world_normals_data)
-        return None
+        # Capture depth from the sensor
+        # self.set_camera_pose(depth_sensor_pose)
+        sensor_depth = self._request_image('depth')
 
-    def _make_metadata(self, im_data, depth_data, label_data, camera_pose, right_camera_pose=None):
+        # Capture depth from the sensor
+        self.set_camera_pose(projector_pose)
+        projector_depth = self._request_image('depth')
+
+        # Reset the camera pose, so that we don't drift right
+        self.set_camera_pose(cached_pose)
+
+        # Now calculate the noisy depth from the sensor and stereo depth
+        depth_data = arvet.simulation.depth_noise.kinect_depth_model(
+            ground_truth_depth_left=sensor_depth,
+            ground_truth_depth_right=projector_depth,
+            camera_intrinsics=self.get_camera_intrinsics(),
+            baseline=projector_relative_pose
+        )
+
+        # Finally, register the depth against the rgb using a homography
+        # FIXME: I don't know how to do this homography, ask someone
+
+        return im.Image(data=image_data,
+                        metadata=self._make_metadata(image_data, labels_data, self.current_pose, projector_pose),
+                        additional_metadata=self._additional_metadata,
+                        labels_data=labels_data,
+                        depth_data=depth_data,
+                        world_normals_data=world_normals_data)
+
+    def _make_metadata(self, im_data, label_data, camera_pose, right_camera_pose=None, depth_data=None):
         focus_length = self._focus_distance
         aperture = self._aperture
         # if self._client is not None:
@@ -725,4 +781,5 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             texture_mipmap_bias=None, normal_maps_enabled=None, roughness_enabled=None,
             geometry_decimation=None, procedural_generation_seed=None,
             labelled_objects=labelled_objects,
-            average_scene_depth=np.mean(depth_data) if depth_data is not None else None)
+            average_scene_depth=np.mean(depth_data) if depth_data is not None else None
+        )

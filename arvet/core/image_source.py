@@ -131,6 +131,8 @@ class ImageSource(metaclass=abc.ABCMeta):
         """
         Get the intrinsics of the camera in this image source.
         This allows systems to use the correct calibration.
+        We only guarantee that this works after begin is called
+        (in case we need to pre-load meta-information where this is provided)
         :return: A metadata.camera_intrinsics.CameraIntrinsics object.
         """
         pass
@@ -138,7 +140,10 @@ class ImageSource(metaclass=abc.ABCMeta):
     def get_stereo_baseline(self):
         """
         If this image source is producing stereo images, return the stereo baseline.
+        We only guarantee that this works after begin is called
+        (in case we need to pre-load meta-information where this is provided)
         Otherwise, return None.
+        TODO: This would technically be better with a pose of right relative to left
         :return:
         """
         return None

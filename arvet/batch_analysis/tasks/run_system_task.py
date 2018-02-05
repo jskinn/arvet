@@ -106,12 +106,13 @@ def run_system_with_source(system, image_source):
     :return: The TrialResult storing the results of the run. Save it to the database, or None if there's a problem.
     """
     if system.is_image_source_appropriate(image_source):
-        system.set_camera_intrinsics(image_source.get_camera_intrinsics())
-        stereo_baseline = image_source.get_stereo_baseline()
-        if stereo_baseline is not None:
-            system.set_stereo_baseline(stereo_baseline)
-        system.start_trial(image_source.sequence_type)
         with image_source:
+            system.set_camera_intrinsics(image_source.get_camera_intrinsics())
+            stereo_baseline = image_source.get_stereo_baseline()
+            if stereo_baseline is not None:
+                system.set_stereo_baseline(stereo_baseline)
+
+            system.start_trial(image_source.sequence_type)
             while not image_source.is_complete():
                 image, timestamp = image_source.get_next_image()
                 system.process_image(image, timestamp)
