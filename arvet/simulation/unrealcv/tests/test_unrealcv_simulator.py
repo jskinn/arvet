@@ -334,6 +334,24 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
                 autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    def test_get_next_image_returns_stereo_image(self, mock_client, mock_read_colour, *_):
+        mock_read_colour.side_effect = make_mock_image
+        mock_client.return_value = make_mock_unrealcv_client()
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world',
+                                            config={'stereo_offset': 0.15})
+        subject.begin()
+        result = subject.get_next_image()
+        self.assertEqual(2, len(result))
+        self.assertIsInstance(result[0], arvet.core.image.StereoImage)
+        self.assertIsNone(result[1])
+
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
+                autospec=image_utils.read_colour)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_get_next_image_cleans_up_image_files(self, mock_client, mock_read_colour, mock_os_remove, *_):
         mock_read_colour.side_effect = (
             lambda x, _=None: make_mock_image('object_mask') if 'label' in x else make_mock_image(x))
