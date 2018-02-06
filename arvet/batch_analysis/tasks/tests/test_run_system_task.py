@@ -101,11 +101,11 @@ class TestTrialRunner(unittest.TestCase):
     def test_run_system_calls_iteration_functions_in_order(self):
         task.run_system_with_source(self._system, self._image_source)
         mock_calls = self._image_source.mock_calls
-        # get_camera_intrinsics; get_stereo_baseline; begin; 10 pairs of  is complete and get image; final is complete
+        # begin; get_camera_intrinsics; get_stereo_baseline; 10 pairs of  is complete and get image; final is complete
         self.assertEqual(25, len(mock_calls))
-        self.assertEqual('get_camera_intrinsics', mock_calls[0][0])
-        self.assertEqual('get_stereo_baseline', mock_calls[1][0])
-        self.assertEqual('__enter__', mock_calls[2][0])
+        self.assertEqual('__enter__', mock_calls[0][0])
+        self.assertEqual('get_camera_intrinsics', mock_calls[1][0])
+        self.assertEqual('get_stereo_baseline', mock_calls[2][0])
         for i in range(10):
             self.assertEqual('is_complete', mock_calls[3 + 2 * i][0])
             self.assertEqual('get_next_image', mock_calls[4 + 2 * i][0])

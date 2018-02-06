@@ -364,7 +364,7 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
                 autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_set_camera_pose_handles_frame_conversion(self, mock_client, mock_read_colour, *_):
+    def test_set_camera_pose_handles_frame_conversion_to_unreal(self, mock_client, mock_read_colour, *_):
         mock_read_colour.side_effect = make_mock_image
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
@@ -379,10 +379,29 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
                                                                               ue_pose.location[1],
                                                                               ue_pose.location[2]))),
                       mock_client_instance.request.call_args_list)
-        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(ue_pose.pitch,
-                                                                              ue_pose.yaw,
-                                                                              ue_pose.roll))),
-                      mock_client_instance.request.call_args_list)
+        # We can't search by string, because the floats are slightly inconsistent
+        match = None
+        for call in mock_client_instance.request.call_args_list:
+            match = re.match('vset /camera/0/rotation ([-0-9.]+) ([-0-9.]+) ([-0-9.]+)', call[0][0])
+            if match is not None:
+                break
+        self.assertIsNotNone(match)
+        self.assertAlmostEqual(ue_pose.pitch, float(match.group(1)))
+        self.assertAlmostEqual(ue_pose.yaw, float(match.group(2)))
+        self.assertAlmostEqual(ue_pose.roll, float(match.group(3)))
+
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
+                autospec=image_utils.read_colour)
+    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
+    def test_set_camera_pose_handles_frame_conversion_from_unreal(self, mock_client, mock_read_colour, *_):
+        mock_read_colour.side_effect = make_mock_image
+        mock_client_instance = make_mock_unrealcv_client()
+        mock_client.return_value = mock_client_instance
+        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
+        subject.begin()
 
         pose = tf.Transform((-175, 29, -870), (0.3, -0.2, -0.8, 0.6))
         ue_pose = uetf.transform_to_unreal(pose)
@@ -393,10 +412,17 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
                                                                               ue_pose.location[1],
                                                                               ue_pose.location[2]))),
                       mock_client_instance.request.call_args_list)
-        self.assertIn(mock.call(("vset /camera/0/rotation {0} {1} {2}".format(ue_pose.pitch,
-                                                                              ue_pose.yaw,
-                                                                              ue_pose.roll))),
-                      mock_client_instance.request.call_args_list)
+
+        # We can't search by string, because the floats are slightly inconsistent
+        match = None
+        for call in mock_client_instance.request.call_args_list:
+            match = re.match('vset /camera/0/rotation ([-0-9.]+) ([-0-9.]+) ([-0-9.]+)', call[0][0])
+            if match is not None:
+                break
+        self.assertIsNotNone(match)
+        self.assertAlmostEqual(ue_pose.pitch, float(match.group(1)))
+        self.assertAlmostEqual(ue_pose.yaw, float(match.group(2)))
+        self.assertAlmostEqual(ue_pose.roll, float(match.group(3)))
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)

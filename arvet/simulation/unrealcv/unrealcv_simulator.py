@@ -643,7 +643,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         Get a stereo image from the current location of the simulator
         :return:
         """
-        if self._client is not None:
+        if self._client is None:
             return None
 
         left_image_data = self._request_image('lit' if self._lit_mode else 'unlit')
@@ -731,7 +731,13 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         # FIXME: I don't know how to do this homography, ask someone
 
         return im.Image(data=image_data,
-                        metadata=self._make_metadata(image_data, labels_data, self.current_pose, projector_pose),
+                        metadata=self._make_metadata(
+                            im_data=image_data,
+                            label_data=labels_data,
+                            camera_pose=self.current_pose,
+                            right_camera_pose=projector_pose,
+                            depth_data=sensor_depth
+                        ),
                         additional_metadata=self._additional_metadata,
                         labels_data=labels_data,
                         depth_data=depth_data,
