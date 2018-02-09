@@ -179,6 +179,29 @@ class TestImageUtils(unittest.TestCase):
             [65, 72, 78]
         ], result)
 
+    def test_resize_preserves_dtype(self):
+        for dtype in [np.float, np.float16, np.float32, np.int32]:
+            image = np.asarray(np.random.uniform(0, 10, (32, 32)), dtype=dtype)
+            result = image_utils.resize(image, (24, 24), interpolation=image_utils.Interpolation.BILINEAR)
+            self.assertEqual(dtype, result.dtype)
+
+    def test_resize_preserves_precision_up_to_float_32(self):
+        # Check we maintain float16 precision
+        image = np.array([
+            [256.5, 1/256],
+            [257.5, 255 / 512]
+        ], dtype=np.float16)
+        result = image_utils.resize(image, (1,1), interpolation=image_utils.Interpolation.BILINEAR)
+        self.assertEqual(np.mean([256.5, 1/256, 257.5, 255 / 512], dtype=np.float16), result[0, 0])
+
+        image = np.array([
+            [(256.5 * 256.5), 1 / (256 * 256)],
+            [(257.5 * 257.5), 255 / (512 * 512)]
+        ], dtype=np.float32)
+        result = image_utils.resize(image, (1, 1), interpolation=image_utils.Interpolation.BILINEAR)
+        self.assertEqual(np.mean([(256.5 * 256.5), 1 / (256 * 256),
+                                  (257.5 * 257.5), 255 / (512 * 512)], dtype=np.float32), result[0, 0])
+
     def test_show_image_float(self):
         image_data = np.array([[0.0 for _ in range(100)] for _ in range(100)], dtype=np.float32)
         image_data[12:56, 34:75] = 1.0

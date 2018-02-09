@@ -60,7 +60,9 @@ def get_bounding_box(image_data: np.ndarray) -> typing.Union[typing.Tuple[int, i
     :param image_data: The image data, as a numpy array.
     :return: A tuple of (left, upper, right, lower) pixel coordinates, or None if the image is empty
     """
-    pil_image = PIL.Image.fromarray(to_uint_image(image_data))
+    if image_data.dtype != np.bool:
+        image_data = image_data > 0
+    pil_image = PIL.Image.fromarray(np.asarray(image_data, dtype=np.uint8), mode='L')
     return pil_image.getbbox()
 
 
@@ -76,7 +78,28 @@ def resize(image_data: np.ndarray, new_size: typing.Tuple[int, int],
     :param interpolation: The interpolation mode, as an enum. Default NEAREST.
     :return: The resized image.
     """
-    pil_image = PIL.Image.fromarray(to_uint_image(image_data))
+    dtype = image_data.dtype
+
+    # Guess the PIL mode best to handle the image
+    mode = None
+    if dtype == np.uint8:
+        if len(image_data.shape) > 2:
+            if image_data.shape[2] == 3:
+                mode = 'RGB'
+            else:
+                mode = 'RGBA'
+        else:
+            mode = 'L'
+    if dtype == np.float or dtype == np.float16 or dtype == np.float32 or dtype == np.float64:
+        image_data = np.asarray(image_data, dtype=np.float32)
+        mode = 'F'
+    elif dtype == np.int or dtype == np.int8 or dtype == np.int16 or dtype == np.int32 or dtype == np.int64:
+        image_data = np.asarray(image_data, dtype=np.int32)
+        mode = 'I'
+
+    pil_image = PIL.Image.fromarray(image_data, mode=mode)
+
+    # Work out which PIL interpolation to use
     pil_interpolation = PIL.Image.NEAREST
     if interpolation == Interpolation.BOX:
         pil_interpolation = PIL.Image.BOX
@@ -84,7 +107,9 @@ def resize(image_data: np.ndarray, new_size: typing.Tuple[int, int],
         pil_interpolation = PIL.Image.BILINEAR
     elif interpolation == Interpolation.BICUBIC:
         pil_interpolation = PIL.Image.BICUBIC
-    return np.array(pil_image.resize(new_size, resample=pil_interpolation))
+
+    # Return, converting back to the original data type
+    return np.array(pil_image.resize(new_size, resample=pil_interpolation), dtype=dtype)
 
 
 def show_image(image_data: np.ndarray, window_name: str = 'temp') -> None:
