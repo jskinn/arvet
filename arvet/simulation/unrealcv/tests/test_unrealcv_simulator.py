@@ -1,8 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import os
 import re
+import io
 import subprocess
 import time
 
@@ -16,7 +16,6 @@ import arvet.simulation.unrealcv.unrealcv_simulator as uecvsim
 import arvet.util.dict_utils as du
 import arvet.util.transform as tf
 import arvet.util.unreal_transform as uetf
-import arvet.util.image_utils as image_utils
 
 
 # Patch the unrealcv Client API for mocking
@@ -92,8 +91,6 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_saves_settings(self,  *_):
         port = np.random.randint(0, 1000)
@@ -122,8 +119,6 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
     def test_begin_starts_simulator(self, mock_subprocess, *_):
@@ -140,8 +135,6 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_creates_client(self, mock_client, *_):
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
@@ -152,8 +145,6 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_connects_to_simulator(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
@@ -167,8 +158,6 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_sets_camera_properties(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
@@ -186,7 +175,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         })
         subject.begin()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vset /camera/0/fov {0}".format(fov)), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vset /camera/0/horizontal_fieldofview {0}".format(fov)),
+                      mock_client_instance.request.call_args_list)
         self.assertIn(mock.call("vset /camera/0/fstop {0}".format(aperture)),
                       mock_client_instance.request.call_args_list)
         self.assertIn(mock.call("vset /camera/0/enable-dof 1"), mock_client_instance.request.call_args_list)
@@ -197,8 +187,6 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
     def test_begin_sets_quality_properties(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
@@ -236,12 +224,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_captures_lit(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_get_next_image_captures_lit(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
@@ -250,17 +234,13 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         mock_client_instance.request.called = False
         subject.get_next_image()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vget /camera/0/lit"), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/lit npy"), mock_client_instance.request.call_args_list)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_captures_depth(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_get_next_image_captures_depth(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_depth': True})
@@ -269,36 +249,47 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         mock_client_instance.request.called = False
         subject.get_next_image()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vget /camera/0/depth"), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/depth npy"), mock_client_instance.request.call_args_list)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_captures_labels(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_get_next_image_captures_labels(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={'provide_labels': True})
         subject.begin()
 
+        expected_pose = uetf.UnrealTransform((243.1241, -16.31, 27.21352),
+                                             (float('-16.34'), float('17.8'), float('13.51')))
+        expected_pose = uetf.UnrealTransform().find_relative(expected_pose)
+        expected_pose = uetf.transform_from_unreal(expected_pose)
+        expected_pose = subject.current_pose.find_relative(expected_pose)
+
         mock_client_instance.request.called = False
-        subject.get_next_image()
+        result, _ = subject.get_next_image()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vget /camera/0/object_mask"), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/object_mask npy"), mock_client_instance.request.call_args_list)
+
+        # Check that objects appearing in the label image are in the labelled objects
+        # These settings are all hard-coded below in make_mock_unrealcv_client and make_mock_label_image
+        self.assertIn(mock.call("vget /object/name 122 73 231"), mock_client_instance.request.call_args_list)
+        self.assertEqual(1, len(result.metadata.labelled_objects))
+        labelled_object = result.metadata.labelled_objects[0]
+        self.assertEqual('labelled_object', labelled_object.object_id)
+        self.assertIn('class1', labelled_object.class_names)
+        self.assertIn('class2', labelled_object.class_names)
+        self.assertEqual((33, 12, 41, 47), labelled_object.bounding_box)
+        self.assertEqual((122, 73, 231), labelled_object.label_color)
+        self.assertNPEqual(expected_pose.location, labelled_object.relative_pose.location)
+        self.assertNPClose(expected_pose.rotation_quat(True), labelled_object.relative_pose.rotation_quat(True))
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_captures_world_normals(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_get_next_image_captures_world_normals(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world',
@@ -308,17 +299,13 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         mock_client_instance.request.called = False
         subject.get_next_image()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vget /camera/0/normal"), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/normal npy"), mock_client_instance.request.call_args_list)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_returns_image_and_none(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_get_next_image_returns_image_and_none(self, mock_client, *_):
         mock_client.return_value = make_mock_unrealcv_client()
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
@@ -330,12 +317,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_returns_stereo_image(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_get_next_image_returns_stereo_image(self, mock_client, *_):
         mock_client.return_value = make_mock_unrealcv_client()
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world',
                                             config={'stereo_offset': 0.15})
@@ -348,42 +331,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.os.remove', autospec=os.remove)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_get_next_image_cleans_up_image_files(self, mock_client, mock_read_colour, mock_os_remove, *_):
-        mock_read_colour.side_effect = (
-            lambda x, _=None: make_mock_image('object_mask') if 'label' in x else make_mock_image(x))
-        filenames = {
-            'vget /camera/0/lit': '/tmp/001.png',
-            'vget /camera/0/depth': '/tmp/001.depth.png',
-            'vget /camera/0/object_mask': '/tmp/001.labels.png',
-            'vget /camera/0/normal': '/tmp/001.normal.png'
-        }
-        mock_client_instance = make_mock_unrealcv_client()
-        mock_client_instance.request.side_effect = (lambda x: filenames[x] if x in filenames
-                                                    else mock_unrealcv_request(x))
-        mock_client.return_value = mock_client_instance
-        subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
-            'provide_depth': True,
-            'provide_labels': True,
-            'provide_world_normals': True
-        })
-        subject.begin()
-        subject.get_next_image()
-        self.assertTrue(mock_os_remove.called)
-        for path in filenames.values():
-            self.assertIn(mock.call(path), mock_os_remove.call_args_list)
-
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_set_camera_pose_handles_frame_conversion_to_unreal(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_set_camera_pose_handles_frame_conversion_to_unreal(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
@@ -411,11 +360,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_set_camera_pose_handles_frame_conversion_from_unreal(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_set_camera_pose_handles_frame_conversion_from_unreal(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
@@ -445,27 +391,22 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_set_field_of_view(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_set_field_of_view(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
         subject.set_field_of_view(30.23)
-        self.assertIn(mock.call("vset /camera/0/fov 30.23"), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vset /camera/0/horizontal_fieldofview 30.23"),
+                      mock_client_instance.request.call_args_list)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_set_focus_distance(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_set_focus_distance(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
@@ -477,11 +418,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.subprocess', autospec=subprocess)
-    @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.arvet.util.image_utils.read_colour',
-                autospec=image_utils.read_colour)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.unrealcv.Client', autospec=ClientPatch)
-    def test_set_fstop(self, mock_client, mock_read_colour, *_):
-        mock_read_colour.side_effect = make_mock_image
+    def test_set_fstop(self, mock_client, *_):
         mock_client_instance = make_mock_unrealcv_client()
         mock_client.return_value = mock_client_instance
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
@@ -489,6 +427,12 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
 
         subject.set_fstop(22.23)
         self.assertIn(mock.call("vset /camera/0/fstop 22.23"), mock_client_instance.request.call_args_list)
+
+    def assertNPEqual(self, arr1, arr2):
+        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
+
+    def assertNPClose(self, arr1, arr2):
+        self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
 
 
 def make_mock_unrealcv_client():
@@ -498,10 +442,21 @@ def make_mock_unrealcv_client():
 
 
 def mock_unrealcv_request(request):
-    if re.match('vget /camera/\d*/(lit|depth|normal)', request):
-        return 'imfile.png'
+    if re.match('vget /camera/\d*/(lit|unlit|normal)', request):
+        binfile = io.BytesIO()
+        np.save(binfile, make_mock_image())
+        binfile.seek(0)
+        return binfile.read()
+    elif re.match('vget /camera/\d*/depth', request):
+        binfile = io.BytesIO()
+        np.save(binfile, make_mock_depth())
+        binfile.seek(0)
+        return binfile.read()
     elif re.match('vget /camera/\d*/object_mask', request):
-        return 'object_mask.png'
+        binfile = io.BytesIO()
+        np.save(binfile, make_mock_label_image())
+        binfile.seek(0)
+        return binfile.read()
     elif re.match('vget /camera/\d*/location', request):
         return "{0} {1} {2}".format(*tuple(np.random.uniform(-1000, 1000, 3)))    # Random point in space
     elif re.match('vget /camera/\d*/rotation', request):
@@ -510,14 +465,24 @@ def mock_unrealcv_request(request):
         return 'labelled_object'    # Object name
     elif re.match('vget /[a-z_/0-9]+/labels', request):
         return 'class1,class2'
+    elif re.match('vget /object/[a-z_0-9]+/location', request):
+        return '243.1241 -16.31 27.21352'
+    elif re.match('vget /object/[a-z_0-9]+/rotation', request):
+        return '17.8 13.51 -16.34'
     elif re.match('vget', request):
         return str(np.random.uniform(0, 100))
     return None
 
 
-def make_mock_image(filename, _=None):
-    if re.match('object_mask', filename):
-        mask = np.zeros((64, 64, 3), dtype='uint8')
-        mask[12:34, 17:22] = np.random.randint(0, 255, 3)
-        return mask
-    return np.random.randint(0, 255, (64, 64, 3), dtype='uint8')
+def make_mock_image():
+    return np.random.randint(0, 255, (64, 64, 4), dtype=np.uint8)
+
+
+def make_mock_depth():
+    return np.asarray(np.random.uniform(0, 4.2, (64, 64)), dtype=np.float16)
+
+
+def make_mock_label_image():
+    im = np.zeros((64, 64, 3), dtype=np.uint8)
+    im[12:47, 33:41] = (122, 73, 231)
+    return im

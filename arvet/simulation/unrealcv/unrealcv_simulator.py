@@ -1,7 +1,8 @@
 # Copyright (c) 2017, John Skinner
-import os
+import os.path
 import time
 import subprocess
+import io
 import xxhash
 import numpy as np
 import unrealcv
@@ -425,7 +426,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         """
         self._fov = float(fov)
         if self._client is not None:
-            self._client.request("vset /camera/0/fov {0}".format(self._fov))
+            self._client.request("vset /camera/0/horizontal_fieldofview {0}".format(self._fov))
 
     def set_enable_dof(self, enable=True):
         """
@@ -516,7 +517,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                     ue_trans = uetf.UnrealTransform(
                         location=(float(location[0]), float(location[1]), float(location[2])),
                         # Reorder to roll, pitch, yaw, Unrealcv order is pitch, yaw, roll
-                        rotation=(float(rotation[2]), float(rotation[0]), float(location[1])))
+                        rotation=(float(rotation[2]), float(rotation[0]), float(rotation[1])))
                     ue_trans = self._origin.find_relative(ue_trans)  # Express relative to the simulator origin
                     return uetf.transform_from_unreal(ue_trans)
         return None
@@ -580,21 +581,16 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         """
         if viewmode == 'depth':
             return self._request_depth_image()
-        filename = self._client.request('vget /camera/0/{0}'.format(viewmode))
-        data = image_utils.read_colour(filename)
-        os.remove(filename)     # Clean up after ourselves, now that we have the image data
+        byte_data = self._client.request('vget /camera/0/{0} npy'.format(viewmode))
+        data = np.load(io.BytesIO(byte_data))
         if len(data.shape) >= 3 and data.shape[2] >= 4:
             # Slice off the alpha channel if there is one, we're going to ignore it.
             data = data[:, :, 0:3]
         return data
 
     def _request_depth_image(self):
-        filename = self._client.request('vget /camera/0/depth')
-        data = image_utils.read_colour(filename)
-        os.remove(filename)  # Clean up after ourselves, now that we have the image data
-
-        data = np.asarray(data, dtype=np.float32)
-        data = np.sum(data * (255, 1, 1 / 255), axis=2)
+        byte_data = self._client.request('vget /camera/0/depth npy')
+        data = np.load(io.BytesIO(byte_data))
         # Convert to meters.
         return data / 100
 
@@ -746,10 +742,6 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
     def _make_metadata(self, im_data, label_data, camera_pose, right_camera_pose=None, depth_data=None):
         focus_length = self._focus_distance
         aperture = self._aperture
-        # if self._client is not None:
-        #     fov = self._client.request('vget /camera/0/fov')
-        #     focus_length = self._client.request('vget /camera/0/focus-distance')
-        #     aperture = self._client.request('vget /camera/0/fstop')
         camera_intrinsics = self.get_camera_intrinsics()
 
         labelled_objects = []
@@ -768,7 +760,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                         class_names=class_names,
                         bounding_box=image_utils.get_bounding_box(np.all(label_data == color, axis=2)),
                         label_color=color,
-                        relative_pose=self.get_object_pose(name),
+                        relative_pose=self.current_pose.find_relative(self.get_object_pose(name)),
                         object_id=name
                     ))
 
