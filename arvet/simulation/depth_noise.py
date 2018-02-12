@@ -75,30 +75,14 @@ def kinect_depth_model(ground_truth_depth_left: np.ndarray, ground_truth_depth_r
     else:
         right_depth_points = image_utils.resize(ground_truth_depth_right, (640, 480),
                                                 interpolation=image_utils.Interpolation.NEAREST)
+    output_depth = left_depth_points
 
-    # Step 3: Find orthographic depth
-    # Basically, we find the z-component of the world point for each depth point
-    # d^2 = X^2 + Y^2 + Z^2
-    # and
-    # X = Z * (x - cx) / fx, Y = Z * (y - cy) / fy
-    # Therefore:
-    # Z = d / sqrt(((x - cx) / fx)^2 + ((y - cy) / fy)^2 + 1)
-    # Z = d / |(x - cx) / fx, (y - cy) / fy, 1|
-    ortho_projection = np.indices((480, 640), dtype=np.float32)
-    ortho_projection = np.dstack((ortho_projection[1], ortho_projection[0], np.ones((480, 640), dtype=np.float32)))
-    ortho_projection -= (cx, cy, 0)
-    ortho_projection = np.divide(ortho_projection, (fy, fx, 1))  # Gives us (x - cx) / fx, (y - cy) / fy, 1
-    ortho_projection = np.linalg.norm(ortho_projection, axis=2)
-    output_depth = np.divide(left_depth_points, ortho_projection)
+    # Step 3: Clipping planes - Set to 0 where too close or too far
+    shadow_mask = (0.8 < left_depth_points) & (left_depth_points < 4.0)
 
-    # Step 4: Clipping planes - Set to 0 where too close or too far
-    shadow_mask = (0.8 < output_depth) & (output_depth < 4.0)
-
-    # Step 5: Shadows
+    # Step 4: Shadows
     # Project the depth points from the right depth image onto the left depth image
     # Places that are not visible from the right image are shadows
-    right_ortho_depth = np.divide(right_depth_points, ortho_projection)
-
     right_points = np.indices((480, 640), dtype=np.float32)
     right_x = right_points[1] - cx
     right_y = right_points[0] - cy
@@ -109,24 +93,24 @@ def kinect_depth_model(ground_truth_depth_left: np.ndarray, ground_truth_depth_r
     # X = Z * (x - cx) / fx, Y = Z * (y - cy) / fy
     # Therefore,
     # x' = ((x - cx) * Z - fx * B_x) / (Z - B_z) + cx, similar for y
-    right_x = np.multiply(output_depth, right_x)  # (x - cx) * Z
-    right_y = np.multiply(output_depth, right_y)  # (y - cy) * Z
+    right_x = np.multiply(left_depth_points, right_x)  # (x - cx) * Z
+    right_y = np.multiply(left_depth_points, right_y)  # (y - cy) * Z
     # x * Z - fx * B_x, y * Z - fy * B_y
     right_x -= baseline_x * fx
     right_y -= baseline_y * fy
     # Divide throughout by Z - B_z, or just the orthographic right depth
-    right_x = np.divide(right_x, right_ortho_depth + 0.00001) + cx
-    right_y = np.divide(right_y, right_ortho_depth + 0.00001) + cy
+    right_x = np.divide(right_x, right_depth_points + 0.00001) + cx
+    right_y = np.divide(right_y, right_depth_points + 0.00001) + cy
     shadow_mask &= (right_x >= 0) & (right_y >= 0) & (right_x < 640) & (right_y < 480)
-    projected_depth = nearest_sample(right_ortho_depth, right_x, right_y)
-    shadow_mask &= (output_depth - projected_depth) < 0.01
+    projected_depth = nearest_sample(right_depth_points, right_x, right_y)
+    shadow_mask &= (left_depth_points - projected_depth) < 0.01
 
-    # Step 6: Random dropout of pixels
+    # Step 5: Random dropout of pixels
     shadow_mask &= np.random.choice([False, True], (480, 640), p=(0.2, 0.8))
 
-    # Step 7: Lateral noise - I don't know how to do this quickly
+    # Step 6: Lateral noise - I don't know how to do this quickly
 
-    # Step 8: axial noise
+    # Step 7: axial noise
     output_depth += np.random.normal(0, 0.0012 + 0.0019 * np.square(output_depth - 0.4))
     output_depth = np.multiply(shadow_mask, output_depth)
 

@@ -98,13 +98,9 @@ class TestDepthNoise(unittest.TestCase):
 def get_test_image(suffix: str):
     path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        'test-depth-{}.png'.format(suffix)
+        'test-depth-{}.npy'.format(suffix)
     )
     if os.path.isfile(path):
-        depth_image = image_utils.read_depth(path).astype(np.float16)
-        # depth_image = np.asarray(depth_image, dtype=np.float32)  # Back to floats
-        depth_image = np.sum(depth_image * (255, 1, 1/255, 0), axis=2)  # Rescale the channels and combine.
-        # We now have depth in unreal world units, ie, centimenters. Convert to meters.
-        return np.asarray(depth_image / 100, np.float16)
+        return np.load(path)
     else:
         raise FileNotFoundError("Could not find test image at {0}".format(path))

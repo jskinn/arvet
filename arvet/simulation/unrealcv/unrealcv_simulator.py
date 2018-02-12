@@ -589,10 +589,12 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         return data
 
     def _request_depth_image(self):
-        byte_data = self._client.request('vget /camera/0/depth npy')
-        data = np.load(io.BytesIO(byte_data))
-        # Convert to meters.
-        return data / 100
+        """
+        Get a 16-bit floating point scene depth image.
+        :return:
+        """
+        byte_data = self._client.request('vget /camera/0/plane_depth npy')
+        return np.load(io.BytesIO(byte_data))
 
     def _get_image(self):
         """
