@@ -1,7 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import os
 import numpy as np
 import logging
+import pickle
 import arvet.database.entity
 import arvet.core.image
 import arvet.core.sequence_type
@@ -134,6 +136,12 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
         :return:
         """
         if index in self._images:
+            # Check if the image is cached on the file system
+            cache_filename = get_cache_filename(self._db_client.temp_folder, self._images[index])
+            if os.path.isfile(cache_filename):
+                with open(cache_filename, 'rb') as imfile:
+                    return pickle.load(imfile)
+            # Go to the database if we haven't got a local file
             return dh.load_object(self._db_client, self._db_client.image_collection, self._images[index])
         return None
 
@@ -236,6 +244,25 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
         """
         return self._stereo_baseline
 
+    def warmup_cache(self):
+        """
+        Create local files to store all the images for faster loading,
+        and reuse across multiple run-tasks
+        :return:
+        """
+        batch_size = 1000   # Number of images to request at once
+        timestamps = sorted(self._images.keys())
+        os.makedirs(os.path.join(self._db_client.temp_folder, 'image_cache'), exist_ok=True)
+        for idx in range(len(timestamps) // batch_size + 1):
+            timestamps_to_load = timestamps[idx * batch_size:min(len(timestamps), (idx + 1) * batch_size)]
+            images_to_load = [self._images[stamp] for stamp in timestamps_to_load]
+
+            images_cursor = self._db_client.image_collection.find({'_id': {'$in': images_to_load}})
+            for s_image in images_cursor:
+                image = self._db_client.deserialize_entity(s_image)
+                with open(get_cache_filename(self._db_client.temp_folder, image.identifier), 'wb') as imfile:
+                    pickle.dump(image, imfile, protocol=pickle.HIGHEST_PROTOCOL)
+
     def validate(self):
         """
         The image sequence is valid iff all the contained images are valid
@@ -311,11 +338,11 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
         if existing is not None:
             return existing['_id']
         else:
-            return db_client.image_source_collection.insert({
+            return db_client.image_source_collection.insert_one({
                 '_type': cls.__module__ + '.' + cls.__name__,
                 'images': s_images_list,
                 'sequence_type': s_seq_type
-            })
+            }).inserted_id
 
 
 def delete_image_collection(db_client, image_collection_id):
@@ -334,3 +361,14 @@ def delete_image_collection(db_client, image_collection_id):
         if db_client.image_source_collection.find({'images': image_id}, limit=2).count() <= 1:
             arvet.core.image_entity.delete_image(db_client, image_id)
     db_client.image_source_collection.delete_one({'_id': image_collection_id})
+
+
+def get_cache_filename(temp_dir, image_id):
+    """
+    Get the expected filename for an image if it has been locally cached on the filesystem.
+    This can speed up loading and reduce database hits
+    :param temp_dir: The temp dir, get it from the database client
+    :param image_id: The image id, as a bson object
+    :return:
+    """
+    return os.path.join(temp_dir, 'image_cache', '{0}.pickle'.format(image_id))

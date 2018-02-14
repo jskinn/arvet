@@ -187,6 +187,12 @@ class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertIn(s_entity['labels_data'], ids)
         self.assertIn(s_entity['world_normals_data'], ids)
 
+    def test_is_pickleable(self):
+        entity1 = self.make_instance()
+        bin_data = pickle.dumps(entity1, protocol=pickle.HIGHEST_PROTOCOL)
+        entity2 = pickle.loads(bin_data)
+        self.assert_models_equal(entity1, entity2)
+
 
 class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
 
@@ -401,6 +407,13 @@ class TestStereoImageEntity(entity_test.EntityContract, unittest.TestCase):
         self.assertIn(s_entity['right_ground_truth_depth_data'], ids)
         self.assertIn(s_entity['right_labels_data'], ids)
         self.assertIn(s_entity['right_world_normals_data'], ids)
+
+    def test_is_pickleable(self):
+        entity1 = self.make_instance()
+        bin_data = pickle.dumps(entity1, protocol=pickle.HIGHEST_PROTOCOL)
+        entity2 = pickle.loads(bin_data)
+        self.assert_models_equal(entity1, entity2)
+
 
 
 class TestImageToEntity(unittest.TestCase):

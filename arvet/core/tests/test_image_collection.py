@@ -1,6 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
+import os
+import io
+import pickle
 import arvet.database.tests.test_entity
 import numpy as np
 import bson.objectid
@@ -154,13 +157,33 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
     def create_mock_db_client(self):
         db_client = super().create_mock_db_client()
 
+        db_client.temp_folder = 'tmp'
+
         # Add our images to the mock image collection
         for image in self.image_map.values():
             image.save_image_data(db_client)
-            db_client.image_collection.insert(image.serialize())
+            db_client.image_collection.insert_one(image.serialize())
 
         db_client.deserialize_entity.side_effect = lambda s_image: self.image_map[s_image['_id']]
         return db_client
+
+    def assert_images_equal(self, image1, image2):
+        """
+        Helper to assert that two image entities are equal
+        :param image1: ImageEntity
+        :param image2: ImageEntity
+        :return:
+        """
+        if not isinstance(image1, ie.ImageEntity) or not isinstance(image2, ie.ImageEntity):
+            self.fail('object was not an Image')
+        self.assertEqual(image1.identifier, image2.identifier)
+        self.assertTrue(np.array_equal(image1.data, image2.data))
+        self.assertEqual(image1.camera_pose, image2.camera_pose)
+        self.assertTrue(np.array_equal(image1.depth_data, image2.depth_data))
+        self.assertTrue(np.array_equal(image1.ground_truth_depth_data, image2.ground_truth_depth_data))
+        self.assertTrue(np.array_equal(image1.labels_data, image2.labels_data))
+        self.assertTrue(np.array_equal(image1.world_normals_data, image2.world_normals_data))
+        self.assertEqual(image1.additional_metadata, image2.additional_metadata)
 
     def test_timestamps_returns_all_timestamps_in_order(self):
         subject = ic.ImageCollection(images=self.images, type_=arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL,
@@ -177,7 +200,7 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
 
         image = make_image(depth_data=None)
         image.save_image_data(db_client)
-        db_client.image_collection.insert(image.serialize())
+        db_client.image_collection.insert_one(image.serialize())
         subject = ic.ImageCollection(type_=arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_depth_available)
@@ -190,7 +213,7 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
 
         image = make_image(labels_data=None)
         image.save_image_data(db_client)
-        db_client.image_collection.insert(image.serialize())
+        db_client.image_collection.insert_one(image.serialize())
         subject = ic.ImageCollection(type_=arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_per_pixel_labels_available)
@@ -216,7 +239,7 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
             average_scene_depth=90.12
         ))
         image.save_image_data(db_client)
-        db_client.image_collection.insert(image.serialize())
+        db_client.image_collection.insert_one(image.serialize())
         subject = ic.ImageCollection(type_=arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_labels_available)
@@ -229,7 +252,7 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
 
         image = make_image(world_normals_data=None)
         image.save_image_data(db_client)
-        db_client.image_collection.insert(image.serialize())
+        db_client.image_collection.insert_one(image.serialize())
         subject = ic.ImageCollection(type_=arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL,
                                      images=du.defaults({1.7: image.identifier}, self.images), db_client_=db_client)
         self.assertFalse(subject.is_normals_available)
@@ -278,10 +301,31 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
         self.assertTrue(subject.is_complete())
         self.assertEqual((None, None), subject.get_next_image())
 
-    def test_loads_images_on_the_fly(self):
+    @mock.patch('arvet.core.image_collection.os.path.isfile', autospec=os.path.isfile)
+    def test_loads_images_from_cache_if_available(self, mock_isfile):
         db_client = self.create_mock_db_client()
         subject = self.make_instance(db_client_=db_client)
 
+        mock_image = make_image()
+        mock_isfile.return_value = True
+        mock_open = mock.mock_open(read_data=pickle.dumps(mock_image, protocol=pickle.HIGHEST_PROTOCOL))
+
+        with mock.patch('arvet.core.image_collection.open', mock_open, create=True):
+            with subject:
+                while not subject.is_complete():
+                    image, stamp = subject.get_next_image()
+                    self.assertTrue(mock_open.called)
+                    self.assert_images_equal(mock_image, image)
+                    # Check that we didn't ask the database
+                    self.assertNotIn(mock.call({'_id': image.identifier}),
+                                     db_client.image_collection.find_one.call_args_list)
+
+    @mock.patch('arvet.core.image_collection.os.path.isfile', autospec=os.path.isfile)
+    def test_loads_images_on_the_fly(self, mock_isfile):
+        db_client = self.create_mock_db_client()
+        subject = self.make_instance(db_client_=db_client)
+
+        mock_isfile.return_value = False
         with subject:
             while not subject.is_complete():
                 image, stamp = subject.get_next_image()
@@ -332,8 +376,8 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
         ic.ImageCollection.create_and_save(db_client,
                                            {timestamp: image_id for timestamp, image_id in self.images.items()},
                                            arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL)
-        self.assertTrue(db_client.image_source_collection.insert.called)
-        s_image_collection = db_client.image_source_collection.insert.call_args[0][0]
+        self.assertTrue(db_client.image_source_collection.insert_one.called)
+        s_image_collection = db_client.image_source_collection.insert_one.call_args[0][0]
 
         db_client = self.create_mock_db_client()
         collection = ic.ImageCollection.deserialize(s_image_collection, db_client)
@@ -350,4 +394,20 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
             self.assertEqual(image.additional_metadata, collection[stamp].additional_metadata)
 
         s_image_collection_2 = collection.serialize()
+        # Pymongo converts tuples to lists
+        s_image_collection_2['images'] =[list(elem) for elem in s_image_collection_2['images']]
         self.assert_serialized_equal(s_image_collection, s_image_collection_2)
+
+    @mock.patch('arvet.core.image_collection.os.makedirs', autospec=os.makedirs)
+    def test_warmup_cache_creates_image_files(self, mock_makedirs):
+        db_client = self.create_mock_db_client()
+        subject = self.make_instance(db_client_=db_client)
+
+        mock_open = mock.mock_open()
+        with mock.patch('arvet.core.image_collection.open', mock_open, create=True):
+            subject.warmup_cache()
+        self.assertEqual(mock.call('{0}/image_cache'.format(db_client.temp_folder), exist_ok=True),
+                         mock_makedirs.call_args)
+        for image_id in subject._images.values():
+            self.assertIn(mock.call('{0}/image_cache/{1}.pickle'.format(db_client.temp_folder, image_id), 'wb'),
+                          mock_open.call_args_list)
