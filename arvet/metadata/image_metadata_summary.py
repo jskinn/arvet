@@ -1,4 +1,5 @@
 # Copyright (c) 2017, John Skinner
+import numpy as np
 import arvet.metadata.image_metadata as imeta
 
 
@@ -31,7 +32,7 @@ class ImageMetadataSummary:
 
         self._height = 0
         self._width = 0
-        self._fov = 90.0
+        self._fov = np.pi / 2
         self._focal_length = 1000.0
         self._aperature = 22
 

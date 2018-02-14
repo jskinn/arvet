@@ -18,7 +18,7 @@ class CombinatorialSampleController(arvet.simulation.controller.Controller):
     """
 
     def __init__(self, x_samples, y_samples, z_samples, roll_samples, pitch_samples, yaw_samples,
-                 fov_samples=90, aperture_samples=120, subject_pose=None, proximity_distance=50):
+                 fov_samples=np.pi / 2, aperture_samples=120, subject_pose=None, proximity_distance=50):
         if not isinstance(x_samples, collections.Iterable):
             x_samples = (x_samples,)
         if not isinstance(y_samples, collections.Iterable):

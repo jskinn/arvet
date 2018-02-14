@@ -86,7 +86,7 @@ class Simulator(arvet.core.image_source.ImageSource, metaclass=abc.ABCMeta):
     def set_field_of_view(self, fov):
         """
         If possible, set the field of view of the simulated camera
-        :param fov:
+        :param fov: The field of view, in radians
         :return:
         """
         pass

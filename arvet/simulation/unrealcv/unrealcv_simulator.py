@@ -91,7 +91,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             # Simulator settings
             'origin': {},
             'resolution': {'width': 1280, 'height': 720},
-            'fov': 90,
+            'fov': np.pi / 2,
             'depth_of_field_enabled': True,
             'focus_distance': None,     # None indicates autofocus
             'aperture': 2.2,
@@ -214,8 +214,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         Get the current camera intrinsics from the simulator, based on its fov and aspect ratio
         :return:
         """
-        rad_fov = np.pi * self.field_of_view / 180
-        focal_length = 1 / (2 * np.tan(rad_fov / 2))
+        focal_length = 1 / (2 * np.tan(self.field_of_view / 2))
 
         # In unreal 4, field of view is whichever is the larger dimension
         # See: https://answers.unrealengine.com/questions/36550/perspective-camera-and-field-of-view.html
@@ -416,17 +415,21 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
 
     @property
     def field_of_view(self):
+        """
+        The current simulator field of view, in radians
+        :return:
+        """
         return self._fov
 
     def set_field_of_view(self, fov):
         """
         Set the field of view of the simulator
-        :param fov:
+        :param fov: The field of view, in radians
         :return:
         """
         self._fov = float(fov)
         if self._client is not None:
-            self._client.request("vset /camera/0/horizontal_fieldofview {0}".format(self._fov))
+            self._client.request("vset /camera/0/horizontal_fieldofview {0}".format(self._fov * 180 / np.pi))
 
     def set_enable_dof(self, enable=True):
         """

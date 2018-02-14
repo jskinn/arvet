@@ -164,7 +164,7 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         mock_client_instance.isconnected.return_value = True
         mock_client.return_value = mock_client_instance
 
-        fov = np.random.uniform(1, 90)
+        fov = np.random.uniform(np.pi / 180, np.pi)
         focus_distance = np.random.uniform(0, 10000)
         aperture = np.random.uniform(1, 24)
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world', config={
@@ -175,7 +175,7 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         })
         subject.begin()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vset /camera/0/horizontal_fieldofview {0}".format(fov)),
+        self.assertIn(mock.call("vset /camera/0/horizontal_fieldofview {0}".format(180 * fov / np.pi)),
                       mock_client_instance.request.call_args_list)
         self.assertIn(mock.call("vset /camera/0/fstop {0}".format(aperture)),
                       mock_client_instance.request.call_args_list)
@@ -249,7 +249,7 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         mock_client_instance.request.called = False
         subject.get_next_image()
         self.assertTrue(mock_client_instance.request.called)
-        self.assertIn(mock.call("vget /camera/0/depth npy"), mock_client_instance.request.call_args_list)
+        self.assertIn(mock.call("vget /camera/0/plane_depth npy"), mock_client_instance.request.call_args_list)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
@@ -398,8 +398,8 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         subject = uecvsim.UnrealCVSimulator('temp/test_project/test.sh', 'sim-world')
         subject.begin()
 
-        subject.set_field_of_view(30.23)
-        self.assertIn(mock.call("vset /camera/0/horizontal_fieldofview 30.23"),
+        subject.set_field_of_view(np.pi / 6)
+        self.assertIn(mock.call("vset /camera/0/horizontal_fieldofview {0}".format((180 / np.pi) * (np.pi / 6))),
                       mock_client_instance.request.call_args_list)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
@@ -447,7 +447,7 @@ def mock_unrealcv_request(request):
         np.save(binfile, make_mock_image())
         binfile.seek(0)
         return binfile.read()
-    elif re.match('vget /camera/\d*/depth', request):
+    elif re.match('vget /camera/\d*/(plane_)?depth', request):
         binfile = io.BytesIO()
         np.save(binfile, make_mock_depth())
         binfile.seek(0)
