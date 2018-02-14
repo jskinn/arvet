@@ -35,6 +35,7 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
                  db_client: arvet.database.client.DatabaseClient):
         import logging
         import traceback
+        import time
         import arvet.util.database_helpers as dh
         import arvet.image_collections.image_collection_builder as collection_builder
 
@@ -67,6 +68,7 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
             logging.getLogger(__name__).info(
                 "Generating dataset from {0} using controller {1}".format(self.simulator_id, self.controller_id))
             builder = collection_builder.ImageCollectionBuilder(db_client)
+            start_time = time.time()
             try:
                 builder.add_from_image_source(controller)
                 dataset_id = builder.save()
@@ -76,6 +78,7 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
                     "Exception occurred while generating dataset from simulator {0} with controller {1}:\n{2}".format(
                         self.simulator_id, self.controller_id, traceback.format_exc()
                     ))
+            end_time = time.time()
             if dataset_id is None:
                 logging.getLogger(__name__).error(
                     "Failed to generate dataset from simulator {0} with controller {1}: Dataset was null".format(
@@ -83,7 +86,10 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
                 self.mark_job_failed()
             else:
                 self.mark_job_complete(dataset_id)
-                logging.getLogger(__name__).info("Successfully generated dataset {0}".format(dataset_id))
+                logging.getLogger(__name__).info("Successfully generated dataset {0}, at {1} images per minute".format(
+                    dataset_id,
+                    60 * len(builder) / (end_time - start_time)
+                ))
 
     def serialize(self):
         serialized = super().serialize()

@@ -15,6 +15,13 @@ class ImageCollectionBuilder:
         self._max_timestamp = None
         self._sequence_type = arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL
 
+    def __len__(self):
+        """
+        Get the number of images in the builder so far
+        :return:
+        """
+        return len(self._image_ids)
+
     def set_non_sequential(self):
         """
         Change the sequence type of the built sequence to non-sequential.
