@@ -20,8 +20,12 @@ def make_display_image(image, stereo=False):
         if hasattr(image, 'right_data') and image.right_data is not None:
             composite_image[:, image.data.shape[1]:shape[1]] = image.right_data
         elif image.depth_data is not None:
-            composite_image[:, image.data.shape[1]:shape[1]] = np.asarray(
-                np.floor(255 * image.depth_data / 4), dtype=np.uint8)
+            uint_depth = np.asarray(np.floor(255 * image.depth_data / 4), dtype=np.uint8)
+            if len(shape) >= 3:
+                for i in range(shape[2]):
+                    composite_image[:, image.data.shape[1]:shape[1], i] = uint_depth
+            else:
+                composite_image[:, image.data.shape[1]:shape[1]] = uint_depth
         return composite_image
     else:
         return image.data
