@@ -7,7 +7,7 @@ import re
 import time
 import bson
 import arvet.batch_analysis.job_system
-import arvet.run_task
+import arvet.batch_analysis.scripts.run_task
 
 
 # This is the template for python scripts run by the hpc
@@ -120,7 +120,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :return: The job id if the job has been started correctly, None if failed.
         """
         return self.run_script(
-            script=arvet.run_task.__file__,
+            script=arvet.batch_analysis.scripts.run_task.__file__,
             script_args=[str(task_id)],
             num_cpus=num_cpus,
             num_gpus=num_gpus,

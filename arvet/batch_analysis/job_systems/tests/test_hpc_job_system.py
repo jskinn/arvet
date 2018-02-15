@@ -4,7 +4,7 @@ import unittest.mock as mock
 import os
 import bson
 import arvet.batch_analysis.job_systems.hpc_job_system as hpc
-import arvet.run_task
+import arvet.batch_analysis.scripts.run_task
 
 
 class TestHPCJobSystem(unittest.TestCase):
@@ -262,7 +262,7 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1}".format(hpc.quote(arvet.run_task.__file__), task_id), script_contents)
+        self.assertIn("python {0} {1}".format(hpc.quote(arvet.batch_analysis.scripts.run_task.__file__), task_id), script_contents)
 
     def test_run_task_indicates_desired_cpus(self):
         mock_open = mock.mock_open()

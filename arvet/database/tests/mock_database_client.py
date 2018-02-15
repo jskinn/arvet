@@ -36,9 +36,9 @@ class ZombieDatabaseClient:
         mock_db_client.grid_fs.put.side_effect = lambda bytes_: self.put(bytes_)
 
         # Actually call through for deserialize entity
+        target_type = arvet.database.client.DatabaseClient
         mock_db_client.deserialize_entity.side_effect = (
-            lambda s_entity, **kwargs:
-                arvet.database.client.DatabaseClient.deserialize_entity(mock_db_client, s_entity, **kwargs))
+            lambda s_entity, **kwargs: target_type.deserialize_entity(mock_db_client, s_entity, **kwargs))
         self._mock_db_client = mock_db_client
 
     @property

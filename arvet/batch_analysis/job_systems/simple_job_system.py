@@ -4,7 +4,7 @@ import typing
 import functools
 import bson
 import arvet.batch_analysis.job_system
-import arvet.run_task
+import arvet.batch_analysis.scripts.run_task
 
 
 class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
@@ -97,7 +97,7 @@ def run_task(task_id: bson.ObjectId):
     :param task_id:
     :return:
     """
-    arvet.run_task.main(str(task_id))
+    arvet.batch_analysis.scripts.run_task.main(str(task_id))
 
 
 def run_script(script_path: str, script_args: typing.List[str]):

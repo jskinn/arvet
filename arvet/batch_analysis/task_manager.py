@@ -1,7 +1,13 @@
 # Copyright (c) 2017, John Skinner
 import copy
+import pymongo.collection
+import bson
+import typing
 import arvet.util.database_helpers as dh
 import arvet.util.dict_utils as du
+import arvet.database.client
+import arvet.database.entity_registry as entity_registry
+import arvet.batch_analysis.job_system
 import arvet.batch_analysis.task
 import arvet.batch_analysis.tasks.import_dataset_task as import_dataset_task
 import arvet.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
@@ -10,6 +16,7 @@ import arvet.batch_analysis.tasks.run_system_task as run_system_task
 import arvet.batch_analysis.tasks.benchmark_trial_task as benchmark_task
 import arvet.batch_analysis.tasks.compare_trials_task as compare_trials_task
 import arvet.batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
+import arvet.batch_analysis.scripts.warmup_image_cache
 
 
 class TaskManager:
@@ -28,7 +35,8 @@ class TaskManager:
     Everything else in the task behaviour is an implementation detail of TaskManager, and shouldn't be relied on.
     """
 
-    def __init__(self, task_collection, db_client, config=None):
+    def __init__(self, task_collection: pymongo.collection.Collection,
+                 db_client: arvet.database.client.DatabaseClient, config: dict = None):
         """
         Create the task manager, wrapping a collection of tasks
         :param task_collection: The collection containing the tasks
@@ -62,14 +70,16 @@ class TaskManager:
         self._allow_trial_comparison = bool(task_config['allow_trial_comparison'])
         self._allow_benchmark_comparison = bool(task_config['allow_benchmark_comparison'])
 
-    def get_import_dataset_task(self, module_name, path, additional_args=None, num_cpus=1, num_gpus=0,
-                                memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_import_dataset_task(self, module_name: str, path: str, additional_args: dict = None,
+                                num_cpus: int =1, num_gpus: int = 0,
+                                memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to import a dataset.
         Most of the parameters are resources requirements passed to the job system.
         :param module_name: The name of the python module to use to do the import as a string.
         It must have a function 'import_dataset', taking a directory and the database client
         :param path: The root file or directory describing the dataset to import
+        :param additional_args: Additional arguments to the importer module, depends on what module is chosen
         :param num_cpus: The number of CPUs required for the job. Default 1.
         :param num_gpus: The number of GPUs required for the job. Default 0.
         :param memory_requirements: The memory required for this job. Default 3 GB.
@@ -94,8 +104,10 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_generate_dataset_task(self, controller_id, simulator_id, simulator_config, repeat=0, num_cpus=1, num_gpus=0,
-                                  memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_generate_dataset_task(self, controller_id: bson.ObjectId, simulator_id: bson.ObjectId,
+                                  simulator_config: dict, repeat: int = 0,
+                                  num_cpus: int = 1, num_gpus: int = 0,
+                                  memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to generate a synthetic dataset.
         Generate dataset tasks are unique to particular combinations of controller, simulator and config,
@@ -129,8 +141,9 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_train_system_task(self, trainer_id, trainee_id, num_cpus=1, num_gpus=0,
-                              memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_train_system_task(self, trainer_id: bson.ObjectId, trainee_id: bson.ObjectId,
+                              num_cpus: int = 1, num_gpus: int = 0,
+                              memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Create a task to train a system.
         Most of the parameters are resources requirements passed to the job system.
@@ -155,8 +168,9 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_run_system_task(self, system_id, image_source_id, repeat=0, num_cpus=1, num_gpus=0,
-                            memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_run_system_task(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId, repeat: int = 0,
+                            num_cpus: int = 1, num_gpus: int = 0,
+                            memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to run a system.
         Most of the parameters are resources requirements passed to the job system.
@@ -187,8 +201,9 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_benchmark_task(self, trial_result_id, benchmark_id, num_cpus=1, num_gpus=0,
-                           memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_benchmark_task(self, trial_result_id: bson.ObjectId, benchmark_id: bson.ObjectId,
+                           num_cpus: int = 1, num_gpus: int = 0,
+                           memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to benchmark a trial result.
         Most of the parameters are resources requirements passed to the job system.
@@ -213,8 +228,9 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_trial_comparison_task(self, trial_result1_id, trial_result2_id, comparison_id, num_cpus=1, num_gpus=0,
-                                  memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_trial_comparison_task(self, trial_result1_id: bson.ObjectId, trial_result2_id: bson.ObjectId,
+                                  comparison_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0,
+                                  memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to compare two trial results.
         Most of the parameters are resources requirements passed to the job system.
@@ -242,8 +258,9 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_benchmark_comparison_task(self, benchmark_result1_id, benchmark_result2_id, comparison_id,
-                                      num_cpus=1, num_gpus=0, memory_requirements='3GB', expected_duration='1:00:00'):
+    def get_benchmark_comparison_task(self, benchmark_result1_id: bson.ObjectId, benchmark_result2_id: bson.ObjectId,
+                                      comparison_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0,
+                                      memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to compare two benchmark results.
         Most of the parameters are resources requirements passed to the job system.
@@ -272,7 +289,7 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def do_task(self, task):
+    def do_task(self, task: arvet.batch_analysis.task.Task):
         """
         Submit a task back to the task manager for execution.
         Simply getting the task is not enough, you need to pass it here for the task to be run.
@@ -318,7 +335,7 @@ class TaskManager:
             if existing_query != {} and self._collection.find(existing_query).limit(1).count() == 0:
                 task.save_updates(self._collection)
 
-    def schedule_tasks(self, job_system):
+    def schedule_tasks(self, job_system: arvet.batch_analysis.job_system.JobSystem):
         """
         Schedule all pending tasks using the provided job system
         This should both star
@@ -337,17 +354,27 @@ class TaskManager:
                 task_entity.mark_job_failed()
                 task_entity.save_updates(self._collection)
 
-        # Then, schedule all the unscheduled tasks that we are configured to allow
-        all_unscheduled = self._collection.find({'state': arvet.batch_analysis.task.JobState.UNSTARTED.value})
-        for s_unscheduled in all_unscheduled:
-            task_entity = self._db_client.deserialize_entity(s_unscheduled)
-            if ((isinstance(task_entity, import_dataset_task.ImportDatasetTask) and self._allow_import_dataset) or
-                    (isinstance(task_entity, generate_dataset_task.GenerateDatasetTask) and self._allow_generate_dataset) or
-                    (isinstance(task_entity, train_system_task.TrainSystemTask) and self._allow_train_system) or
-                    (isinstance(task_entity, run_system_task.RunSystemTask) and self._allow_run_system) or
-                    (isinstance(task_entity, benchmark_task.BenchmarkTrialTask) and self._allow_benchmark) or
-                    (isinstance(task_entity, compare_trials_task.CompareTrialTask) and self._allow_trial_comparison) or
-                    (isinstance(task_entity, compare_benchmarks_task.CompareBenchmarksTask) and self._allow_benchmark_comparison)):
+        # Then, schedule all the unscheduled tasks that we are configured to allow.
+        # Start with everything other than the run system tasks, they get special handling
+        types = []
+        if self._allow_import_dataset:
+            types.append(entity_registry.get_type_name(import_dataset_task.ImportDatasetTask))
+        if self._allow_generate_dataset:
+            types.append(entity_registry.get_type_name(generate_dataset_task.GenerateDatasetTask))
+        if self._allow_train_system:
+            types.append(entity_registry.get_type_name(train_system_task.TrainSystemTask))
+        if self._allow_benchmark:
+            types.append(entity_registry.get_type_name(benchmark_task.BenchmarkTrialTask))
+        if self._allow_trial_comparison:
+            types.append(entity_registry.get_type_name(compare_trials_task.CompareTrialTask))
+        if self._allow_benchmark_comparison:
+            types.append(entity_registry.get_type_name(compare_benchmarks_task.CompareBenchmarksTask))
+        if len(types) > 0:
+            for s_task in self._collection.find({
+                'state': arvet.batch_analysis.task.JobState.UNSTARTED.value,
+                '_type': {'$in': types}
+            }):
+                task_entity = self._db_client.deserialize_entity(s_task)
                 job_id = job_system.run_task(
                     task_id=task_entity.identifier,
                     num_cpus=task_entity.num_cpus,
@@ -356,4 +383,69 @@ class TaskManager:
                     expected_duration=task_entity.expected_duration
                 )
                 task_entity.mark_job_started(job_system.node_id, job_id)
+                task_entity.save_updates(self._collection)
+
+        # Then, we want to group up run system tasks together by image source, so that we can use the cache
+        # group all the run system tasks
+        run_groups = {}
+        for s_task in self._collection.find({
+            'state': arvet.batch_analysis.task.JobState.UNSTARTED.value,
+            '_type': entity_registry.get_type_name(run_system_task.RunSystemTask)
+        }):
+            task_entity = self._db_client.deserialize_entity(s_task)
+            if task_entity.image_source not in run_groups:
+                run_groups[task_entity.image_source] = [task_entity]
+            else:
+                run_groups[task_entity.image_source].append(task_entity)
+
+        # Finally, schedule warmup cache scripts, with each list of tasks as dependent jobs
+        for image_source_id, task_list in run_groups.items():
+            job_id = job_system.run_script(
+                script=arvet.batch_analysis.scripts.warmup_image_cache.__file__,
+                script_args=['--image_collection', str(image_source_id)] + [str(t.identifier) for t in task_list],
+                num_cpus=1,
+                num_gpus=0,
+                memory_requirements='12GB',
+                expected_duration='12:00:00'
+            )
+            for task_entity in task_list:
+                task_entity.mark_job_started(job_system.node_id, job_id)
+                task_entity.save_updates(self._collection)
+
+    def schedule_dependent_tasks(self, task_ids: typing.List[bson.ObjectId],
+                                 job_system: arvet.batch_analysis.job_system.JobSystem):
+        """
+        Schedule a list of tasks that depended on some other job that we have now completed.
+        Only those tasks allowed by this job system will be scheduled.
+        For book-keeping, we change the job_id of the tasks to their newly-submitted job id
+        :param task_ids:
+        :param job_system:
+        :return:
+        """
+        types = []
+        if self._allow_import_dataset:
+            types.append(entity_registry.get_type_name(import_dataset_task.ImportDatasetTask))
+        if self._allow_generate_dataset:
+            types.append(entity_registry.get_type_name(generate_dataset_task.GenerateDatasetTask))
+        if self._allow_train_system:
+            types.append(entity_registry.get_type_name(train_system_task.TrainSystemTask))
+        if self._allow_run_system:
+            types.append(entity_registry.get_type_name(run_system_task.RunSystemTask))
+        if self._allow_benchmark:
+            types.append(entity_registry.get_type_name(benchmark_task.BenchmarkTrialTask))
+        if self._allow_trial_comparison:
+            types.append(entity_registry.get_type_name(compare_trials_task.CompareTrialTask))
+        if self._allow_benchmark_comparison:
+            types.append(entity_registry.get_type_name(compare_benchmarks_task.CompareBenchmarksTask))
+        if len(types) > 0:
+            for s_task in self._collection.find({'_id': {'$in': task_ids}, '_type': {'$in': types}}):
+                task_entity = self._db_client.deserialize_entity(s_task)
+                job_id = job_system.run_task(
+                    task_id=task_entity.identifier,
+                    num_cpus=task_entity.num_cpus,
+                    num_gpus=task_entity.num_gpus,
+                    memory_requirements=task_entity.memory_requirements,
+                    expected_duration=task_entity.expected_duration
+                )
+                task_entity.change_job_id(job_system.node_id, job_id)
                 task_entity.save_updates(self._collection)
