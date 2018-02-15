@@ -66,11 +66,12 @@ def main(systems: typing.List[str] = None, datasets: typing.List[str] = None,
             arvet.batch_analysis.invalidate.invalidate_system(db_client, bson.ObjectId(system_id))
         else:
             # get a list of all the ids to invalidate before we start modifying the database
-            for inner_id in db_client.system_collection.find({
-                '_type': 'systems.slam.orbslam2.ORBSLAM2'
-            }, {'_id': True}):
-                logging.getLogger(__name__).info("Invalidating system {0}".format(inner_id['_id']))
-                arvet.batch_analysis.invalidate.invalidate_system(db_client, inner_id['_id'])
+            logging.getLogger(__name__).info("Invalidating all systems of type {0}".format(system_id))
+            ids_to_remove = [inner_id['_id'] for inner_id in db_client.system_collection.find({
+                '_type': system_id
+            }, {'_id': True})]
+            for inner_id in ids_to_remove:
+                arvet.batch_analysis.invalidate.invalidate_system(db_client, inner_id)
 
     # Invalidate datasets by loader module
     for loader_module in datasets:
