@@ -5,6 +5,7 @@ import numpy as np
 import logging
 import pickle
 import arvet.database.entity
+import arvet.database.entity_registry as entity_registry
 import arvet.core.image
 import arvet.core.sequence_type
 import arvet.core.image_source
@@ -260,8 +261,10 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
             images_cursor = self._db_client.image_collection.find({'_id': {'$in': images_to_load}})
             for s_image in images_cursor:
                 image = self._db_client.deserialize_entity(s_image)
-                with open(get_cache_filename(self._db_client.temp_folder, image.identifier), 'wb') as imfile:
-                    pickle.dump(image, imfile, protocol=pickle.HIGHEST_PROTOCOL)
+                cache_filename = get_cache_filename(self._db_client.temp_folder, image.identifier)
+                if not os.path.isfile(cache_filename):
+                    with open(cache_filename, 'wb') as imfile:
+                        pickle.dump(image, imfile, protocol=pickle.HIGHEST_PROTOCOL)
 
     def validate(self):
         """
@@ -331,7 +334,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
         s_images_list = [(stamp, image_id) for stamp, image_id in image_map.items()]
         s_seq_type = 'SEQ' if sequence_type is arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
         existing = db_client.image_source_collection.find_one({
-            '_type': cls.__module__ + '.' + cls.__name__,
+            '_type': entity_registry.get_type_name(cls),
             'images': {'$all': s_images_list},
             'sequence_type': s_seq_type
         }, {'_id': True})
@@ -339,7 +342,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
             return existing['_id']
         else:
             return db_client.image_source_collection.insert_one({
-                '_type': cls.__module__ + '.' + cls.__name__,
+                '_type': entity_registry.get_type_name(cls),
                 'images': s_images_list,
                 'sequence_type': s_seq_type
             }).inserted_id

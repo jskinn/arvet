@@ -7,6 +7,7 @@ import arvet.batch_analysis.task_manager
 import arvet.config.path_manager
 import arvet.database.client
 import arvet.database.entity
+import arvet.database.entity_registry as entity_registry
 import arvet.util.database_helpers as dh
 
 
@@ -395,5 +396,5 @@ def create_experiment(db_client: arvet.database.client.DatabaseClient,
     :return: void
     """
     if db_client.experiments_collection.find({
-            '_type': experiment_type.__module__ + '.' + experiment_type.__name__}).count() <= 0:
+            '_type': entity_registry.get_type_name(experiment_type)}).count() <= 0:
         db_client.experiments_collection.insert_one(experiment_type().serialize())

@@ -72,9 +72,9 @@ class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
         """
         type_ = type(self)
         if self._id is None:
-            return {'_type': type_.__module__ + '.' + type_.__name__}
+            return {'_type': reg.get_type_name(type_)}
         else:
-            return {'_id': self._id, '_type': type_.__module__ + '.' + type_.__name__}
+            return {'_id': self._id, '_type': reg.get_type_name(type_)}
 
     @classmethod
     def deserialize(cls, serialized_representation, db_client, **kwargs):

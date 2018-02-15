@@ -4,7 +4,20 @@ A minimal module for mapping entity classes to their names in a global registry.
 Yes, this prevents effective dependency injection and unit testing,
 but I don't have a good way of injecting this to entity when it is declared
 """
+import typing
+
+
 __entities = {}
+
+
+def get_type_name(entity_class) -> str:
+    """
+    Get the entity type as it is used in the registry and stored in the database.
+    This is useful for creating database queries for entities of a particular type.
+    :param entity_class:
+    :return:
+    """
+    return entity_class.__module__ + '.' + entity_class.__name__
 
 
 def register_entity(entity_class):
@@ -17,11 +30,10 @@ def register_entity(entity_class):
     """
     global __entities
     if hasattr(entity_class, '__name__') and hasattr(entity_class, '__module__'):
-        key = entity_class.__module__ + '.' + entity_class.__name__
-        __entities[key] = entity_class
+        __entities[get_type_name(entity_class)] = entity_class
 
 
-def get_entity_type(entity_type_name):
+def get_entity_type(entity_type_name: str):
     """
     Get the entity type from its string name.
     If the entity cannot be found, it assumes that the type was not fully qualified,
@@ -41,7 +53,7 @@ def get_entity_type(entity_type_name):
     return None
 
 
-def find_potential_entity_classes(entity_class_name):
+def find_potential_entity_classes(entity_class_name: str) -> typing.List[str]:
     """
     Find fully-qualified entity classes based on just the class name.
     :param entity_class_name:

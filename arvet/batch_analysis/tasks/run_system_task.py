@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
 import arvet.database.client
+import arvet.database.entity_registry as entity_registry
 import arvet.config.path_manager
 
 
@@ -57,7 +58,7 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
             system.resolve_paths(path_manager)
             logging.getLogger(__name__).info("Start running system {0} ({1}) with image source {2}".format(
                 self.system,
-                system.__module__ + '.' + system.__class__.__name__,
+                entity_registry.get_type_name(type(self.system)),
                 self.image_source))
             try:
                 trial_result = run_system_with_source(system, image_source)

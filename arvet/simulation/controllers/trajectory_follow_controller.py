@@ -4,6 +4,7 @@ import bson
 import numpy as np
 import arvet.core.sequence_type
 import arvet.database.entity
+import arvet.database.entity_registry as entity_registry
 import arvet.simulation.simulator
 import arvet.simulation.controller
 import arvet.util.associate
@@ -243,7 +244,7 @@ def create_follow_controller(db_client, image_collection_id, sequence_type):
     """
     # First, look for an existing controller indexed against this image collection
     existing = db_client.image_source_collection.find_one({
-        '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__,
+        '_type': entity_registry.get_type_name(TrajectoryFollowController),
         'trajectory_source': image_collection_id
     }, {'_id': True})
     if existing is not None:
@@ -253,7 +254,7 @@ def create_follow_controller(db_client, image_collection_id, sequence_type):
     if len(trajectory) <= 0:
         return None
     existing = db_client.image_source_collection.find({
-        '_type': TrajectoryFollowController.__module__ + '.' + TrajectoryFollowController.__name__})
+        '_type': entity_registry.get_type_name(TrajectoryFollowController)})
     for s_follow_controller in existing:
         controller = TrajectoryFollowController.deserialize(s_follow_controller, db_client)
         matches = arvet.util.associate.associate(trajectory, controller.trajectory, max_difference=0.1, offset=0)

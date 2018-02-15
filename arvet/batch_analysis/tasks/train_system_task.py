@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import arvet.batch_analysis.task
 import arvet.database.client
+import arvet.database.entity_registry as entity_registry
 import arvet.config.path_manager
 
 
@@ -43,9 +44,9 @@ class TrainSystemTask(arvet.batch_analysis.task.Task):
         else:
             logging.getLogger(__name__).info("Start training trainee {0} ({1}) with trainer {2} (3)".format(
                 self.trainee,
-                trainee.__module__ + '.' + trainee.__class__.__name__,
+                entity_registry.get_type_name(type(trainee)),
                 self.trainer,
-                trainer.__module__ + '.' + trainer.__class__.__name__
+                entity_registry.get_type_name(type(trainer))
             ))
             try:
                 system = trainer.train_vision_system(trainee)
