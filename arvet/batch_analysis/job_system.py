@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import typing
 import bson
 
 
@@ -36,7 +37,7 @@ class JobSystem(metaclass=abc.ABCMeta):
         :param job_id: The integer job id to check
         :return: True if the job is currently running on this node
         """
-        return False
+        pass
 
     @abc.abstractmethod
     def run_task(self, task_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0, memory_requirements: str = '3GB',
@@ -44,6 +45,21 @@ class JobSystem(metaclass=abc.ABCMeta):
         """
         Run a particular task
         :param task_id: The id of the task to run
+        :param num_cpus: The number of CPUs required
+        :param num_gpus: The number of GPUs required
+        :param memory_requirements: The required amount of memory
+        :param expected_duration: The duration given for the job to run
+        :return: The job id if the job has been started correctly, None if failed.
+        """
+        pass
+
+    @abc.abstractmethod
+    def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
+        """
+        Run a python script that is not a task on this job system
+        :param script: The path to the script to run
+        :param script_args: A list of command line arguments, as strings
         :param num_cpus: The number of CPUs required
         :param num_gpus: The number of GPUs required
         :param memory_requirements: The required amount of memory

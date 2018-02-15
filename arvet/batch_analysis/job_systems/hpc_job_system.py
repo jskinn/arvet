@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import os
 import logging
+import typing
 import subprocess
 import re
 import time
@@ -15,6 +16,7 @@ JOB_TEMPLATE = """#!/bin/bash -l
 #PBS -l walltime={time}
 #PBS -l mem={mem}
 #PBS -l ncpus={cpus}
+#PBS -l cpuarch=avx
 {job_params}
 {env}
 cd {working_directory}
@@ -117,7 +119,27 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The expected time this job will take. Default 1 hour.
         :return: The job id if the job has been started correctly, None if failed.
         """
+        return self.run_script(
+            script=arvet.run_task.__file__,
+            script_args=[str(task_id)],
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory_requirements=memory_requirements,
+            expected_duration=expected_duration
+        )
 
+    def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
+        """
+        Run a script that is not a task on this job system
+        :param script: The path to the script to run
+        :param script_args: A list of command line arguments, as strings
+        :param num_cpus: The number of CPUs required
+        :param num_gpus: The number of GPUs required
+        :param memory_requirements: The required amount of memory
+        :param expected_duration: The duration given for the job to run
+        :return: The job id if the job has been started correctly, None if failed.
+        """
         # Job meta-information
         # TODO: We need better job names
         name = self._name_prefix + "auto_task_{0}".format(time.time()).replace('.', '-')
@@ -133,7 +155,6 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         env = ('source ' + quote(self._virtual_env)) if self._virtual_env is not None else ''
 
         # Parameter args
-        script_path = arvet.run_task.__file__
         job_file_path = os.path.join(self._job_folder, name + '.sub')
         with open(job_file_path, 'w+') as job_file:
             job_file.write(JOB_TEMPLATE.format(
@@ -144,13 +165,12 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 job_params=job_params,
                 env=env,
                 working_directory=quote(os.getcwd()),
-                script=quote(script_path),
-                args=str(task_id)
+                script=quote(script),
+                args=' '.join([quote(arg) for arg in script_args])
             ))
 
         logging.getLogger(__name__).info("Submitting job file {0}".format(job_file_path))
         result = subprocess.run(['qsub', job_file_path], stdout=subprocess.PIPE, universal_newlines=True)
-        # TODO: Get some example output, I'm parsing on guesswork here
         job_id = re.search('(\d+)', result.stdout).group()
         return int(job_id)
 

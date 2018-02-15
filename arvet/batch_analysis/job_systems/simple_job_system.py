@@ -1,5 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import logging
+import typing
+import functools
+import bson
 import arvet.batch_analysis.job_system
 import arvet.run_task
 
@@ -48,8 +51,8 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         return 0 <= job_id < len(self._queue)
 
-    def run_task(self, task_id, num_cpus=1, num_gpus=0, memory_requirements='3GB',
-                 expected_duration='1:00:00'):
+    def run_task(self, task_id, num_cpus: int = 1, num_gpus: int = 0,
+                 memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Run a particular task
         :param task_id: The id of the task to run
@@ -59,8 +62,23 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The duration given for the job to run. Ignored.
         :return: The job id if the job has been started correctly, None if failed.
         """
-        self._queue.append(str(task_id))
+        self._queue.append(functools.partial(run_task, task_id))
         return len(self._queue) - 1     # Job id is the index in the queue
+
+    def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
+        """
+        Run a script that is not a task on this job system
+        :param script: The path to the script to run
+        :param script_args: A list of command line arguments, as strings
+        :param num_cpus: The number of CPUs required
+        :param num_gpus: The number of GPUs required
+        :param memory_requirements: The required amount of memory
+        :param expected_duration: The duration given for the job to run
+        :return: The job id if the job has been started correctly, None if failed.
+        """
+        self._queue.append(functools.partial(run_script, script, script_args))
+        return len(self._queue) - 1  # Job id is the index in the queue
 
     def run_queued_jobs(self):
         """
@@ -68,6 +86,26 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :return: void
         """
         logging.getLogger(__name__).info("Running {0} jobs...".format(len(self._queue)))
-        for task_id in self._queue:
-            arvet.run_task.main(task_id)
+        for partial in self._queue:
+            partial()
         self._queue = []
+
+
+def run_task(task_id: bson.ObjectId):
+    """
+    Tiny helper to invoke running a task
+    :param task_id:
+    :return:
+    """
+    arvet.run_task.main(str(task_id))
+
+
+def run_script(script_path: str, script_args: typing.List[str]):
+    """
+    Helper that invokes a script
+    :param script_path:
+    :param script_args:
+    :return:
+    """
+    import subprocess
+    subprocess.run(['python', script_path] + script_args)
