@@ -17,8 +17,11 @@ def make_display_image(image, stereo=False):
         shape[1] *= 2   # Double the width, so that we can
         composite_image = np.zeros(shape, dtype=np.uint8)
         composite_image[:, 0:image.data.shape[1]] = image.data
-        if hasattr(image, 'right_data'):
+        if hasattr(image, 'right_data') and image.right_data is not None:
             composite_image[:, image.data.shape[1]:shape[1]] = image.right_data
+        elif image.depth_data is not None:
+            composite_image[:, image.data.shape[1]:shape[1]] = np.asarray(
+                np.floor(255 * image.depth_data / 4), dtype=np.uint8)
         return composite_image
     else:
         return image.data
@@ -39,11 +42,12 @@ def visualize_dataset(db_client, dataset_id):
             fig = pyplot.figure()
             with image_source:
                 first_image = image_source.get(min(image_source.timestamps))
-            im = pyplot.imshow(make_display_image(first_image, image_source.is_stereo_available))
+            im = pyplot.imshow(make_display_image(first_image,
+                                                  image_source.is_stereo_available or image_source.is_depth_available))
             # Note, we apparently have to store the animation, at least temporarily, or it doesn't play
             ani = animation.FuncAnimation(
                 fig, functools.partial(update_figure, image_source=image_source, matplotlib_im=im,
-                                       stereo=image_source.is_stereo_available),
+                                       stereo=image_source.is_stereo_available or image_source.is_depth_available),
                 frames=image_source.timestamps, blit=True)
             pyplot.show()
 
