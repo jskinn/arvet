@@ -83,9 +83,9 @@ class TestTask(arvet.database.tests.test_entity.EntityContract, unittest.TestCas
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         subject.mark_job_started('test', 12)
         subject.save_updates(mock_collection)
-        self.assertTrue(mock_collection.update.called)
-        self.assertEqual({'_id': subject.identifier}, mock_collection.update.call_args[0][0])
-        query = mock_collection.update.call_args[0][1]
+        self.assertTrue(mock_collection.update_one.called)
+        self.assertEqual({'_id': subject.identifier}, mock_collection.update_one.call_args[0][0])
+        query = mock_collection.update_one.call_args[0][1]
         self.assertIn('$set', query)
         self.assertIn('node_id', query['$set'])
         self.assertIn('job_id', query['$set'])
@@ -125,9 +125,9 @@ class TestTask(arvet.database.tests.test_entity.EntityContract, unittest.TestCas
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         subject.mark_job_failed()
         subject.save_updates(mock_collection)
-        self.assertTrue(mock_collection.update.called)
-        self.assertEqual({'_id': subject.identifier}, mock_collection.update.call_args[0][0])
-        query = mock_collection.update.call_args[0][1]
+        self.assertTrue(mock_collection.update_one.called)
+        self.assertEqual({'_id': subject.identifier}, mock_collection.update_one.call_args[0][0])
+        query = mock_collection.update_one.call_args[0][1]
         self.assertIn('$unset', query)
         self.assertIn('node_id', query['$unset'])
         self.assertIn('job_id', query['$unset'])
@@ -171,22 +171,79 @@ class TestTask(arvet.database.tests.test_entity.EntityContract, unittest.TestCas
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         subject.mark_job_complete(result_id)
         subject.save_updates(mock_collection)
-        self.assertTrue(mock_collection.update.called)
-        self.assertEqual({'_id': subject.identifier}, mock_collection.update.call_args[0][0])
-        query = mock_collection.update.call_args[0][1]
+        self.assertTrue(mock_collection.update_one.called)
+        self.assertEqual({'_id': subject.identifier}, mock_collection.update_one.call_args[0][0])
+        query = mock_collection.update_one.call_args[0][1]
         self.assertIn('$set', query)
         self.assertIn('result', query['$set'])
         self.assertIn('$unset', query)
         self.assertIn('node_id', query['$unset'])
         self.assertIn('job_id', query['$unset'])
 
+
+    def test_change_job_id_doesnt_affect_state(self):
+        subject = task.Task(state=task.JobState.RUNNING)
+        self.assertFalse(subject.is_unstarted)
+        self.assertFalse(subject.is_finished)
+        subject.change_job_id('test', 12)
+        self.assertFalse(subject.is_unstarted)
+        self.assertFalse(subject.is_finished)
+
+    def test_change_job_id_changes_job_info(self):
+        subject = task.Task(state=task.JobState.RUNNING, node_id='external', job_id=3)
+        self.assertFalse(subject.is_unstarted)
+        self.assertFalse(subject.is_finished)
+        self.assertEqual('external', subject.node_id)
+        self.assertEqual(3, subject.job_id)
+        subject.change_job_id('test', 12)
+        self.assertFalse(subject.is_unstarted)
+        self.assertFalse(subject.is_finished)
+        self.assertEqual('test', subject.node_id)
+        self.assertEqual(12, subject.job_id)
+
+    def test_change_job_id_doesnt_affect_unstarted_jobs(self):
+        subject = task.Task(state=task.JobState.UNSTARTED)
+        self.assertTrue(subject.is_unstarted)
+        subject.change_job_id('test', 12)
+        self.assertTrue(subject.is_unstarted)
+        self.assertIsNone(subject.node_id)
+        self.assertIsNone(subject.job_id)
+        self.assertEqual({}, subject._updates)
+
+    def test_change_job_id_doesnt_affect_finished_jobs(self):
+        subject = task.Task(state=task.JobState.DONE, node_id='external', job_id=3)
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_finished)
+        self.assertEqual('external', subject.node_id)
+        self.assertEqual(3, subject.job_id)
+        subject.change_job_id('test', 12)
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_finished)
+        self.assertEqual('external', subject.node_id)
+        self.assertEqual(3, subject.job_id)
+        self.assertEqual({}, subject._updates)
+
+    def test_change_job_id_stores_updates(self):
+        subject = task.Task(state=task.JobState.RUNNING, id_=bson.ObjectId(), node_id='external', job_id=3)
+        mock_collection = mock.create_autospec(pymongo.collection.Collection)
+        subject.change_job_id('test', 12)
+        subject.save_updates(mock_collection)
+        self.assertTrue(mock_collection.update_one.called)
+        self.assertEqual({'_id': subject.identifier}, mock_collection.update_one.call_args[0][0])
+        query = mock_collection.update_one.call_args[0][1]
+        self.assertIn('$set', query)
+        self.assertIn('node_id', query['$set'])
+        self.assertIn('job_id', query['$set'])
+
     def test_state_remains_consistent(self):
         random = np.random.RandomState(144135)
         subject = task.Task(state=task.JobState.UNSTARTED)
         for idx in range(50):
-            change = random.randint(0, 3 if idx > 30 else 2)
-            if idx > 30 and change == 2:
+            change = random.randint(0, 4 if idx > 30 else 3)
+            if idx > 30 and change == 3:
                 subject.mark_job_complete(bson.ObjectId())
+            elif change == 2:
+                subject.change_job_id('external', random.randint(0, 1000))
             elif change == 1:
                 subject.mark_job_started('test', random.randint(0, 1000))
             else:

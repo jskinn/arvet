@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
-import arvet.database.entity
+import pymongo.collection
 import enum
+import arvet.database.entity
 import arvet.database.client
 import arvet.config.path_manager
 
@@ -50,7 +51,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         self._updates = {}
 
     @property
-    def is_finished(self):
+    def is_finished(self) -> bool:
         """
         Is the job already done?
         Experiments should use this to check if result will be set.
@@ -67,7 +68,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         return self._result
 
     @property
-    def node_id(self):
+    def node_id(self) -> str:
         """
         Get the id of the job system node running this task if it is running.
         You should not need this property, TaskManager is handling it.
@@ -76,7 +77,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         return self._node_id
 
     @property
-    def job_id(self):
+    def job_id(self) -> int:
         """
         Get the id of the job with the job system.
         You should not need this property, TaskManager is handling it
@@ -85,7 +86,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         return self._job_id
 
     @property
-    def is_unstarted(self):
+    def is_unstarted(self) -> bool:
         """
         Is the job unstarted. This is used internally by TaskManager to choose which new tasks to queue.
         You shouldn't need to use it.
@@ -94,19 +95,19 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         return JobState.UNSTARTED == self._state
 
     @property
-    def num_cpus(self):
+    def num_cpus(self)-> int:
         return self._num_cpus
 
     @property
-    def num_gpus(self):
+    def num_gpus(self) -> int:
         return self._num_gpus
 
     @property
-    def memory_requirements(self):
+    def memory_requirements(self) -> str:
         return self._memory_requirements
 
     @property
-    def expected_duration(self):
+    def expected_duration(self) -> str:
         return self._expected_duration
 
     def run_task(self, path_manager: arvet.config.path_manager.PathManager,
@@ -120,7 +121,14 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         """
         pass
 
-    def mark_job_started(self, node_id, job_id):
+    def mark_job_started(self, node_id: str, job_id: int) -> None:
+        """
+        Mark the job as having been started on a particular node, with a particular job id.
+        Only works if the task is unstarted, can't start a complete job
+        :param node_id: The id of the node running the job
+        :param job_id: The id of the job on the node, so we can check it is still running
+        :return: void
+        """
         if JobState.UNSTARTED == self._state:
             self._state = JobState.RUNNING
             self._node_id = node_id
@@ -139,7 +147,38 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
                 if self._updates['$unset'] == {}:
                     del self._updates['$unset']
 
+    def change_job_id(self, node_id: str, job_id: int):
+        """
+        Change the node_id and job_id of this task. This is used if the task takes several jobs to complete.
+        Only works while the job is running.
+        :param node_id: The new node id running the job
+        :param job_id: The new job id on the node
+        :return: void
+        """
+        if JobState.RUNNING == self._state:
+            self._node_id = node_id
+            self._node_id = node_id
+            self._job_id = job_id
+            if '$set' not in self._updates:
+                self._updates['$set'] = {}
+            self._updates['$set']['state'] = JobState.RUNNING.value
+            self._updates['$set']['node_id'] = node_id
+            self._updates['$set']['job_id'] = job_id
+            # Don't unset the job id anymore, we're setting it to something else insted
+            if '$unset' in self._updates:
+                if 'node_id' in self._updates['$unset']:
+                    del self._updates['$unset']['node_id']
+                if 'job_id' in self._updates['$unset']:
+                    del self._updates['$unset']['job_id']
+                if self._updates['$unset'] == {}:
+                    del self._updates['$unset']
+
     def mark_job_complete(self, result):
+        """
+        Mark the task complete, with a particular result.
+        :param result: The result of the job
+        :return:
+        """
         if JobState.RUNNING == self._state:
             self._state = JobState.DONE
             self._result = result
@@ -161,6 +200,10 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
                 del self._updates['$set']['job_id']
 
     def mark_job_failed(self):
+        """
+        A running task has failed, return it to unstarted state so we can try again.
+        :return:
+        """
         if JobState.RUNNING == self._state:
             self._state = JobState.UNSTARTED
             self._node_id = None
@@ -179,13 +222,18 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
             if 'job_id' in self._updates['$set']:
                 del self._updates['$set']['job_id']
 
-    def save_updates(self, collection):
+    def save_updates(self, collection: pymongo.collection.Collection):
+        """
+        Push updates to the task state to the database
+        :param collection: The collection to store in
+        :return:
+        """
         if self.identifier is None:
             s_task = self.serialize()
-            id_ = collection.insert(s_task)
-            self.refresh_id(id_)
+            insert_result = collection.insert_one(s_task)
+            self.refresh_id(insert_result.inserted_id)
         elif len(self._updates) > 0:
-            collection.update({'_id': self.identifier}, self._updates)
+            collection.update_one({'_id': self.identifier}, self._updates)
         self._updates = {}
 
     def serialize(self):
