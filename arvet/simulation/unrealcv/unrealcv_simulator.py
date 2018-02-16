@@ -246,7 +246,7 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
             self._store_config()
             start_simulator(self._actual_executable)
             # Wait for the UnrealCV server to start, pulling lines from stdout to check
-            time.sleep(2)   # Wait, we can't capture some of the output right now
+            time.sleep(5)   # Wait, we can't capture some of the output right now
 #            while self._simulator_process.poll() is not None:
 #                line = self._simulator_process.stdout.readline()
 #                if 'listening on port {0}'.format(self._port) in line.lower():
@@ -257,13 +257,14 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         if self._client is None:
             self._client = unrealcv.Client((self._host, self._port))
         if not self._client.isconnected():
-            # Try and connect to the server 3 times, waiting 2s between tries
+            # Try and connect to the server 10 times, waiting 6s between tries
             for _ in range(10):
                 self._client.connect()
                 if self._client.isconnected():
+                    time.sleep(20)  # Some additional warm-up time, for safety
                     break
                 else:
-                    time.sleep(2)
+                    time.sleep(6)
             if not self._client.isconnected():
                 # Cannot connect to the server, shutdown completely.
                 self.shutdown()
