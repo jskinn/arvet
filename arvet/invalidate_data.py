@@ -22,7 +22,9 @@ def is_id(val: str) -> bool:
 
 
 def main(systems: typing.List[str] = None, datasets: typing.List[str] = None,
-         image_collections: typing.List[str] = None, controllers: typing.List[str] = None,
+         image_collections: typing.List[str] = None,
+         simulators: typing.List[str] = None,
+         controllers: typing.List[str] = None,
          trial_results: typing.List[str] = None,
          benchmarks: typing.List[str] = None, benchmark_results: typing.List[str] = None,
          failed_trials: bool = True):
@@ -37,6 +39,8 @@ def main(systems: typing.List[str] = None, datasets: typing.List[str] = None,
         datasets = []
     if image_collections is None:
         image_collections = []
+    if simulators is None:
+        simulators = []
     if controllers is None:
         controllers = []
     if trial_results is None:
@@ -83,6 +87,19 @@ def main(systems: typing.List[str] = None, datasets: typing.List[str] = None,
         logging.getLogger(__name__).info("Invalidating image collection {0}".format(image_collection_id))
         arvet.batch_analysis.invalidate.invalidate_image_collection(db_client, image_collection_id)
 
+    # Invalidate simulators
+    for simulator_id in simulators:
+        if is_id(simulator_id):
+            logging.getLogger(__name__).info("Invalidating simulator {0}".format(simulator_id))
+            arvet.batch_analysis.invalidate.invalidate_simulator(db_client, bson.ObjectId(simulator_id))
+        else:
+            logging.getLogger(__name__).info("Invalidating all simulators with world '{0}'".format(simulator_id))
+            ids_to_remove = [inner_id['_id'] for inner_id in db_client.image_source_collection.find({
+                'world_name': simulator_id
+            }, {'_id': True})]
+            for inner_id in ids_to_remove:
+                arvet.batch_analysis.invalidate.invalidate_simulator(db_client, inner_id)
+
     # Invalidate controllers
     for controller_id in controllers:
         logging.getLogger(__name__).info("Invalidating controller {0}".format(controller_id))
@@ -124,6 +141,8 @@ if __name__ == '__main__':
                         help='A dataset loader module to invalidate, a fully-qualified loader module name')
     parser.add_argument('--image_collection', action='append',
                         help='An image collection to invalidate, as a bson database id')
+    parser.add_argument('--simulator', action='append',
+                        help='An simulator to invalidate, as a bson database id or world name')
     parser.add_argument('--controller', action='append',
                         help='An controller to invalidate, as a bson database id')
     parser.add_argument('--trial_result', action='append',
@@ -140,6 +159,7 @@ if __name__ == '__main__':
         systems=args.system,
         datasets=args.dataset,
         image_collections=args.image_collection,
+        simulators=args.simulator,
         controllers=args.controller,
         trial_results=args.trial_result,
         benchmarks=args.benchmark,
