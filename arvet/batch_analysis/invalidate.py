@@ -13,10 +13,15 @@ def invalidate_dataset_loader(db_client: arvet.database.client.DatabaseClient, l
     :return:
     """
     # Step 1: Find all tasks with this module and invalidate the collections
-    # The tasks themselves will be removed in invalidate_image_collection
     image_collection_ids = [
-        s_task['result'] for s_task in db_client.tasks_collection.find({'module_name': loader_module}, {'result': True})
+        s_task['result'] for s_task in db_client.tasks_collection.find({
+            'module_name': loader_module, 'result': {'$exists': True}}, {'result': True})
     ]
+
+    # Step 2: Remove all the tasks with this dataset loader
+    db_client.tasks_collection.delete_many({'module_name': loader_module})
+
+    # Step 3: Remove all the image collections we found in the first step
     for image_collection_id in image_collection_ids:
         invalidate_image_collection(db_client, image_collection_id)
 
@@ -71,8 +76,8 @@ def invalidate_controller(db_client: arvet.database.client.DatabaseClient, contr
 
 
 def invalidate_system(db_client: arvet.database.client.DatabaseClient, system_id: bson.ObjectId):
-    # Step 1: Find all the tasks that involve this system, and remove them
-    result = db_client.tasks_collection.delete_one({'system_id': system_id})
+    # Step 1: Remove all the tasks that involve this system
+    result = db_client.tasks_collection.delete_many({'system_id': system_id})
     logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
 
     # Step 2: Find all the trial results that use this image source, and invalidate them

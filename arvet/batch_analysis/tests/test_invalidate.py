@@ -50,35 +50,48 @@ class TestInvalidateDatasetLoader(unittest.TestCase):
                 )
                 self.import_dataset_tasks[dataset_loader].append(insert_result.inserted_id)
 
+            # Add incomplete load dataset tasks
+            for _ in range(3):
+                insert_result = self.mock_db_client.tasks_collection.insert_one(
+                    import_dataset_task.ImportDatasetTask(
+                        module_name=dataset_loader,
+                        path='test/filename',
+                        state=arvet.batch_analysis.task.JobState.UNSTARTED
+                    ).serialize()
+                )
+                self.import_dataset_tasks[dataset_loader].append(insert_result.inserted_id)
+
     def test_invalidate_dataset_loader_invalidates_image_collections(self):
         num_image_collections = sum(len(group) for group in self.image_collections.values())
 
         # Check that we start with the right number of tasks and image collections
         self.assertEqual(num_image_collections, self.mock_db_client.image_source_collection.find().count())
-        self.assertEqual(num_image_collections, self.mock_db_client.tasks_collection.find().count())
+        self.assertEqual(num_image_collections + 3 * len(self.dataset_loaders),
+                         self.mock_db_client.tasks_collection.find().count())
 
         with mock.patch('arvet.batch_analysis.invalidate.invalidate_image_collection',
                         wraps=arvet.batch_analysis.invalidate.invalidate_image_collection) as \
                 mock_invalidate_image_collection:
             invalidate.invalidate_dataset_loader(self.mock_db_client, self.dataset_loaders[0])
 
-            # Check that all the image collections imported by this loader are invalidated
-            for image_collection_id in self.image_collections[self.dataset_loaders[0]]:
-                self.assertIn(mock.call(self.mock_db_client, image_collection_id),
-                              mock_invalidate_image_collection.call_args_list)
+        # Check that all the image collections imported by this loader are invalidated
+        for image_collection_id in self.image_collections[self.dataset_loaders[0]]:
+            self.assertIn(mock.call(self.mock_db_client, image_collection_id),
+                          mock_invalidate_image_collection.call_args_list)
 
-            # Check that the other trials are not invalidated
-            for i in range(1, len(self.dataset_loaders)):
-                for image_collection_id in self.image_collections[self.dataset_loaders[i]]:
-                    self.assertNotIn(mock.call(self.mock_db_client, image_collection_id),
-                                     mock_invalidate_image_collection.call_args_list)
+        # Check that the other image collections are not invalidated
+        for i in range(1, len(self.dataset_loaders)):
+            for image_collection_id in self.image_collections[self.dataset_loaders[i]]:
+                self.assertNotIn(mock.call(self.mock_db_client, image_collection_id),
+                                 mock_invalidate_image_collection.call_args_list)
 
         reduced_image_collections = sum(len(self.image_collections[self.dataset_loaders[idx]])
                                         for idx in range(1, len(self.dataset_loaders)))
 
         # Check that the total number of tasks has gone down like we expected
         self.assertEqual(reduced_image_collections, self.mock_db_client.image_source_collection.find().count())
-        self.assertEqual(reduced_image_collections, self.mock_db_client.tasks_collection.find().count())
+        self.assertEqual(reduced_image_collections + 3 * (len(self.dataset_loaders) - 1),
+                         self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the image collections loaded by the particular loader is gone
         for image_collection_id in self.image_collections[self.dataset_loaders[0]]:
@@ -110,6 +123,8 @@ class TestInvalidateImageCollection(unittest.TestCase):
         self.image_collections = [make_image_collection(self.mock_db_client).identifier for _ in range(2)]
         self.systems = [self.mock_db_client.system_collection.insert_one(mock_core.MockSystem().serialize()).inserted_id
                         for _ in range(2)]
+        self.unfinished_systems = [self.mock_db_client.system_collection.insert_one(
+            mock_core.MockSystem().serialize()).inserted_id for _ in range(2)]
         self.benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
             mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
 
@@ -152,13 +167,19 @@ class TestInvalidateImageCollection(unittest.TestCase):
                                                   state=arvet.batch_analysis.task.JobState.DONE).serialize()
                 ).inserted_id)
 
+            for system_id in self.unfinished_systems:
+                self.run_system_tasks[image_collection_id].append(self.mock_db_client.tasks_collection.insert_one(
+                    run_system_task.RunSystemTask(system_id, image_collection_id,
+                                                  state=arvet.batch_analysis.task.JobState.UNSTARTED).serialize()
+                ).inserted_id)
+
     def test_invalidate_image_collection_removes_tasks(self):
-        self.assertEqual(len(self.image_collections) * (1 + len(self.systems)),
+        self.assertEqual(len(self.image_collections) * (1 + len(self.systems) + len(self.unfinished_systems)),
                          self.mock_db_client.tasks_collection.find().count())
         invalidate.invalidate_image_collection(self.mock_db_client, self.image_collections[0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual((len(self.image_collections) - 1) * (1 + len(self.systems)),
+        self.assertEqual((len(self.image_collections) - 1) * (1 + len(self.systems) + len(self.unfinished_systems)),
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated image collection are removed
@@ -254,31 +275,40 @@ class TestInvalidateController(unittest.TestCase):
         for controller_id in self.controllers:
             # Add generate dataset tasks for all the image collections.
             self.image_collections[controller_id] = make_image_collection(self.mock_db_client).identifier
-            self.generate_dataset_tasks[controller_id] = self.mock_db_client.tasks_collection.insert_one(
+            self.generate_dataset_tasks[controller_id] = []
+            self.generate_dataset_tasks[controller_id].append(self.mock_db_client.tasks_collection.insert_one(
                 generate_dataset_task.GenerateDatasetTask(
                     simulator_id=bson.ObjectId(), controller_id=controller_id, simulator_config={},
                     result=self.image_collections[controller_id],
                     state=arvet.batch_analysis.task.JobState.DONE
                 ).serialize()
-            ).inserted_id
+            ).inserted_id)
+
+            self.generate_dataset_tasks[controller_id].append(self.mock_db_client.tasks_collection.insert_one(
+                generate_dataset_task.GenerateDatasetTask(
+                    simulator_id=bson.ObjectId(), controller_id=controller_id, simulator_config={},
+                    state=arvet.batch_analysis.task.JobState.UNSTARTED
+                ).serialize()
+            ).inserted_id)
 
     def test_invalidate_controller_removes_tasks(self):
-        self.assertEqual(len(self.image_collections),
+        self.assertEqual(len(self.controllers) * 2,
                          self.mock_db_client.tasks_collection.find().count())
         invalidate.invalidate_controller(self.mock_db_client, self.controllers[0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual(len(self.image_collections) - 1,
+        self.assertEqual((len(self.controllers) - 1) * 2,
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated controller are removed
-        self.assertEqual(0, self.mock_db_client.tasks_collection.find({
-            '_id': self.generate_dataset_tasks[self.controllers[0]]}).count())
+        for generate_dataset_task_id in self.generate_dataset_tasks[self.controllers[0]]:
+            self.assertEqual(0, self.mock_db_client.tasks_collection.find({'_id': generate_dataset_task_id}).count())
 
         # Check that the remaining tasks are still there.
         for i in range(1, len(self.image_collections)):
-            self.assertEqual(1, self.mock_db_client.tasks_collection.find({
-                '_id': self.generate_dataset_tasks[self.controllers[i]]}).count())
+            for generate_dataset_task_id in self.generate_dataset_tasks[self.controllers[i]]:
+                self.assertEqual(1, self.mock_db_client.tasks_collection.find({
+                    '_id': generate_dataset_task_id}).count())
 
     def test_invalidate_controller_invalidates_generated_image_collections(self):
         with mock.patch('arvet.batch_analysis.invalidate.invalidate_image_collection') as mock_invalidate_source:
@@ -310,12 +340,11 @@ class TestInvalidateSystem(unittest.TestCase):
         self.zombie_db_client = mock_client_factory.create()
         self.mock_db_client = self.zombie_db_client.mock
 
-        # Create the basic image sources, systems, and benchmarks.
-        self.image_collections = [make_image_collection(self.mock_db_client).identifier for _ in range(2)]
+        # Create the basic image sources, systems.
+        self.image_collections = [make_image_collection(self.mock_db_client).identifier for _ in range(3)]
+        self.unfinisned_image_collections = [make_image_collection(self.mock_db_client).identifier for _ in range(3)]
         self.systems = [self.mock_db_client.system_collection.insert_one(mock_core.MockSystem().serialize()).inserted_id
                         for _ in range(2)]
-        self.benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
-            mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
 
         # Create run system tasks and trial results
         self.run_system_tasks = {}
@@ -336,13 +365,20 @@ class TestInvalidateSystem(unittest.TestCase):
                                                   state=arvet.batch_analysis.task.JobState.DONE).serialize()
                 ).inserted_id)
 
+            for image_collection_id in self.unfinisned_image_collections:
+                self.run_system_tasks[system_id].append(self.mock_db_client.tasks_collection.insert_one(
+                    run_system_task.RunSystemTask(system_id, image_collection_id,
+                                                  state=arvet.batch_analysis.task.JobState.UNSTARTED).serialize()
+                ).inserted_id)
+
     def test_invalidate_system_removes_tasks(self):
-        self.assertEqual(len(self.image_collections) * len(self.systems),
+        self.assertEqual((len(self.image_collections) + len(self.unfinisned_image_collections)) * len(self.systems),
                          self.mock_db_client.tasks_collection.find().count())
         invalidate.invalidate_system(self.mock_db_client, self.systems[0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual(len(self.image_collections) * (len(self.systems) - 1),
+        self.assertEqual((len(self.image_collections) + len(self.unfinisned_image_collections)) *
+                         (len(self.systems) - 1),
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated system are removed
@@ -392,6 +428,8 @@ class TestInvalidateTrial(unittest.TestCase):
                         for _ in range(2)]
         self.benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
             mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
+        self.unfinished_benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
+            mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
 
         # Create run system tasks and trial results
         self.run_system_tasks = {}
@@ -426,13 +464,22 @@ class TestInvalidateTrial(unittest.TestCase):
                     ).inserted_id
                 )
 
+            for benchmark_id in self.unfinished_benchmarks:
+                self.benchmark_trial_tasks[trial_result_id].append(
+                    self.mock_db_client.tasks_collection.insert_one(
+                        benchmark_trial_task.BenchmarkTrialTask(
+                            trial_result_id, benchmark_id,
+                            state=arvet.batch_analysis.task.JobState.UNSTARTED).serialize()
+                    ).inserted_id
+                )
+
     def test_invalidate_trial_removes_tasks(self):
-        self.assertEqual(len(self.trial_results) * (1 + len(self.benchmarks)),
+        self.assertEqual(len(self.trial_results) * (1 + len(self.benchmarks) + len(self.unfinished_benchmarks)),
                          self.mock_db_client.tasks_collection.find().count())
         invalidate.invalidate_trial_result(self.mock_db_client, self.trial_results[0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual((len(self.trial_results) - 1) * (1 + len(self.benchmarks)),
+        self.assertEqual((len(self.trial_results) - 1) * (1 + len(self.benchmarks) + len(self.unfinished_benchmarks)),
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated trial are removed
@@ -485,6 +532,10 @@ class TestInvalidateBenchmark(unittest.TestCase):
             arvet.core.trial_result.TrialResult(
                 bson.ObjectId(), True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()
         ).inserted_id for _ in range(2)]
+        self.unfinished_trials = [self.mock_db_client.trials_collection.insert_one(
+            arvet.core.trial_result.TrialResult(
+                bson.ObjectId(), True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()
+        ).inserted_id for _ in range(2)]
         self.benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
             mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
 
@@ -507,13 +558,22 @@ class TestInvalidateBenchmark(unittest.TestCase):
                     ).inserted_id
                 )
 
+            for trial_result_id in self.unfinished_trials:
+                self.benchmark_trial_tasks[benchmark_id].append(
+                    self.mock_db_client.tasks_collection.insert_one(
+                        benchmark_trial_task.BenchmarkTrialTask(
+                            trial_result_id, benchmark_id,
+                            state=arvet.batch_analysis.task.JobState.UNSTARTED).serialize()
+                    ).inserted_id
+                )
+
     def test_invalidate_benchmark_removes_tasks(self):
-        self.assertEqual(len(self.trial_results) * (len(self.benchmarks)),
+        self.assertEqual((len(self.trial_results) + len(self.unfinished_trials)) * (len(self.benchmarks)),
                          self.mock_db_client.tasks_collection.find().count())
         invalidate.invalidate_benchmark(self.mock_db_client, self.benchmarks[0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual(len(self.trial_results) * (len(self.benchmarks) - 1),
+        self.assertEqual((len(self.trial_results) + len(self.unfinished_trials)) * (len(self.benchmarks) - 1),
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated benchmark are removed
