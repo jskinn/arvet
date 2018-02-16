@@ -14,6 +14,7 @@ import arvet.core.sequence_type
 import arvet.core.trial_result
 import arvet.core.benchmark
 import arvet.database.tests.mock_database_client as mock_client_factory
+import arvet.simulation.tests.mock_simulator as mock_simulator_factory
 import arvet.batch_analysis.task
 import arvet.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
 import arvet.batch_analysis.tasks.import_dataset_task as import_dataset_task
@@ -74,16 +75,16 @@ class TestInvalidateDatasetLoader(unittest.TestCase):
                 mock_invalidate_image_collection:
             invalidate.invalidate_dataset_loader(self.mock_db_client, self.dataset_loaders[0])
 
-        # Check that all the image collections imported by this loader are invalidated
-        for image_collection_id in self.image_collections[self.dataset_loaders[0]]:
-            self.assertIn(mock.call(self.mock_db_client, image_collection_id),
-                          mock_invalidate_image_collection.call_args_list)
+            # Check that all the image collections imported by this loader are invalidated
+            for image_collection_id in self.image_collections[self.dataset_loaders[0]]:
+                self.assertIn(mock.call(self.mock_db_client, image_collection_id),
+                              mock_invalidate_image_collection.call_args_list)
 
-        # Check that the other image collections are not invalidated
-        for i in range(1, len(self.dataset_loaders)):
-            for image_collection_id in self.image_collections[self.dataset_loaders[i]]:
-                self.assertNotIn(mock.call(self.mock_db_client, image_collection_id),
-                                 mock_invalidate_image_collection.call_args_list)
+            # Check that the other image collections are not invalidated
+            for i in range(1, len(self.dataset_loaders)):
+                for image_collection_id in self.image_collections[self.dataset_loaders[i]]:
+                    self.assertNotIn(mock.call(self.mock_db_client, image_collection_id),
+                                     mock_invalidate_image_collection.call_args_list)
 
         reduced_image_collections = sum(len(self.image_collections[self.dataset_loaders[idx]])
                                         for idx in range(1, len(self.dataset_loaders)))
@@ -251,6 +252,126 @@ class TestInvalidateImageCollection(unittest.TestCase):
             self.assertEqual(0, self.mock_db_client.image_collection.find({'_id': image_id}).count())
         for image_id in kept_ids:
             self.assertEqual(1, self.mock_db_client.image_collection.find({'_id': image_id}).count())
+
+
+class TestInvalidateSimulator(unittest.TestCase):
+
+    def setUp(self):
+        self.zombie_db_client = mock_client_factory.create()
+        self.mock_db_client = self.zombie_db_client.mock
+
+        self.simulators = [
+            self.mock_db_client.image_source_collection.insert_one(
+                mock_simulator_factory.MockSimulator().serialize()
+            ).inserted_id
+            for _ in range(2)
+        ]
+
+        self.controllers = {}
+        self.image_collections = {}
+        self.generate_dataset_tasks = {}
+
+        for simulator_id in self.simulators:
+            self.image_collections[simulator_id] = [make_image_collection(self.mock_db_client).identifier
+                                                    for _ in range(2)]
+
+            # Add generate dataset tasks for all the image collections
+            self.generate_dataset_tasks[simulator_id] = []
+            for image_collection_id in self.image_collections[simulator_id]:
+                insert_result = self.mock_db_client.tasks_collection.insert_one(
+                    generate_dataset_task.GenerateDatasetTask(
+                        controller_id=bson.ObjectId(),
+                        simulator_id=simulator_id,
+                        simulator_config={},
+                        result=image_collection_id,
+                        state=arvet.batch_analysis.task.JobState.DONE
+                    ).serialize()
+                )
+                self.generate_dataset_tasks[simulator_id].append(insert_result.inserted_id)
+
+            # Add incomplete load dataset tasks
+            for _ in range(3):
+                insert_result = self.mock_db_client.tasks_collection.insert_one(
+                    generate_dataset_task.GenerateDatasetTask(
+                        controller_id=bson.ObjectId(),
+                        simulator_id=simulator_id,
+                        simulator_config={},
+                        state=arvet.batch_analysis.task.JobState.UNSTARTED
+                    ).serialize()
+                )
+                self.generate_dataset_tasks[simulator_id].append(insert_result.inserted_id)
+
+    def test_invalidate_simulator_invalidates_image_collections(self):
+        num_image_collections = sum(len(group) for group in self.image_collections.values())
+
+        # Check that we start with the right number of tasks and image collections
+        self.assertEqual(num_image_collections + len(self.simulators),
+                         self.mock_db_client.image_source_collection.find().count())
+
+        with mock.patch('arvet.batch_analysis.invalidate.invalidate_image_collection',
+                        wraps=arvet.batch_analysis.invalidate.invalidate_image_collection) as \
+                mock_invalidate_image_collection:
+            invalidate.invalidate_simulator(self.mock_db_client, self.simulators[0])
+
+            # Check that all the image collections generated by this simulator are invalidated
+            for image_collection_id in self.image_collections[self.simulators[0]]:
+                self.assertIn(mock.call(self.mock_db_client, image_collection_id),
+                              mock_invalidate_image_collection.call_args_list)
+
+            # Check that the other image collections are not invalidated
+            for i in range(1, len(self.simulators)):
+                for image_collection_id in self.image_collections[self.simulators[i]]:
+                    self.assertNotIn(mock.call(self.mock_db_client, image_collection_id),
+                                     mock_invalidate_image_collection.call_args_list)
+
+        reduced_image_collections = sum(len(self.image_collections[self.simulators[idx]])
+                                        for idx in range(1, len(self.simulators)))
+
+        # Check that the total number of image_collections has gone down like we expected
+        self.assertEqual(reduced_image_collections + len(self.simulators) - 1,
+                         self.mock_db_client.image_source_collection.find().count())
+
+        # Check that the simulator has been removed
+        self.assertEqual(0, self.mock_db_client.image_source_collection.find({'_id': self.simulators[0]}).count())
+
+        # Check that all the other simulators are sill there
+        for idx in range(1, len(self.simulators)):
+            self.assertEqual(1, self.mock_db_client.image_source_collection.find({'_id': self.simulators[idx]}).count())
+
+        # Check explicitly that each of the image collections loaded by the particular loader is gone
+        for image_collection_id in self.image_collections[self.simulators[0]]:
+            self.assertEqual(0, self.mock_db_client.image_source_collection.find({'_id': image_collection_id}).count())
+
+        # Check that each of the image collections loaded by other loaders are still there
+        for idx in range(1, len(self.simulators)):
+            for image_collection_id in self.image_collections[self.simulators[idx]]:
+                self.assertEqual(1, self.mock_db_client.image_source_collection.find(
+                    {'_id': image_collection_id}).count())
+
+    def test_invalidate_simulator_invalidates_tasks(self):
+        num_image_collections = sum(len(group) for group in self.image_collections.values())
+
+        # Check that we start with the right number of tasks
+        self.assertEqual(num_image_collections + 3 * len(self.simulators),
+                         self.mock_db_client.tasks_collection.find().count())
+
+        invalidate.invalidate_simulator(self.mock_db_client, self.simulators[0])
+
+        reduced_image_collections = sum(len(self.image_collections[self.simulators[idx]])
+                                        for idx in range(1, len(self.simulators)))
+
+        # Check that the total number of tasks has gone down like we expected
+        self.assertEqual(reduced_image_collections + 3 * (len(self.simulators) - 1),
+                         self.mock_db_client.tasks_collection.find().count())
+
+        # Check that each of the tasks associated with the invalidated image collections are removed
+        for task_id in self.generate_dataset_tasks[self.simulators[0]]:
+            self.assertEqual(0, self.mock_db_client.tasks_collection.find({'_id': task_id}).count())
+
+        # Check that the remaining tasks are still there.
+        for i in range(1, len(self.simulators)):
+            for task_id in self.generate_dataset_tasks[self.simulators[i]]:
+                self.assertEqual(1, self.mock_db_client.tasks_collection.find({'_id': task_id}).count())
 
 
 class TestInvalidateController(unittest.TestCase):

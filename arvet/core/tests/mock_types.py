@@ -1,4 +1,4 @@
-# Copyright 2107 John Skinner
+# Copyright 2017 John Skinner
 """
 Minimal types for many of the core abstract base classes.
 This allows other tests to use instances of these types.
