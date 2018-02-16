@@ -387,30 +387,31 @@ class TaskManager:
 
         # Then, we want to group up run system tasks together by image source, so that we can use the cache
         # group all the run system tasks
-        run_groups = {}
-        for s_task in self._collection.find({
-            'state': arvet.batch_analysis.task.JobState.UNSTARTED.value,
-            '_type': entity_registry.get_type_name(run_system_task.RunSystemTask)
-        }):
-            task_entity = self._db_client.deserialize_entity(s_task)
-            if task_entity.image_source not in run_groups:
-                run_groups[task_entity.image_source] = [task_entity]
-            else:
-                run_groups[task_entity.image_source].append(task_entity)
+        if self._allow_run_system:
+            run_groups = {}
+            for s_task in self._collection.find({
+                'state': arvet.batch_analysis.task.JobState.UNSTARTED.value,
+                '_type': entity_registry.get_type_name(run_system_task.RunSystemTask)
+            }):
+                task_entity = self._db_client.deserialize_entity(s_task)
+                if task_entity.image_source not in run_groups:
+                    run_groups[task_entity.image_source] = [task_entity]
+                else:
+                    run_groups[task_entity.image_source].append(task_entity)
 
-        # Finally, schedule warmup cache scripts, with each list of tasks as dependent jobs
-        for image_source_id, task_list in run_groups.items():
-            job_id = job_system.run_script(
-                script=arvet.batch_analysis.scripts.warmup_image_cache.__file__,
-                script_args=['--image_collection', str(image_source_id)] + [str(t.identifier) for t in task_list],
-                num_cpus=1,
-                num_gpus=0,
-                memory_requirements='12GB',
-                expected_duration='12:00:00'
-            )
-            for task_entity in task_list:
-                task_entity.mark_job_started(job_system.node_id, job_id)
-                task_entity.save_updates(self._collection)
+            # Finally, schedule warmup cache scripts, with each list of tasks as dependent jobs
+            for image_source_id, task_list in run_groups.items():
+                job_id = job_system.run_script(
+                    script=arvet.batch_analysis.scripts.warmup_image_cache.__file__,
+                    script_args=['--image_collection', str(image_source_id)] + [str(t.identifier) for t in task_list],
+                    num_cpus=1,
+                    num_gpus=0,
+                    memory_requirements='12GB',
+                    expected_duration='12:00:00'
+                )
+                for task_entity in task_list:
+                    task_entity.mark_job_started(job_system.node_id, job_id)
+                    task_entity.save_updates(self._collection)
 
     def schedule_dependent_tasks(self, task_ids: typing.List[bson.ObjectId],
                                  job_system: arvet.batch_analysis.job_system.JobSystem):
