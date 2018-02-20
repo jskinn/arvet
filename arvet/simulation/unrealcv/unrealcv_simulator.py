@@ -1,5 +1,5 @@
 # Copyright (c) 2017, John Skinner
-import os.path
+import os
 import time
 import subprocess
 import io
@@ -25,6 +25,22 @@ TEMPLATE_UNREALCV_SETTINGS = """
 Port={port}
 Width={width}
 Height={height}
+
+"""
+
+TEMPLATE_GAME_USER_SETTINGS = """
+[/Script/Engine.GameUserSettings]
+bUseVSync=False
+ResolutionSizeX={X}
+ResolutionSizeY={Y}
+LastUserConfirmedResolutionSizeX={X}
+LastUserConfirmedResolutionSizeY={Y}
+WindowPosX=-1
+WindowPosY=-1
+bUseDesktopResolutionForFullscreen=True
+FullscreenMode=2
+LastConfirmedFullscreenMode=2
+Version=5
 
 """
 
@@ -299,6 +315,10 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                         # Reorder to roll, pitch, yaw, Unrealcv order is pitch, yaw, roll
                         rotation=(float(rotation[2]), float(rotation[0]), float(location[1])))
                     self._current_pose = uetf.transform_from_unreal(ue_trans)
+
+            # Initial image is often garbage, something to do with the object painter I think. Get it and discard
+            _ = self._client.request('vget /camera/0/lit npy')
+            time.sleep(2)
         return self._client is not None and self._client.isconnected()
 
     def get_next_image(self):
@@ -576,6 +596,11 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
                 file.write(TEMPLATE_UNREALCV_SETTINGS.format(port=self._port,
                                                              width=self._resolution[0],
                                                              height=self._resolution[1]))
+            # Override the DefaultGameUserSettings with the resolution
+            game_user_settings_path = os.path.join(os.path.dirname(self._actual_executable),
+                                                   '../../Config/DefaultGameUserSettings.ini')
+            with open(game_user_settings_path, 'w') as file:
+                file.write(TEMPLATE_GAME_USER_SETTINGS.format(X=self._resolution[0], Y=self._resolution[1]))
 
     def _request_image(self, viewmode):
         """
@@ -590,6 +615,20 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         if len(data.shape) >= 3 and data.shape[2] >= 4:
             # Slice off the alpha channel if there is one, we're going to ignore it.
             data = data[:, :, 0:3]
+        if viewmode == 'unlit':
+            # Unlit images are dark by default, we're going to normalize them to the 0-255 range
+            # Unpacking this is:
+            # mean = np.mean(data)
+            # std = np.std(data)
+            # zeroed_data = (data - mean) / std  # This has mean 0 and std 1
+            # normalized_data = 64 * zeroed_data + 127  # This has mean 127, and std 64
+            # # Clip back to 0-255 range and as a uint8
+            # data = np.asarray(np.round(np.clip(normalized_data, 0, 255)), dtype=np.uint8)
+            data = np.asarray(np.round(
+                np.clip(64 * (
+                    (data - np.mean(data)) / np.std(data)
+                ) + 127, 0, 255)
+            ), dtype=np.uint8)
         return data
 
     def _request_depth_image(self):

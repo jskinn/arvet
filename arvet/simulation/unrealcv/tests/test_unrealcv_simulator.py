@@ -109,13 +109,21 @@ class TestUnrealCVSimulator(arvet.database.tests.test_entity.EntityContract, uni
         with mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock_open, create=True):
             subject.begin()
         self.assertTrue(mock_open.called)
-        self.assertEqual(mock.call('temp/test_project/unrealcv.ini', 'w'), mock_open.call_args)
+        self.assertEqual(mock.call('temp/test_project/unrealcv.ini', 'w'), mock_open.call_args_list[0])
+        self.assertEqual(mock.call('temp/test_project/../../Config/DefaultGameUserSettings.ini', 'w'),
+                         mock_open.call_args_list[1])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
-        file_contents = mock_file.write.call_args[0][0]
+        file_contents = mock_file.write.call_args_list[0][0][0]
         self.assertIn('Port={0}'.format(port), file_contents)
         self.assertIn('Width={0}'.format(width), file_contents)
         self.assertIn('Height={0}'.format(height), file_contents)
+
+        file_contents = mock_file.write.call_args_list[1][0][0]
+        self.assertIn('ResolutionSizeX={0}'.format(width), file_contents)
+        self.assertIn('ResolutionSizeY={0}'.format(height), file_contents)
+        self.assertIn('LastUserConfirmedResolutionSizeX={0}'.format(width), file_contents)
+        self.assertIn('LastUserConfirmedResolutionSizeY={0}'.format(height), file_contents)
 
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.open', mock.mock_open(), create=True)
     @mock.patch('arvet.simulation.unrealcv.unrealcv_simulator.time.sleep', autospec=time.sleep)
