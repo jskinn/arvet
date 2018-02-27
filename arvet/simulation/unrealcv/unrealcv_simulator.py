@@ -793,21 +793,25 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
         if label_data is not None:
             label_colors = set(tuple(color) for m2d in label_data for color in m2d)
             for color in label_colors:
-                if color != (0, 0, 0):
-                    name = self._client.request("vget /object/name {0} {1} {2}".format(color[0], color[1], color[2]))
-                    class_names = self._client.request("vget /object/{0}/labels".format(name))
-                    class_names = set(class_names.lower().split(','))
+                name = self._client.request("vget /object/name {0} {1} {2}".format(color[0], color[1], color[2]))
+                if name is None or 'error' in name.lower():
+                    # Some colours don't map to objects
+                    continue
+                class_names = self._client.request("vget /object/{0}/labels".format(name))
+                class_names = set(class_names.lower().split(','))
 
-                    # TODO: Other ground-truth bounding boxes could be useful, and are trivial to calculate here
-                    # E.g.: Oriented bounding boxes, or fit ellipses. see:
-                    # http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html
-                    labelled_objects.append(imeta.LabelledObject(
-                        class_names=class_names,
-                        bounding_box=image_utils.get_bounding_box(np.all(label_data == color, axis=2)),
-                        label_color=color,
-                        relative_pose=self.current_pose.find_relative(self.get_object_pose(name)),
-                        object_id=name
-                    ))
+                # TODO: Maybe skip objects with no classes?
+                # TODO: Get and store object 3d centroid and bounds
+                # TODO: Other ground-truth bounding boxes could be useful, and are trivial to calculate here
+                # E.g.: Oriented bounding boxes, or fit ellipses. see:
+                # http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html
+                labelled_objects.append(imeta.LabelledObject(
+                    class_names=class_names,
+                    bounding_box=image_utils.get_bounding_box(np.all(label_data == color, axis=2)),
+                    label_color=color,
+                    relative_pose=self.current_pose.find_relative(self.get_object_pose(name)),
+                    object_id=name
+                ))
 
         return imeta.ImageMetadata(
             hash_=xxhash.xxh64(im_data).digest(),
