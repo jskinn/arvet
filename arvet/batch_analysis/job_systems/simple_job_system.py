@@ -1,8 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import logging
 import typing
-import functools
-import bson
 import arvet.batch_analysis.job_system
 import arvet.batch_analysis.scripts.run_task
 
@@ -62,8 +60,9 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The duration given for the job to run. Ignored.
         :return: The job id if the job has been started correctly, None if failed.
         """
-        self._queue.append(functools.partial(run_task, task_id))
-        return len(self._queue) - 1     # Job id is the index in the queue
+        return self.run_script(arvet.batch_analysis.scripts.run_task.__file__, [str(task_id)],
+                               num_cpus=num_cpus, num_gpus=num_gpus, memory_requirements=memory_requirements,
+                               expected_duration=expected_duration)
 
     def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
                    memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
@@ -77,35 +76,17 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The duration given for the job to run
         :return: The job id if the job has been started correctly, None if failed.
         """
-        self._queue.append(functools.partial(run_script, script, script_args))
+        self._queue.append((script, script_args))
         return len(self._queue) - 1  # Job id is the index in the queue
 
     def run_queued_jobs(self):
         """
         Actually run the jobs.
+        Does so in a subprocess to maintain a clean state between tasks.
         :return: void
         """
+        import subprocess
         logging.getLogger(__name__).info("Running {0} jobs...".format(len(self._queue)))
-        for partial in self._queue:
-            partial()
+        for script_path, script_args in self._queue:
+            subprocess.run(['python', script_path] + script_args)
         self._queue = []
-
-
-def run_task(task_id: bson.ObjectId):
-    """
-    Tiny helper to invoke running a task
-    :param task_id:
-    :return:
-    """
-    arvet.batch_analysis.scripts.run_task.main(str(task_id))
-
-
-def run_script(script_path: str, script_args: typing.List[str]):
-    """
-    Helper that invokes a script
-    :param script_path:
-    :param script_args:
-    :return:
-    """
-    import subprocess
-    subprocess.run(['python', script_path] + script_args)
