@@ -791,7 +791,10 @@ class UnrealCVSimulator(arvet.simulation.simulator.Simulator, arvet.database.ent
 
         labelled_objects = []
         if label_data is not None:
-            label_colors = set(tuple(color) for m2d in label_data for color in m2d)
+            label_colors = set(tuple(color)
+                               for m2d in label_data
+                               for color in m2d
+                               if not np.array_equal(color, (0, 0, 0)))
             for color in label_colors:
                 name = self._client.request("vget /object/name {0} {1} {2}".format(color[0], color[1], color[2]))
                 if name is None or 'error' in name.lower():
