@@ -113,6 +113,17 @@ class TestTransform(unittest.TestCase):
         self.assertTrue(tf3 != tf4)
         self.assertNotEqual(tf1, tf3)
 
+    def test_equals_accepts_close_orientations(self):
+        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        tf2 = trans.Transform(location=(1, 2, 3), rotation=(np.nextafter(-0.5, 1), 0.5, 0.5, -0.5))
+        tf3 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, np.nextafter(0.5, 1), 0.5, -0.5))
+        tf4 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, np.nextafter(0.5, 1), -0.5))
+        tf5 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, np.nextafter(-0.5, 1)))
+        self.assertTrue(tf1 == tf2)
+        self.assertTrue(tf1 == tf3)
+        self.assertTrue(tf1 == tf4)
+        self.assertTrue(tf1 == tf5)
+
     def test_hash(self):
         tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
         tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
@@ -193,6 +204,14 @@ class TestTransform(unittest.TestCase):
 
         self.assert_close(pose_prime.location, pose.location)
         self.assert_close(pose_prime.rotation_quat(w_first=True), pose.rotation_quat(w_first=True))
+
+    def test_find_relative_preserves_equals(self):
+        start_pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        pose = start_pose
+        for _ in range(10):
+            pose = tf.find_independent(tf.find_relative(pose))
+            self.assertEqual(pose, start_pose)
 
     def test_relative_pose_contains_relative_point(self):
         loc = (-13, 27, -127)
@@ -315,6 +334,19 @@ class TestTransform(unittest.TestCase):
         for _ in range(10):
             pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(down, pose.down)
+
+    def test_robust_normalize_sets_the_norm_to_approximately_1(self):
+        for _ in range(100):
+            x = np.random.uniform(-1, 1, 4)
+            normed_x = trans.robust_normalize(x)
+            self.assertTrue(np.isclose([1.0], [np.linalg.norm(normed_x)], atol=1e-14))
+
+    def test_robust_normalize_doesnt_change_values_where_norm_is_already_1(self):
+        for _ in range(100):
+            x = np.random.uniform(-1, 1, 4)
+            x = trans.robust_normalize(x)
+            normed_x = trans.robust_normalize(x)
+            self.assert_array(x, normed_x)
 
     def assert_array(self, arr1, arr2, msg=None):
         a1 = np.asarray(arr1)

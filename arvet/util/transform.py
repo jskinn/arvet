@@ -50,22 +50,27 @@ class Transform:
             if rotation is not None and len(rotation) == 3:
                 # Rotation is euler angles, convert to quaternion
                 # I'm using the roll, pitch, yaw order of input, for consistency with Unreal
-                self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
-            elif rotation is not None and len(rotation) >= 4:
-                rotation = np.asarray(rotation, dtype=np.dtype('f8'))
-                norm = np.linalg.norm(rotation)
-                loop_count = 0
-                while not np.isclose(norm, (1.0,), 1e-16, 1e-16) and loop_count < 10:
-                    rotation = rotation / norm
-                    norm = np.linalg.norm(rotation)
-                    loop_count += 1
+                rotation = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
+            if rotation is not None and len(rotation) >= 4:
+                rotation = np.asarray(rotation, dtype=np.dtype('float'))
                 if w_first:
-                    self._qw, self._qx, self._qy, self._qz = rotation
+                    self._qw, self._qx, self._qy, self._qz = robust_normalize(rotation)
                 else:
-                    self._qx, self._qy, self._qz, self._qw = rotation
+                    self._qx, self._qy, self._qz, self._qw = robust_normalize(rotation)
             else:
                 self._qw = 1
                 self._qx = self._qy = self._qz = 0
+
+    def __repr__(self):
+        return "Transform([{x}, {y}, {z}], [{qx}, {qy}, {qz}, {qw}])".format(
+            x=self._x,
+            y=self._y,
+            z=self._z,
+            qx=self._qx,
+            qy=self._qy,
+            qz=self._qz,
+            qw=self._qw
+        )
 
     def __eq__(self, other):
         """
@@ -77,7 +82,8 @@ class Transform:
             ox, oy, oz = other.location
             oqw, oqx, oqy, oqz = other.rotation_quat(w_first=True)
             return (ox == self._x and oy == self._y and oz == self._z and
-                    oqw == self._qw and oqx == self._qx and oqy == self._qy and oqz == self._qz)
+                    np.isclose(oqw, self._qw, atol=1e-16) and np.isclose(oqx, self._qx, atol=1e-16) and
+                    np.isclose(oqy, self._qy, atol=1e-16) and np.isclose(oqz, self._qz, atol=1e-16))
         return NotImplemented
 
     def __hash__(self):
@@ -226,3 +232,14 @@ class Transform:
         return cls(location=s_transform['location'],
                    rotation=s_transform['rotation'],
                    w_first=True)
+
+
+def robust_normalize(vector: np.ndarray) -> np.ndarray:
+    norm = np.linalg.norm(vector)
+    loop_count = 0
+    result = vector
+    while not np.isclose(norm, (1.0,), 1e-14, 1e-14) and loop_count < 10:
+        result = result / norm
+        norm = np.linalg.norm(result)
+        loop_count += 1
+    return result
