@@ -364,7 +364,7 @@ class TestImageCollection(arvet.database.tests.test_entity.EntityContract, unitt
         # Because dicts, we can't guarantee the order of this list
         # So we use $all, and make sure all the timestamp->image_id pairs are in it
         for timestamp, image_id in self.images.items():
-            self.assertIn((timestamp, image_id), existing_query['images']['$all'])
+            self.assertIn([timestamp, image_id], existing_query['images']['$all'])
 
     def test_create_and_save_makes_valid_collection(self):
         db_client = self.create_mock_db_client()

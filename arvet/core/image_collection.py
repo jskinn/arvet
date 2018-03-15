@@ -283,7 +283,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
     def serialize(self):
         serialized = super().serialize()
         # Only include the image IDs here, they'll get turned back into objects for us
-        serialized['images'] = [(stamp, image_id) for stamp, image_id in self._images.items()]
+        serialized['images'] = [[stamp, image_id] for stamp, image_id in self._images.items()]
         if self.sequence_type is arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL:
             serialized['sequence_type'] = 'SEQ'
         else:
@@ -331,7 +331,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, arvet.database.entity
             logging.getLogger(__name__).warning(
                 "Tried to create image collection with {0} missing ids".format(len(image_map) - found_images))
             return None
-        s_images_list = [(stamp, image_id) for stamp, image_id in image_map.items()]
+        s_images_list = [[stamp, image_id] for stamp, image_id in image_map.items()]
         s_seq_type = 'SEQ' if sequence_type is arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL else 'NON'
         existing = db_client.image_source_collection.find_one({
             '_type': entity_registry.get_type_name(cls),
