@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 
 
 class Identifiable(metaclass=abc.ABCMeta):
@@ -12,7 +13,7 @@ class Identifiable(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def identifier(self):
+    def identifier(self) -> bson.ObjectId:
         """
         Get the ID of the class, to which things will be associated in the database.
         This should be consistent for all instances of a particular class,

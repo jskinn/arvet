@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 import arvet.database.identifiable as identifiable
 import arvet.database.entity_registry as reg
 
@@ -32,19 +33,19 @@ class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
     or add **kwargs to catch any extras.
     """
 
-    def __init__(self, id_=None, **kwargs):
+    def __init__(self, id_: bson.ObjectId = None, **kwargs):
         self._id = id_
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # Pass additional keyword arguments to constructor for MI
 
     @property
-    def identifier(self):
+    def identifier(self) -> bson.ObjectId:
         """
         Unique id for the entity, for links and references
         :return:
         """
         return self._id
 
-    def refresh_id(self, id_):
+    def refresh_id(self, id_: bson.ObjectId) -> None:
         """
         Set the id of the entity, if it didn't have one.
         This is helper for after an entity is saved to the database;
@@ -57,7 +58,7 @@ class Entity(identifiable.Identifiable, metaclass=AbstractEntityMetaclass):
         if self._id is None and id_ is not None:
             self._id = id_
 
-    def validate(self):
+    def validate(self) -> bool:
         """
         Check that the entity is valid.
         This lets us check things like whether references files still exist.

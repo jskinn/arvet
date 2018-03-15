@@ -1,4 +1,6 @@
 # Copyright (c) 2017, John Skinner
+import bson
+import typing
 import arvet.database.entity
 import arvet.core.sequence_type
 
@@ -13,7 +15,9 @@ class TrialResult(arvet.database.entity.Entity):
     All Trial results have a one to many relationship with a particular dataset and system.
     """
 
-    def __init__(self, system_id, success, sequence_type, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id: bson.ObjectId, success: bool,
+                 sequence_type: arvet.core.sequence_type.ImageSequenceType, system_settings: typing.Mapping,
+                 id_: bson.ObjectId = None, **kwargs):
         super().__init__(id_, **kwargs)
         self._success = bool(success)
         self._sequence_type = arvet.core.sequence_type.ImageSequenceType(sequence_type)
@@ -21,7 +25,7 @@ class TrialResult(arvet.database.entity.Entity):
         self._system_id = system_id
 
     @property
-    def system_id(self):
+    def system_id(self) -> bson.ObjectId:
         """
         The ID of the system which produced this result
         :return:
@@ -29,7 +33,7 @@ class TrialResult(arvet.database.entity.Entity):
         return self._system_id
 
     @property
-    def success(self):
+    def success(self) -> bool:
         """
         Did the run succeed or not.
         A system may crash, or fail in some way on a particular dataset,
@@ -41,7 +45,7 @@ class TrialResult(arvet.database.entity.Entity):
         return self._success
 
     @property
-    def sequence_type(self):
+    def sequence_type(self) -> arvet.core.sequence_type.ImageSequenceType:
         """
         Get the type of image sequence used to produce this trial result.
         Some benchmarks and metrics are only relevant when we can compare between successive frames.
@@ -50,7 +54,7 @@ class TrialResult(arvet.database.entity.Entity):
         return self._sequence_type
 
     @property
-    def settings(self):
+    def settings(self) -> typing.Mapping:
         """
         The settings of the system when running to produce this trial result.
         Stored for reference when comparing results
@@ -113,14 +117,15 @@ class FailedTrial(TrialResult):
     this class or a subclass of this class.
     Think of this like an exception returned from a run system call.
     """
-    def __init__(self, system_id, reason, sequence_type, system_settings, id_=None, **kwargs):
+    def __init__(self, system_id: bson.ObjectId, reason: str, sequence_type: arvet.core.sequence_type.ImageSequenceType,
+                 system_settings: typing.Mapping, id_: bson.ObjectId = None, **kwargs):
         kwargs['success'] = False
         super().__init__(system_id=system_id, sequence_type=sequence_type,
                          system_settings=system_settings, id_=id_, **kwargs)
         self._reason = reason
 
     @property
-    def reason(self):
+    def reason(self) -> str:
         """
         The reason the trial failed, for diagnosis and debug.
         :return: The string reason passed to the constructor

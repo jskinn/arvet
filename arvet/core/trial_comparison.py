@@ -1,6 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 import arvet.database.entity
+import arvet.core.trial_result
 import arvet.core.benchmark
 
 
@@ -14,19 +16,8 @@ class TrialComparison(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
     to allow them to be called easily and in a structured way.
     """
 
-    @classmethod
     @abc.abstractmethod
-    def get_trial_requirements(cls):
-        """
-        Get the requirements to determine which trial_results are relevant for this benchmark.
-        Should return a dict that is a mongodb query operator
-        :return:
-        :rtype: dict
-        """
-        pass
-
-    @abc.abstractmethod
-    def is_trial_appropriate(self, trial_result):
+    def is_trial_appropriate(self, trial_result: arvet.core.trial_result.TrialResult) -> bool:
         """
         More fine-grained filtering for trial results,
         to make sure this class can benchmark this trial result.
@@ -35,7 +26,9 @@ class TrialComparison(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def compare_trial_results(self, trial_result, reference_trial_result):
+    def compare_trial_results(self, trial_result: arvet.core.trial_result.TrialResult,
+                              reference_trial_result: arvet.core.trial_result.TrialResult) -> \
+            arvet.core.benchmark.BenchmarkResult:
         """
         Compare the results of the first trial with a reference trial.
         Should return a FailedBenchmark if there is a problem.
@@ -52,7 +45,8 @@ class TrialComparisonResult(arvet.core.benchmark.BenchmarkResult):
     """
     A general superclass for benchmark results that compare two trials.
     """
-    def __init__(self, benchmark_id, trial_result_id, reference_id, success, id_=None, **kwargs):
+    def __init__(self, benchmark_id: bson.ObjectId, trial_result_id: bson.ObjectId,
+                 reference_id: bson.ObjectId, success: bool, id_: bson.ObjectId = None, **kwargs):
         """
         :param benchmark_id: The TrialComparison benchmark that produced this result
         :param trial_result_id: The first TrialResult, which is compared to the reference
@@ -64,7 +58,7 @@ class TrialComparisonResult(arvet.core.benchmark.BenchmarkResult):
         self._reference_id = reference_id
 
     @property
-    def reference_trial_result(self):
+    def reference_trial_result(self) -> bson.ObjectId:
         """
         The id of the reference trial to which the second trial is compared.
         This affects the order of the measured difference

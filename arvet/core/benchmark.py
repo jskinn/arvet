@@ -1,6 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 import arvet.database.entity
+import arvet.core.trial_result
 
 
 class Benchmark(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
@@ -11,19 +13,8 @@ class Benchmark(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
     to allow them to be called easily and in a structured way.
     """
 
-    @classmethod
     @abc.abstractmethod
-    def get_trial_requirements(cls):
-        """
-        Get the requirements to determine which trial_results are relevant for this benchmark.
-        Should return a dict that is a mongodb query operator
-        :return:
-        :rtype: dict
-        """
-        pass
-
-    @abc.abstractmethod
-    def is_trial_appropriate(self, trial_result):
+    def is_trial_appropriate(self, trial_result: arvet.core.trial_result.TrialResult) -> bool:
         """
         More fine-grained filtering for trial results,
         to make sure this class can benchmark this trial result.
@@ -32,7 +23,7 @@ class Benchmark(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def benchmark_results(self, trial_result):
+    def benchmark_results(self, trial_result: arvet.core.trial_result.TrialResult) -> 'BenchmarkResult':
         """
         Benchmark the result of a particular trial.
         The trial result MUST include the ground truth along with the system estimates.
@@ -48,7 +39,8 @@ class BenchmarkResult(arvet.database.entity.Entity):
     """
     A general superclass for benchmark results for all benchmarks
     """
-    def __init__(self, benchmark_id, trial_result_id, success, id_=None, **kwargs):
+    def __init__(self, benchmark_id: bson.ObjectId, trial_result_id: bson.ObjectId, success: bool,
+                 id_: bson.ObjectId = None, **kwargs):
         """
 
         :param benchmark_id: The identifier for the benchmark producing this result
@@ -61,15 +53,15 @@ class BenchmarkResult(arvet.database.entity.Entity):
         self._trial_result = trial_result_id
 
     @property
-    def benchmark(self):
+    def benchmark(self) -> bson.ObjectId:
         return self._benchmark
 
     @property
-    def trial_result(self):
+    def trial_result(self) -> bson.ObjectId:
         return self._trial_result
 
     @property
-    def success(self):
+    def success(self) -> bool:
         return self._success
 
     def serialize(self):
@@ -98,7 +90,8 @@ class FailedBenchmark(BenchmarkResult):
     inherit from this class.
     """
 
-    def __init__(self, benchmark_id, trial_result_id, reason, id_=None, **kwargs):
+    def __init__(self, benchmark_id: bson.ObjectId, trial_result_id: bson.ObjectId, reason: str,
+                 id_: bson.ObjectId = None, **kwargs):
         """
 
         :param reason: String explaining what went wrong.
@@ -108,7 +101,7 @@ class FailedBenchmark(BenchmarkResult):
         self._reason = reason
 
     @property
-    def reason(self):
+    def reason(self) -> str:
         return self._reason
 
     def serialize(self):

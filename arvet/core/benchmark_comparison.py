@@ -1,6 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 import arvet.database.entity
+import arvet.core.benchmark
 
 
 class BenchmarkComparison(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
@@ -16,36 +18,26 @@ class BenchmarkComparison(arvet.database.entity.Entity, metaclass=abc.ABCMeta):
     to allow them to be called easily and in a structured way.
     """
 
-    @classmethod
     @abc.abstractmethod
-    def get_benchmark_requirements(cls):
+    def is_result_appropriate(self, benchmark_result: arvet.core.benchmark.BenchmarkResult) -> bool:
         """
-        Get the requirements to determine which trial_results are relevant for this benchmark.
-        These are gneral requirements, more specific filtering should be done with is_appropriate, below
-        Should return a dict that is a mongodb query operator.
-        :return:
-        :rtype: dict
+        Fine-grained filtering of which benchmarks results this comparison can be applied to.
+        Has access to the deserialized benchmark result, with all it's properties
+        :param benchmark_result: 
+        :return: 
         """
         pass
 
     @abc.abstractmethod
-    def is_result_appropriate(self, benchmark_result):
-        """
-        Fine-grained filtering of which benchmarks results this comparison can be applied to.
-        Has access to the 
-        :param benchmark_result: 
-        :return: 
-        """
-        return True
-
-    @abc.abstractmethod
-    def compare_results(self, benchmark_result, reference_benchmark_result):
+    def compare_results(self, benchmark_result: arvet.core.benchmark.BenchmarkResult,
+                        reference_benchmark_result: arvet.core.benchmark.BenchmarkResult
+                        ) -> 'BenchmarkComparisonResult':
         """
         Compare the benchmark of one trial with the benchmark of another trial.
         Should return a FailedBenchmark if there is a problem.
 
-        :param benchmark_result: BenchmarkResult
-        :param reference_benchmark_result: BenchmarkResult
+        :param benchmark_result: The benchmark result to compare
+        :param reference_benchmark_result: The reference benchmark result to compare to
         :return: A BenchmarkResult object containing either the results, or a FailedBenchmark explaining the error
         :rtype: BenchmarkResult
         """
@@ -56,7 +48,8 @@ class BenchmarkComparisonResult(arvet.database.entity.Entity):
     """
     A general superclass for benchmark results for all
     """
-    def __init__(self, benchmark_comparison_id, benchmark_result, reference_benchmark_result, success, id_=None, **kwargs):
+    def __init__(self, benchmark_comparison_id: bson.ObjectId, benchmark_result: bson.ObjectId,
+                 reference_benchmark_result: bson.ObjectId, success: bool, id_: bson.ObjectId = None, **kwargs):
         """
 
         :param success: Did the benchmark succeed. Everything not a subtype of FailedBenchmark should pass true.
@@ -68,7 +61,7 @@ class BenchmarkComparisonResult(arvet.database.entity.Entity):
         self._success = success
 
     @property
-    def comparison_id(self):
+    def comparison_id(self) -> bson.ObjectId:
         """
         The id of the benchmark comparison used to compare the two benchmark results
         :return: ObjectID or string
@@ -76,7 +69,7 @@ class BenchmarkComparisonResult(arvet.database.entity.Entity):
         return self._benchmark_comparison_id
 
     @property
-    def benchmark_result(self):
+    def benchmark_result(self) -> bson.ObjectId:
         """
         The id of the query benchmark that is compared to the reference benchmark.
         :return: ObjectId
@@ -84,7 +77,7 @@ class BenchmarkComparisonResult(arvet.database.entity.Entity):
         return self._benchmark_id
 
     @property
-    def reference_benchmark_result(self):
+    def reference_benchmark_result(self) -> bson.ObjectId:
         """
         The id of the reference benchmark to which the first benchmark is compared.
         This affects the order of the measured difference
@@ -93,7 +86,7 @@ class BenchmarkComparisonResult(arvet.database.entity.Entity):
         return self._reference_id
 
     @property
-    def success(self):
+    def success(self) -> bool:
         return self._success
 
     def serialize(self):
