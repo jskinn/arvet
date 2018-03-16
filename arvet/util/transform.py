@@ -81,9 +81,19 @@ class Transform:
         if isinstance(other, Transform):
             ox, oy, oz = other.location
             oqw, oqx, oqy, oqz = other.rotation_quat(w_first=True)
-            return (ox == self._x and oy == self._y and oz == self._z and
-                    np.isclose(oqw, self._qw, atol=1e-16) and np.isclose(oqx, self._qx, atol=1e-16) and
-                    np.isclose(oqy, self._qy, atol=1e-16) and np.isclose(oqz, self._qz, atol=1e-16))
+            if ox == self._x and oy == self._y and oz == self._z:
+                if (np.isclose(oqw, self._qw, atol=1e-16) and np.isclose(oqx, self._qx, atol=1e-16) and
+                        np.isclose(oqy, self._qy, atol=1e-16) and np.isclose(oqz, self._qz, atol=1e-16)):
+                    return True
+                # Wasn't equal with same handedness, invert and try again because q is the same as -q for orientations
+                oqw = -1 * oqw
+                oqx = -1 * oqx
+                oqy = -1 * oqy
+                oqz = -1 * oqz
+                if (np.isclose(oqw, self._qw, atol=1e-16) and np.isclose(oqx, self._qx, atol=1e-16) and
+                        np.isclose(oqy, self._qy, atol=1e-16) and np.isclose(oqz, self._qz, atol=1e-16)):
+                    return True
+            return False
         return NotImplemented
 
     def __hash__(self):
@@ -235,11 +245,123 @@ class Transform:
 
 
 def robust_normalize(vector: np.ndarray) -> np.ndarray:
+    """
+    Normalize the given vector in such a way that if we call this on it again, we get the same output.
+    We care because this lets us copy Transform rotations, normalize on init, and still have exactly the same numbers,
+    rather than changing them slightly each time we copy.
+
+    Unfortunately, there are a number of vectors that we can't express with unit norm due to floating point precision
+    These vectors will oscillate across 1, usually between 0.99999999999999989 and 1.0000000000000002,
+    both of which are technically not 1.0. If the norm is any of these values, we just want to move on.
+    :param vector:
+    :return:
+    """
     norm = np.linalg.norm(vector)
     loop_count = 0
-    result = vector
-    while not np.isclose(norm, (1.0,), 1e-14, 1e-14) and loop_count < 10:
-        result = result / norm
-        norm = np.linalg.norm(result)
+    while not np.isclose(norm, 1.0, 1e-14, 1e-14) and loop_count < 10:
+        vector = vector / norm
+        norm = np.linalg.norm(vector)
         loop_count += 1
-    return result
+    return vector
+
+
+def quat_angle(quat):
+    """
+    Get the angle of rotation indicated by a quaternion, independent of axis
+    :param quat: A quaternion, [w, x, y, z]
+    :return: The angle rotated through by the quaternion
+    """
+    return 2 * float(np.arccos(min(1, max(-1, quat[0]))))
+
+
+def quat_diff(q1, q2):
+    """
+    Find the angle between two quaternions
+    Basically, we compose them, and derive the angle from the composition
+    :param q1: A quaternion, [w, x, y, z]
+    :param q2: A quaternion, [w, x, y, z]
+    :return:
+    """
+    q1 = np.asarray(q1)
+    if np.dot(q1, q2) < 0:
+        # Quaternions have opposite handedness, flip q1 since it's already an ndarray
+        q1 = -1 * q1
+    q_inv = q1 * np.array([1.0, -1.0, -1.0, -1.0])
+    q_inv = q_inv / np.linalg.norm(q_inv)
+
+    # We only coare about the scalar component, compose only that
+    z0 = q_inv[0] * q2[0] - q_inv[1] * q2[1] - q_inv[2] * q2[2] - q_inv[3] * q2[3]
+    return 2 * float(np.arccos(min(1, max(-1, z0))))
+
+
+def quat_mean(quaternions):
+    """
+    Find the mean of a bunch of quaternions
+    :param quaternions:
+    :return:
+    """
+    if len(quaternions) <= 0:
+        return np.nan
+    elif len(quaternions) == 1:
+        # Only one quaternion, it is the average of itself
+        return quaternions[0]
+    elif len(quaternions) == 2 and False:
+        # We have weird errors for 2 quaternions using the matrix
+        # We use the closed form solution given in
+        # https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf
+        q1 = np.asarray(quaternions[0])
+        q2 = np.asarray(quaternions[1])
+        #if q1[0] < 0:
+        #    q1 = -1 * q1
+        #if q2[0] < 0:
+        #    q2 = -1 * q2
+
+        dot = np.dot(q1, q2)
+        if dot < 0:
+            # The vectors don't have the same handedness, invert one
+            q2 = -1 * q2
+            dot = -dot
+        if dot == 0:
+            if q1[0] > q2[0]:
+                return q1
+            return q2
+        z = np.sqrt((q1[0] - q2[0]) * (q1[0] - q2[0]) + 4 * q1[0] * q2[0] * dot * dot)
+        result1 = (q1[0] - q2[0] + z) * q1 + 2 * q2[0] * dot * q2
+        result2 = 2 * q1[0] * dot * q1 + (q2[0] - q1[0] + z) * q2
+        result1 /= np.linalg.norm(result1)
+        result2 /= np.linalg.norm(result2)
+        if not np.all(np.isclose(result1, result2)) and not np.all(np.isclose(result1, -1 * result2)):
+            print("two approaches are not equal, error")
+        return result1 / np.linalg.norm(result1)
+    else:
+        # Quaternion average from the eigenvectors of the sum matrix
+        # See: https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf
+        # We have at least 3 quaternions, make sure they're of the same handedness
+        q_mat = np.asarray([
+            q if np.dot(q, quaternions[0]) >= 0 else -1 * np.asarray(q)
+            for q in quaternions
+        ])
+        product = np.dot(q_mat.T, q_mat)    # Computes sum([q * q.T for q in quaterions])
+        evals, evecs = np.linalg.eig(product)
+        best = -1
+        result = None
+        for idx in range(len(evals)):
+            if evals[idx] > best:
+                best = evals[idx]
+                result = evecs[idx]
+        if np.any(np.iscomplex(result)):
+            # Mean is complex, which means the quaternions are all too close together (I think?)
+            # Instead, return the Mode, the most common quaternion
+            counts = [
+                sum(1 for q2 in quaternions if np.array_equal(q1, q2))
+                for q1 in quaternions
+            ]
+            best = 0
+            for idx in range(len(counts)):
+                if counts[idx] > best:
+                    best = counts[idx]
+                    result = quaternions[idx]
+            print("Passing off mode as mean with {0} of {1} identical vectors".format(best, len(quaternions)))
+        else:
+            result = result * np.array([1, -1, -1, -1])
+        return result

@@ -1,7 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import numpy as np
-import arvet.util.transform as trans
+import transforms3d as tf3d
+import arvet.util.transform as tf
 
 
 def _make_quat(axis, theta):
@@ -15,337 +16,342 @@ def _make_quat(axis, theta):
 class TestTransform(unittest.TestCase):
 
     def test_constructor_clone(self):
-        tf1 = trans.Transform(location=(1, 2, 3),
+        trans1 = tf.Transform(location=(1, 2, 3),
                               rotation=(4, 5, 6, 7))
-        tf2 = trans.Transform(tf1)
-        self.assert_array(tf1.location, tf2.location)
-        self.assert_array(tf1.rotation_quat(w_first=True), tf2.rotation_quat(w_first=True))
-        self.assert_array(tf1.transform_matrix, tf2.transform_matrix)
+        trans2 = tf.Transform(trans1)
+        self.assert_array(trans1.location, trans2.location)
+        self.assert_array(trans1.rotation_quat(w_first=True), trans2.rotation_quat(w_first=True))
+        self.assert_array(trans1.transform_matrix, trans2.transform_matrix)
 
     def test_location_basic(self):
-        tf = trans.Transform(location=(1, 2, 3))
-        self.assert_array((1, 2, 3), tf.location)
+        trans = tf.Transform(location=(1, 2, 3))
+        self.assert_array((1, 2, 3), trans.location)
 
     def test_location_default(self):
-        tf = trans.Transform()
-        self.assert_array(np.zeros(3), tf.location)
+        trans = tf.Transform()
+        self.assert_array(np.zeros(3), trans.location)
 
     def test_constructor_location_from_homogeneous(self):
         hom = np.array([[0.80473785, -0.31061722, 0.50587936, 1],
                         [0.50587936, 0.80473785, -0.31061722, 2],
                         [-0.31061722, 0.50587936, 0.80473785, 3],
                         [0, 0, 0, 1]])
-        tf = trans.Transform(hom)
-        self.assert_array((1, 2, 3), tf.location)
+        trans = tf.Transform(hom)
+        self.assert_array((1, 2, 3), trans.location)
 
     def test_constructor_rotation_basic(self):
         # The rotation here is for 45 degrees around axis 1,2,3
-        tf = trans.Transform(location=(1, 2, 3), rotation=(0.92387953, 0.10227645, 0.2045529, 0.30682935), w_first=True)
-        self.assert_close(tf.rotation_quat(w_first=True),
+        trans = tf.Transform(location=(1, 2, 3), rotation=(0.92387953, 0.10227645, 0.2045529, 0.30682935), w_first=True)
+        self.assert_close(trans.rotation_quat(w_first=True),
                           np.array([0.92387953, 0.10227645, 0.2045529, 0.30682935]))
-        self.assert_close(tf.rotation_quat(w_first=False),
+        self.assert_close(trans.rotation_quat(w_first=False),
                           np.array([0.10227645, 0.2045529, 0.30682935, 0.92387953]))
 
     def test_constructor_rotation_handles_non_unit(self):
-        tf = trans.Transform(rotation=(10, 1, 2, 3), w_first=True)
-        self.assert_close(tf.rotation_quat(w_first=True), (0.93658581, 0.09365858, 0.18731716, 0.28097574))
+        trans = tf.Transform(rotation=(10, 1, 2, 3), w_first=True)
+        self.assert_close(trans.rotation_quat(w_first=True), (0.93658581, 0.09365858, 0.18731716, 0.28097574))
 
     def test_constructor_rotation_default(self):
-        tf = trans.Transform()
-        self.assert_array(tf.rotation_quat(True), (1, 0, 0, 0))
+        trans = tf.Transform()
+        self.assert_array(trans.rotation_quat(True), (1, 0, 0, 0))
 
     def test_constructor_euler_rotation(self):
-        tf = trans.Transform(rotation=(np.pi / 6, np.pi / 4, np.pi / 3), w_first=True)
-        self.assert_close(tf.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
-        self.assert_close(tf.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
+        trans = tf.Transform(rotation=(np.pi / 6, np.pi / 4, np.pi / 3), w_first=True)
+        self.assert_close(trans.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
+        self.assert_close(trans.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
 
     def test_constructor_rotation_from_homogeneous(self):
         hom = np.array([[0.80473785, -0.31061722, 0.50587936, 1],
                         [0.50587936, 0.80473785, -0.31061722, 2],
                         [-0.31061722, 0.50587936, 0.80473785, 3],
                         [0, 0, 0, 1]])
-        tf = trans.Transform(hom)
-        self.assert_close(tf.rotation_quat(True), (0.92387953, 0.22094238, 0.22094238, 0.22094238))
+        trans = tf.Transform(hom)
+        self.assert_close(trans.rotation_quat(True), (0.92387953, 0.22094238, 0.22094238, 0.22094238))
 
     def test_rotation_matrix(self):
-        tf = trans.Transform(rotation=(0.92387953, 0.22094238, 0.22094238, 0.22094238), w_first=True)
-        self.assert_close(tf.rotation_matrix, np.array([[0.80473785, -0.31061722, 0.50587936],
-                                                        [0.50587936, 0.80473785, -0.31061722],
-                                                        [-0.31061722, 0.50587936, 0.80473785]]))
+        trans = tf.Transform(rotation=(0.92387953, 0.22094238, 0.22094238, 0.22094238), w_first=True)
+        self.assert_close(trans.rotation_matrix, np.array([[0.80473785, -0.31061722, 0.50587936],
+                                                           [0.50587936, 0.80473785, -0.31061722],
+                                                           [-0.31061722, 0.50587936, 0.80473785]]))
 
     def test_euler_each_axis(self):
         # Yaw
         qrot = _make_quat((0, 0, 1), np.pi / 6)
-        tf = trans.Transform(rotation=qrot, w_first=True)
-        self.assert_array(tf.euler, np.array([0, 0, np.pi / 6]))
+        trans = tf.Transform(rotation=qrot, w_first=True)
+        self.assert_array(trans.euler, np.array([0, 0, np.pi / 6]))
         # Pitch
         qrot = _make_quat((0, 1, 0), np.pi / 6)
-        tf = trans.Transform(rotation=qrot, w_first=True)
-        self.assert_array(tf.euler, np.array([0, np.pi / 6, 0]))
+        trans = tf.Transform(rotation=qrot, w_first=True)
+        self.assert_array(trans.euler, np.array([0, np.pi / 6, 0]))
         # Roll
         qrot = _make_quat((1, 0, 0), np.pi / 6)
-        tf = trans.Transform(rotation=qrot, w_first=True)
-        self.assert_array(tf.euler, np.array([np.pi / 6, 0, 0]))
+        trans = tf.Transform(rotation=qrot, w_first=True)
+        self.assert_array(trans.euler, np.array([np.pi / 6, 0, 0]))
 
     def test_equals(self):
-        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
-        self.assertTrue(tf1 == tf1)
-        self.assertTrue(tf1 == tf2)
-        self.assertTrue(tf2 == tf1)
-        self.assertEqual(tf1, tf2)
-        self.assertFalse(tf1 == tf3)
-        self.assertFalse(tf1 == tf4)
-        self.assertFalse(tf3 == tf4)
+        trans1 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans2 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans3 = tf.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans4 = tf.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
+        self.assertTrue(trans1 == trans1)
+        self.assertTrue(trans1 == trans2)
+        self.assertTrue(trans2 == trans1)
+        self.assertEqual(trans1, trans2)
+        self.assertFalse(trans1 == trans3)
+        self.assertFalse(trans1 == trans4)
+        self.assertFalse(trans3 == trans4)
 
     def test_not_equals(self):
-        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
-        self.assertFalse(tf1 != tf1)
-        self.assertFalse(tf1 != tf2)
-        self.assertFalse(tf2 != tf1)
-        self.assertTrue(tf1 != tf3)
-        self.assertTrue(tf1 != tf4)
-        self.assertTrue(tf3 != tf4)
-        self.assertNotEqual(tf1, tf3)
+        trans1 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans2 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans3 = tf.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans4 = tf.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, 0.5, -0.5))
+        self.assertFalse(trans1 != trans1)
+        self.assertFalse(trans1 != trans2)
+        self.assertFalse(trans2 != trans1)
+        self.assertTrue(trans1 != trans3)
+        self.assertTrue(trans1 != trans4)
+        self.assertTrue(trans3 != trans4)
+        self.assertNotEqual(trans1, trans3)
 
     def test_equals_accepts_close_orientations(self):
-        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf2 = trans.Transform(location=(1, 2, 3), rotation=(np.nextafter(-0.5, 1), 0.5, 0.5, -0.5))
-        tf3 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, np.nextafter(0.5, 1), 0.5, -0.5))
-        tf4 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, np.nextafter(0.5, 1), -0.5))
-        tf5 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, np.nextafter(-0.5, 1)))
-        self.assertTrue(tf1 == tf2)
-        self.assertTrue(tf1 == tf3)
-        self.assertTrue(tf1 == tf4)
-        self.assertTrue(tf1 == tf5)
+        trans1 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans2 = tf.Transform(location=(1, 2, 3), rotation=(np.nextafter(-0.5, 1), 0.5, 0.5, -0.5))
+        trans3 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, np.nextafter(0.5, 1), 0.5, -0.5))
+        trans4 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, np.nextafter(0.5, 1), -0.5))
+        trans5 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, np.nextafter(-0.5, 1)))
+        self.assertTrue(trans1 == trans2)
+        self.assertTrue(trans1 == trans3)
+        self.assertTrue(trans1 == trans4)
+        self.assertTrue(trans1 == trans5)
+
+    def test_equals_accepts_inverted_orientations(self):
+        trans1 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans2 = tf.Transform(location=(1, 2, 3), rotation=(0.5, -0.5, -0.5, 0.5))
+        self.assertTrue(trans1 == trans2)
 
     def test_hash(self):
-        tf1 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf2 = trans.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf3 = trans.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
-        tf4 = trans.Transform(location=(1, 2, 3), rotation=(0.1, 0.2, 0.3, 0.4))
-        self.assertEqual(hash(tf1), hash(tf1))
-        self.assertEqual(hash(tf1), hash(tf2))
-        self.assertNotEqual(hash(tf1), hash(tf3))
-        self.assertNotEqual(hash(tf1), hash(tf4))
-        self.assertEqual({tf1, tf1, tf1}, {tf1})    # Set literals
+        trans1 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans2 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans3 = tf.Transform(location=(1, 2, 4), rotation=(-0.5, 0.5, 0.5, -0.5))
+        trans4 = tf.Transform(location=(1, 2, 3), rotation=(0.1, 0.2, 0.3, 0.4))
+        self.assertEqual(hash(trans1), hash(trans1))
+        self.assertEqual(hash(trans1), hash(trans2))
+        self.assertNotEqual(hash(trans1), hash(trans3))
+        self.assertNotEqual(hash(trans1), hash(trans4))
+        self.assertEqual({trans1, trans1, trans1}, {trans1})    # Set literals
 
     def test_find_relative_point_moves_origin(self):
         point = (11, 12, 13)
-        tf = trans.Transform(location=(10, 9, 8))
-        point_rel = tf.find_relative(point)
+        trans = tf.Transform(location=(10, 9, 8))
+        point_rel = trans.find_relative(point)
         self.assert_array(point_rel, (1, 3, 5))
 
     def test_find_relative_pose_moves_origin(self):
-        pose = trans.Transform(location=(11, 12, 13))
-        tf = trans.Transform(location=(10, 9, 8))
-        pose_rel = tf.find_relative(pose)
+        pose = tf.Transform(location=(11, 12, 13))
+        trans = tf.Transform(location=(10, 9, 8))
+        pose_rel = trans.find_relative(pose)
         self.assert_array(pose_rel.location, (1, 3, 5))
 
     def test_find_relative_point_changes_location_coordinates(self):
         point = (11, 12, 13)
-        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
-        point_rel = tf.find_relative(point)
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        point_rel = trans.find_relative(point)
         self.assert_close(point_rel, (3, -1, 5))
 
     def test_find_relative_pose_changes_location_coordinates(self):
-        pose = trans.Transform(location=(11, 12, 13))
-        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
-        pose_rel = tf.find_relative(pose)
+        pose = tf.Transform(location=(11, 12, 13))
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        pose_rel = trans.find_relative(pose)
         self.assert_close(pose_rel.location, (3, -1, 5))
 
     def test_find_relative_pose_changes_orientation(self):
-        pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
-        pose_rel = tf.find_relative(pose)
+        pose = tf.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        pose_rel = trans.find_relative(pose)
         self.assert_close(pose_rel.euler, (0, -np.pi / 4, -np.pi / 2))
 
     def test_find_independent_point_moves_origin(self):
         point = (1, 3, 5)
-        tf = trans.Transform(location=(10, 9, 8))
-        point_rel = tf.find_independent(point)
+        trans = tf.Transform(location=(10, 9, 8))
+        point_rel = trans.find_independent(point)
         self.assert_array(point_rel, (11, 12, 13))
 
     def test_find_independent_pose_moves_origin(self):
-        pose = trans.Transform(location=(1, 3, 5))
-        tf = trans.Transform(location=(10, 9, 8))
-        pose_rel = tf.find_independent(pose)
+        pose = tf.Transform(location=(1, 3, 5))
+        trans = tf.Transform(location=(10, 9, 8))
+        pose_rel = trans.find_independent(pose)
         self.assert_array(pose_rel.location, (11, 12, 13))
 
     def test_find_independent_pose_changes_orientation(self):
-        pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
-        pose_rel = tf.find_independent(pose)
+        pose = tf.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        pose_rel = trans.find_independent(pose)
         self.assert_close(pose_rel.euler, (0, np.pi / 4, np.pi / 2))
 
     def test_find_relative_undoes_point(self):
         loc = (-13, 27, -127)
         qrot = _make_quat((-1, 0.1, -0.37), 7 * np.pi / 26)
-        tf = trans.Transform(location=loc, rotation=qrot, w_first=True)
+        trans = tf.Transform(location=loc, rotation=qrot, w_first=True)
 
         point = (1, 2, 3)
-        point_rel = tf.find_relative(point)
-        point_prime = tf.find_independent(point_rel)
+        point_rel = trans.find_relative(point)
+        point_prime = trans.find_independent(point_rel)
         self.assert_close(point_prime, point)
 
     def test_find_relative_undoes_pose(self):
         loc = (-13, 27, -127)
         qrot = _make_quat(np.array((-1, 0.1, -0.37)), 7 * np.pi / 26)
-        tf = trans.Transform(location=loc, rotation=qrot, w_first=True)
+        trans = tf.Transform(location=loc, rotation=qrot, w_first=True)
 
-        pose = trans.Transform(location=(10, 100, -5), rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
-        pose_rel = tf.find_relative(pose)
-        pose_prime = tf.find_independent(pose_rel)
+        pose = tf.Transform(location=(10, 100, -5), rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        pose_rel = trans.find_relative(pose)
+        pose_prime = trans.find_independent(pose_rel)
 
         self.assert_close(pose_prime.location, pose.location)
         self.assert_close(pose_prime.rotation_quat(w_first=True), pose.rotation_quat(w_first=True))
 
     def test_find_relative_preserves_equals(self):
-        start_pose = trans.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        tf = trans.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        start_pose = tf.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose = start_pose
         for _ in range(10):
-            pose = tf.find_independent(tf.find_relative(pose))
+            pose = trans.find_independent(trans.find_relative(pose))
             self.assertEqual(pose, start_pose)
 
     def test_relative_pose_contains_relative_point(self):
         loc = (-13, 27, -127)
         qrot = _make_quat(np.array((-1, 0.1, -0.37)), 7 * np.pi / 26)
-        tf = trans.Transform(location=loc, rotation=qrot, w_first=True)
+        trans = tf.Transform(location=loc, rotation=qrot, w_first=True)
 
         point = np.array([41, -153, 16])
-        pose = trans.Transform(location=point, rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
-        pose_rel = tf.find_relative(pose)
+        pose = tf.Transform(location=point, rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        pose_rel = trans.find_relative(pose)
         point_rel = pose_rel.location
-        point_prime = tf.find_independent(point_rel)
+        point_prime = trans.find_independent(point_rel)
 
         self.assert_close(point, point_prime)
 
     def test_serialize_and_deserialise(self):
         random = np.random.RandomState(seed=1251)
         for _ in range(200):
-            entity1 = trans.Transform(location=random.uniform(-1000, 1000, 3),
-                                      rotation=random.uniform(-1, 1, 4), w_first=True)
+            entity1 = tf.Transform(location=random.uniform(-1000, 1000, 3),
+                                   rotation=random.uniform(-1, 1, 4), w_first=True)
             s_entity1 = entity1.serialize()
 
-            entity2 = trans.Transform.deserialize(s_entity1)
+            entity2 = tf.Transform.deserialize(s_entity1)
             s_entity2 = entity2.serialize()
             self.assertEqual(entity1, entity2)
             self.assertEqual(s_entity1, s_entity2)
 
             for idx in range(10):
                 # Test that repeated serialization and deserialization does not degrade the information
-                entity2 = trans.Transform.deserialize(s_entity2)
+                entity2 = tf.Transform.deserialize(s_entity2)
                 s_entity2 = entity2.serialize()
                 self.assertEqual(entity1, entity2)
                 self.assertEqual(s_entity1, s_entity2)
 
     def test_forward_is_forward_vector(self):
-        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
         self.assert_close((np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.forward)
 
-        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
         self.assert_close((np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.forward)
 
     def test_forward_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
-        pose = trans.Transform(rotation=quat, w_first=True)
+        pose = tf.Transform(rotation=quat, w_first=True)
         forward = pose.forward
         for _ in range(10):
-            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(forward, pose.forward)
 
     def test_back_is_back_vector(self):
-        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
         self.assert_close((-np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.back)
 
-        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
         self.assert_close((-np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.back)
 
     def test_back_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
-        pose = trans.Transform(rotation=quat, w_first=True)
+        pose = tf.Transform(rotation=quat, w_first=True)
         back = pose.back
         for _ in range(10):
-            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(back, pose.back)
 
     def test_left_is_left_vector(self):
-        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         self.assert_close((0, np.sqrt(2) / 2, np.sqrt(2) / 2), pose.left)
 
-        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
         self.assert_close((-np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.left)
 
     def test_left_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
-        pose = trans.Transform(rotation=quat, w_first=True)
+        pose = tf.Transform(rotation=quat, w_first=True)
         left = pose.left
         for _ in range(10):
-            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(left, pose.left)
 
     def test_right_is_left_vector(self):
-        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         self.assert_close((0, -np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.right)
 
-        pose = trans.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
         self.assert_close((np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.right)
 
     def test_right_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
-        pose = trans.Transform(rotation=quat, w_first=True)
+        pose = tf.Transform(rotation=quat, w_first=True)
         right = pose.right
         for _ in range(10):
-            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(right, pose.right)
 
     def test_up_is_up_vector(self):
-        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         self.assert_close((0, -np.sqrt(2) / 2, np.sqrt(2) / 2), pose.up)
 
-        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
         self.assert_close((np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.up)
 
     def test_up_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
-        pose = trans.Transform(rotation=quat, w_first=True)
+        pose = tf.Transform(rotation=quat, w_first=True)
         up = pose.up
         for _ in range(10):
-            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(up, pose.up)
 
     def test_down_is_down_vector(self):
-        pose = trans.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         self.assert_close((0, np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.down)
 
-        pose = trans.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
+        pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
         self.assert_close((-np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.down)
 
     def test_down_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
-        pose = trans.Transform(rotation=quat, w_first=True)
+        pose = tf.Transform(rotation=quat, w_first=True)
         down = pose.down
         for _ in range(10):
-            pose = trans.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
+            pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
             self.assert_array(down, pose.down)
 
     def test_robust_normalize_sets_the_norm_to_approximately_1(self):
         for _ in range(100):
             x = np.random.uniform(-1, 1, 4)
-            normed_x = trans.robust_normalize(x)
+            normed_x = tf.robust_normalize(x)
             self.assertTrue(np.isclose([1.0], [np.linalg.norm(normed_x)], atol=1e-14))
 
     def test_robust_normalize_doesnt_change_values_where_norm_is_already_1(self):
         for _ in range(100):
             x = np.random.uniform(-1, 1, 4)
-            x = trans.robust_normalize(x)
-            normed_x = trans.robust_normalize(x)
+            x = tf.robust_normalize(x)
+            normed_x = tf.robust_normalize(x)
             self.assert_array(x, normed_x)
 
     def assert_array(self, arr1, arr2, msg=None):
@@ -361,3 +367,205 @@ class TestTransform(unittest.TestCase):
         if msg is None:
             msg = "{0} is not close to {1}".format(str(a1), str(a2))
         self.assertTrue(np.all(np.isclose(a1, a2)), msg)
+
+
+class TestHelpers(unittest.TestCase):
+
+    def test_robust_normalize_normalizes_vector(self):
+        vector = np.array([1, 2, 3])
+        result = tf.robust_normalize(vector)
+        self.assertAlmostEqual(1.0, np.linalg.norm(result), places=14)
+
+    def test_robust_normalize_doesnt_change_already_unit_vectors(self):
+        random = np.random.RandomState()
+        for _ in range(100):
+            vector = random.uniform(-1, 1, 4)
+            norm_vector1 = tf.robust_normalize(vector)
+            norm_vector2 = tf.robust_normalize(norm_vector1)
+            self.assertTrue(np.array_equal(norm_vector1, norm_vector2))
+
+    def test_quat_angle(self):
+        theta = 1.32234252
+        quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), theta)
+        result = tf.quat_angle(quat)
+        self.assertEqual(theta, result)
+
+    def test_quat_diff_finds_simple_angle_between(self):
+        quat1 = np.array([1, 0, 0, 0])
+        quat2 = tf3d.quaternions.axangle2quat(np.array([0, 0, 1]), np.pi / 6)
+        result = tf.quat_diff(quat1, quat2)
+        self.assertAlmostEqual(np.pi / 6, result)
+
+    def test_quat_diff_finds_angle_between(self):
+        theta = 0.32234252  # Less than pi on 4
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), theta)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -theta)
+        result = tf.quat_diff(quat1, quat2)
+        self.assertAlmostEqual(2 * theta, result)
+
+    def test_quat_diff_finds_angle_less_than_180deg(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), 2 * np.pi / 3)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -2 * np.pi / 3)
+        result = tf.quat_diff(quat1, quat2)
+        self.assertAlmostEqual(2 * np.pi / 3, result)
+
+    def test_quat_diff_handles_handedness(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
+        result1 = tf.quat_diff(quat1, quat2)
+        result2 = tf.quat_diff(quat1, -1 * quat2)
+        result3 = tf.quat_diff(-1 * quat1, quat2)
+        result4 = tf.quat_diff(-1 * quat1, -1 * quat2)
+        self.assertEqual(result1, result2)
+        self.assertEqual(result1, result3)
+        self.assertEqual(result1, result4)
+        self.assertAlmostEqual(np.pi / 3, result1)
+        self.assertAlmostEqual(np.pi / 3, result2)
+        self.assertAlmostEqual(np.pi / 3, result3)
+        self.assertAlmostEqual(np.pi / 3, result4)
+
+    def test_quat_diff_is_reflexive(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
+        result1 = tf.quat_diff(quat1, quat2)
+        result2 = tf.quat_diff(quat2, quat1)
+        self.assertEqual(result1, result2)
+        self.assertAlmostEqual(np.pi / 3, result1)
+        self.assertAlmostEqual(np.pi / 3, result2)
+
+    def test_quat_diff_exhaustive(self):
+        for degrees in range(360):
+            theta = np.pi * degrees / 180
+            axis = np.random.uniform(-1, 1, 3)
+            quat1 = tf3d.quaternions.axangle2quat(axis, theta)
+            quat2 = tf3d.quaternions.axangle2quat(axis, -1 * theta)
+            result1 = tf.quat_diff(quat1, quat2)
+            result2 = tf.quat_diff(quat2, quat1)
+            self.assertEqual(result1, result2)
+
+            answer = 2 * theta
+            answer -= (answer // (2 * np.pi)) * 2 * np.pi
+            if answer > np.pi:
+                answer = 2 * np.pi - answer
+            self.assertAlmostEqual(answer, result1)
+            self.assertAlmostEqual(answer, result2)
+
+    def test_quat_mean_of_single_quat_is_that_quat(self):
+        quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), 1.32234252)
+        mean = tf.quat_mean([quat])
+        self.assertNPEqual(quat, mean)
+
+    def test_quat_mean_of_two_mirroed_is_zero(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+    def test_quat_mean_of_two_is_halfway_between(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), np.pi / 3)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), -np.pi / 6)
+        mean = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), np.pi / 4 - np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        angle1 = tf.quat_diff(result, quat1)
+        angle2 = tf.quat_diff(result, quat2)
+        self.assertEqual(angle1, angle2, "{0} != {1}".format(180 * angle1 / np.pi, 180 * angle2 / np.pi))
+        self.assertNPClose(result, mean)
+
+    def test_quat_mean_of_two_close_together_is_halfway_between(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -2 * np.pi / 3 + np.pi / 360)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -2 * np.pi / 3 - np.pi / 360)
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -2 * np.pi / 3)
+        result = tf.quat_mean([quat1, quat2])
+        angle1 = tf.quat_diff(result, quat1)
+        angle2 = tf.quat_diff(result, quat2)
+        self.assertEqual(angle1, angle2)
+        self.assertNPClose(mean, result)
+
+    def test_quat_mean_of_two_handles_handedness(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
+        mean1 = tf.quat_mean([quat1, quat2])
+        mean2 = tf.quat_mean([quat1, -1 * quat2])
+        mean3 = tf.quat_mean([-1 * quat1, quat2])
+        mean4 = tf.quat_mean([-1 * quat1, -1 * quat2])
+        self.assertNPClose(mean1, mean2)
+        self.assertNPClose(mean1, mean3)
+        self.assertNPClose(mean1, mean4)
+        self.assertNPClose([1, 0, 0, 0], mean1)
+        self.assertNPClose([1, 0, 0, 0], mean2)
+        self.assertNPClose([1, 0, 0, 0], mean3)
+        self.assertNPClose([1, 0, 0, 0], mean4)
+
+    def test_quat_mean_of_many_symetric_quats(self):
+        quaternions = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 2, np.pi / 2)
+            axis = np.random.uniform(-1, 1, 3)
+            quaternions.append(tf3d.quaternions.axangle2quat(axis, angle))
+            quaternions.append(tf3d.quaternions.axangle2quat(axis, -1 * angle))
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose([1, 0, 0, 0], result)
+
+    def test_quat_mean_of_many_quats(self):
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 2, np.pi / 2)
+            axis = np.random.uniform(-1, 1, 3)
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(result, mean)
+
+    def test_quat_mean_of_many_identical_quats(self):
+        quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = [quat for _ in range(10)]
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(quat, result)
+
+        quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
+        quaternions = [quat for _ in range(10)]
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(quat, result)
+
+    def test_quat_mean_of_many_close_together_quats(self):
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 360, np.pi / 360)
+            axis = np.random.uniform(-1, 1, 3)
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(mean, result)
+
+    def test_quat_mean_ignores_handedness(self):
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 2, np.pi / 2)
+            axis = np.random.uniform(-1, 1, 3)
+            quaternions.append(np.random.choice([-1, 1]) *
+                               tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
+            quaternions.append(np.random.choice([-1, 1]) *
+                               tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(result, mean)
+
+    def test_quat_mean_ignores_order(self):
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 2, np.pi / 2)
+            axis = np.random.uniform(-1, 1, 3)
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+        np.random.shuffle(quaternions)
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(result, mean)
+
+    def assertNPEqual(self, arr1, arr2):
+        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
+
+    def assertNPClose(self, arr1, arr2):
+        self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
