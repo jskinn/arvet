@@ -28,6 +28,26 @@ def load_object(db_client: arvet.database.client.DatabaseClient, collection: pym
     return None
 
 
+def load_many_objects(db_client: arvet.database.client.DatabaseClient, collection: pymongo.collection.Collection,
+                      ids: typing.Iterable[bson.ObjectId], **kwargs) -> typing.List[arvet.database.entity.Entity]:
+    """
+    Another helper to load a group of objects from the same collection in the database.
+    With the trials being repeated
+    :param db_client: The database client for deserialising
+    :param collection: The collection to load from
+    :param ids: The ids of the objects to load
+    :param kwargs: Additional keyword arguments supplied to the deserialize for all objects
+    :return:
+    """
+    s_objects = collection.find({'_id': {'$in': list(ids)}})
+    results = []
+    for s_object in s_objects:
+        obj = db_client.deserialize_entity(s_object, **kwargs)
+        if obj is not None:
+            results.append(obj)
+    return results
+
+
 def query_to_dot_notation(query: dict, flatten_arrays: bool = False) -> dict:
     """
     Recursively transform a query containing nested dicts to mongodb dot notation.
@@ -86,8 +106,8 @@ def add_schema_version(serialized: dict, schema_name: str, version_number: int):
     """
     Add a schema version to a serialized representation. This lets us handle patching and updating dynamically.
     All schemas have a unique name, and a given document may have multiple schemas due to it's inheritance hierarchy.
-    For instance, A robot vision system will have schemas for base arvet.database.entity.Entity, arvet.core.system.VisionSystem,
-    and then a third schema for data specific to that system.
+    For instance, A robot vision system will have schemas for base arvet.database.entity.Entity,
+    arvet.core.system.VisionSystem, and then a third schema for data specific to that system.
     Using this method gives us a standardized way of storing schema versions in the serialized document,
     and helps prevent collisions between the version numbers for different partial schema on the same document.
     :param serialized: The base serialized document, which will have a version number added to it
@@ -121,4 +141,19 @@ def check_reference_is_valid(collection: pymongo.collection.Collection, id_: bso
     :param id_: The id to find
     :return: True if the id exists within the collection, false otherwise
     """
-    return collection.find({'_id': id_}).count() > 0
+    return collection.find({'_id': id_}).count(with_limit_and_skip=True) > 0
+
+
+def check_many_references(collection: pymongo.collection.Collection, ids: typing.Iterable[bson.ObjectId]) \
+        -> typing.Set[bson.ObjectId]:
+    """
+    Check many ids simultaneously, useful for maps and lists of ids.
+    Uses fewer queries than checking each id individually.
+    :param collection: The collection to look for the ids in
+    :param ids: The group of ids to check, which will be copied
+    :return: The set of ids that do not exist in the database, which may be empty
+    """
+    id_list = list(ids)
+    if len(id_list) > 0:
+        return set(ids) - set(result['_id'] for result in collection.find({'_id': {'$in': id_list}}, {'_id': True}))
+    return set()

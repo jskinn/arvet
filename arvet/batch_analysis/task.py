@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import pymongo.collection
 import enum
+import bson
 import arvet.database.entity
 import arvet.database.client
 import arvet.config.path_manager
@@ -37,8 +38,10 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
     Instead, call the appropriate get method on task manager to get a new task instance.
     """
 
-    def __init__(self, state=JobState.UNSTARTED, node_id=None, job_id=None, result=None, num_cpus=1, num_gpus=0,
-                 memory_requirements='3GB', expected_duration='1:00:00', id_=None):
+    def __init__(self, state=JobState.UNSTARTED,
+                 node_id: str = None, job_id: int = None,
+                 result: bson.ObjectId = None, num_cpus: int = 1, num_gpus: int = 0,
+                 memory_requirements: str = '3GB', expected_duration: str = '1:00:00', id_: bson.ObjectId=None):
         super().__init__(id_=id_)
         self._state = JobState(state)
         self._node_id = node_id
@@ -60,7 +63,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         return JobState.DONE == self._state
 
     @property
-    def result(self):
+    def result(self) -> bson.ObjectId:
         """
         Get the result from running this task, usually a database id.
         :return:
@@ -111,7 +114,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         return self._expected_duration
 
     def run_task(self, path_manager: arvet.config.path_manager.PathManager,
-                 db_client: arvet.database.client.DatabaseClient):
+                 db_client: arvet.database.client.DatabaseClient) -> None:
         """
         Actually perform the task.
         Different subtypes do different things.
@@ -147,7 +150,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
                 if self._updates['$unset'] == {}:
                     del self._updates['$unset']
 
-    def change_job_id(self, node_id: str, job_id: int):
+    def change_job_id(self, node_id: str, job_id: int) -> None:
         """
         Change the node_id and job_id of this task. This is used if the task takes several jobs to complete.
         Only works while the job is running.
@@ -173,7 +176,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
                 if self._updates['$unset'] == {}:
                     del self._updates['$unset']
 
-    def mark_job_complete(self, result):
+    def mark_job_complete(self, result: bson.ObjectId) -> None:
         """
         Mark the task complete, with a particular result.
         :param result: The result of the job
@@ -199,7 +202,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
             if 'job_id' in self._updates['$set']:
                 del self._updates['$set']['job_id']
 
-    def mark_job_failed(self):
+    def mark_job_failed(self) -> None:
         """
         A running task has failed, return it to unstarted state so we can try again.
         :return:
@@ -222,7 +225,7 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
             if 'job_id' in self._updates['$set']:
                 del self._updates['$set']['job_id']
 
-    def save_updates(self, collection: pymongo.collection.Collection):
+    def save_updates(self, collection: pymongo.collection.Collection) -> None:
         """
         Push updates to the task state to the database
         :param collection: The collection to store in

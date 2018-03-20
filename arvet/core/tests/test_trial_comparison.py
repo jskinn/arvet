@@ -15,8 +15,8 @@ class TestTrialComparisonResult(entity_test.EntityContract, unittest.TestCase):
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'benchmark_id': 1,
-            'trial_result_id': 2,
-            'reference_id': 3,
+            'trial_result_ids': [2, 3, 4],
+            'reference_ids': [5, 6, 7],
             'success': True
         })
         return arvet.core.trial_comparison.TrialComparisonResult(*args, **kwargs)
@@ -34,5 +34,5 @@ class TestTrialComparisonResult(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
         self.assertEqual(benchmark_result1.success, benchmark_result2.success)
         self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
-        self.assertEqual(benchmark_result1.reference_trial_result, benchmark_result2.reference_trial_result)
+        self.assertEqual(benchmark_result1.trial_results, benchmark_result2.trial_results)
+        self.assertEqual(benchmark_result1.reference_trial_results, benchmark_result2.reference_trial_results)

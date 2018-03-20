@@ -22,7 +22,7 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
                  datasets=None,
                  benchmarks=None,
                  repeats=1,
-                 trial_map=None, result_map=None, enabled=True, id_=None):
+                 trial_map=None, enabled=True, id_=None):
         """
         Constructor. We need parameters to load the different stored parts of this experiment
         :param systems: The map of systems in this experiment
@@ -30,11 +30,10 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
         :param benchmarks: The map of benchmarks in this experiment
         :param repeats: The number of repeats for the systems
         :param trial_map: The map of systems and image sources to trials
-        :param result_map: The map of trials and benchmarks to results
         :param enabled: Is this experiment enabled
         :param id_: The id of the experiment, passed to Entity constructor
         """
-        super().__init__(id_=id_, trial_map=trial_map, result_map=result_map, enabled=enabled)
+        super().__init__(id_=id_, trial_map=trial_map, enabled=enabled)
         self._systems = systems if systems is not None else {}
         self._datasets = datasets if datasets is not None else {}
         self._benchmarks = benchmarks if benchmarks is not None else {}

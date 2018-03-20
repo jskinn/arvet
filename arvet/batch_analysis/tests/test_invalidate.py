@@ -554,92 +554,103 @@ class TestInvalidateTrial(unittest.TestCase):
 
         # Create run system tasks and trial results
         self.run_system_tasks = {}
-        self.trial_results = []
+        self.trial_result_groups = []
         for image_collection_id in self.image_collections:
             for system_id in self.systems:
-                trial_result_id = self.mock_db_client.trials_collection.insert_one(
-                    arvet.core.trial_result.TrialResult(
-                        system_id, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
-                    ).serialize()
-                ).inserted_id
-                self.trial_results.append(trial_result_id)
-                self.run_system_tasks[trial_result_id] = self.mock_db_client.tasks_collection.insert_one(
-                    run_system_task.RunSystemTask(system_id, image_collection_id, result=trial_result_id,
-                                                  state=arvet.batch_analysis.task.JobState.DONE).serialize()
-                ).inserted_id
+                trial_result_group = []
+                for repeat in range(3):
+                    trial_result_id = self.mock_db_client.trials_collection.insert_one(
+                        arvet.core.trial_result.TrialResult(
+                            system_id, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}
+                        ).serialize()
+                    ).inserted_id
+                    trial_result_group.append(trial_result_id)
+                    self.run_system_tasks[trial_result_id] = self.mock_db_client.tasks_collection.insert_one(
+                        run_system_task.RunSystemTask(system_id, image_collection_id, repeat, result=trial_result_id,
+                                                      state=arvet.batch_analysis.task.JobState.DONE).serialize()
+                    ).inserted_id
+                self.trial_result_groups.append(trial_result_group)
 
         self.benchmark_trial_tasks = {}
         self.benchmark_results = {}
-        for trial_result_id in self.trial_results:
-            self.benchmark_trial_tasks[trial_result_id] = []
-            self.benchmark_results[trial_result_id] = []
+        for group_id, trial_result_group in enumerate(self.trial_result_groups):
+            self.benchmark_trial_tasks[group_id] = []
+            self.benchmark_results[group_id] = []
             for benchmark_id in self.benchmarks:
                 result_id = self.mock_db_client.results_collection.insert_one(
-                    arvet.core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
-                self.benchmark_results[trial_result_id].append(result_id)
-                self.benchmark_trial_tasks[trial_result_id].append(
+                    arvet.core.benchmark.BenchmarkResult(benchmark_id, trial_result_group, True).serialize()
+                ).inserted_id
+                self.benchmark_results[group_id].append(result_id)
+                self.benchmark_trial_tasks[group_id].append(
                     self.mock_db_client.tasks_collection.insert_one(
                         benchmark_trial_task.BenchmarkTrialTask(
-                            trial_result_id, benchmark_id,
+                            trial_result_group, benchmark_id,
                             result=result_id, state=arvet.batch_analysis.task.JobState.DONE).serialize()
                     ).inserted_id
                 )
 
             for benchmark_id in self.unfinished_benchmarks:
-                self.benchmark_trial_tasks[trial_result_id].append(
+                self.benchmark_trial_tasks[group_id].append(
                     self.mock_db_client.tasks_collection.insert_one(
                         benchmark_trial_task.BenchmarkTrialTask(
-                            trial_result_id, benchmark_id,
+                            trial_result_group, benchmark_id,
                             state=arvet.batch_analysis.task.JobState.UNSTARTED).serialize()
                     ).inserted_id
                 )
 
     def test_invalidate_trial_removes_tasks(self):
-        self.assertEqual(len(self.trial_results) * (1 + len(self.benchmarks) + len(self.unfinished_benchmarks)),
+        self.assertEqual(sum(len(trial_result_group) for trial_result_group in self.trial_result_groups) +
+                         len(self.trial_result_groups) * (len(self.benchmarks) + len(self.unfinished_benchmarks)),
                          self.mock_db_client.tasks_collection.find().count())
-        invalidate.invalidate_trial_result(self.mock_db_client, self.trial_results[0])
+
+        # Invalidate the first trial of the first group
+        invalidate.invalidate_trial_result(self.mock_db_client, self.trial_result_groups[0][0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual((len(self.trial_results) - 1) * (1 + len(self.benchmarks) + len(self.unfinished_benchmarks)),
+        self.assertEqual(sum(len(trial_result_group) for trial_result_group in self.trial_result_groups) - 1 +
+                         (len(self.trial_result_groups) - 1) * (len(self.benchmarks) + len(self.unfinished_benchmarks)),
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated trial are removed
         self.assertEqual(0, self.mock_db_client.tasks_collection.find({
-            '_id': self.run_system_tasks[self.trial_results[0]]}).count())
-        for benchmark_task in self.benchmark_trial_tasks[self.trial_results[0]]:
+            '_id': self.run_system_tasks[self.trial_result_groups[0][0]]}).count())
+        for benchmark_task in self.benchmark_trial_tasks[0]:
             self.assertEqual(0, self.mock_db_client.tasks_collection.find({'_id': benchmark_task}).count())
 
         # Check that the remaining tasks are still there.
-        for i in range(1, len(self.trial_results)):
+        for i in range(1, len(self.trial_result_groups[0])):
             self.assertEqual(1, self.mock_db_client.tasks_collection.find({
-                '_id': self.run_system_tasks[self.trial_results[i]]}).count())
-            for benchmark_task in self.benchmark_trial_tasks[self.trial_results[i]]:
+                '_id': self.run_system_tasks[self.trial_result_groups[0][i]]}).count())
+        for i in range(1, len(self.trial_result_groups)):
+            for benchmark_task in self.benchmark_trial_tasks[i]:
                 self.assertEqual(1, self.mock_db_client.tasks_collection.find({'_id': benchmark_task}).count())
 
     def test_invalidate_trial_invalidates_results(self):
         with mock.patch('arvet.batch_analysis.invalidate.invalidate_benchmark_result') as mock_invalidate_result:
-            invalidate.invalidate_trial_result(self.mock_db_client, self.trial_results[0])
+            invalidate.invalidate_trial_result(self.mock_db_client, self.trial_result_groups[0][0])
 
             # Check that all the descendant results are invalidated
-            for result_id in self.benchmark_results[self.trial_results[0]]:
+            for result_id in self.benchmark_results[0]:
                 self.assertIn(mock.call(self.mock_db_client, result_id),
                               mock_invalidate_result.call_args_list)
 
             # Check that the other results are not invalidated
-            for i in range(1, len(self.trial_results)):
-                for result_id in self.benchmark_results[self.trial_results[i]]:
+            for i in range(1, len(self.trial_result_groups)):
+                for result_id in self.benchmark_results[i]:
                     self.assertNotIn(mock.call(self.mock_db_client, result_id),
                                      mock_invalidate_result.call_args_list)
 
     def test_invalidate_trial_removes_trial(self):
-        invalidate.invalidate_trial_result(self.mock_db_client, self.trial_results[0])
-        # Check that the image collection is removed
+        invalidate.invalidate_trial_result(self.mock_db_client, self.trial_result_groups[0][0])
+        # Check that the trial result is removed
         self.assertEqual(0, self.mock_db_client.trials_collection.find({
-            '_id': self.trial_results[0]}).count())
-        # Check that the other collections are still here
-        for i in range(1, len(self.trial_results)):
-            self.assertEqual(1, self.mock_db_client.trials_collection.find({
-                '_id': self.trial_results[i]}).count())
+            '_id': self.trial_result_groups[0][0]}).count())
+        # Check that the other trial results are still here
+        for i in range(len(self.trial_result_groups)):
+            for j in range(len(self.trial_result_groups[i])):
+                if i is not 0 and j is not 0:
+                    self.assertEqual(1, self.mock_db_client.trials_collection.find({
+                        '_id': self.trial_result_groups[i][j]}).count())
 
 
 class TestInvalidateBenchmark(unittest.TestCase):
@@ -649,14 +660,14 @@ class TestInvalidateBenchmark(unittest.TestCase):
         self.mock_db_client = self.zombie_db_client.mock
 
         # Create the basic trial results and benchmarks
-        self.trial_results = [self.mock_db_client.trials_collection.insert_one(
+        self.trial_result_groups = [[self.mock_db_client.trials_collection.insert_one(
             arvet.core.trial_result.TrialResult(
                 bson.ObjectId(), True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()
-        ).inserted_id for _ in range(2)]
-        self.unfinished_trials = [self.mock_db_client.trials_collection.insert_one(
+        ).inserted_id for _ in range(2)] for _ in range(2)]
+        self.unfinished_trial_groups = [[self.mock_db_client.trials_collection.insert_one(
             arvet.core.trial_result.TrialResult(
                 bson.ObjectId(), True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {}).serialize()
-        ).inserted_id for _ in range(2)]
+        ).inserted_id for _ in range(2)] for _ in range(2)]
         self.benchmarks = [self.mock_db_client.benchmarks_collection.insert_one(
             mock_core.MockBenchmark().serialize()).inserted_id for _ in range(2)]
 
@@ -667,34 +678,36 @@ class TestInvalidateBenchmark(unittest.TestCase):
         for benchmark_id in self.benchmarks:
             self.benchmark_trial_tasks[benchmark_id] = []
             self.benchmark_results[benchmark_id] = []
-            for trial_result_id in self.trial_results:
+            for trial_result_group in self.trial_result_groups:
                 result_id = self.mock_db_client.results_collection.insert_one(
-                    arvet.core.benchmark.BenchmarkResult(benchmark_id, trial_result_id, True).serialize()).inserted_id
+                    arvet.core.benchmark.BenchmarkResult(benchmark_id, trial_result_group, True).serialize()
+                ).inserted_id
                 self.benchmark_results[benchmark_id].append(result_id)
                 self.benchmark_trial_tasks[benchmark_id].append(
                     self.mock_db_client.tasks_collection.insert_one(
                         benchmark_trial_task.BenchmarkTrialTask(
-                            trial_result_id, benchmark_id,
+                            trial_result_group, benchmark_id,
                             result=result_id, state=arvet.batch_analysis.task.JobState.DONE).serialize()
                     ).inserted_id
                 )
 
-            for trial_result_id in self.unfinished_trials:
+            for trial_result_group in self.unfinished_trial_groups:
                 self.benchmark_trial_tasks[benchmark_id].append(
                     self.mock_db_client.tasks_collection.insert_one(
                         benchmark_trial_task.BenchmarkTrialTask(
-                            trial_result_id, benchmark_id,
+                            trial_result_group, benchmark_id,
                             state=arvet.batch_analysis.task.JobState.UNSTARTED).serialize()
                     ).inserted_id
                 )
 
     def test_invalidate_benchmark_removes_tasks(self):
-        self.assertEqual((len(self.trial_results) + len(self.unfinished_trials)) * (len(self.benchmarks)),
+        self.assertEqual((len(self.trial_result_groups) + len(self.unfinished_trial_groups)) * (len(self.benchmarks)),
                          self.mock_db_client.tasks_collection.find().count())
         invalidate.invalidate_benchmark(self.mock_db_client, self.benchmarks[0])
 
         # Check that the total number of tasks has gone down like we expected
-        self.assertEqual((len(self.trial_results) + len(self.unfinished_trials)) * (len(self.benchmarks) - 1),
+        self.assertEqual((len(self.trial_result_groups) + len(self.unfinished_trial_groups)) *
+                         (len(self.benchmarks) - 1),
                          self.mock_db_client.tasks_collection.find().count())
 
         # Check explicitly that each of the tasks associated with the invalidated benchmark are removed
@@ -743,11 +756,14 @@ class TestInvalidateResult(unittest.TestCase):
         self.benchmark_results = []
         for _ in range(2):
             result_id = self.mock_db_client.results_collection.insert_one(
-                arvet.core.benchmark.BenchmarkResult(bson.ObjectId(), bson.ObjectId(), True).serialize()).inserted_id
+                arvet.core.benchmark.BenchmarkResult(
+                    bson.ObjectId(), [bson.ObjectId(), bson.ObjectId()], True
+                ).serialize()
+            ).inserted_id
             self.benchmark_results.append(result_id)
             self.benchmark_trial_tasks[result_id] = self.mock_db_client.tasks_collection.insert_one(
                 benchmark_trial_task.BenchmarkTrialTask(
-                    bson.ObjectId(), bson.ObjectId(),
+                    [bson.ObjectId() for _ in range(3)], bson.ObjectId(),
                     result=result_id, state=arvet.batch_analysis.task.JobState.DONE).serialize()
             ).inserted_id
 

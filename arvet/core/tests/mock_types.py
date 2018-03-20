@@ -89,5 +89,9 @@ class MockBenchmark(arvet.core.benchmark.Benchmark):
     def is_trial_appropriate(self, trial_result):
         return True
 
-    def benchmark_results(self, trial_result):
-        return arvet.core.benchmark.BenchmarkResult(self.identifier, trial_result.identifier, True)
+    def benchmark_results(self, trial_results):
+        return arvet.core.benchmark.BenchmarkResult(
+            self.identifier,
+            [trial_result.identifier for trial_result in trial_results],
+            True
+        )

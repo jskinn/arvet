@@ -42,14 +42,14 @@ class ZombieTaskManager:
             lambda trainer_id, trainee_id, *_, **__:
                 self.get_train_system_task(trainer_id, trainee_id))
         mock_task_manager.get_run_system_task.side_effect = (
-            lambda system_id, image_source_id, *_, **__:
-                self.get_run_system_task(system_id, image_source_id))
+            lambda system_id, image_source_id, repeat=0, *_, **__:
+                self.get_run_system_task(system_id, image_source_id, repeat))
         mock_task_manager.get_benchmark_task.side_effect = (
-            lambda trial_result_id, benchmark_id, *_, **__:
-                self.get_benchmark_task(trial_result_id, benchmark_id))
+            lambda trial_result_ids, benchmark_id, *_, **__:
+                self.get_benchmark_task(trial_result_ids, benchmark_id))
         mock_task_manager.get_trial_comparison_task.side_effect = (
-            lambda trial_result1_id, trial_result2_id, comparison_id, *_, **__:
-                self.get_trial_comparison_task(trial_result1_id, trial_result2_id, comparison_id))
+            lambda trial_result_ids, reference_trial_result_ids, comparison_id, *_, **__:
+                self.get_trial_comparison_task(trial_result_ids, reference_trial_result_ids, comparison_id))
         mock_task_manager.get_benchmark_comparison_task.side_effect = (
             lambda benchmark_result1_id, benchmark_result2_id, comparison_id, *_, **__:
                 self.get_benchmark_comparison_task(benchmark_result1_id, benchmark_result2_id, comparison_id))
@@ -140,60 +140,66 @@ class ZombieTaskManager:
             )
         return self._train_system_tasks[trainer_id][trainee_id]
 
-    def get_run_system_task(self, system_id, image_source_id):
+    def get_run_system_task(self, system_id, image_source_id, repeat=0):
         """
         Get a task to run a system.
         Most of the parameters are resources requirements passed to the job system.
         :param system_id: The id of the vision system to test
         :param image_source_id: The id of the image source to test with
+        :param repeat: The repeat of this combination, so we can run the same system repeatedly with the same data
         :return: A RunSystemTask
         """
         if system_id not in self._run_system_tasks:
             self._run_system_tasks[system_id] = {}
         if image_source_id not in self._run_system_tasks[system_id]:
-            self._run_system_tasks[system_id][image_source_id] = rst.RunSystemTask(
+            self._run_system_tasks[system_id][image_source_id] = {}
+        if repeat not in self._run_system_tasks[system_id][image_source_id]:
+            self._run_system_tasks[system_id][image_source_id][repeat] = rst.RunSystemTask(
                 system_id=system_id,
                 image_source_id=image_source_id
             )
-        return self._run_system_tasks[system_id][image_source_id]
+        return self._run_system_tasks[system_id][image_source_id][repeat]
 
-    def get_benchmark_task(self, trial_result_id, benchmark_id):
+    def get_benchmark_task(self, trial_result_ids, benchmark_id):
         """
         Get a task to benchmark a trial result.
         Most of the parameters are resources requirements passed to the job system.
-        :param trial_result_id: The id of the trial result to benchmark
+        :param trial_result_ids: The ids of the trial results to benchmark
         :param benchmark_id: The id of the benchmark to use
         :return: A BenchmarkTrialTask
         """
-        if trial_result_id not in self._benchmark_tasks:
-            self._benchmark_tasks[trial_result_id] = {}
-        if benchmark_id not in self._benchmark_tasks[trial_result_id]:
-            self._benchmark_tasks[trial_result_id][benchmark_id] = btt.BenchmarkTrialTask(
-                trial_result_id=trial_result_id,
+        key = ''.join([str(id_) for id_ in sorted(trial_result_ids)])
+        if key not in self._benchmark_tasks:
+            self._benchmark_tasks[key] = {}
+        if benchmark_id not in self._benchmark_tasks[key]:
+            self._benchmark_tasks[key][benchmark_id] = btt.BenchmarkTrialTask(
+                trial_result_ids=trial_result_ids,
                 benchmark_id=benchmark_id
             )
-        return self._benchmark_tasks[trial_result_id][benchmark_id]
+        return self._benchmark_tasks[key][benchmark_id]
 
-    def get_trial_comparison_task(self, trial_result1_id, trial_result2_id, comparison_id):
+    def get_trial_comparison_task(self, trial_result_ids, reference_trial_result_ids, comparison_id):
         """
         Get a task to compare two trial results.
         Most of the parameters are resources requirements passed to the job system.
-        :param trial_result1_id: The id of the first trial result to compare
-        :param trial_result2_id: The id of the second trial result to compare
+        :param trial_result_ids: The id of the first trial result to compare
+        :param reference_trial_result_ids: The id of the second trial result to compare
         :param comparison_id: The comparison benchmark to use
         :return: A CompareTrialTask
         """
+        key1 = ''.join([str(id_) for id_ in sorted(trial_result_ids)])
+        key2 = ''.join([str(id_) for id_ in sorted(reference_trial_result_ids)])
         if comparison_id not in self._compare_trials_tasks:
             self._compare_trials_tasks[comparison_id] = {}
-        if trial_result1_id not in self._compare_trials_tasks[comparison_id]:
-            self._compare_trials_tasks[comparison_id][trial_result1_id] = {}
-        if trial_result2_id not in self._compare_trials_tasks[comparison_id][trial_result1_id]:
-            self._compare_trials_tasks[comparison_id][trial_result1_id][trial_result2_id] = ctt.CompareTrialTask(
-                trial_result1_id=trial_result1_id,
-                trial_result2_id=trial_result2_id,
+        if key1 not in self._compare_trials_tasks[comparison_id]:
+            self._compare_trials_tasks[comparison_id][key1] = {}
+        if key2 not in self._compare_trials_tasks[comparison_id][key1]:
+            self._compare_trials_tasks[comparison_id][key1][key2] = ctt.CompareTrialTask(
+                trial_result_ids=trial_result_ids,
+                reference_trial_result_ids=reference_trial_result_ids,
                 comparison_id=comparison_id
             )
-        return self._compare_trials_tasks[comparison_id][trial_result1_id][trial_result2_id]
+        return self._compare_trials_tasks[comparison_id][key1][key2]
 
     def get_benchmark_comparison_task(self, benchmark_result1_id, benchmark_result2_id, comparison_id):
         """

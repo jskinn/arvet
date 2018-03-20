@@ -201,13 +201,13 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_benchmark_task(self, trial_result_id: bson.ObjectId, benchmark_id: bson.ObjectId,
+    def get_benchmark_task(self, trial_result_ids: typing.Iterable[bson.ObjectId], benchmark_id: bson.ObjectId,
                            num_cpus: int = 1, num_gpus: int = 0,
                            memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to benchmark a trial result.
         Most of the parameters are resources requirements passed to the job system.
-        :param trial_result_id: The id of the trial result to benchmark
+        :param trial_result_ids: The ids of the trial results to benchmark
         :param benchmark_id: The id of the benchmark to use
         :param num_cpus: The number of CPUs required for the job. Default 1.
         :param num_gpus: The number of GPUs required for the job. Default 0.
@@ -215,12 +215,15 @@ class TaskManager:
         :param expected_duration: The expected time this job will take. Default 1 hour.
         :return: A BenchmarkTrialTask
         """
-        existing = self._collection.find_one({'trial_result_id': trial_result_id, 'benchmark_id': benchmark_id})
+        existing = self._collection.find_one({
+            'trial_result_ids': {'$all': list(trial_result_ids)},
+            'benchmark_id': benchmark_id
+        })
         if existing is not None:
             return self._db_client.deserialize_entity(existing)
         else:
             return benchmark_task.BenchmarkTrialTask(
-                trial_result_id=trial_result_id,
+                trial_result_ids=trial_result_ids,
                 benchmark_id=benchmark_id,
                 num_cpus=num_cpus,
                 num_gpus=num_gpus,
@@ -228,14 +231,15 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
-    def get_trial_comparison_task(self, trial_result1_id: bson.ObjectId, trial_result2_id: bson.ObjectId,
+    def get_trial_comparison_task(self, trial_result_ids: typing.Iterable[bson.ObjectId],
+                                  reference_trial_result_ids: typing.Iterable[bson.ObjectId],
                                   comparison_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0,
                                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Get a task to compare two trial results.
         Most of the parameters are resources requirements passed to the job system.
-        :param trial_result1_id: The id of the first trial result to compare
-        :param trial_result2_id: The id of the second trial result to compare
+        :param trial_result_ids: The ids of the trial results to compare
+        :param reference_trial_result_ids: The id of the reference trial results to compare
         :param comparison_id: The id of the comparison benchmark to use
         :param num_cpus: The number of CPUs required for the job. Default 1.
         :param num_gpus: The number of GPUs required for the job. Default 0.
@@ -243,14 +247,15 @@ class TaskManager:
         :param expected_duration: The expected time this job will take. Default 1 hour.
         :return: A BenchmarkTrialTask
         """
-        existing = self._collection.find_one({'trial_result1_id': trial_result1_id,
-                                              'trial_result2_id': trial_result2_id, 'comparison_id': comparison_id})
+        existing = self._collection.find_one({'trial_result_ids': {'$all': list(trial_result_ids)},
+                                              'reference_trial_result_ids': {'$all': list(reference_trial_result_ids)},
+                                              'comparison_id': comparison_id})
         if existing is not None:
             return self._db_client.deserialize_entity(existing)
         else:
             return compare_trials_task.CompareTrialTask(
-                trial_result1_id=trial_result1_id,
-                trial_result2_id=trial_result2_id,
+                trial_result_ids=trial_result_ids,
+                reference_trial_result_ids=reference_trial_result_ids,
                 comparison_id=comparison_id,
                 num_cpus=num_cpus,
                 num_gpus=num_gpus,
@@ -320,11 +325,11 @@ class TaskManager:
                 existing_query['image_source_id'] = task.image_source
                 existing_query['repeat'] = task.repeat
             elif isinstance(task, benchmark_task.BenchmarkTrialTask):
-                existing_query['trial_result_id'] = task.trial_result
+                existing_query['trial_result_ids'] = {'$all': list(task.trial_results)}
                 existing_query['benchmark_id'] = task.benchmark
             elif isinstance(task, compare_trials_task.CompareTrialTask):
-                existing_query['trial_result1_id'] = task.trial_result1
-                existing_query['trial_result2_id'] = task.trial_result2
+                existing_query['trial_result_ids'] = {'$all': list(task.trial_results)}
+                existing_query['reference_trial_result_ids'] = {'$all': list(task.reference_trial_results)}
                 existing_query['comparison_id'] = task.comparison
             elif isinstance(task, compare_benchmarks_task.CompareBenchmarksTask):
                 existing_query['benchmark_result1_id'] = task.benchmark_result1

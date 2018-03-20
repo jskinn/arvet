@@ -15,8 +15,8 @@ class TestCompareTrialTask(arvet.database.tests.test_entity.EntityContract, unit
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'trial_result1_id': bson.ObjectId(),
-            'trial_result2_id': bson.ObjectId(),
+            'trial_result_ids': [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
+            'reference_trial_result_ids': [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
             'comparison_id': bson.ObjectId(),
             'state': arvet.batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
@@ -41,8 +41,8 @@ class TestCompareTrialTask(arvet.database.tests.test_entity.EntityContract, unit
                 not isinstance(task2, task.CompareTrialTask)):
             self.fail('object was not an CompareTrialTask')
         self.assertEqual(task1.identifier, task2.identifier)
-        self.assertEqual(task1.trial_result1, task2.trial_result1)
-        self.assertEqual(task1.trial_result2, task2.trial_result2)
+        self.assertEqual(task1.trial_results, task2.trial_results)
+        self.assertEqual(task1.reference_trial_results, task2.reference_trial_results)
         self.assertEqual(task1.comparison, task2.comparison)
         self.assertEqual(task1._state, task2._state)
         self.assertEqual(task1.node_id, task2.node_id)

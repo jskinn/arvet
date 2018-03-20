@@ -11,7 +11,7 @@ class TestBenchmarkResult(entity_test.EntityContract, unittest.TestCase):
         return arvet.core.benchmark.BenchmarkResult
 
     def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {'benchmark_id': 1, 'trial_result_id': 2, 'success': True})
+        kwargs = du.defaults(kwargs, {'benchmark_id': 1, 'trial_result_ids': [2, 3, 4], 'success': True})
         return arvet.core.benchmark.BenchmarkResult(*args, **kwargs)
 
     def assert_models_equal(self, benchmark_result1, benchmark_result2):
@@ -27,7 +27,7 @@ class TestBenchmarkResult(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
         self.assertEqual(benchmark_result1.success, benchmark_result2.success)
         self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.trial_results, benchmark_result2.trial_results)
 
 
 class TestFailedBenchmark(entity_test.EntityContract, unittest.TestCase):
@@ -38,7 +38,7 @@ class TestFailedBenchmark(entity_test.EntityContract, unittest.TestCase):
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
             'benchmark_id': 1,
-            'trial_result_id': 2,
+            'trial_result_ids': [2, 3, 4],
             'reason': 'For test purposes'
         })
         return arvet.core.benchmark.FailedBenchmark(*args, **kwargs)
@@ -57,4 +57,4 @@ class TestFailedBenchmark(entity_test.EntityContract, unittest.TestCase):
         self.assertEqual(benchmark_result1.success, benchmark_result2.success)
         self.assertEqual(benchmark_result1.reason, benchmark_result2.reason)
         self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEqual(benchmark_result1.trial_result, benchmark_result2.trial_result)
+        self.assertEqual(benchmark_result1.trial_results, benchmark_result2.trial_results)

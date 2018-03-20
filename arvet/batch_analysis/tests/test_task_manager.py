@@ -199,14 +199,15 @@ class TestTaskManager(unittest.TestCase):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_db_client = mock.create_autospec(arvet.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
-        trial_result_id = bson.ObjectId()
+        trial_result_ids = [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()]
         benchmark_id = bson.ObjectId()
-        subject.get_benchmark_task(trial_result_id, benchmark_id)
+        subject.get_benchmark_task(trial_result_ids, benchmark_id)
 
         self.assertTrue(mock_collection.find_one.called)
         query = mock_collection.find_one.call_args[0][0]
-        self.assertIn('trial_result_id', query)
-        self.assertEqual(trial_result_id, query['trial_result_id'])
+        self.assertIn('trial_result_ids', query)
+        self.assertIn('$all', query['trial_result_ids'])
+        self.assertEqual(set(trial_result_ids), set(query['trial_result_ids']['$all']))
         self.assertIn('benchmark_id', query)
         self.assertEqual(benchmark_id, query['benchmark_id'])
 
@@ -219,7 +220,7 @@ class TestTaskManager(unittest.TestCase):
         mock_db_client.deserialize_entity.return_value = mock_entity
         subject = manager.TaskManager(mock_collection, mock_db_client)
 
-        result = subject.get_benchmark_task(bson.ObjectId(), bson.ObjectId())
+        result = subject.get_benchmark_task([bson.ObjectId()], bson.ObjectId())
         self.assertTrue(mock_db_client.deserialize_entity.called)
         self.assertEqual(s_task, mock_db_client.deserialize_entity.call_args[0][0])
         self.assertEqual(mock_entity, result)
@@ -229,13 +230,13 @@ class TestTaskManager(unittest.TestCase):
         mock_collection.find_one.return_value = None
         mock_db_client = mock.create_autospec(arvet.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
-        trial_result_id = bson.ObjectId()
+        trial_result_ids = [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()]
         benchmark_id = bson.ObjectId()
-        result = subject.get_benchmark_task(trial_result_id, benchmark_id)
+        result = subject.get_benchmark_task(trial_result_ids, benchmark_id)
         self.assertIsInstance(result, benchmark_task.BenchmarkTrialTask)
         self.assertIsNone(result.identifier)
 
-    def test_do_task_checks_import_benchmark_task_is_unique(self):
+    def test_do_task_checks_import_dataset_task_is_unique(self):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_db_client = mock.create_autospec(arvet.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
@@ -290,15 +291,16 @@ class TestTaskManager(unittest.TestCase):
         mock_collection = mock.create_autospec(pymongo.collection.Collection)
         mock_db_client = mock.create_autospec(arvet.database.client.DatabaseClient)
         subject = manager.TaskManager(mock_collection, mock_db_client)
-        trial_result_id = bson.ObjectId()
+        trial_result_ids = [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()]
         benchmark_id = bson.ObjectId()
-        task = benchmark_task.BenchmarkTrialTask(trial_result_id, benchmark_id)
+        task = benchmark_task.BenchmarkTrialTask(trial_result_ids, benchmark_id)
         subject.do_task(task)
 
         self.assertTrue(mock_collection.find.called)
         query = mock_collection.find.call_args[0][0]
-        self.assertIn('trial_result_id', query)
-        self.assertEqual(trial_result_id, query['trial_result_id'])
+        self.assertIn('trial_result_ids', query)
+        self.assertIn('$all', query['trial_result_ids'])
+        self.assertEqual(set(trial_result_ids), set(query['trial_result_ids']['$all']))
         self.assertIn('benchmark_id', query)
         self.assertEqual(benchmark_id, query['benchmark_id'])
 
@@ -464,7 +466,7 @@ class TestTaskManager(unittest.TestCase):
 
     def test_schedule_tasks_schedules_benchmark_trial_task(self):
         task_entity = benchmark_task.BenchmarkTrialTask(
-            trial_result_id=bson.ObjectId(),
+            trial_result_ids=[bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
             benchmark_id=bson.ObjectId()
         )
         mock_db_client = arvet.database.tests.mock_database_client.create().mock
@@ -571,7 +573,9 @@ class TestTaskManager(unittest.TestCase):
             (train_system_task.TrainSystemTask, {'trainer_id': bson.ObjectId(), 'trainee_id': bson.ObjectId()}),
             (run_system_task.RunSystemTask, {'system_id': bson.ObjectId(), 'image_source_id': bson.ObjectId(),
                                              'repeat': 12}),
-            (benchmark_task.BenchmarkTrialTask, {'trial_result_id': bson.ObjectId(), 'benchmark_id': bson.ObjectId()})
+            (benchmark_task.BenchmarkTrialTask, {
+                'trial_result_ids': [bson.ObjectId(), bson.ObjectId()], 'benchmark_id': bson.ObjectId()
+            })
         ]:
             task_entity = entity_type(
                 job_id=823,

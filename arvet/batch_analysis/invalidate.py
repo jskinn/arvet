@@ -118,13 +118,12 @@ def invalidate_system(db_client: arvet.database.client.DatabaseClient, system_id
 def invalidate_trial_result(db_client: arvet.database.client.DatabaseClient, trial_result_id: bson.ObjectId):
     # Step 1: Find all the tasks that involve this trial result, and remove them
     result = db_client.tasks_collection.delete_many({'$or': [{'result': trial_result_id},
-                                                             {'trial_result_id': trial_result_id},
-                                                             {'trial_result1_id': trial_result_id},
-                                                             {'trial_result2_id': trial_result_id}]})
+                                                             {'trial_result_ids': trial_result_id},
+                                                             {'reference_trial_result_ids': trial_result_id}]})
     logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
 
     # Step 2: Find all the benchmark results that use this trial result, and invalidate them
-    results = db_client.results_collection.find({'trial_result': trial_result_id}, {'_id': True})
+    results = db_client.results_collection.find({'trial_results': trial_result_id}, {'_id': True})
     for s_result in results:
         invalidate_benchmark_result(db_client, s_result['_id'])
 

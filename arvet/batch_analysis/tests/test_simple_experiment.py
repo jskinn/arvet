@@ -31,7 +31,7 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
                     system.identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
             for _ in self.image_sources for system in self.systems]
         self.benchmarks = [mock_core.MockBenchmark() for _ in range(2)]
-        self.benchmark_results = [arvet.core.benchmark.BenchmarkResult(benchmark.identifier, trial_result.identifier,
+        self.benchmark_results = [arvet.core.benchmark.BenchmarkResult(benchmark.identifier, [trial_result.identifier],
                                                                        True)
                                   for benchmark in self.benchmarks for trial_result in self.trial_results]
 
@@ -40,42 +40,56 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
 
     def make_instance(self, *args, **kwargs):
         du.defaults(kwargs, {
-            'systems': {str(idx): self.systems[idx] for idx in range(len(self.systems))},
-            'datasets': {str(idx): self.image_sources[idx] for idx in range(len(self.image_sources))},
-            'benchmarks': {str(idx): self.benchmarks[idx] for idx in range(len(self.benchmarks))},
-            'trial_map': {system.identifier: {image_source.identifier: trial_result.identifier
-                                              for trial_result in self.trial_results
-                                              if trial_result.identifier is not None and
-                                              trial_result.system_id == system.identifier
-                                              for image_source in self.image_sources
-                                              if image_source.identifier is not None}
-                          for system in self.systems if system.identifier is not None},
-            'result_map': {trial_result.identifier: {benchmark.identifier: benchmark_result.identifier
-                                                     for benchmark in self.benchmarks
-                                                     if benchmark.identifier is not None
-                                                     for benchmark_result in self.benchmark_results
-                                                     if benchmark_result.identifier is not None and
-                                                     benchmark_result.benchmark == benchmark.identifier and
-                                                     benchmark_result.trial_result == trial_result.identifier}
-                           for trial_result in self.trial_results
-                           if trial_result.identifier is not None}
+            'systems': {'system-{0}'.format(idx): self.systems[idx] for idx in range(len(self.systems))},
+            'datasets': {'dataset-{0}'.format(idx): self.image_sources[idx] for idx in range(len(self.image_sources))},
+            'benchmarks': {'benchmark-{0}'.format(idx): self.benchmarks[idx] for idx in range(len(self.benchmarks))},
+            'trial_map': {
+                system.identifier: {
+                    image_source.identifier: {
+                        'trials': {trial_result.identifier
+                                   for trial_result in self.trial_results
+                                   if trial_result.identifier is not None and
+                                   trial_result.system_id == system.identifier},
+                        'results': {
+                            benchmark.identifier: benchmark_result.identifier
+                            for benchmark in self.benchmarks
+                            if benchmark.identifier is not None
+                            for benchmark_result in self.benchmark_results
+                            if benchmark_result.identifier is not None and
+                            benchmark_result.benchmark == benchmark.identifier and
+                            benchmark_result.trial_result in [
+                                   trial_result.identifier
+                                   for trial_result in self.trial_results
+                                   if trial_result.identifier is not None and
+                                   trial_result.system_id == system.identifier
+                               ]
+                        }
+                    }
+                    for image_source in self.image_sources
+                    if image_source.identifier is not None
+                }
+                for system in self.systems if system.identifier is not None
+            },
         })
         return MockExperiment(*args, **kwargs)
 
-    def assert_models_equal(self, task1, task2):
+    def assert_models_equal(self, experiment1, experiment2):
         """
         Helper to assert that two tasks are equal
         We're going to violate encapsulation for a bit
-        :param task1:
-        :param task2:
+        :param experiment1:
+        :param experiment2:
         :return:
         """
-        if (not isinstance(task1, ex.SimpleExperiment) or
-                not isinstance(task2, ex.SimpleExperiment)):
+        if (not isinstance(experiment1, ex.SimpleExperiment) or
+                not isinstance(experiment2, ex.SimpleExperiment)):
             self.fail('object was not an Experiment')
-        self.assertEqual(task1.identifier, task2.identifier)
-        self.assertEqual(task1._trial_map, task2._trial_map)
-        self.assertEqual(task1._result_map, task2._result_map)
+        self.assertEqual(experiment1.identifier, experiment2.identifier)
+        self.assertEqual(experiment1.enabled, experiment2.enabled)
+        self.assertEqual(experiment1._trial_map, experiment2._trial_map)
+        self.assertEqual(experiment1.systems, experiment2.systems)
+        self.assertEqual(experiment1.datasets, experiment2.datasets)
+        self.assertEqual(experiment1.benchmarks, experiment2.benchmarks)
 
     def create_mock_db_client(self):
         mock_db_client = super().create_mock_db_client()

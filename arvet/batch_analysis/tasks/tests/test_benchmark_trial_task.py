@@ -15,7 +15,7 @@ class TestBenchmarkTrialTask(arvet.database.tests.test_entity.EntityContract, un
 
     def make_instance(self, *args, **kwargs):
         kwargs = du.defaults(kwargs, {
-            'trial_result_id': bson.ObjectId(),
+            'trial_result_ids': [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
             'benchmark_id': bson.ObjectId(),
             'state': arvet.batch_analysis.task.JobState.RUNNING,
             'num_cpus': np.random.randint(0, 1000),
@@ -40,7 +40,7 @@ class TestBenchmarkTrialTask(arvet.database.tests.test_entity.EntityContract, un
                 not isinstance(task2, task.BenchmarkTrialTask)):
             self.fail('object was not an BenchmarkTrialTask')
         self.assertEqual(task1.identifier, task2.identifier)
-        self.assertEqual(task1.trial_result, task2.trial_result)
+        self.assertEqual(task1.trial_results, task2.trial_results)
         self.assertEqual(task1.benchmark, task2.benchmark)
         self.assertEqual(task1._state, task2._state)
         self.assertEqual(task1.node_id, task2.node_id)
