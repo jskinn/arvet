@@ -3,7 +3,6 @@ import os.path
 import unittest
 import numpy as np
 import timeit
-import arvet.util.image_utils as image_utils
 import arvet.metadata.camera_intrinsics as cam_intr
 import arvet.util.transform as tf
 import arvet.simulation.depth_noise as depth_noise

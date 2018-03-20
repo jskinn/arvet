@@ -62,11 +62,12 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
                 self.image_source))
             try:
                 trial_result = run_system_with_source(system, image_source)
-            except Exception:
-                logging.getLogger(__name__).error("Error occurred while running system {0} "
-                                                  "with image source {1}:\n{2}".format(
-                    self.system, self.image_source, traceback.format_exc()))
-                trial_result = None
+            except Exception as exception:
+                logging.getLogger(__name__).error(
+                    "Error occurred while running system {0} with image source {1}:\n{2}".format(
+                        self.system, self.image_source, traceback.format_exc()))
+                self.mark_job_failed()
+                raise exception
             if trial_result is None:
                 logging.getLogger(__name__).error("Failed to system {0} with image source {1}.".format(
                     self.system, self.image_source))

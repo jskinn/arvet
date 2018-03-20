@@ -61,12 +61,13 @@ class ImportDatasetTask(arvet.batch_analysis.task.Task):
             # noinspection PyBroadException
             try:
                 dataset_id = loader_module.import_dataset(actual_path, db_client, **self.additional_args)
-            except Exception:
-                dataset_id = None
+            except Exception as exception:
                 logging.getLogger(__name__).error(
                     "Exception occurred while importing dataset from {0} with module {1}:\n{2}".format(
                         actual_path, self.module_name, traceback.format_exc()
                     ))
+                self.mark_job_failed()
+                raise exception
 
             if dataset_id is None:
                 logging.getLogger(__name__).error("Failed to import dataset from {0} with module {1}".format(

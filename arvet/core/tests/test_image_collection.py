@@ -2,7 +2,6 @@
 import unittest
 import unittest.mock as mock
 import os
-import io
 import pickle
 import arvet.database.tests.test_entity
 import numpy as np

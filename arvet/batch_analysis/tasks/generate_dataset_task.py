@@ -72,12 +72,13 @@ class GenerateDatasetTask(arvet.batch_analysis.task.Task):
             try:
                 builder.add_from_image_source(controller)
                 dataset_id = builder.save()
-            except Exception:
-                dataset_id = None
+            except Exception as exception:
                 logging.getLogger(__name__).error(
                     "Exception occurred while generating dataset from simulator {0} with controller {1}:\n{2}".format(
                         self.simulator_id, self.controller_id, traceback.format_exc()
                     ))
+                self.mark_job_failed()
+                raise exception
             end_time = time.time()
             if dataset_id is None:
                 logging.getLogger(__name__).error(
