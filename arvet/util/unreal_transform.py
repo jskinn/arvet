@@ -327,8 +327,10 @@ def transform_to_unreal(pose):
         # Invert the direction of rotation since we're now in a left handed coordinate frame
         rotation = tf.quaternions.qinverse(rotation)
         # Change the axis order to roll, pitch, yaw in UE coordinates
-        return UnrealTransform(location=location, rotation=quat2euler(rotation[0], rotation[1], rotation[2], rotation[3]))
-    return 100 * pose[0], -100 * pose[1], 100 * pose[2]
+        return UnrealTransform(location=location,
+                               rotation=quat2euler(rotation[0], rotation[1], rotation[2], rotation[3]))
+    else:
+        return 100 * pose[0], -100 * pose[1], 100 * pose[2]
 
 
 def transform_from_unreal(pose):
@@ -346,4 +348,5 @@ def transform_from_unreal(pose):
         # Invert Y-axis to go to my coordinate frame
         rotation = (rotation[0], rotation[1], -rotation[2], rotation[3])
         return mytf.Transform(location=location, rotation=rotation, w_first=True)
-    return pose[0] / 100, -pose[1] / 100, pose[2] / 100
+    else:
+        return pose[0] / 100, -pose[1] / 100, pose[2] / 100

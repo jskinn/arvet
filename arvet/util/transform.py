@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import numpy as np
+import typing
 import transforms3d as tf
 
 
@@ -30,7 +31,7 @@ class Transform:
 
     __slots__ = ['_x', '_y', '_z', '_qx', '_qy', '_qz', '_qw']
 
-    def __init__(self, location=None, rotation=None, w_first=False):
+    def __init__(self, location=None, rotation=None, w_first: bool = False):
         if isinstance(location, Transform):
             self._x, self._y, self._z = location.location
             self._qw, self._qx, self._qy, self._qz = location.rotation_quat(w_first=True)
@@ -105,14 +106,14 @@ class Transform:
         return hash((self._x, self._y, self._z, self._qw, self._qx, self._qy, self._qz))
 
     @property
-    def location(self):
+    def location(self) -> np.ndarray:
         """
         Get the location represented by this pose.
         :return: A numpy
         """
         return np.array((self._x, self._y, self._z), dtype=np.dtype('f8'))
 
-    def rotation_quat(self, w_first=False):
+    def rotation_quat(self, w_first: bool = False) -> np.ndarray:
         """
         Get the unit quaternion representing the orientation of this pose.
         :param w_first: Is the scalar parameter the first or last element in the vector.
@@ -123,7 +124,7 @@ class Transform:
         return np.array((self._qx, self._qy, self._qz, self._qw), dtype=np.dtype('f8'))
 
     @property
-    def euler(self):
+    def euler(self) -> np.ndarray:
         """
         Get the Euler angles for the rotation of this transform.
         Expressed as a numpy vector (roll, pitch, yaw),
@@ -132,7 +133,7 @@ class Transform:
         return tf.taitbryan.quat2euler((self._qw, self._qx, self._qy, self._qz))[::-1]
 
     @property
-    def rotation_matrix(self):
+    def rotation_matrix(self) -> np.ndarray:
         """
         Get the rotation of this transform in matrix form
         :return:
@@ -140,7 +141,7 @@ class Transform:
         return tf.quaternions.quat2mat(self.rotation_quat(w_first=True))
 
     @property
-    def transform_matrix(self):
+    def transform_matrix(self) -> np.ndarray:
         """
         Get the homogenous transformation matrix for this pose
         :return:
@@ -148,7 +149,7 @@ class Transform:
         return tf.affines.compose(self.location, self.rotation_matrix, np.ones(3))
 
     @property
-    def forward(self):
+    def forward(self) -> np.ndarray:
         """
         Get the forward vector of the transform.
         That is, the positive X direction in the local coordinate frame,
@@ -158,7 +159,7 @@ class Transform:
         return tf.quaternions.rotate_vector((1, 0, 0), (self._qw, self._qx, self._qy, self._qz))
 
     @property
-    def back(self):
+    def back(self) -> np.ndarray:
         """
         Get the back vector of the transform.
         That is, the negative X direction of the local coordinate frame,
@@ -168,7 +169,7 @@ class Transform:
         return -1 * self.forward
 
     @property
-    def up(self):
+    def up(self) -> np.ndarray:
         """
         Get the up vector of the transform.
         That is
@@ -177,18 +178,19 @@ class Transform:
         return tf.quaternions.rotate_vector((0, 0, 1), (self._qw, self._qx, self._qy, self._qz))
 
     @property
-    def down(self):
+    def down(self) -> np.ndarray:
         return -1 * self.up
 
     @property
-    def right(self):
+    def right(self) -> np.ndarray:
         return -1 * self.left
 
     @property
-    def left(self):
+    def left(self) -> np.ndarray:
         return tf.quaternions.rotate_vector((0, 1, 0), (self._qw, self._qx, self._qy, self._qz))
 
-    def find_relative(self, pose):
+    def find_relative(self, pose: typing.Union['Transform', typing.Sequence, np.ndarray]) \
+            -> typing.Union['Transform', np.ndarray]:
         """
         Convert the given pose to be relative to this pose.
         This is not commutative p1.find_relative(p2) != p2.find_relative(p1)
@@ -196,7 +198,7 @@ class Transform:
         See Robotics: Vision and Control p 55-56 for the source of this math
 
         :param pose: The world pose to convert
-        :return: A pose object relative to this pose
+        :return: A pose object relative to this pose, of the same type as was passed in
         """
         # Remember, the pose matrix gives the position in world coordinates from a local position,
         # So to find the world position, we have to reverse it
@@ -211,7 +213,8 @@ class Transform:
         else:
             raise TypeError('find_relative needs to transform a point or pose')
 
-    def find_independent(self, pose):
+    def find_independent(self, pose: typing.Union['Transform', typing.Sequence, np.ndarray]) \
+            -> typing.Union['Transform', np.ndarray]:
         """
         Convert a pose to world coordinates.
         Remember, pose is like a stack, so the returned pose will be relative to whatever
@@ -265,7 +268,7 @@ def robust_normalize(vector: np.ndarray) -> np.ndarray:
     return vector
 
 
-def quat_angle(quat):
+def quat_angle(quat: typing.Union[typing.Sequence, np.ndarray]) -> float:
     """
     Get the angle of rotation indicated by a quaternion, independent of axis
     :param quat: A quaternion, [w, x, y, z]
@@ -274,7 +277,7 @@ def quat_angle(quat):
     return 2 * float(np.arccos(min(1, max(-1, quat[0]))))
 
 
-def quat_diff(q1, q2):
+def quat_diff(q1: typing.Union[typing.Sequence, np.ndarray], q2: typing.Union[typing.Sequence, np.ndarray]) -> float:
     """
     Find the angle between two quaternions
     Basically, we compose them, and derive the angle from the composition
@@ -294,7 +297,7 @@ def quat_diff(q1, q2):
     return 2 * float(np.arccos(min(1, max(-1, z0))))
 
 
-def quat_mean(quaternions):
+def quat_mean(quaternions: typing.Sequence[typing.Union[typing.Sequence, np.ndarray]]) -> np.ndarray:
     """
     Find the mean of a bunch of quaternions
     :param quaternions:
