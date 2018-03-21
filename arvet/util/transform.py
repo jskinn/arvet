@@ -368,3 +368,17 @@ def quat_mean(quaternions: typing.Sequence[typing.Union[typing.Sequence, np.ndar
         else:
             result = result * np.array([1, -1, -1, -1])
         return result
+
+
+def compute_average_pose(poses: typing.Iterable[Transform]) -> Transform:
+    """
+    Given a collection of poses, find the average pose
+    :param poses: A collection of Transform objects to average
+    :return: The average pose, as a Transform
+    """
+    pose_data = [(pose.location, pose.rotation_quat(w_first=True)) for pose in poses]
+    return Transform(
+        location=np.mean([data[0] for data in pose_data], axis=0),
+        rotation=quat_mean([data[1] for data in pose_data]),
+        w_first=True
+    )

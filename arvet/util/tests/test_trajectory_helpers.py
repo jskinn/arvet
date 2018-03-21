@@ -176,6 +176,24 @@ class TestTrajectoryToMotionSequence(unittest.TestCase):
             prev_time = time
 
 
+class TestComputeAverageTrajectory(unittest.TestCase):
+
+    def test_produces_average_location(self):
+        centres = {time: np.array([time, 1000 - time * time, time * time - 4 * time]) for time in range(100)}
+        variations = {time: np.random.normal(0, 4, (10, 3)) for time in centres.keys()}
+        mean_trajectory = th.compute_average_trajectory({
+            time: tf.Transform(location=centres[time] + variations[time][traj_idx])
+            for time in centres.keys()
+        } for traj_idx in range(10))
+        for time in centres.keys():
+            self.assertIn(time, mean_trajectory)
+            self.assertNPClose(centres[time] + np.mean(variations[time], axis=0), mean_trajectory[time].location)
+
+    def assertNPClose(self, arr1, arr2, atol=1e-10):
+        self.assertTrue(np.all(np.isclose(arr1, arr2, rtol=0, atol=atol)),
+                        "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
+
+
 def create_trajectory(length=100, start_location=None, start_rotation=None, seed=0) -> \
         typing.Mapping[float, tf.Transform]:
     """

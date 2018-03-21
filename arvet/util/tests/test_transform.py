@@ -564,6 +564,23 @@ class TestHelpers(unittest.TestCase):
         result = tf.quat_mean(quaternions)
         self.assertNPClose(result, mean)
 
+    def test_compute_average_pose_finds_average_location(self):
+        centre = np.random.uniform(-1000, 1000, 3)
+        locations = [centre + np.random.normal(0, 10, 3) for _ in range(10)]
+        mean_pose = tf.compute_average_pose(tf.Transform(location=loc) for loc in locations)
+        self.assertNPEqual(np.mean(locations, axis=0), mean_pose.location)
+
+    def test_compute_average_pose_finds_average_orientation(self):
+        centre = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        rotations = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 360, np.pi / 360)
+            axis = np.random.uniform(-1, 1, 3)
+            rotations.append(tf3d.quaternions.qmult(centre, tf3d.quaternions.axangle2quat(axis, angle)))
+            rotations.append(tf3d.quaternions.qmult(centre, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+        mean_pose = tf.compute_average_pose(tf.Transform(rotation=rot) for rot in rotations)
+        self.assertNPEqual(tf.quat_mean(rotations), mean_pose.rotation_quat(w_first=True))
+
     def assertNPEqual(self, arr1, arr2):
         self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
 

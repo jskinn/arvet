@@ -4,6 +4,7 @@ import bson
 import numpy as np
 import arvet.database.client
 import arvet.util.transform as tf
+import arvet.util.associate
 
 
 def get_trajectory_for_image_source(db_client: arvet.database.client.DatabaseClient,
@@ -111,3 +112,33 @@ def trajectory_to_motion_sequence(trajectory: typing.Mapping[float, tf.Transform
         prev_time = time
         motions[time] = motion
     return motions
+
+
+def compute_average_trajectory(trajectories: typing.Iterable[typing.Mapping[float, tf.Transform]]) \
+        -> typing.Mapping[float, tf.Transform]:
+    """
+    Find the average trajectory from a number of estimated trajectories.
+    Can handle small variations in timestamps, but privileges timestamps from earlier trajectories for association
+    :param trajectories:
+    :return:
+    """
+    associated_times = {}
+    associated_poses = {}
+    for traj in trajectories:
+        traj_times = set(traj.keys())
+        # First, add all the times that can be associated to an existing time
+        matches = arvet.util.associate.associate(associated_times, traj, offset=0, max_difference=0.1)
+        for match in matches:
+            associated_times[match[0]].append(match[1])
+            associated_poses[match[0]].append(traj[match[1]])
+            traj_times.remove(match[1])
+        # Add all the times in this trajectory that don't have associations yet
+        for time in traj_times:
+            associated_times[time] = [time]
+            associated_poses[time] = [traj[time]]
+    # Take the median associated time and pose together
+    return {
+        np.median(associated_times[time]): tf.compute_average_pose(associated_poses[time])
+        for time in associated_times.keys()
+        if len(associated_times[time]) > 1
+    }
