@@ -21,6 +21,58 @@ class TestHPCJobSystem(unittest.TestCase):
         subject = hpc.HPCJobSystem({'node_id': node_id})
         self.assertEqual(node_id, subject.node_id)
 
+    @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
+    def test_run_script_checks_number_of_existing_jobs_if_a_limit_is_set(self, mock_run):
+        mock_open = mock.mock_open()
+        patch_subprocess(mock_run)
+        mock_open.return_value = mock.MagicMock()
+        subject = hpc.HPCJobSystem({'max_jobs': 100})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.run_script('test_script', [])
+        self.assertIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
+    def test_run_script_does_not_check_number_of_existing_jobs_if_no_limit_is_set(self, mock_run):
+        mock_open = mock.mock_open()
+        patch_subprocess(mock_run)
+        mock_open.return_value = mock.MagicMock()
+        subject = hpc.HPCJobSystem({})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            subject.run_script('test_script', [])
+        self.assertNotIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
+
+    def test_run_script_wont_submit_more_scripts_than_job_limit(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'max_jobs': 10})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run, num_jobs=0)
+                for _ in range(10):
+                    mock_run.called = False
+                    job_id = subject.run_script('test_script', [])
+                    self.assertIsNotNone(job_id)
+                    self.assertTrue(mock_run.called)
+                mock_run.called = False
+                self.assertIsNone(subject.run_script('test_script', []))
+                self.assertFalse(mock_run.called)
+
+    def test_existing_jobs_reduce_max_jobs(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({
+            'max_jobs': 10
+        })
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run, num_jobs=5)
+                for _ in range(5):
+                    mock_run.called = False
+                    job_id = subject.run_script('test_script', [])
+                    self.assertIsNotNone(job_id)
+                    self.assertTrue(mock_run.called)
+                mock_run.called = False
+                self.assertIsNone(subject.run_script('test_script', []))
+                self.assertFalse(mock_run.called)
+
     def test_run_script_creates_job_file(self):
         mock_open = mock.mock_open()
         mock_open.return_value = mock.MagicMock()
@@ -262,7 +314,8 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1}".format(hpc.quote(arvet.batch_analysis.scripts.run_task.__file__), task_id), script_contents)
+        self.assertIn("python {0} {1}".format(hpc.quote(arvet.batch_analysis.scripts.run_task.__file__), task_id),
+                      script_contents)
 
     def test_run_task_indicates_desired_cpus(self):
         mock_open = mock.mock_open()
@@ -425,7 +478,30 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertEqual('"' + string + '"', hpc.quote(string))
 
 
-def patch_subprocess(mock_subprocess_run: mock.Mock, job_id=4):
+def patch_subprocess_qjobs(mock_subprocess_run: mock.Mock, num_jobs=4):
     mock_completed_process = mock.Mock()
-    mock_completed_process.stdout = str(job_id)
+    mock_completed_process.stdout = """
+
+    {0} running jobs found found for test-user
+    to see finished jobs, run qjobs with the -x flag
+
+
+    """.format(num_jobs)
     mock_subprocess_run.return_value = mock_completed_process
+
+
+def patch_subprocess(mock_subprocess_run: mock.Mock, job_id=4, num_jobs=15):
+    mock_qjobs_completed_process = mock.Mock()
+    mock_qjobs_completed_process.stdout = """
+
+    {0} running jobs found found for test-user
+    to see finished jobs, run qjobs with the -x flag
+
+
+    """.format(num_jobs)
+
+    mock_qsub_completed_process = mock.Mock()
+    mock_qsub_completed_process.stdout = str(job_id)
+
+    mock_subprocess_run.side_effect = lambda script_args, *args, **kwargs: \
+        mock_qjobs_completed_process if script_args[0] is 'qjobs' else mock_qsub_completed_process
