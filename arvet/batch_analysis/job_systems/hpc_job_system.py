@@ -47,6 +47,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             'environment': 'path-to-virtualenv-activate'
             'job_location: 'folder-to-create-jobs'      # Default ~
             'job_name_prefix': 'prefix-to-job-names'    # Default ''
+            'max_jobs': int                             # Default no limit
         }
         :param config: A dict of configuration parameters
         """
@@ -61,6 +62,8 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._job_folder = config['job_location'] if 'job_location' in config else '~'
         self._job_folder = os.path.expanduser(self._job_folder)
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
+        self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
+        self._checked_running_jobs = False
 
     @property
     def node_id(self) -> str:
@@ -129,7 +132,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         )
 
     def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
-                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> typing.Union[int, None]:
         """
         Run a script that is not a task on this job system
         :param script: The path to the script to run
@@ -140,6 +143,24 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The duration given for the job to run
         :return: The job id if the job has been started correctly, None if failed.
         """
+        # Optionally limit the number of jobs
+        if self._max_jobs is not None:
+            # If we haven't yet, get the current number of running jobs, so we don't double up by running this repeatedly
+            if not self._checked_running_jobs:
+                result = subprocess.run(['qjobs'], stdout=subprocess.PIPE, universal_newlines=True)
+                re_match = re.search('(\d+) running jobs found', result.stdout)
+                if re_match is not None:
+                    num_jobs = int(re_match.groups(default=0)[0])
+                    self._max_jobs -= num_jobs
+                    self._checked_running_jobs = True
+
+            # Don't submit more than the max jobs, if a limit is set
+            if self._max_jobs <= 0:
+                # Cannot submit any more jobs
+                logging.getLogger(__name__).info("Failed to submit job, job limit reached")
+                return None
+            self._max_jobs -= 1
+
         # Job meta-information
         # TODO: We need better job names
         name = self._name_prefix + "auto_task_{0}".format(time.time()).replace('.', '-')
