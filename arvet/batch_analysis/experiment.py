@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import os.path
 import collections
 import typing
 import bson
@@ -91,6 +92,16 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         I'm currently using this to dump camera trajectories so I can build simulations around them,
         but there will be other circumstances where we want to. Naturally, this is optional.
         :param db_client:
+        :return:
+        """
+        pass
+
+    def perform_analysis(self, db_client: arvet.database.client.DatabaseClient):
+        """
+        Method by which an experiment can perform large-scale analysis as a job.
+        This is what is called by AnalyseResultsTask
+        This should save it's output somehow, preferably within the output folder given by get_output_folder()
+        :param db_client: The database client, for loading trials and benchmark results.
         :return:
         """
         pass
@@ -276,6 +287,15 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         if 'trial_map' in serialized_representation:
             kwargs['trial_map'] = deserialize_trial_map(serialized_representation['trial_map'], db_client)
         return super().deserialize(serialized_representation, db_client, **kwargs)
+
+    @classmethod
+    def get_output_folder(cls):
+        """
+        Get a unique output folder for this experiment.
+        Really, we just name the folder after the experiment, but it's nice to do this in a standardized way.
+        :return:
+        """
+        return os.path.join('results', cls.__name__)
 
     def _set_property(self, serialized_key: str, new_value: typing.Union[str, dict, list, int, float, bson.ObjectId]):
         """

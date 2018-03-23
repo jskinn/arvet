@@ -42,7 +42,8 @@ def load_global_config(filename):
             'allow_run_system': True,
             'allow_benchmark': True,
             'allow_trial_comparison': True,
-            'allow_benchmark_comparison': True
+            'allow_benchmark_comparison': True,
+            'allow_experiment_analysis': True
         },
         'job_system_config': {
             'job_system': 'simple',

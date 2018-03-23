@@ -17,6 +17,7 @@ import arvet.batch_analysis.tasks.benchmark_trial_task as benchmark_task
 import arvet.batch_analysis.tasks.compare_trials_task as compare_trials_task
 import arvet.batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
 import arvet.batch_analysis.scripts.warmup_image_cache
+import arvet.batch_analysis.scripts.perform_analysis
 
 
 class TaskManager:
@@ -44,7 +45,7 @@ class TaskManager:
         """
         self._collection = task_collection
         self._db_client = db_client
-        self._pending_tasks = []
+        self._pending_analysis_tasks = []
 
         # configuration keys, to avoid misspellings
         if config is not None and 'task_config' in config:
@@ -60,7 +61,8 @@ class TaskManager:
             'allow_run_system': True,
             'allow_benchmark': True,
             'allow_trial_comparison': True,
-            'allow_benchmark_comparison': True
+            'allow_benchmark_comparison': True,
+            'allow_experiment_analysis': True
         })
         self._allow_generate_dataset = bool(task_config['allow_generate_dataset'])
         self._allow_import_dataset = bool(task_config['allow_import_dataset'])
@@ -69,6 +71,7 @@ class TaskManager:
         self._allow_benchmark = bool(task_config['allow_benchmark'])
         self._allow_trial_comparison = bool(task_config['allow_trial_comparison'])
         self._allow_benchmark_comparison = bool(task_config['allow_benchmark_comparison'])
+        self._allow_experiment_analysis = bool(task_config['allow_experiment_analysis'])
 
     def get_import_dataset_task(self, module_name: str, path: str, additional_args: dict = None,
                                 num_cpus: int =1, num_gpus: int = 0,
@@ -294,6 +297,40 @@ class TaskManager:
                 expected_duration=expected_duration
             )
 
+    def do_analysis_task(self, experiment_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0,
+                         memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> None:
+        """
+        Record that the given experiment wants to perform analysis as a job.
+        This should be called from the relevant experiment's schedule_tasks function.
+        Each experiment can only be scheduled to analyze onc.
+
+        :param experiment_id: The experiment
+        :param num_cpus: The number of CPUs to allocate to the analysis task. Default 1.
+        :param num_gpus: The number of GPUs to allocate to the analysis task. Default 0.
+        :param memory_requirements: The memory requirements of the analysis data. Default 3GB.
+        :param expected_duration: The expected duration of the analysis
+        :return: None
+        """
+        # Check we're not already scheduled to do analysis for that experiment
+        if self._allow_experiment_analysis:
+            found = False
+            for task_obj in self._pending_analysis_tasks:
+                if task_obj['experiment_id'] == experiment_id:
+                    found = True
+                    task_obj['num_cpus'] = num_cpus
+                    task_obj['num_gpus'] = num_gpus
+                    task_obj['memory_requirements'] = memory_requirements
+                    task_obj['expected_duration'] = expected_duration
+                    break
+            if not found:
+                self._pending_analysis_tasks.append({
+                    'experiment_id': experiment_id,
+                    'num_cpus': num_cpus,
+                    'num_gpus': num_gpus,
+                    'memory_requirements': memory_requirements,
+                    'expected_duration': expected_duration
+                })
+
     def do_task(self, task: arvet.batch_analysis.task.Task):
         """
         Submit a task back to the task manager for execution.
@@ -417,6 +454,18 @@ class TaskManager:
                 for task_entity in task_list:
                     task_entity.mark_job_started(job_system.node_id, job_id)
                     task_entity.save_updates(self._collection)
+
+        # Finally, schedule any experiment analysis tasks as scripts
+        if self._allow_experiment_analysis:
+            for task_obj in self._pending_analysis_tasks:
+                job_system.run_script(
+                    script=arvet.batch_analysis.scripts.perform_analysis.__file__,
+                    script_args=[str(task_obj['experiment_id'])],
+                    num_cpus=task_obj['num_cpus'],
+                    num_gpus=task_obj['num_gpus'],
+                    memory_requirements=task_obj['memory_requirements'],
+                    expected_duration=task_obj['expected_duration']
+                )
 
     def schedule_dependent_tasks(self, task_ids: typing.List[bson.ObjectId],
                                  job_system: arvet.batch_analysis.job_system.JobSystem):

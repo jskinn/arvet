@@ -43,7 +43,7 @@ class BenchmarkTrialTask(arvet.batch_analysis.task.Task):
             self.mark_job_failed()
             return
 
-        # Check all the trials are appropriate 
+        # Check all the trials are appropriate
         for trial_result in trial_results:
             if not benchmark.is_trial_appropriate(trial_result):
                 logging.getLogger(__name__).error("Benchmark {0} cannot assess trial {1}".format(
