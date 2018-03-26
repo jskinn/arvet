@@ -27,6 +27,12 @@ class MockReadable:
         return self._thing_bytes
 
 
+class MockInsertResult:
+
+    def __init__(self, inserted_id):
+        self.inserted_id = inserted_id
+
+
 class TestImageEntity(entity_test.EntityContract, unittest.TestCase):
 
     def setUp(self):
@@ -470,14 +476,14 @@ class TestSaveImage(unittest.TestCase):
         self.mock_db_client = mock.create_autospec(arvet.database.client.DatabaseClient)
         self.mock_db_client.image_collection = mock.create_autospec(pymongo.collection.Collection)
         self.mock_db_client.image_collection.find_one.return_value = None
-        self.mock_db_client.image_collection.insert.return_value = bson.objectid.ObjectId()
+        self.mock_db_client.image_collection.insert_one.return_value = MockInsertResult(bson.objectid.ObjectId())
         self.mock_db_client.grid_fs = mock.create_autospec(gridfs.GridFS)
 
     def test_save_image_does_nothing_for_not_an_image(self):
         result = ie.save_image(self.mock_db_client, 10)
         self.assertIsNone(result)
         self.assertFalse(self.mock_db_client.image_collection.find_one.called)
-        self.assertFalse(self.mock_db_client.image_collection.insert.called)
+        self.assertFalse(self.mock_db_client.image_collection.insert_one.called)
 
     def test_save_image_does_not_use_data_keys_to_check_for_existing_image(self):
         self.mock_db_client.image_collection.find_one.return_value = {'_id': bson.objectid.ObjectId()}
@@ -554,7 +560,7 @@ class TestSaveImage(unittest.TestCase):
         result = ie.save_image(self.mock_db_client, image)
         self.assertEqual(existing_id, result)
         self.assertTrue(self.mock_db_client.image_collection.find_one.called)
-        self.assertFalse(self.mock_db_client.image_collection.insert.called)
+        self.assertFalse(self.mock_db_client.image_collection.insert_one.called)
 
     def test_save_image_stores_data_in_gridfs(self):
         image = arvet.core.image_entity.ImageEntity(
@@ -567,7 +573,7 @@ class TestSaveImage(unittest.TestCase):
 
     def test_save_image_stores_image_in_database_and_returns_id(self):
         new_id = bson.objectid.ObjectId()
-        self.mock_db_client.image_collection.insert.return_value = new_id
+        self.mock_db_client.image_collection.insert_one.return_value = MockInsertResult(new_id)
         image = arvet.core.image_entity.ImageEntity(
             data=np.random.randint(0, 255, (32, 32, 3), dtype='uint8'),
             data_id=0,
@@ -576,7 +582,7 @@ class TestSaveImage(unittest.TestCase):
         result = ie.save_image(self.mock_db_client, image)
         self.assertEqual(new_id, result)
         self.assertTrue(self.mock_db_client.image_collection.find_one.called)
-        self.assertTrue(self.mock_db_client.image_collection.insert.called)
+        self.assertTrue(self.mock_db_client.image_collection.insert_one.called)
 
     def test_save_image_stores_updated_data_ids(self):
         new_id = bson.objectid.ObjectId()
@@ -587,5 +593,5 @@ class TestSaveImage(unittest.TestCase):
             metadata=imeta.ImageMetadata(hash_=b'\xa5\xc9\x08\xaf$\x0b\x116',
                                          source_type=imeta.ImageSourceType.SYNTHETIC))
         ie.save_image(self.mock_db_client, image)
-        s_image = self.mock_db_client.image_collection.insert.mock_calls[0][1][0]
+        s_image = self.mock_db_client.image_collection.insert_one.mock_calls[0][1][0]
         self.assertEqual(new_id, s_image['data'])

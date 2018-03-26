@@ -287,7 +287,7 @@ def save_image(db_client, image):
     if existing is None:
         image.save_image_data(db_client)
         # Need to serialize again so we can store the newly created data ids.
-        return db_client.image_collection.insert(image.serialize())
+        return db_client.image_collection.insert_one(image.serialize()).inserted_id
     else:
         # An identical image already exists, use that.
         return existing['_id']

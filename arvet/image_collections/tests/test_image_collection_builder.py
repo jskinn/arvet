@@ -88,6 +88,12 @@ def make_image(*args, **kwargs):
     return arvet.core.image_entity.ImageEntity(*args, **kwargs)
 
 
+class MockInsertResult:
+
+    def __init__(self, inserted_id):
+        self.inserted_id = inserted_id
+
+
 class TestImageCollectionBuilder(unittest.TestCase):
 
     def setUp(self):
@@ -96,23 +102,23 @@ class TestImageCollectionBuilder(unittest.TestCase):
         self.mock_db_client.image_collection.find.return_value = mock.create_autospec(pymongo.cursor.Cursor,
                                                                                       spec_set=True)
         self.mock_db_client.image_collection.find_one.return_value = None
-        self.mock_db_client.image_collection.insert.return_value = bson.objectid.ObjectId()
+        self.mock_db_client.image_collection.insert_one.return_value = MockInsertResult(bson.ObjectId())
         self.mock_db_client.image_source_collection = mock.create_autospec(pymongo.collection.Collection, spec_set=True)
         self.mock_db_client.image_source_collection.find_one.return_value = None
-        self.mock_db_client.image_source_collection.insert.return_value = bson.objectid.ObjectId()
+        self.mock_db_client.image_source_collection.insert_one.return_value = MockInsertResult(bson.ObjectId())
         self.mock_db_client.grid_fs = mock.create_autospec(gridfs.GridFS)
 
     def test_add_image_saves_image_to_database(self):
         subject = image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         image = make_image()
         subject.add_image(image)
-        self.assertTrue(self.mock_db_client.image_collection.insert.called)
-        self.assertIn(mock.call(image.serialize()), self.mock_db_client.image_collection.insert.mock_calls)
+        self.assertTrue(self.mock_db_client.image_collection.insert_one.called)
+        self.assertIn(mock.call(image.serialize()), self.mock_db_client.image_collection.insert_one.mock_calls)
 
     def test_add_image_does_not_save_image_if_has_identifier(self):
         subject = image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_image(make_image(id_=bson.ObjectId()))
-        self.assertFalse(self.mock_db_client.image_collection.insert.called)
+        self.assertFalse(self.mock_db_client.image_collection.insert_one.called)
 
     def test_add_image_assigns_timestamp(self):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 1
@@ -121,9 +127,9 @@ class TestImageCollectionBuilder(unittest.TestCase):
         subject = image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_image(make_image(id_=img_id), timestamp)
         subject.save()  # Save so we can extract the built collection
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        self.assertEqual([(timestamp, img_id)],
-                         self.mock_db_client.image_source_collection.insert.call_args[0][0]['images'])
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        self.assertEqual([[timestamp, img_id]],
+                         self.mock_db_client.image_source_collection.insert_one.call_args[0][0]['images'])
 
     def test_add_image_auto_assigns_timestamp(self):
         img_ids = [bson.ObjectId for _ in range(4)]
@@ -134,13 +140,13 @@ class TestImageCollectionBuilder(unittest.TestCase):
         subject.add_image(make_image(id_=img_ids[2]), 2.2)
         subject.add_image(make_image(id_=img_ids[3]))
         subject.save()  # Save so we can extract the built collection
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        s_images_list = self.mock_db_client.image_source_collection.insert.call_args[0][0]['images']
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        s_images_list = self.mock_db_client.image_source_collection.insert_one.call_args[0][0]['images']
         self.assertEqual(4, len(s_images_list))
-        self.assertIn((0, img_ids[0]), s_images_list)
-        self.assertIn((1, img_ids[1]), s_images_list)
-        self.assertIn((2.2, img_ids[2]), s_images_list)
-        self.assertIn((3.2, img_ids[3]), s_images_list)
+        self.assertIn([0, img_ids[0]], s_images_list)
+        self.assertIn([1, img_ids[1]], s_images_list)
+        self.assertIn([2.2, img_ids[2]], s_images_list)
+        self.assertIn([3.2, img_ids[3]], s_images_list)
 
     def test_add_from_image_source_loops_over_image_source(self):
         inner_image_source = MockImageSource([make_image()])
@@ -165,18 +171,18 @@ class TestImageCollectionBuilder(unittest.TestCase):
         subject.add_from_image_source(mock_image_source)
         subject.add_from_image_source(mock_image_source, offset=600)
         subject.save()  # Save so we can extract the built collection
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        s_images_list = self.mock_db_client.image_source_collection.insert.call_args[0][0]['images']
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        s_images_list = self.mock_db_client.image_source_collection.insert_one.call_args[0][0]['images']
         self.assertEqual(4, len(s_images_list))
-        self.assertIn((0, img_ids[0]), s_images_list)
-        self.assertIn((1/30, img_ids[1]), s_images_list)
-        self.assertIn((600, img_ids[0]), s_images_list)
-        self.assertIn((600 + 1/30, img_ids[1]), s_images_list)
+        self.assertIn([0, img_ids[0]], s_images_list)
+        self.assertIn([1/30, img_ids[1]], s_images_list)
+        self.assertIn([600, img_ids[0]], s_images_list)
+        self.assertIn([600 + 1/30, img_ids[1]], s_images_list)
 
     def test_save_checks_for_existing(self):
         ids = [bson.ObjectId() for _ in range(4)]
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
-        self.mock_db_client.image_collection.insert.side_effect = ids
+        self.mock_db_client.image_collection.insert_one.side_effect = [MockInsertResult(id_) for id_ in ids]
         self.mock_db_client.image_source_collection.find_one.return_value = {'_id': bson.ObjectId()}
         mock_image_source = MockImageSource([make_image() for _ in range(4)])
 
@@ -191,51 +197,53 @@ class TestImageCollectionBuilder(unittest.TestCase):
         self.assertEqual('arvet.core.image_collection.ImageCollection', query['_type'])
         self.assertEqual('SEQ', query['sequence_type'])
         for idx, img_id in enumerate(ids):
-            self.assertIn((idx / 30, img_id), query['images']['$all'])
-        self.assertFalse(self.mock_db_client.image_source_collection.insert.called)
+            self.assertIn([idx / 30, img_id], query['images']['$all'])
+        self.assertFalse(self.mock_db_client.image_source_collection.insert_one.called)
 
     def test_save_stores_image_collection(self):
         ids = [bson.ObjectId() for _ in range(4)]
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
-        self.mock_db_client.image_collection.insert.side_effect = ids
+        self.mock_db_client.image_collection.insert_one.side_effect = [MockInsertResult(id_) for id_ in ids]
         mock_image_source = MockImageSource([make_image() for _ in range(4)])
 
         subject = image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
         subject.save()
 
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        query = self.mock_db_client.image_source_collection.insert.call_args[0][0]
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        query = self.mock_db_client.image_source_collection.insert_one.call_args[0][0]
         # Evaluate the query in bits, because we can't guarantee the order of the images
         self.assertEqual({'_type', 'images', 'sequence_type'}, set(query.keys()))
         self.assertEqual('arvet.core.image_collection.ImageCollection', query['_type'])
         self.assertEqual('SEQ', query['sequence_type'])
         for idx, img_id in enumerate(ids):
-            self.assertIn((idx / 30, img_id), query['images'])
+            self.assertIn([idx / 30, img_id], query['images'])
 
     def test_adding_from_non_sequential_source_makes_sequence_non_sequential(self):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 4
-        self.mock_db_client.image_collection.insert.side_effect = [bson.ObjectId() for _ in range(4)]
+        self.mock_db_client.image_collection.insert_one.side_effect = [MockInsertResult(bson.ObjectId())
+                                                                       for _ in range(4)]
         mock_image_source = MockImageSource([make_image() for _ in range(4)])
         mock_image_source.sequence_type = arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
 
         subject = image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
         subject.save()
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        self.assertEqual('NON', self.mock_db_client.image_source_collection.insert.call_args[0][0]['sequence_type'])
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        self.assertEqual('NON', self.mock_db_client.image_source_collection.insert_one.call_args[0][0]['sequence_type'])
 
     def test_adding_from_multiple_sources_makes_sequence_non_sequential(self):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 8
-        self.mock_db_client.image_collection.insert.side_effect = [bson.ObjectId() for _ in range(8)]
+        self.mock_db_client.image_collection.insert_one.side_effect = [MockInsertResult(bson.ObjectId())
+                                                                       for _ in range(8)]
         mock_image_source = MockImageSource([make_image() for _ in range(4)])
 
         subject = image_collection_builder.ImageCollectionBuilder(self.mock_db_client)
         subject.add_from_image_source(mock_image_source)
         subject.add_from_image_source(mock_image_source, offset=100)
         subject.save()
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        self.assertEqual('NON', self.mock_db_client.image_source_collection.insert.call_args[0][0]['sequence_type'])
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        self.assertEqual('NON', self.mock_db_client.image_source_collection.insert_one.call_args[0][0]['sequence_type'])
 
     def test_set_non_sequential(self):
         self.mock_db_client.image_collection.find.return_value.count.return_value = 1
@@ -243,5 +251,5 @@ class TestImageCollectionBuilder(unittest.TestCase):
         subject.add_image(make_image())
         subject.set_non_sequential()
         subject.save()
-        self.assertTrue(self.mock_db_client.image_source_collection.insert.called)
-        self.assertEqual('NON', self.mock_db_client.image_source_collection.insert.call_args[0][0]['sequence_type'])
+        self.assertTrue(self.mock_db_client.image_source_collection.insert_one.called)
+        self.assertEqual('NON', self.mock_db_client.image_source_collection.insert_one.call_args[0][0]['sequence_type'])
