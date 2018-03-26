@@ -166,16 +166,19 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
 def update_schema(serialized: dict, db_client: arvet.database.client.DatabaseClient):
     # Clean out invalid ids
     if 'systems' in serialized:
-        invalid_keys = dh.check_many_references(db_client.system_collection, serialized['systems'].keys())
+        invalid_values = dh.check_many_references(db_client.system_collection, serialized['systems'].values())
+        invalid_keys = [k for k, v in serialized['systems'].items() if v in invalid_values]
         for key in invalid_keys:
             del serialized['systems'][key]
 
     if 'datasets' in serialized:
-        invalid_keys = dh.check_many_references(db_client.image_source_collection, serialized['datasets'].keys())
+        invalid_values = dh.check_many_references(db_client.image_source_collection, serialized['datasets'].values())
+        invalid_keys = [k for k, v in serialized['datasets'].items() if v in invalid_values]
         for key in invalid_keys:
             del serialized['datasets'][key]
 
     if 'benchmarks' in serialized:
-        invalid_keys = dh.check_many_references(db_client.benchmarks_collection, serialized['benchmarks'].keys())
+        invalid_values = dh.check_many_references(db_client.benchmarks_collection, serialized['benchmarks'].values())
+        invalid_keys = [k for k, v in serialized['benchmarks'].items() if v in invalid_values]
         for key in invalid_keys:
             del serialized['benchmarks'][key]
