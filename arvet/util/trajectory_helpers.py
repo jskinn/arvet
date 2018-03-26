@@ -58,6 +58,8 @@ def find_trajectory_scale(trajectory: typing.Mapping[float, tf.Transform]) -> fl
     :param trajectory:
     :return:
     """
+    if len(trajectory) <= 1:
+        return 0
     timestamps = sorted(trajectory.keys())
     speeds = []
     for idx in range(1, len(timestamps)):
@@ -79,6 +81,8 @@ def rescale_trajectory(trajectory: typing.Mapping[float, tf.Transform], scale: f
     :param scale: The desired average motion between frames
     :return: The same motions, rescaled to have a certain average speed.
     """
+    if len(trajectory) <= 1:
+        return trajectory
     current_scale = find_trajectory_scale(trajectory)
     timestamps = sorted(trajectory.keys())
     scaled_trajectory = {timestamps[0]: trajectory[timestamps[0]]}
@@ -104,6 +108,8 @@ def trajectory_to_motion_sequence(trajectory: typing.Mapping[float, tf.Transform
     :param trajectory:
     :return:
     """
+    if len(trajectory) <= 1:
+        return {}
     times = sorted(trajectory.keys())
     prev_time = times[0]
     motions = {}

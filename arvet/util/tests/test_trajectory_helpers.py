@@ -37,6 +37,12 @@ class TestZeroTrajectory(unittest.TestCase):
 
 class TestFindTrajectoryScale(unittest.TestCase):
 
+    def test_returns_zero_for_empty_trajectory(self):
+        self.assertEqual(0, th.find_trajectory_scale({}))
+
+    def test_returns_zero_for_single_pose_trajectory(self):
+        self.assertEqual(0, th.find_trajectory_scale({0: tf.Transform()}))
+
     def test_returns_speed_for_constant_speed(self):
         random = np.random.RandomState(16492)
         speed = random.uniform(10, 100)
@@ -96,6 +102,12 @@ class TestFindTrajectoryScale(unittest.TestCase):
 
 
 class TestRescaleTrajectory(unittest.TestCase):
+
+    def test_does_nothing_to_empty_trajectory(self):
+        self.assertEqual({}, th.rescale_trajectory({}, 3))
+
+    def test_does_nothing_to_single_pose_trajectory(self):
+        self.assertEqual({0: tf.Transform()}, th.rescale_trajectory({0: tf.Transform()}, 3))
 
     def test_changes_trajectory_scale(self):
         traj = create_trajectory(seed=64075)
@@ -157,6 +169,12 @@ class TestRescaleTrajectory(unittest.TestCase):
 
 
 class TestTrajectoryToMotionSequence(unittest.TestCase):
+
+    def test_works_on_empty_trajectory(self):
+        self.assertEqual({}, th.trajectory_to_motion_sequence({}))
+
+    def test_works_on_single_pose_trajectory(self):
+        self.assertEqual({}, th.trajectory_to_motion_sequence({0: tf.Transform()}))
 
     def test_skips_first_timestamp_due_to_fencepost_error(self):
         traj = create_trajectory(seed=64577)
