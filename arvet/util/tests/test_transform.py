@@ -455,7 +455,38 @@ class TestHelpers(unittest.TestCase):
         mean = tf.quat_mean([quat])
         self.assertNPEqual(quat, mean)
 
-    def test_quat_mean_of_two_mirroed_is_zero(self):
+    def test_quat_mean_of_two_mirrored_axis_is_zero(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+        quat1 = tf3d.quaternions.axangle2quat(np.array([0, 1, 0]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([0, 1, 0]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+        quat1 = tf3d.quaternions.axangle2quat(np.array([0, 0, 1]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([0, 0, 1]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+        quat1 = tf3d.quaternions.axangle2quat(np.array([0, 1, 1]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([0, 1, 1]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, 0, 1]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, 0, 1]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, 1, 0]), np.pi / 6)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, 1, 0]), -np.pi / 6)
+        result = tf.quat_mean([quat1, quat2])
+        self.assertNPClose([1, 0, 0, 0], result)
+
+    def test_quat_mean_of_two_mirrored_is_zero(self):
         quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
         quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
         result = tf.quat_mean([quat1, quat2])
@@ -470,6 +501,13 @@ class TestHelpers(unittest.TestCase):
         angle2 = tf.quat_diff(result, quat2)
         self.assertEqual(angle1, angle2, "{0} != {1}".format(180 * angle1 / np.pi, 180 * angle2 / np.pi))
         self.assertNPClose(result, mean)
+
+    def test_quat_mean_of_two_order_is_irrelevant(self):
+        quat1 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), np.pi / 3)
+        quat2 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), -np.pi / 6)
+        result1 = tf.quat_mean([quat1, quat2])
+        result2 = tf.quat_mean([quat2, quat1])
+        self.assertNPClose(result1, result2)
 
     def test_quat_mean_of_two_close_together_is_halfway_between(self):
         quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -2 * np.pi / 3 + np.pi / 360)
@@ -560,9 +598,11 @@ class TestHelpers(unittest.TestCase):
             axis = np.random.uniform(-1, 1, 3)
             quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
             quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
-        np.random.shuffle(quaternions)
-        result = tf.quat_mean(quaternions)
-        self.assertNPClose(result, mean)
+        for _ in range(10):
+            # Try many times with different orders, which should give the same answer
+            np.random.shuffle(quaternions)
+            result = tf.quat_mean(quaternions)
+            self.assertNPClose(result, mean)
 
     def test_compute_average_pose_finds_average_location(self):
         centre = np.random.uniform(-1000, 1000, 3)
@@ -578,8 +618,8 @@ class TestHelpers(unittest.TestCase):
             axis = np.random.uniform(-1, 1, 3)
             rotations.append(tf3d.quaternions.qmult(centre, tf3d.quaternions.axangle2quat(axis, angle)))
             rotations.append(tf3d.quaternions.qmult(centre, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
-        mean_pose = tf.compute_average_pose(tf.Transform(rotation=rot) for rot in rotations)
-        self.assertNPEqual(tf.quat_mean(rotations), mean_pose.rotation_quat(w_first=True))
+        mean_pose = tf.compute_average_pose(tf.Transform(rotation=rot, w_first=True) for rot in rotations)
+        self.assertNPClose(tf.quat_mean(rotations), mean_pose.rotation_quat(w_first=True))
 
     def assertNPEqual(self, arr1, arr2):
         self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
