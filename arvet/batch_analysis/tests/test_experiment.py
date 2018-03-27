@@ -32,15 +32,34 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
 
     def setUp(self):
         # Some complete results, so that we can have a non-empty trial map and result map on entity tests
-        self.systems = [mock_core.MockSystem()]
-        self.image_sources = [mock_core.MockImageSource() for _ in range(3)]
-        self.trial_results = [arvet.core.trial_result.TrialResult(
-                    system.identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
-            for _ in self.image_sources for system in self.systems]
-        self.benchmarks = [mock_core.MockBenchmark() for _ in range(2)]
-        self.benchmark_results = [arvet.core.benchmark.BenchmarkResult(benchmark.identifier, [trial_result.identifier],
-                                                                       True)
-                                  for benchmark in self.benchmarks for trial_result in self.trial_results]
+        self.systems = [mock_core.MockSystem(id_=bson.ObjectId()) for _ in range(2)]
+        self.image_sources = [mock_core.MockImageSource(id_=bson.ObjectId()) for _ in range(3)]
+        self.benchmarks = [mock_core.MockBenchmark(id_=bson.ObjectId()) for _ in range(2)]
+        self.trial_results = []
+        self.benchmark_results = []
+        self.trial_map = {}
+        for system in self.systems:
+            self.trial_map[system.identifier] = {}
+            for image_source in self.image_sources:
+                trial_result_group = [arvet.core.trial_result.TrialResult(
+                    system_id=system.identifier,
+                    success=True,
+                    sequence_type=arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
+                    system_settings={},
+                    id_=bson.ObjectId())
+                    for _ in range(3)]
+                self.trial_results += trial_result_group
+                results_group = {benchmark.identifier: arvet.core.benchmark.BenchmarkResult(
+                    benchmark_id=benchmark.identifier,
+                    trial_result_ids=trial_result_group,
+                    success=True,
+                    id_=bson.ObjectId())
+                    for benchmark in self.benchmarks}
+                self.benchmark_results += list(results_group.values())
+                self.trial_map[system.identifier][image_source.identifier] = {
+                    'trials': {obj.identifier for obj in trial_result_group},
+                    'results': {bench_id: result.identifier for bench_id, result in results_group.items()}
+                }
 
     def get_class(self):
         return MockExperiment
@@ -48,41 +67,13 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
     def make_instance(self, *args, **kwargs):
         du.defaults(kwargs, {
             'enabled': False,
-            'trial_map': {
-                system.identifier: {
-                    image_source.identifier: {
-                        'trials': set(
-                            trial_result.identifier
-                            for trial_result in self.trial_results
-                            if trial_result.identifier is not None and
-                            trial_result.system_id == system.identifier
-                        ),
-                        'results': {
-                            benchmark.identifier: benchmark_result.identifier
-                            for benchmark in self.benchmarks
-                            if benchmark.identifier is not None
-                            for benchmark_result in self.benchmark_results
-                            if benchmark_result.identifier is not None and
-                            benchmark_result.benchmark == benchmark.identifier and
-                            benchmark_result.trial_result in [
-                                   trial_result.identifier
-                                   for trial_result in self.trial_results
-                                   if trial_result.identifier is not None and
-                                   trial_result.system_id == system.identifier
-                            ]
-                        }
-                    }
-                    for image_source in self.image_sources
-                    if image_source.identifier is not None
-                }
-                for system in self.systems if system.identifier is not None
-            }
+            'trial_map': self.trial_map
         })
         return MockExperiment(*args, **kwargs)
 
     def assert_models_equal(self, experiment1, experiment2):
         """
-        Helper to assert that two tasks are equal
+        Helper to assert that two experiments are equal
         We're going to violate encapsulation for a bit
         :param experiment1:
         :param experiment2:
@@ -94,6 +85,32 @@ class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityC
         self.assertEqual(experiment1.enabled, experiment2.enabled)
         self.assertEqual(experiment1.identifier, experiment2.identifier)
         self.assertEqual(experiment1._trial_map, experiment2._trial_map)
+
+    def assert_serialized_equal(self, s_experiment1, s_experiment2):
+        """
+
+        :param s_experiment1:
+        :param s_experiment2:
+        :return:
+        """
+        self.assertEqual(set(s_experiment1.keys()), set(s_experiment2.keys()))
+
+        for key in s_experiment1.keys():
+            if key not in {'trial_map'}:
+                self.assertEqual(s_experiment1[key], s_experiment2[key])
+
+        # Special handling for the trial map because we don't care about the order of the trials list
+        self.assertEqual(set(s_experiment1['trial_map'].keys()), set(s_experiment2['trial_map'].keys()))
+        for sys_id in s_experiment1['trial_map'].keys():
+            self.assertEqual(set(s_experiment1['trial_map'][sys_id].keys()),
+                             set(s_experiment2['trial_map'][sys_id].keys()))
+            for img_src_id in s_experiment1['trial_map'][sys_id]:
+                self.assertEqual({'trials', 'results'}, set(s_experiment1['trial_map'][sys_id][img_src_id].keys()))
+                self.assertEqual({'trials', 'results'}, set(s_experiment2['trial_map'][sys_id][img_src_id].keys()))
+                self.assertEqual(s_experiment1['trial_map'][sys_id][img_src_id]['results'],
+                                 s_experiment2['trial_map'][sys_id][img_src_id]['results'])
+                self.assertEqual(set(s_experiment1['trial_map'][sys_id][img_src_id]['trials']),
+                                 set(s_experiment2['trial_map'][sys_id][img_src_id]['trials']))
 
     def create_mock_db_client(self):
         mock_db_client = super().create_mock_db_client()
