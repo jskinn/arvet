@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2017, John Skinner
 import sys
+import os
 import logging
 import logging.config
 import traceback
@@ -12,6 +13,18 @@ import arvet.database.client
 import arvet.util.database_helpers as dh
 
 
+def patch_cwd():
+    """
+    Patch sys.path to make sure the current working directory is included.
+    This is necessary when this is being used as a library,
+    and we run the script by file path.
+    :return:
+    """
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.append(cwd)
+
+
 def main(*args):
     """
     Run a particular task.
@@ -20,6 +33,7 @@ def main(*args):
     """
     if len(args) >= 1:
         task_id = bson.objectid.ObjectId(args[0])
+        patch_cwd()
 
         config = global_conf.load_global_config('config.yml')
         if __name__ == '__main__':
