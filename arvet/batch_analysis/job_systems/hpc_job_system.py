@@ -16,7 +16,7 @@ JOB_TEMPLATE = """#!/bin/bash -l
 #PBS -l walltime={time}
 #PBS -l mem={mem}
 #PBS -l ncpus={cpus}
-#PBS -l cpuarch=avx
+#PBS -l cpuarch=avx2
 {job_params}
 {env}
 cd {working_directory}
