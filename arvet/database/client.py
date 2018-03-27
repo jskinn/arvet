@@ -154,8 +154,10 @@ class DatabaseClient:
             try:
                 importlib.import_module(module_)
             except ImportError:
-                logging.getLogger(__name__).error("Could not import module {0} containing type {1}:\{2}".format(
-                    module_, type_name, traceback.format_exc()))
+                logging.getLogger(__name__).error("Could not import module {0} containing type {1}".format(
+                    module_, type_name))
+                logging.getLogger(__name__).error("cwd: \"{0}\", sys.path: \"{1}\"".format(os.getcwd(), str(sys.path)))
+                logging.getLogger(__name__).error("Original error was: \n {0}".format(traceback.format_exc()))
                 pass
         entity_type = arvet.database.entity_registry.get_entity_type(type_name)
         if entity_type:

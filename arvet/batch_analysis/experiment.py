@@ -208,7 +208,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         if image_source_id not in self._trial_map[system_id]:
             self._trial_map[system_id][image_source_id] = {'trials': list(trial_result_ids), 'results': {}}
             self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id),
-                               self._trial_map[system_id][image_source_id])
+                               serialize_trial_obj(self._trial_map[system_id][image_source_id]))
             return True
         elif set(self._trial_map[system_id][image_source_id]['trials']) != set(trial_result_ids):
             # Set of trials has changed, invalidate all benchmark results and reset
@@ -218,7 +218,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
             # Reset the trial map with the new trial set
             self._trial_map[system_id][image_source_id] = {'trials': list(trial_result_ids), 'results': {}}
             self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id),
-                               self._trial_map[system_id][image_source_id])
+                               serialize_trial_obj(self._trial_map[system_id][image_source_id]))
             return True
         return False
 
@@ -249,7 +249,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         if system_id in self._trial_map and image_source_id in self._trial_map[system_id]:
             self._trial_map[system_id][image_source_id]['results'][benchmark_id] = benchmark_result_id
             self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id),
-                               self._trial_map[system_id][image_source_id])
+                               serialize_trial_obj(self._trial_map[system_id][image_source_id]))
             return True
         return False
 
@@ -279,13 +279,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         serialized['enabled'] = self.enabled
         serialized['trial_map'] = {
             str(sys_id): {
-                str(source_id): {
-                    'trials': list(trial_obj['trials']),
-                    'results': {
-                        str(benchmark_id): result_id
-                        for benchmark_id, result_id in trial_obj['results'].items()
-                    }
-                }
+                str(source_id): serialize_trial_obj(trial_obj)
                 for source_id, trial_obj in inner_map.items()
             }
             for sys_id, inner_map in self._trial_map.items()
@@ -366,6 +360,22 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
             existing = (set(self._updates['$addToSet'][serialized_key]['$each'])
                         if serialized_key in self._updates['$addToSet'] else set())
             self._updates['$addToSet'][serialized_key] = {'$each': list(new_elements | existing)}
+
+
+def serialize_trial_obj(trial_obj: dict):
+    """
+    Convert an entry in the trial map to a format that can be saved in the database.
+    This makes sure all our keys are strings, and the
+    :param trial_obj:
+    :return:
+    """
+    return {
+        'trials': list(trial_obj['trials']),
+        'results': {
+            str(benchmark_id): result_id
+            for benchmark_id, result_id in trial_obj['results'].items()
+        }
+    }
 
 
 def deserialize_trial_map(s_trial_map: dict, db_client: arvet.database.client.DatabaseClient) -> dict:
