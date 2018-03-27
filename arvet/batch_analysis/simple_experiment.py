@@ -1,4 +1,5 @@
 import typing
+import os.path
 import bson
 import arvet.util.database_helpers as dh
 import arvet.core.system
@@ -21,7 +22,7 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
     def __init__(self, systems=None,
                  datasets=None,
                  benchmarks=None,
-                 repeats=1,
+                 repeats=1, do_analysis=False,
                  trial_map=None, enabled=True, id_=None):
         """
         Constructor. We need parameters to load the different stored parts of this experiment
@@ -38,6 +39,7 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
         self._datasets = datasets if datasets is not None else {}
         self._benchmarks = benchmarks if benchmarks is not None else {}
         self._repeats = int(repeats)
+        self._do_analysis = bool(do_analysis)
 
     @property
     def systems(self) -> typing.Mapping[str, bson.ObjectId]:
@@ -60,12 +62,16 @@ class SimpleExperiment(arvet.batch_analysis.experiment.Experiment,
         :return:
         """
         # Schedule all combinations of systems with the generated datasets
-        self.schedule_all(task_manager=task_manager,
-                          db_client=db_client,
-                          systems=list(self._systems.values()),
-                          image_sources=list(self._datasets.values()),
-                          benchmarks=list(self._benchmarks.values()),
-                          repeats=self._repeats)
+        _, anticipated_changes = self.schedule_all(task_manager=task_manager,
+                                                   db_client=db_client,
+                                                   systems=list(self._systems.values()),
+                                                   image_sources=list(self._datasets.values()),
+                                                   benchmarks=list(self._benchmarks.values()),
+                                                   repeats=self._repeats)
+
+        # If we don't anticipate any more changes, schedule performing the analysis
+        if self._do_analysis and anticipated_changes <= 0 and not os.path.isdir(type(self).get_output_folder()):
+            task_manager.do_analysis_task(experiment_id=self.identifier)
 
     def import_system(self, name: str, system: arvet.core.system.VisionSystem,
                       db_client: arvet.database.client.DatabaseClient) -> None:

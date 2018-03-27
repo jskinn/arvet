@@ -131,6 +131,8 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         # Trial results will be collected as we go
         trial_results_to_benchmark = []
         repeats = max(repeats, 1)   # always at least 1 repeat
+        changes = 0
+        anticipated_changes = 0
 
         # For each image dataset, run libviso with that dataset, and store the result in the trial map
         for image_source_id in image_sources:
@@ -151,10 +153,12 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
                         )
                         if not task.is_finished:
                             task_manager.do_task(task)
+                            anticipated_changes += 1
                         else:
                             trial_result_group.add(task.result)
 
-                    self.store_trial_results(system_id, image_source_id, trial_result_group, db_client)
+                    if self.store_trial_results(system_id, image_source_id, trial_result_group, db_client):
+                        changes += 1
 
                     if len(trial_result_group) >= repeats or allow_incomplete_benchmarks:
                         # Schedule benchmarks for the group
@@ -180,12 +184,15 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
                         )
                         if not task.is_finished:
                             task_manager.do_task(task)
+                            anticipated_changes += 1
                         else:
-                            self.store_benchmark_result(system_id, image_source_id, benchmark_id, task.result)
+                            if self.store_benchmark_result(system_id, image_source_id, benchmark_id, task.result):
+                                changes += 1
+        return changes, anticipated_changes
 
     def store_trial_results(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId,
                             trial_result_ids: typing.Iterable[bson.ObjectId],
-                            db_client: arvet.database.client.DatabaseClient):
+                            db_client: arvet.database.client.DatabaseClient) -> bool:
         """
         Store the results of running a particular system with a particular image source,
         that is, a group of trial results against the system and image source that produced them.
@@ -194,7 +201,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         :param image_source_id: The image source id given to the system to produce these trials
         :param trial_result_ids: An iterable of trial result ids, allowing multiple repeats
         :param db_client: The database client, to remove any existing benchmark results
-        :return: void
+        :return: true iff we stored a change, false if we did not
         """
         if system_id not in self._trial_map:
             self._trial_map[system_id] = {}
@@ -202,6 +209,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
             self._trial_map[system_id][image_source_id] = {'trials': list(trial_result_ids), 'results': {}}
             self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id),
                                self._trial_map[system_id][image_source_id])
+            return True
         elif set(self._trial_map[system_id][image_source_id]['trials']) != set(trial_result_ids):
             # Set of trials has changed, invalidate all benchmark results and reset
             for benchmark_result_id in self._trial_map[system_id][image_source_id]['results'].items():
@@ -211,6 +219,8 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
             self._trial_map[system_id][image_source_id] = {'trials': list(trial_result_ids), 'results': {}}
             self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id),
                                self._trial_map[system_id][image_source_id])
+            return True
+        return False
 
     def get_trial_results(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId) \
             -> typing.Set[bson.ObjectId]:
@@ -226,7 +236,7 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         return set()
 
     def store_benchmark_result(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId,
-                               benchmark_id: bson.ObjectId, benchmark_result_id: bson.ObjectId):
+                               benchmark_id: bson.ObjectId, benchmark_result_id: bson.ObjectId) -> bool:
         """
         Store the result of measuring a particular set of trials with a particular benchmark.
         Cannot store results for trials that are not stored in this experiment, call 'store_trial_results' first.
@@ -234,12 +244,14 @@ class Experiment(arvet.database.entity.Entity, metaclass=arvet.database.entity.A
         :param image_source_id: The id of the image source to perform the benchmarked trials
         :param benchmark_id: The id of the benchmark used
         :param benchmark_result_id: The id of the benchmark result
-        :return: void
+        :return: true if a change was made to the trial map
         """
         if system_id in self._trial_map and image_source_id in self._trial_map[system_id]:
             self._trial_map[system_id][image_source_id]['results'][benchmark_id] = benchmark_result_id
             self._set_property('trial_map.{0}.{1}'.format(system_id, image_source_id),
                                self._trial_map[system_id][image_source_id])
+            return True
+        return False
 
     def get_benchmark_result(self, system_id: bson.ObjectId, image_source_id: bson.ObjectId,
                              benchmark_id: bson.ObjectId) -> typing.Union[bson.ObjectId, None]:
