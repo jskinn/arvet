@@ -146,5 +146,4 @@ def compute_average_trajectory(trajectories: typing.Iterable[typing.Mapping[floa
     return {
         np.median(associated_times[time]): tf.compute_average_pose(associated_poses[time])
         for time in associated_times.keys()
-        if len(associated_times[time]) > 1
     }
