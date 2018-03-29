@@ -292,7 +292,7 @@ def quat_diff(q1: typing.Union[typing.Sequence, np.ndarray], q2: typing.Union[ty
     q_inv = q1 * np.array([1.0, -1.0, -1.0, -1.0])
     q_inv = q_inv / np.linalg.norm(q_inv)
 
-    # We only coare about the scalar component, compose only that
+    # We only care about the scalar component, compose only that
     z0 = q_inv[0] * q2[0] - q_inv[1] * q2[1] - q_inv[2] * q2[2] - q_inv[3] * q2[3]
     return 2 * float(np.arccos(min(1, max(-1, z0))))
 
@@ -300,6 +300,8 @@ def quat_diff(q1: typing.Union[typing.Sequence, np.ndarray], q2: typing.Union[ty
 def quat_mean(quaternions: typing.Sequence[typing.Union[typing.Sequence, np.ndarray]]) -> np.ndarray:
     """
     Find the mean of a bunch of quaternions
+    Fails in some pathological cases where the quats are widely distributed.
+
     :param quaternions:
     :return:
     """
@@ -308,66 +310,25 @@ def quat_mean(quaternions: typing.Sequence[typing.Union[typing.Sequence, np.ndar
     elif len(quaternions) == 1:
         # Only one quaternion, it is the average of itself
         return quaternions[0]
-    elif len(quaternions) == 2 and False:
-        # We have weird errors for 2 quaternions using the matrix
-        # We use the closed form solution given in
-        # https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf
-        q1 = np.asarray(quaternions[0])
-        q2 = np.asarray(quaternions[1])
-        #if q1[0] < 0:
-        #    q1 = -1 * q1
-        #if q2[0] < 0:
-        #    q2 = -1 * q2
-
-        dot = np.dot(q1, q2)
-        if dot < 0:
-            # The vectors don't have the same handedness, invert one
-            q2 = -1 * q2
-            dot = -dot
-        if dot == 0:
-            if q1[0] > q2[0]:
-                return q1
-            return q2
-        z = np.sqrt((q1[0] - q2[0]) * (q1[0] - q2[0]) + 4 * q1[0] * q2[0] * dot * dot)
-        result1 = (q1[0] - q2[0] + z) * q1 + 2 * q2[0] * dot * q2
-        result2 = 2 * q1[0] * dot * q1 + (q2[0] - q1[0] + z) * q2
-        result1 /= np.linalg.norm(result1)
-        result2 /= np.linalg.norm(result2)
-        if not np.all(np.isclose(result1, result2)) and not np.all(np.isclose(result1, -1 * result2)):
-            print("two approaches are not equal, error")
-        return result1 / np.linalg.norm(result1)
     else:
-        # Quaternion average from the eigenvectors of the sum matrix
-        # See: https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf
-        # We have at least 3 quaternions, make sure they're of the same handedness
-        q_mat = np.asarray([
-            q if np.dot(q, quaternions[0]) >= 0 else -1 * np.asarray(q)
-            for q in quaternions
-        ])
-        product = np.dot(q_mat.T, q_mat)    # Computes sum([q * q.T for q in quaterions])
-        evals, evecs = np.linalg.eig(product)
-        best = -1
-        result = None
-        for idx in range(len(evals)):
-            if evals[idx] > best:
-                best = evals[idx]
-                result = evecs[idx]
-        if np.any(np.iscomplex(result)):
-            # Mean is complex, which means the quaternions are all too close together (I think?)
-            # Instead, return the Mode, the most common quaternion
-            counts = [
-                sum(1 for q2 in quaternions if np.array_equal(q1, q2))
-                for q1 in quaternions
-            ]
-            best = 0
-            for idx in range(len(counts)):
-                if counts[idx] > best:
-                    best = counts[idx]
-                    result = quaternions[idx]
-            print("Passing off mode as mean with {0} of {1} identical vectors".format(best, len(quaternions)))
-        else:
-            result = result * np.array([1, -1, -1, -1])
-        return result
+        # Sum them up, maintaining handedness
+        num = 0
+        result = np.zeros(4)
+        first_rotation = None
+        for quat in quaternions:
+            if first_rotation is None:
+                first_rotation = quat
+            elif np.dot(first_rotation, quat) < 0:
+                quat = -1 * quat
+            num += 1
+            result += quat
+        result = result / num
+        return result / np.linalg.norm(result)
+
+
+def angle_gradient_scale(q1, q2):
+    z0 = q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3]
+    return -1 / np.sqrt(1 - z0 * z0)
 
 
 def compute_average_pose(poses: typing.Iterable[Transform]) -> Transform:
@@ -382,3 +343,6 @@ def compute_average_pose(poses: typing.Iterable[Transform]) -> Transform:
         rotation=quat_mean([data[1] for data in pose_data]),
         w_first=True
     )
+
+def _safe_arccos(value) -> float:
+    return float(np.arccos(min(1, max(-1, value))))

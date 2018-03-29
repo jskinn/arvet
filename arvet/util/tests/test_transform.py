@@ -234,7 +234,7 @@ class TestTransform(unittest.TestCase):
 
     def test_serialize_and_deserialise(self):
         random = np.random.RandomState(seed=1251)
-        for _ in range(200):
+        for _ in range(20):
             entity1 = tf.Transform(location=random.uniform(-1000, 1000, 3),
                                    rotation=random.uniform(-1, 1, 4), w_first=True)
             s_entity1 = entity1.serialize()
@@ -452,8 +452,8 @@ class TestHelpers(unittest.TestCase):
 
     def test_quat_mean_of_single_quat_is_that_quat(self):
         quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), 1.32234252)
-        mean = tf.quat_mean([quat])
-        self.assertNPEqual(quat, mean)
+        result = tf.quat_mean([quat])
+        self.assertNPEqual(quat, result)
 
     def test_quat_mean_of_two_mirrored_axis_is_zero(self):
         quat1 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), np.pi / 6)
@@ -500,7 +500,7 @@ class TestHelpers(unittest.TestCase):
         angle1 = tf.quat_diff(result, quat1)
         angle2 = tf.quat_diff(result, quat2)
         self.assertEqual(angle1, angle2, "{0} != {1}".format(180 * angle1 / np.pi, 180 * angle2 / np.pi))
-        self.assertNPClose(result, mean)
+        self.assertNPClose(mean, result)
 
     def test_quat_mean_of_two_order_is_irrelevant(self):
         quat1 = tf3d.quaternions.axangle2quat(np.array([1, 0, 0]), np.pi / 3)
@@ -522,17 +522,17 @@ class TestHelpers(unittest.TestCase):
     def test_quat_mean_of_two_handles_handedness(self):
         quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
         quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
-        mean1 = tf.quat_mean([quat1, quat2])
-        mean2 = tf.quat_mean([quat1, -1 * quat2])
-        mean3 = tf.quat_mean([-1 * quat1, quat2])
-        mean4 = tf.quat_mean([-1 * quat1, -1 * quat2])
-        self.assertNPClose(mean1, mean2)
-        self.assertNPClose(mean1, mean3)
-        self.assertNPClose(mean1, mean4)
-        self.assertNPClose([1, 0, 0, 0], mean1)
-        self.assertNPClose([1, 0, 0, 0], mean2)
-        self.assertNPClose([1, 0, 0, 0], mean3)
-        self.assertNPClose([1, 0, 0, 0], mean4)
+        result1 = tf.quat_mean([quat1, quat2])
+        result2 = tf.quat_mean([quat1, -1 * quat2])
+        result3 = tf.quat_mean([-1 * quat1, quat2])
+        result4 = tf.quat_mean([-1 * quat1, -1 * quat2])
+        self.assertNPClose(result1, result2)
+        self.assertNPClose(result1, -1 * result3)
+        self.assertNPClose(result1, -1 * result4)
+        self.assertNPClose([1, 0, 0, 0], result1)
+        self.assertNPClose([1, 0, 0, 0], result2)
+        self.assertNPClose([-1, 0, 0, 0], result3)
+        self.assertNPClose([-1, 0, 0, 0], result4)
 
     def test_quat_mean_of_many_symetric_quats(self):
         quaternions = []
@@ -553,7 +553,37 @@ class TestHelpers(unittest.TestCase):
             quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
             quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
         result = tf.quat_mean(quaternions)
-        self.assertNPClose(result, mean)
+        self.assertNPClose(mean, result)
+
+    def test_quat_mean_of_many_two_widely_spaced(self):
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = []
+        for _ in range(10):
+            angle = np.random.uniform(-np.pi / 36, np.pi / 36)
+            axis = np.random.uniform(-1, 1, 3)
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+
+        quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat([-6, 3, 7], -6 * np.pi / 7)))
+        quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat([-6, 3, 7], 6 * np.pi / 7)))
+        result = tf.quat_mean(quaternions)
+        self.assertNPClose(mean, result)
+
+    def test_quat_mean_of_many_widely_spaced_quats(self):
+        # This is one of the pathalogical cases where the orientations are every which way,
+        # so the noise obscures the actual mean, even though the quats happen to be symmetric.
+        # We expect the mean to fail in this case.
+        random = np.random.RandomState(1331)
+        mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
+        quaternions = []
+        for idx in range(10):
+            angle = random.uniform(-np.pi, np.pi)
+            axis = random.uniform(-1, 1, 3)
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, angle)))
+            quaternions.append(tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
+        result = tf.quat_mean(quaternions)
+        # print("Result is {0} degrees from mean".format(180 * tf.quat_diff(mean, result) / np.pi))
+        self.assertNotNPClose(mean, result)
 
     def test_quat_mean_of_many_identical_quats(self):
         quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
@@ -588,7 +618,9 @@ class TestHelpers(unittest.TestCase):
             quaternions.append(np.random.choice([-1, 1]) *
                                tf3d.quaternions.qmult(mean, tf3d.quaternions.axangle2quat(axis, -1 * angle)))
         result = tf.quat_mean(quaternions)
-        self.assertNPClose(result, mean)
+        if np.dot(mean, result) < 0:
+            result = -1 * result
+        self.assertNPClose(mean, result)
 
     def test_quat_mean_ignores_order(self):
         mean = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
@@ -602,7 +634,7 @@ class TestHelpers(unittest.TestCase):
             # Try many times with different orders, which should give the same answer
             np.random.shuffle(quaternions)
             result = tf.quat_mean(quaternions)
-            self.assertNPClose(result, mean)
+            self.assertNPClose(mean, result)
 
     def test_compute_average_pose_finds_average_location(self):
         centre = np.random.uniform(-1000, 1000, 3)
@@ -626,3 +658,6 @@ class TestHelpers(unittest.TestCase):
 
     def assertNPClose(self, arr1, arr2):
         self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
+
+    def assertNotNPClose(self, arr1, arr2):
+        self.assertFalse(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are close".format(str(arr1), str(arr2)))
