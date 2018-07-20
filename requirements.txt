@@ -1,10 +1,1 @@
-pip
-packaging
-numpy>=1.12
-transforms3d
-pyyaml
-pymongo
-xxhash
-matplotlib
-pykitti
-unrealcv>=0.2
+.
