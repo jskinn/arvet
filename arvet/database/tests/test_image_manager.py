@@ -55,7 +55,6 @@ class TestDefaultImageManager(ExtendedTestCase):
                 self.assertTrue(opened)
             self.assertFalse(opened)
 
-
     def test_handles_nested_contexts(self):
         subject = self.make_instance()
         image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
