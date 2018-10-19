@@ -24,7 +24,7 @@ class TestImageField(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
-        TestEnumFieldMongoModel.objects.get_queryset()._collection.drop()
+        TestEnumFieldMongoModel._mongometa.collection.drop()
 
     def test_image_field_stores_and_loads(self):
 

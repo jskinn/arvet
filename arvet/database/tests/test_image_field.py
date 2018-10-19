@@ -22,7 +22,7 @@ class TestImageField(ExtendedTestCase):
         # Clean up after ourselves by dropping the collection for this model and removing the image file
         if os.path.isfile(dbconn.image_file):
             os.remove(dbconn.image_file)
-        TestImageFieldMongoModel.objects.get_queryset()._collection.drop()
+        TestImageFieldMongoModel._mongometa.collection.drop()
 
     def test_image_field_stores_and_loads(self):
         image = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)

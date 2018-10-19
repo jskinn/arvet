@@ -18,7 +18,7 @@ class TestImageField(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
-        TestTransformFieldMongoModel.objects.get_queryset()._collection.drop()
+        TestTransformFieldMongoModel._mongometa.collection.drop()
 
     def test_image_field_stores_and_loads(self):
         pose = tf.Transform(location=[1, 2, 3], rotation=[4, 5, 6])
