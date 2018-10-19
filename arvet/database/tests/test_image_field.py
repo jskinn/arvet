@@ -19,12 +19,9 @@ class TestImageField(ExtendedTestCase):
 
     @classmethod
     def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model and removing the image file
         if os.path.isfile(dbconn.image_file):
             os.remove(dbconn.image_file)
-
-    @classmethod
-    def tearDownClass(cls):
-        # Clean up after ourselves by dropping the collection for this model
         TestImageFieldMongoModel.objects.get_queryset()._collection.drop()
 
     def test_image_field_stores_and_loads(self):
