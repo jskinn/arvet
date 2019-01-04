@@ -41,6 +41,10 @@ class ImageField(pymodm.fields.MongoBaseField):
             return super(ImageField, self).is_blank(value)
 
     def to_python(self, value):
+        # Return immediately for blank values, or values that are already an image
+        if self.is_blank(value) or isinstance(value, np.ndarray):
+            return value
+
         if isinstance(value, str):
             with arvet.database.image_manager.get() as image_manager:
                 return image_manager.get_image(value)
