@@ -1,51 +1,25 @@
 # Copyright (c) 2017, John Skinner
 import typing
+import pymodm
 import numpy as np
-import arvet.util.database_helpers as dh
 
 
-class CameraIntrinsics:
+class CameraIntrinsics(pymodm.EmbeddedMongoModel):
     """
     An object holding all the information about the camera intrinsics for a given image.
     """
-
-    __slots__ = ['_width', '_height', '_fx', '_fy', '_cx', '_cy', '_s', '_k1', '_k2', '_k3', '_p1', '_p2']
-
-    def __init__(self, width: int, height: int,
-                 fx: float, fy: float, cx: float, cy: float,
-                 skew: float = 0.0, k1: float = 0.0, k2: float = 0.0, k3: float = 0.0,
-                 p1: float = 0.0, p2: float = 0.0):
-        """
-        Create a set of camera intrinsics information.
-        Basic intrinsics are fractions of the image height and width.
-        This loses aspect ratio information, but that is preserved in the image height and width.
-        These intrinsics should therefore be consistent regardless of scaled image resolution.
-        (I think that's valid?)
-        :param width: The width of the image
-        :param height: The height of the image
-        :param fx: The x focal length, as a fraction of the image width. Should be same as fy
-        :param fy: The y focal length, as a fraction of the image height. Should be same as fx
-        :param cx: Principal point x coordinate, as a fraction of the image width
-        :param cy: Principal point y coordinate, as a fraction of the image height
-        :param skew: Pixel skew, for non-square pixels. Default 0
-        :param k1: Camera radial distortion k1. Default 0
-        :param k2: Camera radial distortion k2. Default 0
-        :param k3: Camera radial distortion k3. Default 0
-        :param p1: Camera tangential distortion p1. Default 0
-        :param p2: Camera tangential distortion p2. Default 0
-        """
-        self._width = width
-        self._height = height
-        self._fx = fx
-        self._fy = fy
-        self._cx = cx
-        self._cy = cy
-        self._s = skew
-        self._k1 = k1
-        self._k2 = k2
-        self._k3 = k3
-        self._p1 = p1
-        self._p2 = p2
+    _width = pymodm.fields.IntegerField(required=True)
+    _height = pymodm.fields.IntegerField(required=True)
+    _fx = pymodm.fields.FloatField(required=True)
+    _fy = pymodm.fields.FloatField(required=True)
+    _cx = pymodm.fields.FloatField(required=True)
+    _cy = pymodm.fields.FloatField(required=True)
+    _s = pymodm.fields.FloatField(default=0.0)
+    _k1 = pymodm.fields.FloatField(default=0.0)
+    _k2 = pymodm.fields.FloatField(default=0.0)
+    _k3 = pymodm.fields.FloatField(default=0.0)
+    _p1 = pymodm.fields.FloatField(default=0.0)
+    _p2 = pymodm.fields.FloatField(default=0.0)
 
     def __eq__(self, other: typing.Any) -> bool:
         return (isinstance(other, CameraIntrinsics) and
@@ -209,75 +183,3 @@ class CameraIntrinsics:
         return np.array([[self.fx, self.s, self.cx],
                          [0, self.fy, self.cy],
                          [0, 0, 1]])
-
-    def serialize(self) -> dict:
-        """
-        Serialize the
-        :return:
-        """
-        serialized = {
-            'width': self.width,
-            'height': self.height,
-            'fx': self.fx,
-            'fy': self.fy,
-            'cx': self.cx,
-            'cy': self.cy,
-            'skew': self.s,
-            'k1': self.k1,
-            'k2': self.k2,
-            'k3': self.k3,
-            'p1': self.p1,
-            'p2': self.p2
-        }
-        dh.add_schema_version(serialized, 'metadata:camera_intrinsics:CameraIntrinsics', 1)
-        return serialized
-
-    @classmethod
-    def deserialize(cls, serialized_representation: dict, **kwargs) -> 'CameraIntrinsics':
-        update_schema(serialized_representation)
-        if 'width' in serialized_representation:
-            kwargs['width'] = serialized_representation['width']
-        if 'height' in serialized_representation:
-            kwargs['height'] = serialized_representation['height']
-        if 'fx' in serialized_representation:
-            kwargs['fx'] = serialized_representation['fx']
-        if 'fy' in serialized_representation:
-            kwargs['fy'] = serialized_representation['fy']
-        if 'cx' in serialized_representation:
-            kwargs['cx'] = serialized_representation['cx']
-        if 'cy' in serialized_representation:
-            kwargs['cy'] = serialized_representation['cy']
-        if 'skew' in serialized_representation:
-            kwargs['skew'] = serialized_representation['skew']
-        if 'k1' in serialized_representation:
-            kwargs['k1'] = serialized_representation['k1']
-        if 'k2' in serialized_representation:
-            kwargs['k2'] = serialized_representation['k2']
-        if 'k3' in serialized_representation:
-            kwargs['k3'] = serialized_representation['k3']
-        if 'p1' in serialized_representation:
-            kwargs['p1'] = serialized_representation['p1']
-        if 'p2' in serialized_representation:
-            kwargs['p2'] = serialized_representation['p2']
-        return cls(**kwargs)
-
-
-def update_schema(serialized: dict):
-    """
-    Update the serialized image metadata to the latest version.
-    :param serialized:
-    :return:
-    """
-    version = dh.get_schema_version(serialized, 'metadata:camera_intrinsics:CameraIntrinsics')
-    if version < 1:
-        # unversioned -> 1
-        if 'width' in serialized:
-            if serialized['fx'] < 10:   # Stored fx as a fraction of width, patch it back to what it should be
-                serialized['fx'] = serialized['fx'] * serialized['width']
-            if serialized['cx'] < 10:   # Stored cx as a fraction of width, patch it back to what it should be
-                serialized['cx'] = serialized['cx'] * serialized['width']
-        if 'height' in serialized:
-            if serialized['fy'] < 10:   # Stored fy as a fraction of height, patch it back to what it should be
-                serialized['fy'] = serialized['fy'] * serialized['height']
-            if serialized['cy'] < 10:   # Stored cy as a fraction of height, patch it back to what it should be
-                serialized['cy'] = serialized['cy'] * serialized['height']
