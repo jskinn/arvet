@@ -112,7 +112,7 @@ class MaskedObject(LabelledObject):
 
     def __init__(self, *args, **kwargs):
         # Validate and ensure that the mask image match the width and height attribute
-        mask = args[8] if len(args) >= 9 else kwargs.get('mask', None)
+        mask = args[7] if len(args) >= 8 else kwargs.get('mask', None)
         if mask is not None:
             width = args[3] if len(args) >= 4 else kwargs.get('width', None)
             height = args[4] if len(args) >= 5 else kwargs.get('height', None)

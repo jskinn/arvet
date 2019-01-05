@@ -204,6 +204,28 @@ class TestMaskedObject(unittest.TestCase):
     def test_incorrect_size(self):
         with self.assertRaises(ValueError):
             imeta.MaskedObject(
+                ('class_1',),
+                152,
+                239,
+                140,
+                78,
+                tf.Transform(location=(123, -45, 23), rotation=(0.5, 0.23, 0.1)),
+                'LabelledObject-18569',
+                np.random.choice((True, False), size=(78, 14))
+            )
+        with self.assertRaises(ValueError):
+            imeta.MaskedObject(
+                ('class_1',),
+                152,
+                239,
+                14,
+                87,
+                tf.Transform(location=(123, -45, 23), rotation=(0.5, 0.23, 0.1)),
+                'LabelledObject-18569',
+                np.random.choice((True, False), size=(78, 14))
+            )
+        with self.assertRaises(ValueError):
+            imeta.MaskedObject(
                 class_names=('class_1',),
                 x=152,
                 y=239,
@@ -221,7 +243,21 @@ class TestMaskedObject(unittest.TestCase):
                 mask=np.random.choice((True, False), size=(78, 14))
             )
 
-    def test_reads_size_from_mask(self):
+    def test_reads_size_from_mask_arg(self):
+        obj = imeta.MaskedObject(
+            ('class_1',),
+            152,
+            239,
+            78,
+            14,
+            tf.Transform(location=(123, -45, 23), rotation=(0.5, 0.23, 0.1)),
+            'LabelledObject-18569',
+            np.random.choice((True, False), size=(14, 78))
+        )
+        self.assertEqual(obj.width, 78)
+        self.assertEqual(obj.height, 14)
+
+    def test_reads_size_from_mask_kwarg(self):
         obj = imeta.MaskedObject(
             class_names=('class_1',),
             x=152,
@@ -620,119 +656,6 @@ class TestImageMetadata(unittest.TestCase):
                 b = make_metadata(**{key: val})
                 self.assertNotEqual(hash(a), hash(b),
                                     "Changing key {0} to {1} did not change the hash".format(key, str(val)))
-
-    # def test_clone(self):
-    #     a = self.make_metadata()
-    #     b = a.clone()
-    #     self.assert_metadata_equal(a, b)
-    #
-    #     # Change single keys, and make sure it is no longer equal
-    #     for key, values in self.alt_metadata.items():
-    #         for val in values:
-    #             b = a.clone(**{key: val})
-    #
-    #             if key == 'img_hash':
-    #                 self.assertEqual(val, b.hash)
-    #                 self.assertNotEqual(a.hash, b.hash)
-    #             else:
-    #                 self.assertEqual(a.hash, b.hash)
-    #             if key == 'source_type':
-    #                 self.assertEqual(val, b.source_type)
-    #                 self.assertNotEqual(a.source_type, b.source_type)
-    #             else:
-    #                 self.assertEqual(a.source_type, b.source_type)
-    #             if key == 'environment_type':
-    #                 self.assertEqual(val, b.environment_type)
-    #                 self.assertNotEqual(a.environment_type, b.environment_type)
-    #             else:
-    #                 self.assertEqual(a.environment_type, b.environment_type)
-    #             if key == 'light_level':
-    #                 self.assertEqual(val, b.light_level)
-    #                 self.assertNotEqual(a.light_level, b.light_level)
-    #             else:
-    #                 self.assertEqual(a.light_level, b.light_level)
-    #             if key == 'time_of_day':
-    #                 self.assertEqual(val, b.time_of_day)
-    #                 self.assertNotEqual(a.time_of_day, b.time_of_day)
-    #             else:
-    #                 self.assertEqual(a.time_of_day, b.time_of_day)
-    #             if key == 'camera_pose':
-    #                 self.assertEqual(val, b.camera_pose)
-    #                 self.assertNotEqual(a.camera_pose, b.camera_pose)
-    #             else:
-    #                 self.assertEqual(a.camera_pose, b.camera_pose)
-    #             if key == 'right_camera_pose':
-    #                 self.assertEqual(val, b.right_camera_pose)
-    #                 self.assertNotEqual(a.right_camera_pose, b.right_camera_pose)
-    #             else:
-    #                 self.assertEqual(a.right_camera_pose, b.right_camera_pose)
-    #             if key == 'intrinsics':
-    #                 self.assertEqual(val, b.camera_intrinsics)
-    #                 self.assertNotEqual(a.camera_intrinsics, b.camera_intrinsics)
-    #             else:
-    #                 self.assertEqual(a.camera_intrinsics, b.camera_intrinsics)
-    #                 self.assertEqual(a.width, b.width)
-    #                 self.assertEqual(a.height, b.height)
-    #             if key == 'right_intrinsics':
-    #                 self.assertEqual(val, b.right_camera_intrinsics)
-    #                 self.assertNotEqual(a.right_camera_intrinsics, b.right_camera_intrinsics)
-    #             else:
-    #                 self.assertEqual(a.right_camera_intrinsics, b.right_camera_intrinsics)
-    #             if key == 'lens_focal_distance':
-    #                 self.assertEqual(val, b.lens_focal_distance)
-    #                 self.assertNotEqual(a.lens_focal_distance, b.lens_focal_distance)
-    #             else:
-    #                 self.assertEqual(a.lens_focal_distance, b.lens_focal_distance)
-    #             if key == 'aperture':
-    #                 self.assertEqual(val, b.aperture)
-    #                 self.assertNotEqual(a.aperture, b.aperture)
-    #             else:
-    #                 self.assertEqual(a.aperture, b.aperture)
-    #             if key == 'simulation_world':
-    #                 self.assertEqual(val, b.simulation_world)
-    #                 self.assertNotEqual(a.simulation_world, b.simulation_world)
-    #             else:
-    #                 self.assertEqual(a.simulation_world, b.simulation_world)
-    #             if key == 'lighting_model':
-    #                 self.assertEqual(val, b.lighting_model)
-    #                 self.assertNotEqual(a.lighting_model, b.lighting_model)
-    #             else:
-    #                 self.assertEqual(a.lighting_model, b.lighting_model)
-    #             if key == 'texture_mipmap_bias':
-    #                 self.assertEqual(val, b.texture_mipmap_bias)
-    #                 self.assertNotEqual(a.texture_mipmap_bias, b.texture_mipmap_bias)
-    #             else:
-    #                 self.assertEqual(a.texture_mipmap_bias, b.texture_mipmap_bias)
-    #             if key == 'normal_maps_enabled':
-    #                 self.assertEqual(val, b.normal_maps_enabled)
-    #                 self.assertNotEqual(a.normal_maps_enabled, b.normal_maps_enabled)
-    #             else:
-    #                 self.assertEqual(a.normal_maps_enabled, b.normal_maps_enabled)
-    #             if key == 'roughness_enabled':
-    #                 self.assertEqual(val, b.roughness_enabled)
-    #                 self.assertNotEqual(a.roughness_enabled, b.roughness_enabled)
-    #             else:
-    #                 self.assertEqual(a.roughness_enabled, b.roughness_enabled)
-    #             if key == 'geometry_decimation':
-    #                 self.assertEqual(val, b.geometry_decimation)
-    #                 self.assertNotEqual(a.geometry_decimation, b.geometry_decimation)
-    #             else:
-    #                 self.assertEqual(a.geometry_decimation, b.geometry_decimation)
-    #             if key == 'procedural_generation_seed':
-    #                 self.assertEqual(val, b.procedural_generation_seed)
-    #                 self.assertNotEqual(a.procedural_generation_seed, b.procedural_generation_seed)
-    #             else:
-    #                 self.assertEqual(a.procedural_generation_seed, b.procedural_generation_seed)
-    #             if key == 'labelled_objects':
-    #                 self.assertEqual(val, b.labelled_objects)
-    #                 self.assertNotEqual(a.labelled_objects, b.labelled_objects)
-    #             else:
-    #                 self.assertEqual(a.labelled_objects, b.labelled_objects)
-    #             if key == 'average_scene_depth':
-    #                 self.assertEqual(val, b.average_scene_depth)
-    #                 self.assertNotEqual(a.average_scene_depth, b.average_scene_depth)
-    #             else:
-    #                 self.assertEqual(a.average_scene_depth, b.average_scene_depth)
 
     def assert_metadata_equal(self, metadata1, metadata2):
         if not isinstance(metadata1, imeta.ImageMetadata):
