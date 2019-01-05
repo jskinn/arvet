@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import typing
 import enum
-import bson
 import numpy as np
-import arvet.util.transform as tf
-import arvet.util.dict_utils as du
-import arvet.util.database_helpers as dh
+import pymodm
+from arvet.database.image_field import ImageField
+from arvet.database.transform_field import TransformField
+from arvet.database.enum_field import EnumField
 import arvet.metadata.camera_intrinsics as cam_intr
 
 
@@ -44,24 +44,19 @@ class TimeOfDay(enum.Enum):
     TWILIGHT = 5
 
 
-class LabelledObject:
+class LabelledObject(pymodm.EmbeddedMongoModel):
     """
     Metadata for a labelled object in an image.
+    TODO: More properties, such as: sobel strength
     """
-    def __init__(self, class_names: typing.Iterable[str], bounding_box: typing.Tuple[int, int, int, int],
-                 label_color: typing.Tuple[int, int, int] = None, relative_pose: tf.Transform = None,
-                 object_id: str = None):
-        self._class_names = tuple(class_names)
-        # Order is (upper left x, upper left y, width, height)
-        self._bounding_box = (int(bounding_box[0]), int(bounding_box[1]), int(bounding_box[2]), int(bounding_box[3]))
-        self._label_color = ((int(label_color[0]), int(label_color[1]), int(label_color[2]))
-                             if label_color is not None else None)
-        self._relative_pose = relative_pose
-        self._object_id = object_id
 
-    @property
-    def class_names(self) -> typing.Tuple[str, ...]:
-        return self._class_names
+    class_names = pymodm.fields.ListField(pymodm.fields.CharField(), required=True)
+    x = pymodm.fields.IntegerField(required=True)
+    y = pymodm.fields.IntegerField(required=True)
+    width = pymodm.fields.IntegerField(required=True)
+    height = pymodm.fields.IntegerField(required=True)
+    relative_pose = TransformField()
+    instance_name = pymodm.fields.CharField()
 
     @property
     def bounding_box(self) -> typing.Tuple[int, int, int, int]:
@@ -70,19 +65,15 @@ class LabelledObject:
         Location is measured from the top left of the image
         :return:
         """
-        return self._bounding_box
+        return self.x, self.y, self.width, self.height
 
     @property
-    def label_color(self) -> typing.Tuple[int, int, int]:
-        return self._label_color
-
-    @property
-    def relative_pose(self) -> tf.Transform:
-        return self._relative_pose
-
-    @property
-    def object_id(self) -> str:
-        return self._object_id
+    def centroid(self) -> typing.Tuple[float, float]:
+        """
+        The centroid of the object in the image. May be a fractional pixel like 13.5
+        :return:
+        """
+        return self.x + self.width / 2, self.y + self.height / 2
 
     def __eq__(self, other: typing.Any) -> bool:
         """
@@ -92,399 +83,187 @@ class LabelledObject:
         """
         return (hasattr(other, 'class_names') and
                 hasattr(other, 'bounding_box') and
-                hasattr(other, 'label_color') and
                 hasattr(other, 'relative_pose') and
-                hasattr(other, 'object_id') and
+                hasattr(other, 'instance_name') and
                 self.class_names == other.class_names and
                 self.bounding_box == other.bounding_box and
-                self.label_color == other.label_color and
                 self.relative_pose == other.relative_pose and
-                self.object_id == other.object_id)
+                self.instance_name == other.instance_name)
 
-    def __hash__(self) -> int:
+    def __hash__(self):
+        return hash(self._get_hash_tuple())
+
+    def _get_hash_tuple(self):
+        return (
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.relative_pose,
+            self.instance_name
+        ) + tuple(self.class_names)
+
+
+class MaskedObject(LabelledObject):
+    """
+    More specific metadata for when we know the pixel segmentation for an object
+    """
+    mask = ImageField(required=True)
+
+    def __init__(self, *args, **kwargs):
+        # Validate and ensure that the mask image match the width and height attribute
+        mask = args[8] if len(args) >= 9 else kwargs.get('mask', None)
+        if mask is not None:
+            width = args[3] if len(args) >= 4 else kwargs.get('width', None)
+            height = args[4] if len(args) >= 5 else kwargs.get('height', None)
+            if width is not None and width != mask.shape[1]:
+                raise ValueError("Mask width does not match width argument")
+            elif width is None:
+                kwargs['width'] = mask.shape[1]
+            if height is not None and height != mask.shape[0]:
+                raise ValueError("Mask height does not match height argument")
+            elif height is None:
+                kwargs['height'] = mask.shape[0]
+        super().__init__(*args, **kwargs)
+
+    def __eq__(self, other: typing.Any) -> bool:
         """
-        Hash this object, so it can be in sets
+        Override equals. Labelled objects
+        :param other:
         :return:
         """
-        return hash((self.class_names, self.bounding_box, self.label_color, self.relative_pose, self.object_id))
+        return (super().__eq__(other) and
+                hasattr(other, 'mask') and
+                np.array_equal(self.mask, other.mask))
 
-    def serialize(self) -> dict:
-        return {
-            'class_names': list(self.class_names),
-            'bounding_box': self.bounding_box,
-            'label_color': self.label_color,
-            'relative_pose': self.relative_pose.serialize() if self.relative_pose is not None else None,
-            'object_id': self.object_id
-        }
-
-    @classmethod
-    def deserialize(cls, serialized: dict) -> 'LabelledObject':
-        kwargs = {}
-        if 'class_names' in serialized:
-            kwargs['class_names'] = tuple(serialized['class_names'])
-        if 'bounding_box' in serialized:
-            kwargs['bounding_box'] = (tuple(serialized['bounding_box'])
-                                      if serialized['bounding_box'] is not None else None)
-        if 'label_color' in serialized:
-            kwargs['label_color'] = tuple(serialized['label_color']) if serialized['label_color'] is not None else None
-        if 'relative_pose' in serialized:
-            kwargs['relative_pose'] = (tf.Transform.deserialize(serialized['relative_pose'])
-                                       if serialized['relative_pose'] is not None else None)
-        if 'object_id' in serialized:
-            kwargs['object_id'] = serialized['object_id']
-        return cls(**kwargs)
+    def _get_hash_tuple(self):
+        return super()._get_hash_tuple() + (self.mask.data.tobytes(),)
 
 
-class ImageMetadata:
+def calculate_edge_strength(object_image, mask):
+    # TODO: Use sobel edge detectors for each channel, then build the matrix:
+    # s = [[Rx^2 + Gx^2 + Bx^2, RxRy + GxGy +BxBy], [RxRy + GxGy +BxBy, Ry^2 + Gy^2 + By^2]]
+    # The edge strength is the largest eigenvector,
+    # if T is a + d, and D is ad - bc
+    # L = T / 2 + sqrt(T^2/4 - D)
+    # There's probably an analytical solution, but it's nasty
+    # T = Rx^2 + Gx^2 + Bx^2 + Ry^2 + Gy^2 + By^2
+    # D = Rx^2 Gy^2 + Rx^2 By^2 + Gx^2 Ry^2 + Gx^2 By^2 + Bx^2 Ry^2 + Bx^2 Gy^2 - 2 RxGxRyGy - 2 RxBxRyBy - 2 GxBxGyBy
+    pass
+
+
+class ImageMetadata(pymodm.EmbeddedMongoModel):
     """
     A collection of metadata properties for images.
     There's a lot of properties here, not all of which are always available.
 
     Instances of this class are associated with Image objects
     """
+    img_hash = pymodm.BinaryField(required=True)
+    source_type = EnumField(ImageSourceType, required=True)
 
-    def __init__(self, source_type, hash_, camera_pose=None, right_camera_pose=None, intrinsics=None,
-                 right_intrinsics=None, lens_focal_distance=None, aperture=None,
-                 environment_type=None, light_level=None, time_of_day=None,
-                 simulator=None, simulation_world=None, lighting_model=None, texture_mipmap_bias=None,
-                 normal_maps_enabled=True, roughness_enabled=None, geometry_decimation=None,
-                 procedural_generation_seed=None,
-                 labelled_objects=None, average_scene_depth=None, base_image=None, transformation_matrix=None):
-        self._hash = hash_
+    camera_pose = TransformField()
+    right_camera_pose = TransformField()
+    intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics)
+    right_intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics)
+    lens_focal_distance = pymodm.fields.FloatField()
+    aperture = pymodm.fields.FloatField()
 
-        self._source_type = ImageSourceType(source_type)
-        self._environment_type = EnvironmentType(environment_type) if environment_type is not None else None
-        self._light_level = LightingLevel(light_level) if light_level is not None else None
-        self._time_of_day = TimeOfDay(time_of_day) if time_of_day is not None else None
+    red_mean = pymodm.fields.FloatField()
+    red_std = pymodm.fields.FloatField()
+    green_mean = pymodm.fields.FloatField()
+    green_std = pymodm.fields.FloatField()
+    blue_mean = pymodm.fields.FloatField()
+    blue_std = pymodm.fields.FloatField()
+    depth_mean = pymodm.fields.FloatField()
+    depth_std = pymodm.fields.FloatField()
 
-        self._camera_pose = camera_pose
-        self._right_camera_pose = right_camera_pose
-        self._camera_intrinsics = intrinsics
-        self._right_camera_intrinsics = right_intrinsics
-        self._lens_focal_distance = float(lens_focal_distance) if lens_focal_distance is not None else None
-        self._aperture = float(aperture) if aperture is not None else None
+    environment_type = EnumField(EnvironmentType)
+    light_level = EnumField(LightingLevel)
+    time_of_day = EnumField(TimeOfDay)
 
-        # Computer graphics settings, for measuring image quality
-        self._simulator = simulator
-        self._simulation_world = str(simulation_world) if simulation_world is not None else None
-        self._lighting_model = LightingModel(lighting_model) if lighting_model is not None else None
-        self._texture_mipmap_bias = int(texture_mipmap_bias) if texture_mipmap_bias is not None else None
-        self._normal_maps_enabled = bool(normal_maps_enabled) if normal_maps_enabled is not None else None
-        self._roughness_enabled = bool(roughness_enabled) if roughness_enabled is not None else None
-        self._geometry_decimation = float(geometry_decimation) if geometry_decimation is not None else None
+    # TODO: Reference a simulator?
+    # _simulator = pymodm.fields.ReferenceField(Simulator, on_delete=pymodm.fields.ReferenceField.NULLIFY)
+    simulation_world = pymodm.fields.CharField()
+    lighting_model = EnumField(LightingModel)
+    texture_mipmap_bias = pymodm.fields.IntegerField()
+    normal_maps_enabled = pymodm.fields.BooleanField()
+    roughness_enabled = pymodm.fields.BooleanField()
+    geometry_decimation = pymodm.fields.FloatField()
 
-        # Procedural Generation settings
-        self._procedural_generation_seed = (int(procedural_generation_seed)
-                                            if procedural_generation_seed is not None else None)
-
-        # Labelling information
-        self._labelled_objects = tuple(labelled_objects) if labelled_objects is not None else ()
-
-        # Depth information
-        self._average_scene_depth = float(average_scene_depth) if average_scene_depth is not None else None
-
-        # Metadata from data augmentation and warping
-        self._base_image = base_image
-        self._affine_transformation_matrix = transformation_matrix
+    procedural_generation_seed = pymodm.fields.IntegerField()
+    labelled_objects = pymodm.fields.ListField(pymodm.EmbeddedDocumentField(LabelledObject))
 
     def __eq__(self, other: typing.Any) -> bool:
         return (isinstance(other, ImageMetadata) and
-                self.hash == other.hash and
+                self.img_hash == other.img_hash and
                 self.source_type == other.source_type and
+
+                self.camera_pose == other.camera_pose and
+                self.right_camera_pose == other.right_camera_pose and
+                self.intrinsics == other.intrinsics and
+                self.right_intrinsics == other.right_intrinsics and
+                self.lens_focal_distance == other.lens_focal_distance and
+                self.aperture == other.aperture and
+
+                self.red_mean == other.red_mean and
+                self.red_std == other.red_std and
+                self.green_mean == other.green_mean and
+                self.green_std == other.green_std and
+                self.blue_mean == other.blue_mean and
+                self.blue_std == other.blue_std and
+                self.depth_mean == other.depth_mean and
+                self.depth_std == other.depth_std and
+
                 self.environment_type == other.environment_type and
                 self.light_level == other.light_level and
                 self.time_of_day == other.time_of_day and
-                self.camera_pose == other.camera_pose and
-                self.right_camera_pose == other.right_camera_pose and
-                self.camera_intrinsics == other.camera_intrinsics and
-                self.right_camera_intrinsics == other.right_camera_intrinsics and
-                self.lens_focal_distance == other.lens_focal_distance and
-                self.aperture == other.aperture and
-                self.simulator == other.simulator and
+
                 self.simulation_world == other.simulation_world and
                 self.lighting_model == other.lighting_model and
                 self.texture_mipmap_bias == other.texture_mipmap_bias and
                 self.normal_maps_enabled == other.normal_maps_enabled and
                 self.roughness_enabled == other.roughness_enabled and
                 self.geometry_decimation == other.geometry_decimation and
+
                 self.procedural_generation_seed == other.procedural_generation_seed and
-                self.average_scene_depth == other.average_scene_depth and
-                self.base_image == other.base_image and
-                np.array_equal(self.affine_transformation_matrix, other.affine_transformation_matrix) and
                 set(self.labelled_objects) == set(other.labelled_objects))
 
     def __hash__(self) -> int:
-        return hash((self.hash, self.source_type, self.environment_type, self.light_level, self.time_of_day,
-                     self.camera_pose, self.right_camera_pose, self.camera_intrinsics,
-                     self.right_camera_intrinsics, self.lens_focal_distance, self.aperture,
-                     self.simulator, self.simulation_world, self.lighting_model,
-                     self.texture_mipmap_bias, self.normal_maps_enabled, self.roughness_enabled,
-                     self.geometry_decimation, self.procedural_generation_seed, self.average_scene_depth,
-                     hash(self.base_image), tuple(tuple(row) for row in self.affine_transformation_matrix)) +
-                    tuple(hash(obj) for obj in self.labelled_objects))
+        return hash(
+            (
+                self.img_hash,
+                self.source_type,
 
-    @property
-    def hash(self) -> bytes:
-        """
-        The 64-bit xxhash of the image data.
-        this is useful for quick comparisons of images,
-        particularly within the database where we don't have the image data available.
-        :return:
-        """
-        return self._hash
+                self.camera_pose,
+                self.right_camera_pose,
+                self.intrinsics,
+                self.right_intrinsics,
+                self.lens_focal_distance,
+                self.aperture,
 
-    @property
-    def source_type(self) -> ImageSourceType:
-        return self._source_type
+                self.red_mean,
+                self.red_std,
+                self.green_mean,
+                self.green_std,
+                self.blue_mean,
+                self.blue_std,
+                self.depth_mean,
+                self.depth_std,
 
-    @property
-    def environment_type(self) -> typing.Union[EnvironmentType, None]:
-        return self._environment_type
+                self.environment_type,
+                self.light_level,
+                self.time_of_day,
 
-    @property
-    def light_level(self) -> typing.Union[LightingLevel, None]:
-        return self._light_level
-
-    @property
-    def time_of_day(self) -> typing.Union[TimeOfDay, None]:
-        return self._time_of_day
-
-    @property
-    def height(self) -> int:
-        return self.camera_intrinsics.height
-
-    @property
-    def width(self) -> int:
-        return self.camera_intrinsics.width
-
-    @property
-    def camera_pose(self) -> typing.Union[tf.Transform, None]:
-        return self._camera_pose
-
-    @property
-    def right_camera_pose(self) -> typing.Union[tf.Transform, None]:
-        return self._right_camera_pose
-
-    @property
-    def camera_intrinsics(self) -> cam_intr.CameraIntrinsics:
-        """
-        The camera intrinsics object, containing the image resolution, focal distances, and lens skew
-        If you want them in matrix form, get the intrinsic_matrix property of this.
-        :return:
-        """
-        return self._camera_intrinsics
-
-    @property
-    def right_camera_intrinsics(self) -> typing.Union[cam_intr.CameraIntrinsics, None]:
-        """
-        If this is a stereo image, a object containing the right camera intrinsics, fx, fy, cx, cy.
-        If you want them in matrix form, use right_intrinsic_matrix.
-        You can also use this to get the dimensions of the right image.
-        :return:
-        """
-        return self._right_camera_intrinsics
-
-    @property
-    def lens_focal_distance(self) -> typing.Union[float, None]:
-        """
-        The distance to the in-focus field of the camera lens.
-        The distance from the camera at which an object is in focus.
-        This is distinct from the length of the pinhole camera, although the values are often the same.
-        :return:
-        """
-        return self._lens_focal_distance
-
-    @property
-    def aperture(self) -> float:
-        return self._aperture
-
-    @property
-    def simulator(self) -> typing.Union[None, bson.ObjectId]:
-        return self._simulator
-
-    @property
-    def simulation_world(self) -> typing.Union[str, None]:
-        return self._simulation_world
-
-    @property
-    def lighting_model(self) -> LightingModel:
-        return self._lighting_model
-
-    @property
-    def texture_mipmap_bias(self) -> int:
-        return self._texture_mipmap_bias
-
-    @property
-    def normal_maps_enabled(self) -> bool:
-        return self._normal_maps_enabled
-
-    @property
-    def roughness_enabled(self) -> typing.Union[bool, None]:
-        return self._roughness_enabled
-
-    @property
-    def geometry_decimation(self) -> typing.Union[float, None]:
-        return self._geometry_decimation
-
-    @property
-    def procedural_generation_seed(self):
-        return self._procedural_generation_seed
-
-    @property
-    def labelled_objects(self):
-        return self._labelled_objects
-
-    @property
-    def average_scene_depth(self):
-        """
-        The approximate average depth o the scene.
-        This gives a sense of whether the image is a wide open landscape,
-        or a close-in shot
-        :return: A float for the average scene depth, or for the average of many images,
-        """
-        return self._average_scene_depth
-
-    @property
-    def base_image(self):
-        """
-        If this image is warped from another image, this is the source image.
-        Otherwise, None
-        :return: The base image this warped image was produced from, or None.
-        """
-        return self._base_image
-
-    @property
-    def affine_transformation_matrix(self):
-        """
-        If this image is a warped image, this is the affine transformation matrix used to
-        warp the original image to produce this one.
-        :return:
-        """
-        return self._affine_transformation_matrix
-
-    def clone(self, **kwargs):
-        """
-        Clone the metadata, optionally changing some of the values.
-        This is the best way to create a new metadata based on an existing one
-        :param kwargs: Overridden arguments for differences to the cloned metadata, same as the constructor arguments
-        :return: a new image metadata object
-        """
-        du.defaults(kwargs, {
-            'hash_': self.hash,
-            'source_type': self.source_type,
-            'camera_pose': self.camera_pose,
-            'right_camera_pose': self.right_camera_pose,
-            'intrinsics': self.camera_intrinsics,
-            'right_intrinsics': self.right_camera_intrinsics,
-            'environment_type': self.environment_type,
-            'light_level': self.light_level,
-            'time_of_day': self.time_of_day,
-            'lens_focal_distance': self.lens_focal_distance,
-            'aperture': self.aperture,
-            'simulator': self.simulator,
-            'simulation_world': self.simulation_world,
-            'lighting_model': self.lighting_model,
-            'texture_mipmap_bias': self.texture_mipmap_bias,
-            'normal_maps_enabled': self.normal_maps_enabled,
-            'roughness_enabled': self.roughness_enabled,
-            'geometry_decimation': self.geometry_decimation,
-            'procedural_generation_seed': self.procedural_generation_seed,
-            'labelled_objects': tuple((LabelledObject(
-                class_names=obj.class_names,
-                bounding_box=obj.bounding_box,
-                label_color=obj.label_color,
-                relative_pose=obj.relative_pose,
-                object_id=obj.object_id)
-                for obj in self.labelled_objects)),
-            'average_scene_depth': self.average_scene_depth,
-            'base_image': self.base_image,
-            'transformation_matrix': self.affine_transformation_matrix
-        })
-        return ImageMetadata(**kwargs)
-
-    def serialize(self):
-        serialized = {
-            'hash': self.hash,
-            'source_type': self.source_type.value,
-            'environment_type': self.environment_type.value if self.environment_type is not None else None,
-            'light_level': self.light_level.value if self.light_level is not None else None,
-            'time_of_day': self.time_of_day.value if self.time_of_day is not None else None,
-
-            'camera_pose': self.camera_pose.serialize() if self.camera_pose is not None else None,
-            'right_camera_pose': self.right_camera_pose.serialize() if self.right_camera_pose is not None else None,
-            'intrinsics': self.camera_intrinsics.serialize() if self.camera_intrinsics is not None else None,
-            'right_intrinsics': (self.right_camera_intrinsics.serialize()
-                                 if self.right_camera_intrinsics is not None else None),
-            'lens_focal_distance': self.lens_focal_distance,
-            'aperture': self.aperture,
-
-            'simulator': self.simulator,
-            'simulation_world': self.simulation_world,
-            'lighting_model': self.lighting_model.value if self.lighting_model is not None else None,
-            'texture_mipmap_bias': self.texture_mipmap_bias,
-            'normal_maps_enabled': self.normal_maps_enabled,
-            'roughness_enabled': self.roughness_enabled,
-            'geometry_decimation': self._geometry_decimation,
-
-            'procedural_generation_seed': self.procedural_generation_seed,
-
-            'labelled_objects': [obj.serialize() for obj in self.labelled_objects],
-
-            'average_scene_depth': self.average_scene_depth,
-            'base_image': self.base_image,
-            'transformation_matrix': self.affine_transformation_matrix
-        }
-        dh.add_schema_version(serialized, 'metadata:image_metadata:ImageMetadata', 1)
-        return serialized
-
-    @classmethod
-    def deserialize(cls, serialized):
-        kwargs = {}
-        update_schema(serialized)
-        direct_copy_keys = ['source_type', 'environment_type', 'light_level', 'time_of_day',
-                            'lens_focal_distance', 'aperture', 'simulator', 'simulation_world', 'lighting_model',
-                            'texture_mipmap_bias', 'normal_maps_enabled', 'roughness_enabled', 'geometry_decimation',
-                            'procedural_generation_seed', 'average_scene_depth', 'base_image', 'transformation_matrix']
-        for key in direct_copy_keys:
-            if key in serialized:
-                kwargs[key] = serialized[key]
-        if 'hash' in serialized:
-            kwargs['hash_'] = serialized['hash']
-        if 'camera_pose' in serialized and serialized['camera_pose'] is not None:
-            kwargs['camera_pose'] = tf.Transform.deserialize(serialized['camera_pose'])
-        if 'right_camera_pose' in serialized and serialized['right_camera_pose'] is not None:
-            kwargs['right_camera_pose'] = tf.Transform.deserialize(serialized['right_camera_pose'])
-        if 'intrinsics' in serialized and serialized['intrinsics'] is not None:
-            kwargs['intrinsics'] = cam_intr.CameraIntrinsics.deserialize(serialized['intrinsics'])
-        if 'right_intrinsics' in serialized and serialized['right_intrinsics'] is not None:
-            kwargs['right_intrinsics'] = cam_intr.CameraIntrinsics.deserialize(serialized['right_intrinsics'])
-        if 'labelled_objects' in serialized:
-            kwargs['labelled_objects'] = tuple(LabelledObject.deserialize(s_obj)
-                                               for s_obj in serialized['labelled_objects'])
-        return cls(**kwargs)
-
-
-def update_schema(serialized: dict):
-    """
-    Update the serialized image metadata to the latest version.
-    :param serialized:
-    :return:
-    """
-    version = dh.get_schema_version(serialized, 'metadata:image_metadata:ImageMetadata')
-    if version < 1:
-        # unversioned -> version 1
-        if 'width' in serialized:
-            if 'intrinsics' in serialized and isinstance(serialized['intrinsics'], dict):
-                serialized['intrinsics']['width'] = serialized['width']
-            if 'right_intrinsics' in serialized and isinstance(serialized['right_intrinsics'], dict):
-                serialized['right_intrinsics']['width'] = serialized['width']
-        if 'height' in serialized:
-            if 'intrinsics' in serialized and isinstance(serialized['intrinsics'], dict):
-                serialized['intrinsics']['height'] = serialized['height']
-            if 'right_intrinsics' in serialized and isinstance(serialized['right_intrinsics'], dict):
-                serialized['right_intrinsics']['height'] = serialized['height']
-        if 'focal_distance' in serialized:
-            serialized['lens_focal_distance'] = serialized['focal_distance']
+                self.simulation_world,
+                self.lighting_model,
+                self.texture_mipmap_bias,
+                self.normal_maps_enabled,
+                self.roughness_enabled,
+                self.geometry_decimation,
+                self.procedural_generation_seed
+            ) + tuple(hash(obj) for obj in self.labelled_objects)
+        )
 
 
 T = typing.TypeVar
@@ -513,14 +292,16 @@ def merge_stereo(left_image_metadata: ImageMetadata, right_image_metadata: Image
     :return:
     """
     return ImageMetadata(
-        hash_=left_image_metadata.hash,
+        img_hash=left_image_metadata.img_hash,
         source_type=left_image_metadata.source_type,
+
         camera_pose=left_image_metadata.camera_pose,
         right_camera_pose=right_image_metadata.camera_pose,
         intrinsics=left_image_metadata.camera_intrinsics,
         right_intrinsics=right_image_metadata.camera_intrinsics,
         lens_focal_distance=merge(left_image_metadata.lens_focal_distance, right_image_metadata.lens_focal_distance),
         aperture=merge(left_image_metadata.aperture, right_image_metadata.aperture),
+
         environment_type=merge(left_image_metadata.environment_type, right_image_metadata.environment_type),
         light_level=merge(left_image_metadata.light_level, right_image_metadata.light_level),
         time_of_day=merge(left_image_metadata.time_of_day, right_image_metadata.time_of_day),
