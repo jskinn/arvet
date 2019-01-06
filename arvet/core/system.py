@@ -1,9 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import arvet.database.entity
+import pymodm
+import arvet.database.pymodm_abc as pymodm_abc
 
 
-class VisionSystem(arvet.database.entity.Entity, metaclass=arvet.database.entity.AbstractEntityMetaclass):
+class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     """
     A Vision system, something that will be run, benchmarked, and analysed by this program.
     This is the standard interface that everything must implement to work with this system.
