@@ -448,9 +448,7 @@ def make_metadata(**kwargs):
         'source_type': imeta.ImageSourceType.SYNTHETIC,
 
         'camera_pose': tf.Transform((1, 3, 4), (0.2, 0.8, 0.2, -0.7)),
-        'right_camera_pose': tf.Transform((-10, -20, -30), (0.9, -0.7, 0.5, -0.3)),
         'intrinsics': cam_intr.CameraIntrinsics(700, 700, 654.2, 753.3, 400, 300),
-        'right_intrinsics': cam_intr.CameraIntrinsics(700, 710, 732.1, 612.3, 400, 300),
         'lens_focal_distance': 5,
         'aperture': 22,
 
@@ -505,9 +503,7 @@ class TestImageMetadata(unittest.TestCase):
         'source_type': [imeta.ImageSourceType.REAL_WORLD],
 
         'camera_pose': [tf.Transform((12, 13, 14), (-0.5, 0.3, 0.8, -0.9))],
-        'right_camera_pose': [tf.Transform((11, 15, 19), (-0.2, 0.4, 0.6, -0.8))],
         'intrinsics': [cam_intr.CameraIntrinsics(900, 910, 124.8, 285.7, 640, 360)],
-        'right_intrinsics': [cam_intr.CameraIntrinsics(900, 890, 257.9, 670.12, 640, 360)],
         'lens_focal_distance': [22],
         'aperture': [1.2],
 
@@ -666,9 +662,7 @@ class TestImageMetadata(unittest.TestCase):
         self.assertEqual(metadata1.source_type, metadata2.source_type)
 
         self.assertEqual(metadata1.camera_pose, metadata2.camera_pose)
-        self.assertEqual(metadata1.right_camera_pose, metadata2.right_camera_pose)
         self.assertEqual(metadata1.intrinsics, metadata2.intrinsics)
-        self.assertEqual(metadata1.right_intrinsics, metadata2.right_intrinsics)
         self.assertEqual(metadata1.lens_focal_distance, metadata2.lens_focal_distance)
         self.assertEqual(metadata1.aperture, metadata2.aperture)
 

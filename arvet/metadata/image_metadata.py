@@ -163,9 +163,7 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
     source_type = EnumField(ImageSourceType, required=True)
 
     camera_pose = TransformField()
-    right_camera_pose = TransformField()
     intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics)
-    right_intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics)
     lens_focal_distance = pymodm.fields.FloatField()
     aperture = pymodm.fields.FloatField()
 
