@@ -190,7 +190,7 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
     geometry_decimation = pymodm.fields.FloatField()
 
     procedural_generation_seed = pymodm.fields.IntegerField()
-    labelled_objects = pymodm.fields.ListField(pymodm.EmbeddedDocumentField(LabelledObject))
+    labelled_objects = pymodm.fields.EmbeddedDocumentListField(LabelledObject)
 
     def __eq__(self, other: typing.Any) -> bool:
         return (isinstance(other, ImageMetadata) and
@@ -198,9 +198,7 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
                 self.source_type == other.source_type and
 
                 self.camera_pose == other.camera_pose and
-                self.right_camera_pose == other.right_camera_pose and
                 self.intrinsics == other.intrinsics and
-                self.right_intrinsics == other.right_intrinsics and
                 self.lens_focal_distance == other.lens_focal_distance and
                 self.aperture == other.aperture and
 
@@ -234,9 +232,7 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
                 self.source_type,
 
                 self.camera_pose,
-                self.right_camera_pose,
                 self.intrinsics,
-                self.right_intrinsics,
                 self.lens_focal_distance,
                 self.aperture,
 

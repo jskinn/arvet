@@ -10,6 +10,7 @@ import arvet.database.image_manager as im_manager
 import arvet.metadata.camera_intrinsics as cam_intr
 import arvet.metadata.image_metadata as imeta
 
+
 # -------------------- LABELLED OBJECT --------------------
 
 class TestLabelledObject(unittest.TestCase):
@@ -196,6 +197,7 @@ class TestLabelledObjectDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0].object, obj)
         all_entities[0].delete()
+
 
 # -------------------- MASKED OBJECT --------------------
 
@@ -440,6 +442,7 @@ class TestMaskedObjectDatabase(unittest.TestCase):
         self.assertEqual(all_entities[0].object, obj)
         all_entities[0].delete()
 
+
 # -------------------- IMAGE METADATA --------------------
 
 def make_metadata(**kwargs):
@@ -539,7 +542,7 @@ class TestImageMetadata(unittest.TestCase):
                 instance_name='LabelledObject-68478'
             ),
             imeta.LabelledObject(
-                class_names=('cat',),   # Changed
+                class_names=('cat',),   # Changed class
                 x=542, y=83, width=63, height=123,
                 relative_pose=tf.Transform(location=(61, -717, 161), rotation=(0.7, 0.6, 0.3)),
                 instance_name='LabelledObject-8246'
@@ -565,7 +568,7 @@ class TestImageMetadata(unittest.TestCase):
             ),
             imeta.LabelledObject(
                 class_names=('cow',),
-                x=34, y=672, width=124, height=208, # x changed
+                x=34, y=672, width=124, height=208,  # x changed
                 relative_pose=tf.Transform(location=(286, -465, -165), rotation=(0.9, 0.1, 0.5)),
                 instance_name='LabelledObject-56485'
             )
