@@ -140,18 +140,6 @@ class MaskedObject(LabelledObject):
         return super()._get_hash_tuple() + (self.mask.data.tobytes(),)
 
 
-def calculate_edge_strength(object_image, mask):
-    # TODO: Use sobel edge detectors for each channel, then build the matrix:
-    # s = [[Rx^2 + Gx^2 + Bx^2, RxRy + GxGy +BxBy], [RxRy + GxGy +BxBy, Ry^2 + Gy^2 + By^2]]
-    # The edge strength is the largest eigenvector,
-    # if T is a + d, and D is ad - bc
-    # L = T / 2 + sqrt(T^2/4 - D)
-    # There's probably an analytical solution, but it's nasty
-    # T = Rx^2 + Gx^2 + Bx^2 + Ry^2 + Gy^2 + By^2
-    # D = Rx^2 Gy^2 + Rx^2 By^2 + Gx^2 Ry^2 + Gx^2 By^2 + Bx^2 Ry^2 + Bx^2 Gy^2 - 2 RxGxRyGy - 2 RxBxRyBy - 2 GxBxGyBy
-    pass
-
-
 class ImageMetadata(pymodm.EmbeddedMongoModel):
     """
     A collection of metadata properties for images.
@@ -258,59 +246,3 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
                 self.procedural_generation_seed
             ) + tuple(hash(obj) for obj in self.labelled_objects)
         )
-
-
-T = typing.TypeVar
-
-
-def merge(*args: T) -> T:
-    """
-    Merge a list of things, returning the first non-null value.
-    Returns None if all the arguments are None.
-    This is used to merge metadata values from multiple metadata objects, treating None as unspecified.
-    :param args:
-    :return: The first non-zero argument
-    """
-    for arg in args:
-        if arg is not None:
-            return arg
-    return None
-
-
-def merge_stereo(left_image_metadata: ImageMetadata, right_image_metadata: ImageMetadata) -> ImageMetadata:
-    """
-    Merge two image metadata to produce the metadata for a stereo image.
-    Mostly uses the left image values where available, and falls back to the right image where they are missing.
-    :param left_image_metadata: The metadata for the left image
-    :param right_image_metadata: The metadata for the right image
-    :return:
-    """
-    return ImageMetadata(
-        img_hash=left_image_metadata.img_hash,
-        source_type=left_image_metadata.source_type,
-
-        camera_pose=left_image_metadata.camera_pose,
-        right_camera_pose=right_image_metadata.camera_pose,
-        intrinsics=left_image_metadata.camera_intrinsics,
-        right_intrinsics=right_image_metadata.camera_intrinsics,
-        lens_focal_distance=merge(left_image_metadata.lens_focal_distance, right_image_metadata.lens_focal_distance),
-        aperture=merge(left_image_metadata.aperture, right_image_metadata.aperture),
-
-        environment_type=merge(left_image_metadata.environment_type, right_image_metadata.environment_type),
-        light_level=merge(left_image_metadata.light_level, right_image_metadata.light_level),
-        time_of_day=merge(left_image_metadata.time_of_day, right_image_metadata.time_of_day),
-        simulator=merge(left_image_metadata.simulator, right_image_metadata.simulator),
-        simulation_world=merge(left_image_metadata.simulation_world, right_image_metadata.simulation_world),
-        lighting_model=merge(left_image_metadata.lighting_model, right_image_metadata.lighting_model),
-        texture_mipmap_bias=merge(left_image_metadata.texture_mipmap_bias, right_image_metadata.texture_mipmap_bias),
-        normal_maps_enabled=merge(left_image_metadata.normal_maps_enabled, right_image_metadata.normal_maps_enabled),
-        roughness_enabled=merge(left_image_metadata.roughness_enabled, right_image_metadata.roughness_enabled),
-        geometry_decimation=merge(left_image_metadata.geometry_decimation, right_image_metadata.geometry_decimation),
-        procedural_generation_seed=merge(left_image_metadata.procedural_generation_seed,
-                                         right_image_metadata.procedural_generation_seed),
-        labelled_objects=merge(left_image_metadata.labelled_objects, right_image_metadata.labelled_objects),
-        average_scene_depth=merge(left_image_metadata.average_scene_depth, right_image_metadata.average_scene_depth),
-        base_image=merge(left_image_metadata.base_image, right_image_metadata.base_image),
-        transformation_matrix=merge(left_image_metadata.affine_transformation_matrix,
-                                    right_image_metadata.affine_transformation_matrix)
-    )
