@@ -1,74 +1,89 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import numpy as np
-import arvet.database.tests.test_entity
-import arvet.util.dict_utils as du
-import arvet.core.sequence_type
-import arvet.core.trial_result
+import arvet.database.tests.database_connection as dbconn
+import arvet.metadata.camera_intrinsics as cam_intr
+import arvet.core.image_source as image_source
+import arvet.core.trial_result as tr
+import arvet.core.tests.mock_types as mock_types
+from arvet.core.sequence_type import ImageSequenceType
 
 
-class TestTrialResult(arvet.database.tests.test_entity.EntityContract, unittest.TestCase):
+class MonitoredImageSource(image_source.ImageSource):
+    sequence_type = ImageSequenceType.NON_SEQUENTIAL
+    is_depth_available = False
+    is_normals_available = False
+    is_stereo_available = False
+    is_labels_available = False
+    is_masks_available = False
+    is_stored_in_database = True
+    camera_intrinsics = cam_intr.CameraIntrinsics()
 
-    def get_class(self):
-        return arvet.core.trial_result.TrialResult
+    instance_count = 0
 
-    def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {
-            'system_id': np.random.randint(10, 20),
-            'success': bool(np.random.randint(0, 1)),
-            'sequence_type': arvet.core.sequence_type.ImageSequenceType.SEQUENTIAL,
-            'system_settings': {'a': np.random.randint(30, 40)}
-        })
-        return arvet.core.trial_result.TrialResult(*args, **kwargs)
-
-    def assert_models_equal(self, trial_result1, trial_result2):
-        """
-        Helper to assert that two dataset models are equal
-        :param trial_result1: Dataset
-        :param trial_result2: Dataset
-        :return:
-        """
-        if (not isinstance(trial_result1, arvet.core.trial_result.TrialResult) or
-                not isinstance(trial_result2, arvet.core.trial_result.TrialResult)):
-            self.fail('object was not a TrialResult')
-        self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1.system_id, trial_result2.system_id)
-        self.assertEqual(trial_result1.sequence_type, trial_result2.sequence_type)
-        self.assertEqual(trial_result1.settings, trial_result2.settings)
-        self.assertEqual(trial_result1.success, trial_result2.success)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        MonitoredImageSource.instance_count += 1
 
 
-class TestFailedTrialResult(arvet.database.tests.test_entity.EntityContract, unittest.TestCase):
-    def get_class(self):
-        return arvet.core.trial_result.FailedTrial
+class TestTrialResultDatabase(unittest.TestCase):
+    system = None
+    image_source = None
 
-    def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {
-            'system_id': np.random.randint(10, 20),
-            'success': bool(np.random.randint(0, 1)),
-            'sequence_type': arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL,
-            'system_settings': {'a': np.random.randint(30, 40)},
-            'reason': str(np.random.uniform(-10000, 10000))
-        })
-        return arvet.core.trial_result.FailedTrial(*args, **kwargs)
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        cls.system = mock_types.MockSystem()
+        cls.image_source = mock_types.MockImageSource()
+        cls.system.save()
+        cls.image_source.save()
 
-    def assert_models_equal(self, trial_result1, trial_result2):
-        """
-        Helper to assert that two dataset models are equal
-        :param trial_result1: Dataset
-        :param trial_result2: Dataset
-        :return:
-        """
-        if (not isinstance(trial_result1, arvet.core.trial_result.FailedTrial) or
-                not isinstance(trial_result2, arvet.core.trial_result.FailedTrial)):
-            self.fail('object was not a TrialResult')
-        self.assertEqual(trial_result1.identifier, trial_result2.identifier)
-        self.assertEqual(trial_result1.system_id, trial_result2.system_id)
-        self.assertEqual(trial_result1.sequence_type, trial_result2.sequence_type)
-        self.assertEqual(trial_result1.settings, trial_result2.settings)
-        self.assertEqual(trial_result1.success, trial_result2.success)
-        self.assertEqual(trial_result1.reason, trial_result2.reason)
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        tr.TrialResult._mongometa.collection.drop()
 
-    def test_always_failed(self):
-        instance = self.make_instance(success=True)
-        self.assertFalse(instance.success)
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+        mock_types.MockImageSource._mongometa.collection.drop()
+
+    def test_stores_and_loads(self):
+        obj = tr.TrialResult(
+            system=self.system,
+            image_source=self.image_source,
+            success=True,
+            settings={'key': 'value'},
+            message='Completed successfully'
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(tr.TrialResult.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+    def test_loading_doesnt_load_image_source_unless_required(self):
+        tracked_source = MonitoredImageSource()
+        tracked_source.save()
+        MonitoredImageSource.instance_count = 0
+
+        obj = tr.TrialResult(
+            system=self.system,
+            image_source=tracked_source,
+            success=True
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(tr.TrialResult.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(MonitoredImageSource.instance_count, 0)
+
+        # Ensure it gets lazily loaded on demand
+        _ = all_entities[0].image_source
+        self.assertEqual(MonitoredImageSource.instance_count, 1)
+
+        all_entities[0].delete()

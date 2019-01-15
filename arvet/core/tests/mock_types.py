@@ -6,9 +6,10 @@ This allows other tests to use instances of these types.
 import arvet.core.system
 import arvet.core.image_source
 import arvet.core.trial_result
-import arvet.core.benchmark
-import arvet.core.sequence_type
+from arvet.core.sequence_type import ImageSequenceType
+import arvet.core.metric
 import arvet.database.entity
+import arvet.metadata.camera_intrinsics as cam_intr
 
 
 class MockSystem(arvet.core.system.VisionSystem):
@@ -32,55 +33,18 @@ class MockSystem(arvet.core.system.VisionSystem):
             self.identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
 
 
-class MockImageSource(arvet.core.image_source.ImageSource, arvet.database.entity.Entity):
-    def sequence_type(self):
-        return arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL
-
-    @property
-    def supports_random_access(self):
-        return True
-
-    @property
-    def is_depth_available(self):
-        return False
-
-    @property
-    def is_per_pixel_labels_available(self):
-        return False
-
-    @property
-    def is_labels_available(self):
-        return False
-
-    @property
-    def is_normals_available(self):
-        return False
-
-    @property
-    def is_stereo_available(self):
-        return False
-
-    @property
-    def is_stored_in_database(self):
-        return True
-
-    def get_camera_intrinsics(self):
-        return None
-
-    def begin(self):
-        return True
-
-    def get(self, index):
-        return None
-
-    def get_next_image(self):
-        return None, None
-
-    def is_complete(self):
-        return True
+class MockImageSource(arvet.core.image_source.ImageSource):
+    sequence_type = ImageSequenceType.NON_SEQUENTIAL
+    is_depth_available = False
+    is_normals_available = False
+    is_stereo_available = False
+    is_labels_available = False
+    is_masks_available = False
+    is_stored_in_database = True
+    camera_intrinsics = cam_intr.CameraIntrinsics()
 
 
-class MockBenchmark(arvet.core.benchmark.Benchmark):
+class MockMetric(arvet.core.metric.Metric):
 
     @classmethod
     def get_trial_requirements(cls):
@@ -90,8 +54,4 @@ class MockBenchmark(arvet.core.benchmark.Benchmark):
         return True
 
     def benchmark_results(self, trial_results):
-        return arvet.core.benchmark.BenchmarkResult(
-            self.identifier,
-            [trial_result.identifier for trial_result in trial_results],
-            True
-        )
+        return arvet.core.metric.MetricResult(self, list(trial_results), True)

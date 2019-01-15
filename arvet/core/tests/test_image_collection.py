@@ -14,9 +14,6 @@ import arvet.core.image_collection as ic
 from arvet.core.sequence_type import ImageSequenceType
 
 
-
-
-
 class TestImageCollectionDatabase(unittest.TestCase):
 
     @classmethod
@@ -116,6 +113,51 @@ class TestImageCollectionDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], collection)
         all_entities[0].delete()
+
+    def test_can_be_compared_without_loading_images(self):
+        images = []
+        for idx in range(10):
+            img = CountedImage(
+                pixels=np.random.uniform(0, 255, (32, 32, 3)),
+                metadata=make_metadata(idx),
+            )
+            img.save()
+            images.append(img)
+
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        collection.save()
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.2 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        collection.save()
+        CountedImage.instance_count = 0
+
+        # Load all the entities
+        all_entities = list(ic.ImageCollection.objects.all())
+        self.assertEqual(len(all_entities), 2)
+        self.assertNotEqual(all_entities[0], all_entities[1])
+        self.assertEqual(CountedImage.instance_count, 0)
+
+        # Check actually reading the images loads them
+        _ = all_entities[0].images[0]
+        self.assertEqual(CountedImage.instance_count, 10)
+
+        all_entities[0].delete()
+        all_entities[1].delete()
+
+
+class CountedImage(im.Image):
+    instance_count = 0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        CountedImage.instance_count += 1
 
 
 class TestImageCollection(unittest.TestCase):

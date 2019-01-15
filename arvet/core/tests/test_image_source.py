@@ -12,7 +12,7 @@ class MockImageSource(ImageSource):
     is_normals_available = False
     is_stereo_available = False
     is_labels_available = False
-    is_mask_available = False
+    is_masks_available = False
     is_stored_in_database = True
     camera_intrinsics = CameraIntrinsics()
 
