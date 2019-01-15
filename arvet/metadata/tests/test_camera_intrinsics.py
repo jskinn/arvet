@@ -23,18 +23,18 @@ class TestCameraIntrinsics(unittest.TestCase):
 
     def test_stores_and_loads(self):
         intrinsics = cam_intr.CameraIntrinsics(
-            _width=800,
-            _height=600,
-            _fx=763.1,
-            _fy=759.2,
-            _cx=400,
-            _cy=300,
-            _s=0.1,
-            _k1=0.01,
-            _k2=0.002,
-            _k3=0.2,
-            _p1=0.09,
-            _p2=-0.02)
+            width=800,
+            height=600,
+            fx=763.1,
+            fy=759.2,
+            cx=400,
+            cy=300,
+            s=0.1,
+            k1=0.01,
+            k2=0.002,
+            k3=0.2,
+            p1=0.09,
+            p2=-0.02)
 
         # Save the model
         model = TestCameraIntrinsicsMongoModel()
@@ -49,18 +49,18 @@ class TestCameraIntrinsics(unittest.TestCase):
 
     def test_constructor_sets_properties(self):
         subject = cam_intr.CameraIntrinsics(
-            _width=800,
-            _height=600,
-            _fx=763.1,
-            _fy=759.2,
-            _cx=400,
-            _cy=300,
-            _s=0.1,
-            _k1=0.01,
-            _k2=0.002,
-            _k3=0.2,
-            _p1=0.09,
-            _p2=-0.02)
+            width=800,
+            height=600,
+            fx=763.1,
+            fy=759.2,
+            cx=400,
+            cy=300,
+            s=0.1,
+            k1=0.01,
+            k2=0.002,
+            k3=0.2,
+            p1=0.09,
+            p2=-0.02)
         self.assertEqual(800, subject.width)
         self.assertEqual(600, subject.height)
         self.assertEqual(763.1, subject.fx)
@@ -166,12 +166,12 @@ class TestCameraIntrinsics(unittest.TestCase):
         rad_fov = 35.4898465 * np.pi / 180
         focal_length = 800 * 1 / (2 * np.tan(rad_fov / 2))
         subject = cam_intr.CameraIntrinsics(
-            _width=800, _height=600, _fx=focal_length, _fy=focal_length, _cx=400, _cy=300)
+            width=800, height=600, fx=focal_length, fy=focal_length, cx=400, cy=300)
         self.assertEqual(rad_fov, subject.horizontal_fov)
 
     def test_vertical_fov(self):
         rad_fov = 35.4898465 * np.pi / 180
         focal_length = 600 * 1 / (2 * np.tan(rad_fov / 2))
         subject = cam_intr.CameraIntrinsics(
-            _width=800, _height=600, _fx=focal_length, _fy=focal_length, _cx=400, _cy=300)
+            width=800, height=600, fx=focal_length, fy=focal_length, cx=400, cy=300)
         self.assertEqual(rad_fov, subject.vertical_fov)
