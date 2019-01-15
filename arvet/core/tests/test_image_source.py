@@ -1,35 +1,43 @@
 # Copyright (c) 2017, John Skinner
-import abc
+import unittest
+import arvet.database.tests.database_connection as dbconn
+from arvet.core.sequence_type import ImageSequenceType
+from arvet.core.image_source import ImageSource
+from arvet.metadata.camera_intrinsics import CameraIntrinsics
 
 
-class ImageSourceContract(metaclass=abc.ABCMeta):
+class MockImageSource(ImageSource):
+    sequence_type = ImageSequenceType.NON_SEQUENTIAL
+    is_depth_available = False
+    is_normals_available = False
+    is_stereo_available = False
+    is_labels_available = False
+    is_mask_available = False
+    is_stored_in_database = True
+    camera_intrinsics = CameraIntrinsics()
 
-    @abc.abstractmethod
-    def make_instance(self, *args, **kwargs):
-        """
-        Make a new instance of the entity with default arguments.
-        Parameters passed to this function should override the defaults.
-        :param args: Forwarded to the constructor
-        :param kwargs: Forwarded to the constructor
-        :return: A new instance of the class under test
-        """
-        return None
 
-    def test_iteration(self):
-        """
-        hmmmm....
-        :return:
-        """
-        subject = self.make_instance()
+class TestImageSourceDatabase(unittest.TestCase):
 
-        subject.begin()
-        while not subject.is_complete():
-            image, index = subject.get_next_image()
-        self.assertEqual((None, None), subject.get_next_image())
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
 
-    def test_begin_restarts(self):
-        subject = self.make_instance()
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        ImageSource._mongometa.collection.drop()
 
-        subject.begin()
-        while not subject.is_complete():
-            image, index = subject.get_next_image()
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        ImageSource._mongometa.collection.drop()
+
+    def test_stores_and_loads(self):
+        obj = MockImageSource()
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(ImageSource.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()

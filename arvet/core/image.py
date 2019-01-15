@@ -64,7 +64,6 @@ class StereoImage(Image):
     """
     right_pixels = ImageField(required=True)
     right_metadata = pymodm.fields.EmbeddedDocumentField(imeta.ImageMetadata, required=True)
-    right_additional_metadata = pymodm.fields.DictField()
     right_depth = ImageField()
     right_ground_truth_depth = ImageField()
     right_normals = ImageField()
@@ -123,10 +122,6 @@ class StereoImage(Image):
         return self.metadata
 
     @property
-    def left_additional_metadata(self):
-        return self.additional_metadata
-
-    @property
     def left_depth(self):
         """
         The left depth image.
@@ -152,7 +147,6 @@ class StereoImage(Image):
         :return: A numpy array, or None if no world normals are available.
         """
         return self.normals
-
 
     @property
     def left_camera_location(self):
@@ -201,13 +195,14 @@ class StereoImage(Image):
         :param right_image: another Image object
         :return: an instance of StereoImage
         """
-        return cls(pixles=left_image.pixels,
+        additional_metadata = left_image.additional_metadata.copy()
+        additional_metadata.update(right_image.additional_metadata)
+        return cls(pixels=left_image.pixels,
                    right_pixels=right_image.pixels,
                    metadata=left_image.metadata,
                    right_metadata=right_image.metadata,
-                   additional_metadata=left_image.additional_metadata,
-                   right_additional_metadata=right_image.additional_metadata,
+                   additional_metadata=additional_metadata,
                    depth=left_image.depth,
                    right_depth=right_image.depth,
-                   left_normals=left_image.normals,
+                   normals=left_image.normals,
                    right_normals=right_image.normals)
