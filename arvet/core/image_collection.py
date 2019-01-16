@@ -9,7 +9,6 @@ from arvet.metadata.image_metadata import MaskedObject
 from arvet.core.image import Image, StereoImage
 from arvet.core.sequence_type import ImageSequenceType
 import arvet.core.image_source
-import arvet.core.image_entity
 
 
 class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
