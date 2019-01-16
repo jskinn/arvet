@@ -58,7 +58,8 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         elif 'VIRTUAL_ENV' in os.environ:
             # No configured virtual environment, but this process has one, use it
             self._virtual_env = os.path.join(os.environ['VIRTUAL_ENV'], 'bin/activate')
-        self._virtual_env = os.path.expanduser(self._virtual_env)
+        if self._virtual_env is not None:
+            self._virtual_env = os.path.expanduser(self._virtual_env)
         self._job_folder = config['job_location'] if 'job_location' in config else '~'
         self._job_folder = os.path.expanduser(self._job_folder)
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
