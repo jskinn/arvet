@@ -13,7 +13,7 @@ import arvet.batch_analysis.tasks.import_dataset_task as import_dataset_task
 import arvet.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
 import arvet.batch_analysis.tasks.train_system_task as train_system_task
 import arvet.batch_analysis.tasks.run_system_task as run_system_task
-import arvet.batch_analysis.tasks.benchmark_trial_task as benchmark_task
+import arvet.batch_analysis.tasks.measure_trial_task as benchmark_task
 import arvet.batch_analysis.tasks.compare_trials_task as compare_trials_task
 import arvet.batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
 import arvet.batch_analysis.scripts.warmup_image_cache
@@ -225,7 +225,7 @@ class TaskManager:
         if existing is not None:
             return self._db_client.deserialize_entity(existing)
         else:
-            return benchmark_task.BenchmarkTrialTask(
+            return benchmark_task.MeasureTrialTask(
                 trial_result_ids=trial_result_ids,
                 benchmark_id=benchmark_id,
                 num_cpus=num_cpus,
@@ -361,7 +361,7 @@ class TaskManager:
                 existing_query['system_id'] = task.system
                 existing_query['image_source_id'] = task.image_source
                 existing_query['repeat'] = task.repeat
-            elif isinstance(task, benchmark_task.BenchmarkTrialTask):
+            elif isinstance(task, benchmark_task.MeasureTrialTask):
                 existing_query['trial_result_ids'] = {'$all': list(task.trial_results)}
                 existing_query['benchmark_id'] = task.benchmark
             elif isinstance(task, compare_trials_task.CompareTrialTask):
@@ -406,7 +406,7 @@ class TaskManager:
         if self._allow_train_system:
             types.append(entity_registry.get_type_name(train_system_task.TrainSystemTask))
         if self._allow_benchmark:
-            types.append(entity_registry.get_type_name(benchmark_task.BenchmarkTrialTask))
+            types.append(entity_registry.get_type_name(benchmark_task.MeasureTrialTask))
         if self._allow_trial_comparison:
             types.append(entity_registry.get_type_name(compare_trials_task.CompareTrialTask))
         if self._allow_benchmark_comparison:
@@ -487,7 +487,7 @@ class TaskManager:
         if self._allow_run_system:
             types.append(entity_registry.get_type_name(run_system_task.RunSystemTask))
         if self._allow_benchmark:
-            types.append(entity_registry.get_type_name(benchmark_task.BenchmarkTrialTask))
+            types.append(entity_registry.get_type_name(benchmark_task.MeasureTrialTask))
         if self._allow_trial_comparison:
             types.append(entity_registry.get_type_name(compare_trials_task.CompareTrialTask))
         if self._allow_benchmark_comparison:

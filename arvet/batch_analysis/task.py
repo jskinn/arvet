@@ -1,10 +1,11 @@
 # Copyright (c) 2017, John Skinner
-import pymongo.collection
+import abc
 import enum
-import bson
-import arvet.database.entity
-import arvet.database.client
-import arvet.config.path_manager
+import pymodm
+import pymodm.fields as fields
+from arvet.database.pymodm_abc import ABCModelMeta
+from arvet.database.enum_field import EnumField
+from arvet.config.path_manager import PathManager
 
 
 class JobState(enum.Enum):
@@ -28,7 +29,7 @@ class TaskType(enum.Enum):
     COMPARE_BENCHMARKS = 7
 
 
-class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.AbstractEntityMetaclass):
+class Task(pymodm.MongoModel, metaclass=ABCModelMeta):
     """
     A Task entity tracks performing a specific task.
     The only two properties you should use here are 'is_finished' and 'result',
@@ -36,57 +37,17 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
 
     NEVER EVER CREATE THESE OUTSIDE TASK MANAGER.
     Instead, call the appropriate get method on task manager to get a new task instance.
+
+    NEVER EVER CHANGE STATE MANUALLY
+    That is what mark_job_complete is for
     """
-
-    def __init__(self, state=JobState.UNSTARTED,
-                 node_id: str = None, job_id: int = None,
-                 result: bson.ObjectId = None, num_cpus: int = 1, num_gpus: int = 0,
-                 memory_requirements: str = '3GB', expected_duration: str = '1:00:00', id_: bson.ObjectId=None):
-        super().__init__(id_=id_)
-        self._state = JobState(state)
-        self._node_id = node_id
-        self._job_id = int(job_id) if job_id is not None else None
-        self._result = result
-        self._num_cpus = int(num_cpus)
-        self._num_gpus = int(num_gpus)
-        self._memory_requirements = memory_requirements
-        self._expected_duration = expected_duration
-        self._updates = {}
-
-    @property
-    def is_finished(self) -> bool:
-        """
-        Is the job already done?
-        Experiments should use this to check if result will be set.
-        :return: True iff the task has been completed
-        """
-        return JobState.DONE == self._state
-
-    @property
-    def result(self) -> bson.ObjectId:
-        """
-        Get the result from running this task, usually a database id.
-        :return:
-        """
-        return self._result
-
-    @property
-    def node_id(self) -> str:
-        """
-        Get the id of the job system node running this task if it is running.
-        You should not need this property, TaskManager is handling it.
-        :return: String node id from the job system configuration.
-        """
-        return self._node_id
-
-    @property
-    def job_id(self) -> int:
-        """
-        Get the id of the job with the job system.
-        You should not need this property, TaskManager is handling it
-        :return: Integer
-        """
-        return self._job_id
+    state = EnumField(JobState, required=True)
+    node_id = fields.CharField()
+    job_id = fields.IntegerField()
+    num_cpus = fields.IntegerField(default=1, min_value=1)
+    num_gpus = fields.IntegerField(default=0, min_value=0)
+    memory_requirements = fields.CharField(default='3GB')
+    expected_duration = fields.CharField(default='1:00:00')
 
     @property
     def is_unstarted(self) -> bool:
@@ -95,31 +56,32 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         You shouldn't need to use it.
         :return:
         """
-        return JobState.UNSTARTED == self._state
+        return JobState.UNSTARTED == self.state
 
     @property
-    def num_cpus(self)-> int:
-        return self._num_cpus
+    def is_running(self) -> bool:
+        """
+        Is the job currently running?
+        Used to avoid scheduling jobs more than once
+        :return: True iff the task is currently recorded as running
+        """
+        return JobState.RUNNING == self.state
 
     @property
-    def num_gpus(self) -> int:
-        return self._num_gpus
+    def is_finished(self) -> bool:
+        """
+        Is the job already done?
+        Experiments should use this to check if result will be set.
+        :return: True iff the task has been completed
+        """
+        return JobState.DONE == self.state
 
-    @property
-    def memory_requirements(self) -> str:
-        return self._memory_requirements
-
-    @property
-    def expected_duration(self) -> str:
-        return self._expected_duration
-
-    def run_task(self, path_manager: arvet.config.path_manager.PathManager,
-                 db_client: arvet.database.client.DatabaseClient) -> None:
+    @abc.abstractmethod
+    def run_task(self, path_manager: PathManager) -> None:
         """
         Actually perform the task.
         Different subtypes do different things.
         :param path_manager: A path manager, to resolve file system paths
-        :param db_client: The database client, for loading the objects used in the task.
         :return:
         """
         pass
@@ -132,23 +94,10 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         :param job_id: The id of the job on the node, so we can check it is still running
         :return: void
         """
-        if JobState.UNSTARTED == self._state:
-            self._state = JobState.RUNNING
-            self._node_id = node_id
-            self._job_id = job_id
-            if '$set' not in self._updates:
-                self._updates['$set'] = {}
-            self._updates['$set']['state'] = JobState.RUNNING.value
-            self._updates['$set']['node_id'] = node_id
-            self._updates['$set']['job_id'] = job_id
-            # Don't unset the job id anymore, we're setting it to something else insted
-            if '$unset' in self._updates:
-                if 'node_id' in self._updates['$unset']:
-                    del self._updates['$unset']['node_id']
-                if 'job_id' in self._updates['$unset']:
-                    del self._updates['$unset']['job_id']
-                if self._updates['$unset'] == {}:
-                    del self._updates['$unset']
+        if self.is_unstarted:
+            self.state = JobState.RUNNING
+            self.node_id = node_id
+            self.job_id = job_id
 
     def change_job_id(self, node_id: str, job_id: int) -> None:
         """
@@ -158,117 +107,26 @@ class Task(arvet.database.entity.Entity, metaclass=arvet.database.entity.Abstrac
         :param job_id: The new job id on the node
         :return: void
         """
-        if JobState.RUNNING == self._state:
-            self._node_id = node_id
-            self._node_id = node_id
-            self._job_id = job_id
-            if '$set' not in self._updates:
-                self._updates['$set'] = {}
-            self._updates['$set']['state'] = JobState.RUNNING.value
-            self._updates['$set']['node_id'] = node_id
-            self._updates['$set']['job_id'] = job_id
-            # Don't unset the job id anymore, we're setting it to something else insted
-            if '$unset' in self._updates:
-                if 'node_id' in self._updates['$unset']:
-                    del self._updates['$unset']['node_id']
-                if 'job_id' in self._updates['$unset']:
-                    del self._updates['$unset']['job_id']
-                if self._updates['$unset'] == {}:
-                    del self._updates['$unset']
+        if self.is_running:
+            self.node_id = node_id
+            self.job_id = job_id
 
-    def mark_job_complete(self, result: bson.ObjectId) -> None:
+    def mark_job_complete(self) -> None:
         """
         Mark the task complete, with a particular result.
-        :param result: The result of the job
         :return:
         """
-        if JobState.RUNNING == self._state:
-            self._state = JobState.DONE
-            self._result = result
-            self._node_id = None
-            self._job_id = None
-            if '$set' not in self._updates:
-                self._updates['$set'] = {}
-            self._updates['$set']['state'] = JobState.DONE.value
-            self._updates['$set']['result'] = result
-            if '$unset' not in self._updates:
-                self._updates['$unset'] = {}
-            self._updates['$unset']['node_id'] = True
-            self._updates['$unset']['job_id'] = True
-
-            # Don't set the job id anymore, it's getting unset
-            if 'node_id' in self._updates['$set']:
-                del self._updates['$set']['node_id']
-            if 'job_id' in self._updates['$set']:
-                del self._updates['$set']['job_id']
+        if self.is_running:
+            self.state = JobState.DONE
+            self.node_id = None
+            self.job_id = None
 
     def mark_job_failed(self) -> None:
         """
         A running task has failed, return it to unstarted state so we can try again.
         :return:
         """
-        if JobState.RUNNING == self._state:
-            self._state = JobState.UNSTARTED
-            self._node_id = None
-            self._job_id = None
-            if '$set' not in self._updates:
-                self._updates['$set'] = {}
-            self._updates['$set']['state'] = JobState.UNSTARTED.value
-            if '$unset' not in self._updates:
-                self._updates['$unset'] = {}
-            self._updates['$unset']['node_id'] = True
-            self._updates['$unset']['job_id'] = True
-
-            # Don't set the job id anymore, it's getting unset
-            if 'node_id' in self._updates['$set']:
-                del self._updates['$set']['node_id']
-            if 'job_id' in self._updates['$set']:
-                del self._updates['$set']['job_id']
-
-    def save_updates(self, collection: pymongo.collection.Collection) -> None:
-        """
-        Push updates to the task state to the database
-        :param collection: The collection to store in
-        :return:
-        """
-        if self.identifier is None:
-            s_task = self.serialize()
-            insert_result = collection.insert_one(s_task)
-            self.refresh_id(insert_result.inserted_id)
-        elif len(self._updates) > 0:
-            collection.update_one({'_id': self.identifier}, self._updates)
-        self._updates = {}
-
-    def serialize(self):
-        serialized = super().serialize()
-        serialized['state'] = self._state.value
-        serialized['num_cpus'] = self._num_cpus
-        serialized['num_gpus'] = self._num_gpus
-        serialized['memory_requirements'] = self._memory_requirements
-        serialized['expected_duration'] = self._expected_duration
-        if self._state:
-            serialized['node_id'] = self.node_id
-            serialized['job_id'] = self.job_id
-        if self.is_finished:
-            serialized['result'] = self.result
-        return serialized
-
-    @classmethod
-    def deserialize(cls, serialized_representation, db_client, **kwargs):
-        if 'state' in serialized_representation:
-            kwargs['state'] = serialized_representation['state']
-        if 'num_cpus' in serialized_representation:
-            kwargs['num_cpus'] = serialized_representation['num_cpus']
-        if 'num_gpus' in serialized_representation:
-            kwargs['num_gpus'] = serialized_representation['num_gpus']
-        if 'memory_requirements' in serialized_representation:
-            kwargs['memory_requirements'] = serialized_representation['memory_requirements']
-        if 'expected_duration' in serialized_representation:
-            kwargs['expected_duration'] = serialized_representation['expected_duration']
-        if 'node_id' in serialized_representation:
-            kwargs['node_id'] = serialized_representation['node_id']
-        if 'job_id' in serialized_representation:
-            kwargs['job_id'] = serialized_representation['job_id']
-        if 'result' in serialized_representation:
-            kwargs['result'] = serialized_representation['result']
-        return super().deserialize(serialized_representation, db_client, **kwargs)
+        if self.is_running:
+            self.state = JobState.UNSTARTED
+            self.node_id = None
+            self.job_id = None

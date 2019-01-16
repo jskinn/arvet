@@ -13,7 +13,7 @@ import arvet.batch_analysis.tasks.import_dataset_task as import_dataset_task
 import arvet.batch_analysis.tasks.generate_dataset_task as generate_dataset_task
 import arvet.batch_analysis.tasks.train_system_task as train_system_task
 import arvet.batch_analysis.tasks.run_system_task as run_system_task
-import arvet.batch_analysis.tasks.benchmark_trial_task as benchmark_task
+import arvet.batch_analysis.tasks.measure_trial_task as benchmark_task
 # TODO: Tests for these two as well
 # import arvet.batch_analysis.tasks.compare_trials_task as compare_trials_task
 # import arvet.batch_analysis.tasks.compare_benchmarks_task as compare_benchmarks_task
@@ -233,7 +233,7 @@ class TestTaskManager(unittest.TestCase):
         trial_result_ids = [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()]
         benchmark_id = bson.ObjectId()
         result = subject.get_benchmark_task(trial_result_ids, benchmark_id)
-        self.assertIsInstance(result, benchmark_task.BenchmarkTrialTask)
+        self.assertIsInstance(result, benchmark_task.MeasureTrialTask)
         self.assertIsNone(result.identifier)
 
     def test_do_task_checks_import_dataset_task_is_unique(self):
@@ -293,7 +293,7 @@ class TestTaskManager(unittest.TestCase):
         subject = manager.TaskManager(mock_collection, mock_db_client)
         trial_result_ids = [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()]
         benchmark_id = bson.ObjectId()
-        task = benchmark_task.BenchmarkTrialTask(trial_result_ids, benchmark_id)
+        task = benchmark_task.MeasureTrialTask(trial_result_ids, benchmark_id)
         subject.do_task(task)
 
         self.assertTrue(mock_collection.find.called)
@@ -465,7 +465,7 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(1433, s_task['job_id'])
 
     def test_schedule_tasks_schedules_benchmark_trial_task(self):
-        task_entity = benchmark_task.BenchmarkTrialTask(
+        task_entity = benchmark_task.MeasureTrialTask(
             trial_result_ids=[bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
             benchmark_id=bson.ObjectId()
         )
@@ -573,7 +573,7 @@ class TestTaskManager(unittest.TestCase):
             (train_system_task.TrainSystemTask, {'trainer_id': bson.ObjectId(), 'trainee_id': bson.ObjectId()}),
             (run_system_task.RunSystemTask, {'system_id': bson.ObjectId(), 'image_source_id': bson.ObjectId(),
                                              'repeat': 12}),
-            (benchmark_task.BenchmarkTrialTask, {
+            (benchmark_task.MeasureTrialTask, {
                 'trial_result_ids': [bson.ObjectId(), bson.ObjectId()], 'benchmark_id': bson.ObjectId()
             })
         ]:
