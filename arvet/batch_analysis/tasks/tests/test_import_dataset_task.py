@@ -1,53 +1,207 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import numpy as np
-import arvet.database.tests.test_entity
-import arvet.util.dict_utils as du
-import arvet.batch_analysis.task
-import arvet.batch_analysis.tasks.import_dataset_task as task
+import os
+import os.path as path
+import logging
+from arvet.config.path_manager import PathManager
+import arvet.database.tests.database_connection as dbconn
+import arvet.database.image_manager as im_manager
+import arvet.core.tests.mock_types as mock_types
+from arvet.core.sequence_type import ImageSequenceType
+import arvet.core.image as im
+import arvet.core.image_collection as ic
+from arvet.batch_analysis.task import Task, JobState
+from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
+import arvet.batch_analysis.tasks.tests.mock_importer as mock_importer
 
 
-class TestImportDatasetTask(arvet.database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestMeasureTrialTaskDatabase(unittest.TestCase):
+    image = None
+    image_collection = None
 
-    def get_class(self):
-        return task.ImportDatasetTask
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
 
-    def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {
-            'module_name': 'datasets.generated.import_generated_dataset',
-            'path': 'datasets/TestDataset/',
-            'additional_args': {'foo': 'bar'},
-            'state': arvet.batch_analysis.task.JobState.RUNNING,
-            'num_cpus': np.random.randint(0, 1000),
-            'num_gpus': np.random.randint(0, 1000),
-            'memory_requirements': '{}MB'.format(np.random.randint(0, 50000)),
-            'expected_duration': '{0}:{1}:{2}'.format(np.random.randint(1000), np.random.randint(60),
-                                                      np.random.randint(60)),
-            'node_id': 'node-{}'.format(np.random.randint(10000)),
-            'job_id': np.random.randint(1000)
-        })
-        return task.ImportDatasetTask(*args, **kwargs)
+        cls.image = mock_types.make_image()
+        cls.image.save()
 
-    def assert_models_equal(self, task1, task2):
-        """
-        Helper to assert that two tasks are equal
-        We're going to violate encapsulation for a bit
-        :param task1:
-        :param task2:
-        :return:
-        """
-        if (not isinstance(task1, task.ImportDatasetTask) or
-                not isinstance(task2, task.ImportDatasetTask)):
-            self.fail('object was not an ImportDatasetTask')
-        self.assertEqual(task1.identifier, task2.identifier)
-        self.assertEqual(task1.module_name, task2.module_name)
-        self.assertEqual(task1.additional_args, task2.additional_args)
-        self.assertEqual(task1.path, task2.path)
-        self.assertEqual(task1._state, task2._state)
-        self.assertEqual(task1.node_id, task2.node_id)
-        self.assertEqual(task1.job_id, task2.job_id)
-        self.assertEqual(task1.result, task2.result)
-        self.assertEqual(task1.num_cpus, task2.num_cpus)
-        self.assertEqual(task1.num_gpus, task2.num_gpus)
-        self.assertEqual(task1.memory_requirements, task2.memory_requirements)
-        self.assertEqual(task1.expected_duration, task2.expected_duration)
+        cls.image_collection = ic.ImageCollection(
+            images=[cls.image],
+            timestamps=[1.2],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        cls.image_collection.save()
+
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        Task._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        Task._mongometa.collection.drop()
+        im.Image._mongometa.collection.drop()
+        ic.ImageCollection._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
+
+    def test_stores_and_loads_unstarted(self):
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.UNSTARTED
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+    def test_stores_and_loads_completed(self):
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.DONE,
+            result=self.image_collection
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+
+class TestImportDatasetTask(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        logging.disable(logging.CRITICAL)
+
+    def setUp(self):
+        self.path_manager = PathManager(['~'])
+        mock_importer.reset()
+        image = mock_types.make_image()
+        self.image_collection = ic.ImageCollection(
+            images=[image],
+            timestamps=[1.2],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+
+    def test_run_task_fails_if_unable_to_import_module(self):
+        subject = ImportDatasetTask(
+            module_name='fake.not_a_module',
+            path=path.abspath(__file__),
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_running)
+        self.assertIsNone(subject.result)
+        with self.assertRaises(ImportError):
+            subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertFalse(subject.is_finished)
+
+    def test_run_task_fails_if_module_doesnt_have_required_method(self):
+        subject = ImportDatasetTask(
+            module_name='arvet.core.image_source',
+            path=path.abspath(__file__),
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_running)
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertFalse(subject.is_finished)
+
+    def test_run_task_fails_if_path_doesnt_exist(self):
+        subject = ImportDatasetTask(
+            module_name=mock_importer.__name__,
+            path='not_a_real_path',
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_running)
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertFalse(subject.is_finished)
+
+    def test_run_task_fails_if_import_returns_none(self):
+        dataset_path = path.abspath(__file__)
+        additional_args = {'foo': 'baz'}
+        subject = ImportDatasetTask(
+            module_name=mock_importer.__name__,
+            path=dataset_path,
+            additional_args=additional_args,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_running)
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertFalse(subject.is_finished)
+
+    def test_run_task_fails_if_import_raises_exception(self):
+        mock_importer.raise_exception = True
+        dataset_path = path.abspath(__file__)
+        additional_args = {'foo': 'baz'}
+        subject = ImportDatasetTask(
+            module_name=mock_importer.__name__,
+            path=dataset_path,
+            additional_args=additional_args,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_running)
+        self.assertIsNone(subject.result)
+        with self.assertRaises(ValueError):
+            subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertFalse(subject.is_finished)
+
+    def test_run_task_calls_module_import_dataset_and_stores_result(self):
+        mock_importer.return_value = self.image_collection
+        dataset_path = path.abspath(__file__)
+        additional_args = {'foo': 'baz'}
+        subject = ImportDatasetTask(
+            module_name=mock_importer.__name__,
+            path=dataset_path,
+            additional_args=additional_args,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(mock_importer.called)
+        subject.run_task(self.path_manager)
+        self.assertTrue(mock_importer.called)
+        self.assertEqual(dataset_path, mock_importer.called_path)
+        self.assertEqual(additional_args, mock_importer.called_kwargs)
+
+        self.assertFalse(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertTrue(subject.is_finished)
+        self.assertEqual(self.image_collection, subject.result)
