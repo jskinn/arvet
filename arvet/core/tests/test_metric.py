@@ -52,3 +52,31 @@ class TestMetricResultDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+
+class TestCheckTrialCollection(unittest.TestCase):
+
+    def test_returns_true_iff_all_trials_have_same_image_source_and_system(self):
+        system1 = mock_types.MockSystem()
+        system2 = mock_types.MockSystem()
+        image_source1 = mock_types.MockImageSource()
+        image_source2 = mock_types.MockImageSource()
+
+        group1 = [
+            tr.TrialResult(image_source=image_source1, system=system1, success=True)
+            for _ in range(10)
+        ]
+        group2 = [
+            tr.TrialResult(image_source=image_source2, system=system1, success=True)
+            for _ in range(10)
+        ]
+        group3 = [
+            tr.TrialResult(image_source=image_source1, system=system2, success=True)
+            for _ in range(10)
+        ]
+        self.assertTrue(mtr.check_trial_collection(group1))
+        self.assertTrue(mtr.check_trial_collection(group2))
+        self.assertTrue(mtr.check_trial_collection(group3))
+        self.assertFalse(mtr.check_trial_collection(group1 + group2))
+        self.assertFalse(mtr.check_trial_collection(group1 + group3))
+        self.assertFalse(mtr.check_trial_collection(group2 + group3))
