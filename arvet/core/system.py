@@ -94,3 +94,11 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :rtype TrialResult:
         """
         return None
+
+    @classmethod
+    def get_pretty_name(cls) -> str:
+        """
+        Get a human-readable name for this metric
+        :return:
+        """
+        return cls.__module__ + '.' + cls.__name_

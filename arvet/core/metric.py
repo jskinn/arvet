@@ -42,6 +42,14 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
+    @classmethod
+    def get_pretty_name(cls) -> str:
+        """
+        Get a human-readable name for this metric
+        :return:
+        """
+        return cls.__module__ + '.' + cls.__name__
+
 
 class MetricResult(pymodm.MongoModel):
     """
