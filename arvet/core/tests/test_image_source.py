@@ -1,20 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import arvet.database.tests.database_connection as dbconn
-from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image_source import ImageSource
-from arvet.metadata.camera_intrinsics import CameraIntrinsics
-
-
-class MockImageSource(ImageSource):
-    sequence_type = ImageSequenceType.NON_SEQUENTIAL
-    is_depth_available = False
-    is_normals_available = False
-    is_stereo_available = False
-    is_labels_available = False
-    is_masks_available = False
-    is_stored_in_database = True
-    camera_intrinsics = CameraIntrinsics()
+from arvet.core.tests.mock_types import MockImageSource
 
 
 class TestImageSourceDatabase(unittest.TestCase):

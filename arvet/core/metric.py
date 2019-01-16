@@ -15,14 +15,6 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     to allow them to be called easily and in a structured way.
     """
 
-    @classmethod
-    def get_name(cls) -> str:
-        """
-        Get the name used to refer to this metric
-        :return:
-        """
-        return cls.__module__ + '.' + cls.__name__
-
     @abc.abstractmethod
     def is_trial_appropriate(self, trial_result: arvet.core.trial_result.TrialResult) -> bool:
         """

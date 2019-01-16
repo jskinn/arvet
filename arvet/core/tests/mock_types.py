@@ -8,6 +8,7 @@ import arvet.core.image_source
 import arvet.core.trial_result
 from arvet.core.sequence_type import ImageSequenceType
 import arvet.core.metric
+import arvet.core.trial_comparison
 import arvet.database.entity
 import arvet.metadata.camera_intrinsics as cam_intr
 
@@ -46,12 +47,22 @@ class MockImageSource(arvet.core.image_source.ImageSource):
 
 class MockMetric(arvet.core.metric.Metric):
 
-    @classmethod
-    def get_trial_requirements(cls):
-        return {}
+    def is_trial_appropriate(self, trial_result):
+        return True
+
+    def measure_results(self, trial_results):
+        return arvet.core.metric.MetricResult(self, list(trial_results), True)
+
+
+class MockTrialComparisonMetric(arvet.core.trial_comparison.TrialComparisonMetric):
 
     def is_trial_appropriate(self, trial_result):
         return True
 
-    def benchmark_results(self, trial_results):
-        return arvet.core.metric.MetricResult(self, list(trial_results), True)
+    def compare_trials(self, trial_results, reference_trial_results):
+        return arvet.core.trial_comparison.TrialComparisonResult(
+            metric=self,
+            trial_results=list(trial_results),
+            reference_trial_results=list(reference_trial_results),
+            success=True
+        )

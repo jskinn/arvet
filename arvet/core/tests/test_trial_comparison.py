@@ -1,38 +1,85 @@
 # Copyright (c) 2017, John Skinner
 import unittest
+import arvet.database.tests.database_connection as dbconn
+import arvet.core.trial_result as tr
+import arvet.core.metric as mtr
+import arvet.core.trial_comparison as mtr_comp
+import arvet.core.tests.mock_types as mock_types
 
-import arvet.database.tests.test_entity as entity_test
-import arvet.util.dict_utils as du
 
-import arvet.core.trial_comparison
+class TestTrialComparisonMetricDatabase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        mtr_comp.TrialComparisonMetric._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        mtr_comp.TrialComparisonMetric._mongometa.collection.drop()
+
+    def test_stores_and_loads(self):
+        obj = mock_types.MockTrialComparisonMetric()
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(mtr_comp.TrialComparisonMetric.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
 
 
-class TestTrialComparisonResult(entity_test.EntityContract, unittest.TestCase):
+class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
+    system = None
+    image_source = None
+    metric = None
+    trial_result_1 = None
+    trial_result_2 = None
 
-    def get_class(self):
-        return arvet.core.trial_comparison.TrialComparisonResult
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        cls.system = mock_types.MockSystem()
+        cls.image_source = mock_types.MockImageSource()
+        cls.metric = mock_types.MockMetric()
+        cls.system.save()
+        cls.image_source.save()
+        cls.metric.save()
 
-    def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {
-            'benchmark_id': 1,
-            'trial_result_ids': [2, 3, 4],
-            'reference_ids': [5, 6, 7],
-            'success': True
-        })
-        return arvet.core.trial_comparison.TrialComparisonResult(*args, **kwargs)
+        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1.save()
+        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2.save()
 
-    def assert_models_equal(self, benchmark_result1, benchmark_result2):
-        """
-        Helper to assert that two dataset models are equal
-        :param benchmark_result1: Dataset
-        :param benchmark_result2: Dataset
-        :return:
-        """
-        if (not isinstance(benchmark_result1, arvet.core.trial_comparison.TrialComparisonResult) or
-                not isinstance(benchmark_result2, arvet.core.trial_comparison.TrialComparisonResult)):
-            self.fail('object was not a BenchmarkResult')
-        self.assertEqual(benchmark_result1.identifier, benchmark_result2.identifier)
-        self.assertEqual(benchmark_result1.success, benchmark_result2.success)
-        self.assertEqual(benchmark_result1.benchmark, benchmark_result2.benchmark)
-        self.assertEqual(benchmark_result1.trial_results, benchmark_result2.trial_results)
-        self.assertEqual(benchmark_result1.reference_trial_results, benchmark_result2.reference_trial_results)
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        mtr_comp.MetricResult._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        mtr.MetricResult._mongometa.collection.drop()
+        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockMetric._mongometa.collection.drop()
+        mock_types.MockImageSource._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+
+    def test_stores_and_loads(self):
+        obj = mtr_comp.TrialComparisonResult(
+            metric=self.metric,
+            trial_results=[self.trial_result_1],
+            reference_trial_results=[self.trial_result_2],
+            success=True,
+            message='Completed successfully'
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(mtr.MetricResult.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()

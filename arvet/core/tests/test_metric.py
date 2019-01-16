@@ -6,6 +6,32 @@ import arvet.core.metric as mtr
 import arvet.core.tests.mock_types as mock_types
 
 
+class TestMetricDatabase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        mtr.Metric._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        mtr.Metric._mongometa.collection.drop()
+
+    def test_stores_and_loads(self):
+        obj = mock_types.MockMetric()
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(mtr.Metric.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+
 class TestMetricResultDatabase(unittest.TestCase):
     system = None
     image_source = None
