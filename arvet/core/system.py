@@ -2,6 +2,12 @@
 import abc
 import pymodm
 import arvet.database.pymodm_abc as pymodm_abc
+from arvet.config.path_manager import PathManager
+import arvet.util.transform as tf
+from arvet.metadata.camera_intrinsics import CameraIntrinsics
+from arvet.core.image_source import ImageSource
+from arvet.core.sequence_type import ImageSequenceType
+from arvet.core.image import Image
 
 
 class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
@@ -13,7 +19,7 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
 
     @property
     @abc.abstractmethod
-    def is_deterministic(self):
+    def is_deterministic(self) -> bool:
         """
         Is the visual system deterministic.
 
@@ -26,7 +32,7 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def is_image_source_appropriate(self, image_source):
+    def is_image_source_appropriate(self, image_source: ImageSource) -> bool:
         """
         Is the dataset appropriate for testing this vision system.
         :param image_source: The source for images that this system will potentially be run with.
@@ -36,7 +42,7 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def set_camera_intrinsics(self, camera_intrinsics):
+    def set_camera_intrinsics(self, camera_intrinsics: CameraIntrinsics) -> None:
         """
         Set the intrinsics used by this image source to process images.
         Many systems take this as configuration.
@@ -45,16 +51,16 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
-    def set_stereo_baseline(self, baseline):
+    def set_stereo_offset(self, offset: tf.Transform) -> None:
         """
         Set the stereo baseline for stereo systems.
         Other systems don't need to override this, it will do nothing.
-        :param baseline: The distance between the stereo cameras, as a float
+        :param offset: The distance between the stereo cameras, as a float
         :return:
         """
         pass
 
-    def resolve_paths(self, path_manager):
+    def resolve_paths(self, path_manager: PathManager) -> None:
         """
         If the system requires some external data,
         resolve paths to those files using the path manager
@@ -64,7 +70,7 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def start_trial(self, sequence_type):
+    def start_trial(self, sequence_type: ImageSequenceType) -> None:
         """
         Start a trial with this system.
         After calling this, we can feed images to the system.
@@ -75,7 +81,7 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def process_image(self, image, timestamp):
+    def process_image(self, image: Image, timestamp: float) -> None:
         """
         Process an image as part of the current run.
         Should automatically start a new trial if none is currently started.
@@ -86,14 +92,14 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def finish_trial(self):
+    def finish_trial(self) -> 'TrialResult':
         """
         End the current trial, returning a trial result.
         Return none if no trial is started.
         :return:
         :rtype TrialResult:
         """
-        return None
+        pass
 
     @classmethod
     def get_pretty_name(cls) -> str:
