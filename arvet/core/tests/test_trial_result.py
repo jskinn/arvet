@@ -1,23 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import arvet.database.tests.database_connection as dbconn
-import arvet.metadata.camera_intrinsics as cam_intr
-import arvet.core.image_source as image_source
 import arvet.core.trial_result as tr
 import arvet.core.tests.mock_types as mock_types
-from arvet.core.sequence_type import ImageSequenceType
 
 
-class MonitoredImageSource(image_source.ImageSource):
-    sequence_type = ImageSequenceType.NON_SEQUENTIAL
-    is_depth_available = False
-    is_normals_available = False
-    is_stereo_available = False
-    is_labels_available = False
-    is_masks_available = False
-    is_stored_in_database = True
-    camera_intrinsics = cam_intr.CameraIntrinsics()
-
+class MonitoredImageSource(mock_types.MockImageSource):
     instance_count = 0
 
     def __init__(self, *args, **kwargs):
