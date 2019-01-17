@@ -1,8 +1,10 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import typing
 from pymodm import MongoModel
 from arvet.metadata.camera_intrinsics import CameraIntrinsics
 from arvet.database.pymodm_abc import ABCModelMeta
+from arvet.core.image import Image
 from arvet.core.sequence_type import ImageSequenceType
 
 
@@ -21,6 +23,10 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
 
     TODO: We need more ways to interrogate the image source for information about it.
     """
+
+    @abc.abstractmethod
+    def __iter__(self) -> typing.Tuple[float, Image]:
+        pass
 
     @property
     @abc.abstractmethod

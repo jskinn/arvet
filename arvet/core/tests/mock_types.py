@@ -49,6 +49,10 @@ class MockImageSource(arvet.core.image_source.ImageSource):
     is_stored_in_database = True
     camera_intrinsics = cam_intr.CameraIntrinsics()
 
+    def __iter__(self):
+        for idx in range(10):
+            yield 0.6 * idx, make_image(idx)
+
 
 class MockMetric(arvet.core.metric.Metric):
 
