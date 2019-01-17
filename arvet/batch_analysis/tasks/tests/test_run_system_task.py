@@ -11,50 +11,73 @@ import arvet.batch_analysis.task
 import arvet.batch_analysis.tasks.run_system_task as task
 
 
-class TestRunSystemTask(arvet.database.tests.test_entity.EntityContract, unittest.TestCase):
+import unittest
+import logging
+from arvet.config.path_manager import PathManager
+import arvet.database.tests.database_connection as dbconn
+import arvet.core.tests.mock_types as mock_types
+import arvet.core.trial_result as tr
+import arvet.core.metric as mtr
+from arvet.batch_analysis.task import Task, JobState
+from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 
-    def get_class(self):
-        return task.RunSystemTask
 
-    def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {
-            'system_id': bson.ObjectId(),
-            'image_source_id': bson.ObjectId(),
-            'repeat': np.random.randint(0, 1000),
-            'state': arvet.batch_analysis.task.JobState.RUNNING,
-            'num_cpus': np.random.randint(0, 1000),
-            'num_gpus': np.random.randint(0, 1000),
-            'memory_requirements': '{}MB'.format(np.random.randint(0, 50000)),
-            'expected_duration': '{0}:{1}:{2}'.format(np.random.randint(1000), np.random.randint(60),
-                                                      np.random.randint(60)),
-            'node_id': 'node-{}'.format(np.random.randint(10000)),
-            'job_id': np.random.randint(1000)
-        })
-        return task.RunSystemTask(*args, **kwargs)
+class TestMeasureTrialTaskDatabase(unittest.TestCase):
+    system = None
+    image_source = None
+    trial_result = None
 
-    def assert_models_equal(self, task1, task2):
-        """
-        Helper to assert that two tasks are equal
-        We're going to violate encapsulation for a bit
-        :param task1:
-        :param task2:
-        :return:
-        """
-        if (not isinstance(task1, task.RunSystemTask) or
-                not isinstance(task2, task.RunSystemTask)):
-            self.fail('object was not an RunSystemTask')
-        self.assertEqual(task1.identifier, task2.identifier)
-        self.assertEqual(task1.system, task2.system)
-        self.assertEqual(task1.image_source, task2.image_source)
-        self.assertEqual(task1._repeat, task2._repeat)
-        self.assertEqual(task1._state, task2._state)
-        self.assertEqual(task1.node_id, task2.node_id)
-        self.assertEqual(task1.job_id, task2.job_id)
-        self.assertEqual(task1.result, task2.result)
-        self.assertEqual(task1.num_cpus, task2.num_cpus)
-        self.assertEqual(task1.num_gpus, task2.num_gpus)
-        self.assertEqual(task1.memory_requirements, task2.memory_requirements)
-        self.assertEqual(task1.expected_duration, task2.expected_duration)
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        cls.system = mock_types.MockSystem()
+        cls.image_source = mock_types.MockImageSource()
+        cls.system.save()
+        cls.image_source.save()
+
+        cls.trial_result = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result.save()
+
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        Task._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        Task._mongometa.collection.drop()
+        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockImageSource._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+
+    def test_stores_and_loads_unstarted(self):
+        obj = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.UNSTARTED
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+    def test_stores_and_loads_completed(self):
+        obj = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
 
 
 class TestTrialRunner(unittest.TestCase):
@@ -67,50 +90,44 @@ class TestTrialRunner(unittest.TestCase):
         self._system.finish_trial.return_value = self._trial_result
 
         self._image_source = mock.create_autospec(arvet.core.image_source.ImageSource)
-        self._image_source.get_stereo_baseline.return_value = None
-        self._image_source.get_camera_intrinsics.return_value = mock.Mock()
-        self._image_source._image_count = 0
-        self._image_source._image = mock.Mock()
+        self._image_source.right_camera_pose = None
+        self._image_source.camera_intrinsics = mock.Mock()
 
-        def get_next_image(self_=self._image_source):
-            self_._image_count += 1
-            return self_._image, self_._image_count
+        def source_iter():
+            for idx in range(10):
+                yield idx, mock.Mock()
 
-        def is_complete(self_=self._image_source):
-            return self_._image_count >= 10
+        self._image_source.__iter__.side_effect = source_iter
 
-        self._image_source.get_next_image.side_effect = get_next_image
-        self._image_source.is_complete.side_effect = is_complete
-
-    def test_run_system_checks_is_appropriate(self):
-        self._system.is_image_source_appropriate.return_value = False
-        task.run_system_with_source(self._system, self._image_source)
-        self.assertIn(mock.call(self._image_source), self._system.is_image_source_appropriate.call_args_list)
-
-    def test_run_system_calls_trial_functions_in_order(self):
+    def test_run_system_calls_trial_functions_in_order_mono(self):
         task.run_system_with_source(self._system, self._image_source)
         mock_calls = self._system.mock_calls
-        # is_appropriate; set_camera_intrinsics; begin; 10 process image calls; end
+        # set_camera_intrinsics; begin; 10 process image calls; end
+        self.assertEqual(13, len(mock_calls))
+        self.assertEqual('set_camera_intrinsics', mock_calls[0][0])
+        self.assertEqual('start_trial', mock_calls[1][0])
+        for i in range(10):
+            self.assertEqual('process_image', mock_calls[2 + i][0])
+        self.assertEqual('finish_trial', mock_calls[12][0])
+
+    def test_run_system_calls_trial_functions_in_order_stereo(self):
+        self._image_source.right_camera_pose = mock.Mock()
+        task.run_system_with_source(self._system, self._image_source)
+        mock_calls = self._system.mock_calls
+        # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end
         self.assertEqual(14, len(mock_calls))
-        self.assertEqual('set_camera_intrinsics', mock_calls[1][0])
+        self.assertEqual('set_camera_intrinsics', mock_calls[0][0])
+        self.assertEqual('set_stereo_offset', mock_calls[1][0])
         self.assertEqual('start_trial', mock_calls[2][0])
         for i in range(10):
             self.assertEqual('process_image', mock_calls[3 + i][0])
         self.assertEqual('finish_trial', mock_calls[13][0])
 
-    def test_run_system_calls_iteration_functions_in_order(self):
+    def test_run_system_calls_iter(self):
         task.run_system_with_source(self._system, self._image_source)
         mock_calls = self._image_source.mock_calls
-        # begin; get_camera_intrinsics; get_stereo_baseline; 10 pairs of  is complete and get image; final is complete
-        self.assertEqual(25, len(mock_calls))
-        self.assertEqual('__enter__', mock_calls[0][0])
-        self.assertEqual('get_camera_intrinsics', mock_calls[1][0])
-        self.assertEqual('get_stereo_baseline', mock_calls[2][0])
-        for i in range(10):
-            self.assertEqual('is_complete', mock_calls[3 + 2 * i][0])
-            self.assertEqual('get_next_image', mock_calls[4 + 2 * i][0])
-        self.assertEqual('is_complete', mock_calls[23][0])
-        self.assertEqual('__exit__', mock_calls[24][0])
+        self.assertEqual(1, len(mock_calls))
+        self.assertEqual('__iter__', mock_calls[0][0])
 
     def test_run_system_returns_trial_result(self):
         result = task.run_system_with_source(self._system, self._image_source)
