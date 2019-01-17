@@ -107,4 +107,4 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         Get a human-readable name for this metric
         :return:
         """
-        return cls.__module__ + '.' + cls.__name_
+        return cls.__module__ + '.' + cls.__name__

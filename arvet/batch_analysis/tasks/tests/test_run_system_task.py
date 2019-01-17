@@ -22,7 +22,7 @@ from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 
 
-class TestMeasureTrialTaskDatabase(unittest.TestCase):
+class TestRunSystemTaskDatabase(unittest.TestCase):
     system = None
     image_source = None
     trial_result = None
@@ -80,7 +80,77 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
         all_entities[0].delete()
 
 
-class TestTrialRunner(unittest.TestCase):
+class TestRunSystemTask(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        logging.disable(logging.CRITICAL)
+
+    def setUp(self):
+        self.system = mock_types.MockSystem()
+        self.image_source = mock_types.MockImageSource()
+        self.path_manager = PathManager(['~'])
+
+    def test_run_task_records_unable_to_measure_trial(self):
+        self.system.is_image_source_appropriate = lambda _: False
+        subject = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertIsNotNone(subject.result)
+        self.assertFalse(subject.result.success)
+        self.assertIsNotNone(subject.result.message)
+        self.assertEqual(self.system, subject.result.system)
+        self.assertEqual(self.image_source, subject.result.image_source)
+
+    def test_run_task_records_exception_during_execution_and_re_raises(self):
+        message = 'No mercy. No respite.'
+
+        def bad_measure_results(*_, **__):
+            raise ValueError(message)
+
+        self.system.start_trial = bad_measure_results
+        subject = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        with self.assertRaises(ValueError):
+            subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertIsNotNone(subject.result)
+        self.assertFalse(subject.result.success)
+        self.assertIsNotNone(subject.result.message)
+        self.assertIn(message, subject.result.message)
+        self.assertEqual(self.system, subject.result.system)
+        self.assertEqual(self.image_source, subject.result.image_source)
+
+    def test_run_task_records_returned_metric_result(self):
+        trial_result = tr.TrialResult(system=self.system, image_source=self.image_source, success=True)
+        self.system.finish_trial = lambda: trial_result
+        subject = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertEqual(subject.result, trial_result)
+
+
+class TestRunSystemWithSource(unittest.TestCase):
 
     def setUp(self):
         self._trial_result = mock.Mock()

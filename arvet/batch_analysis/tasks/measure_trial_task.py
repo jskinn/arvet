@@ -38,17 +38,17 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
         if metric_result is None:
             self.fail_with_message("Failed to run {0}, metric returned None".format(
                 self.metric.get_pretty_name()))
-        elif not metric_result.success:
+            return
+
+        if not metric_result.success:
             logging.getLogger(__name__).info(
                 "Measured trials using metric {0}, but got unsuccessful result: {1}".format(
                     self.metric.get_pretty_name(), metric_result.message))
-            self.result = metric_result
-            self.mark_job_complete()
         else:
             logging.getLogger(__name__).info(
                 "Successfully measured trials using metric {0}".format(self.metric.get_pretty_name()))
-            self.result = metric_result
-            self.mark_job_complete()
+        self.result = metric_result
+        self.mark_job_complete()
 
     def fail_with_message(self, message):
         """

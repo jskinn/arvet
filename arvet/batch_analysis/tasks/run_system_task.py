@@ -32,20 +32,26 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
             self.fail_with_message("Error occurred while running system {0}:\n{1}".format(
                     self.system.get_pretty_name(), traceback.format_exc()))
             raise exception
-        logging.getLogger(__name__).info("Successfully ran system {0}".format(self.system.get_pretty_name()))
+
+        if not trial_result.success:
+            logging.getLogger(__name__).info(
+                "Ran system {0}, but got unsuccessful result: {1}".format(
+                    self.system.get_pretty_name(), trial_result.message))
+        else:
+            logging.getLogger(__name__).info("Successfully ran system {0}".format(self.system.get_pretty_name()))
         self.result = trial_result
         self.mark_job_complete()
 
     def fail_with_message(self, message):
         """
-        Quick helper to log error message, and make and store a metric result as the result
+        Quick helper to log error message, and make and store a trial result as the result
         :param message:
         :return:
         """
         logging.getLogger(__name__).error(message)
         self.result = TrialResult(
-            metric=self.metric,
-            trial_results=self.trial_results,
+            system=self.system,
+            image_source=self.image_source,
             success=False,
             message=message
         )
