@@ -21,10 +21,11 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
         import traceback
 
         # Check all the trials are appropriate
-        for trial_result in self.trial_results:
+        for trial_num, trial_result in enumerate(self.trial_results):
             if not self.metric.is_trial_appropriate(trial_result):
                 # Metric cannot measure these trials, fail permanently
-                self.fail_with_message("Metric {0} cannot assess trial".format(self.metric.get_pretty_name()))
+                self.fail_with_message("Metric {0} cannot assess trial {1}".format(
+                    self.metric.get_pretty_name(), trial_num))
                 return
 
         logging.getLogger(__name__).info(

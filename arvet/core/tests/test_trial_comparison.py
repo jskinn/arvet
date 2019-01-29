@@ -2,7 +2,6 @@
 import unittest
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.trial_result as tr
-import arvet.core.metric as mtr
 import arvet.core.trial_comparison as mtr_comp
 import arvet.core.tests.mock_types as mock_types
 
@@ -45,7 +44,7 @@ class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
         dbconn.connect_to_test_db()
         cls.system = mock_types.MockSystem()
         cls.image_source = mock_types.MockImageSource()
-        cls.metric = mock_types.MockMetric()
+        cls.metric = mock_types.MockTrialComparisonMetric()
         cls.system.save()
         cls.image_source.save()
         cls.metric.save()
@@ -57,12 +56,12 @@ class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
-        mtr_comp.MetricResult._mongometa.collection.drop()
+        mtr_comp.TrialComparisonResult._mongometa.collection.drop()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
-        mtr.MetricResult._mongometa.collection.drop()
+        mtr_comp.TrialComparisonResult._mongometa.collection.drop()
         tr.TrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
@@ -71,15 +70,15 @@ class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
     def test_stores_and_loads(self):
         obj = mtr_comp.TrialComparisonResult(
             metric=self.metric,
-            trial_results=[self.trial_result_1],
-            reference_trial_results=[self.trial_result_2],
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
             success=True,
             message='Completed successfully'
         )
         obj.save()
 
         # Load all the entities
-        all_entities = list(mtr.MetricResult.objects.all())
+        all_entities = list(mtr_comp.TrialComparisonResult.objects.all())
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()

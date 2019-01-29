@@ -1,54 +1,209 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import numpy as np
-import bson
-import arvet.database.tests.test_entity
-import arvet.util.dict_utils as du
-import arvet.batch_analysis.task
-import arvet.batch_analysis.tasks.compare_trials_task as task
+import logging
+from arvet.config.path_manager import PathManager
+import arvet.database.tests.database_connection as dbconn
+import arvet.core.tests.mock_types as mock_types
+import arvet.core.trial_result as tr
+from arvet.core.trial_comparison import TrialComparisonResult
+from arvet.batch_analysis.task import Task, JobState
+from arvet.batch_analysis.tasks.compare_trials_task import CompareTrialTask
 
 
-class TestCompareTrialTask(arvet.database.tests.test_entity.EntityContract, unittest.TestCase):
+class TestCompareTrialsTaskDatabase(unittest.TestCase):
+    system = None
+    image_source = None
+    metric = None
+    trial_result_1 = None
+    trial_result_2 = None
+    metric_result = None
 
-    def get_class(self):
-        return task.CompareTrialTask
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        cls.system = mock_types.MockSystem()
+        cls.image_source = mock_types.MockImageSource()
+        cls.metric = mock_types.MockTrialComparisonMetric()
+        cls.system.save()
+        cls.image_source.save()
+        cls.metric.save()
 
-    def make_instance(self, *args, **kwargs):
-        kwargs = du.defaults(kwargs, {
-            'trial_result_ids': [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
-            'reference_trial_result_ids': [bson.ObjectId(), bson.ObjectId(), bson.ObjectId()],
-            'comparison_id': bson.ObjectId(),
-            'state': arvet.batch_analysis.task.JobState.RUNNING,
-            'num_cpus': np.random.randint(0, 1000),
-            'num_gpus': np.random.randint(0, 1000),
-            'memory_requirements': '{}MB'.format(np.random.randint(0, 50000)),
-            'expected_duration': '{0}:{1}:{2}'.format(np.random.randint(1000), np.random.randint(60),
-                                                      np.random.randint(60)),
-            'node_id': 'node-{}'.format(np.random.randint(10000)),
-            'job_id': np.random.randint(1000)
-        })
-        return task.CompareTrialTask(*args, **kwargs)
+        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1.save()
+        cls.trial_result_2.save()
 
-    def assert_models_equal(self, task1, task2):
-        """
-        Helper to assert that two tasks are equal
-        We're going to violate encapsulation for a bit
-        :param task1:
-        :param task2:
-        :return:
-        """
-        if (not isinstance(task1, task.CompareTrialTask) or
-                not isinstance(task2, task.CompareTrialTask)):
-            self.fail('object was not an CompareTrialTask')
-        self.assertEqual(task1.identifier, task2.identifier)
-        self.assertEqual(task1.trial_results, task2.trial_results)
-        self.assertEqual(task1.reference_trial_results, task2.reference_trial_results)
-        self.assertEqual(task1.comparison, task2.comparison)
-        self.assertEqual(task1._state, task2._state)
-        self.assertEqual(task1.node_id, task2.node_id)
-        self.assertEqual(task1.job_id, task2.job_id)
-        self.assertEqual(task1.result, task2.result)
-        self.assertEqual(task1.num_cpus, task2.num_cpus)
-        self.assertEqual(task1.num_gpus, task2.num_gpus)
-        self.assertEqual(task1.memory_requirements, task2.memory_requirements)
-        self.assertEqual(task1.expected_duration, task2.expected_duration)
+        cls.metric_result = TrialComparisonResult(
+            metric=cls.metric,
+            trial_results_1=[cls.trial_result_1],
+            trial_results_2=[cls.trial_result_2],
+            success=True)
+        cls.metric_result.save()
+
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        Task._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        Task._mongometa.collection.drop()
+        TrialComparisonResult._mongometa.collection.drop()
+        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockMetric._mongometa.collection.drop()
+        mock_types.MockImageSource._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+
+    def test_stores_and_loads_unstarted(self):
+        obj = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.UNSTARTED
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+    def test_stores_and_loads_completed(self):
+        obj = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.DONE,
+            result=self.metric_result
+        )
+        obj.save()
+
+        # Load all the entities
+        all_entities = list(Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+        all_entities[0].delete()
+
+
+class TestCompareTrialsTask(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        logging.disable(logging.CRITICAL)
+
+    def setUp(self):
+        system = mock_types.MockSystem()
+        image_source = mock_types.MockImageSource()
+        self.path_manager = PathManager(['~'])
+        self.metric = mock_types.MockTrialComparisonMetric()
+        self.trial_result_1 = tr.TrialResult(system=system, image_source=image_source, success=False)
+        self.trial_result_2 = tr.TrialResult(system=system, image_source=image_source, success=False)
+
+    def test_run_task_records_unable_to_measure_trial_in_group_1(self):
+        self.metric.is_trial_appropriate_for_first = lambda _: False
+        subject = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertIsNotNone(subject.result)
+        self.assertFalse(subject.result.success)
+        self.assertIsNotNone(subject.result.message)
+        self.assertEqual(self.metric, subject.result.metric)
+        self.assertEqual([self.trial_result_1], subject.result.trial_results_1)
+        self.assertEqual([self.trial_result_2], subject.result.trial_results_2)
+
+    def test_run_task_records_unable_to_measure_trial_in_group_2(self):
+        self.metric.is_trial_appropriate_for_second = lambda _: False
+        subject = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertIsNotNone(subject.result)
+        self.assertFalse(subject.result.success)
+        self.assertIsNotNone(subject.result.message)
+        self.assertEqual(self.metric, subject.result.metric)
+        self.assertEqual([self.trial_result_1], subject.result.trial_results_1)
+        self.assertEqual([self.trial_result_2], subject.result.trial_results_2)
+
+    def test_run_task_records_exception_during_execution_and_re_raises(self):
+        message = 'No mercy. No respite.'
+
+        def bad_compare_trials(*_, **__):
+            raise ValueError(message)
+
+        self.metric.compare_trials = bad_compare_trials
+        subject = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        with self.assertRaises(ValueError):
+            subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertIsNotNone(subject.result)
+        self.assertFalse(subject.result.success)
+        self.assertIsNotNone(subject.result.message)
+        self.assertIn(message, subject.result.message)
+        self.assertEqual(self.metric, subject.result.metric)
+        self.assertEqual([self.trial_result_1], subject.result.trial_results_1)
+        self.assertEqual([self.trial_result_2], subject.result.trial_results_2)
+
+    def test_run_task_records_metric_returned_none(self):
+        self.metric.compare_trials = lambda *args, **kwargs: None
+        subject = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertIsNotNone(subject.result)
+        self.assertFalse(subject.result.success)
+        self.assertIsNotNone(subject.result.message)
+        self.assertEqual(self.metric, subject.result.metric)
+        self.assertEqual([self.trial_result_1], subject.result.trial_results_1)
+        self.assertEqual([self.trial_result_2], subject.result.trial_results_2)
+
+    def test_run_task_records_returned_metric_result(self):
+        comparison_result = TrialComparisonResult(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            success=True
+        )
+        self.metric.compare_trials = lambda *args, **kwargs: comparison_result
+        subject = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertIsNone(subject.result)
+        subject.run_task(self.path_manager)
+        self.assertTrue(subject.is_finished)
+        self.assertEqual(subject.result, comparison_result)

@@ -65,14 +65,17 @@ class MockMetric(arvet.core.metric.Metric):
 
 class MockTrialComparisonMetric(arvet.core.trial_comparison.TrialComparisonMetric):
 
-    def is_trial_appropriate(self, trial_result):
+    def is_trial_appropriate_for_first(self, trial_result):
         return True
 
-    def compare_trials(self, trial_results, reference_trial_results):
+    def is_trial_appropriate_for_second(self, trial_result):
+        return True
+
+    def compare_trials(self, trial_results_1, trial_results_2):
         return arvet.core.trial_comparison.TrialComparisonResult(
             metric=self,
-            trial_results=list(trial_results),
-            reference_trial_results=list(reference_trial_results),
+            trial_results_1=list(trial_results_1),
+            trial_results_2=list(trial_results_2),
             success=True
         )
 
