@@ -4,6 +4,10 @@ import unittest.mock as mock
 import os
 import bson
 from arvet.batch_analysis.task import Task
+from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
+from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
+from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
+from arvet.batch_analysis.tasks.compare_trials_task import CompareTrialTask
 import arvet.batch_analysis.job_systems.hpc_job_system as hpc
 import arvet.batch_analysis.scripts.run_task
 
@@ -482,6 +486,54 @@ class TestHPCJobSystem(unittest.TestCase):
                 patch_subprocess(mock_run, job_id=25798)
                 result = subject.run_task(make_mock_task())
         self.assertEqual(25798, result)
+
+    def test_run_task_wont_run_import_dataset_task_if_configured_not_to(self):
+        task = ImportDatasetTask(_id=bson.ObjectId())
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'task_config': {'allow_import_dataset': False}})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                result = subject.run_task(task)
+                self.assertFalse(mock_run.called)
+        self.assertIsNone(result)
+
+    def test_run_task_wont_run_system_if_configured_not_to(self):
+        task = RunSystemTask(_id=bson.ObjectId())
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'task_config': {'allow_run_system': False}})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                result = subject.run_task(task)
+                self.assertFalse(mock_run.called)
+        self.assertIsNone(result)
+
+    def test_run_task_wont_measure_trials_if_configured_not_to(self):
+        task = MeasureTrialTask(_id=bson.ObjectId())
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'task_config': {'allow_measure': False}})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                result = subject.run_task(task)
+                self.assertFalse(mock_run.called)
+        self.assertIsNone(result)
+
+    def test_run_task_wont_compare_trials_if_configured_not_to(self):
+        task = CompareTrialTask(_id=bson.ObjectId())
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'task_config': {'allow_trial_comparison': False}})
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                result = subject.run_task(task)
+                self.assertFalse(mock_run.called)
+        self.assertIsNone(result)
 
     def test_quote_passes_through_strings_without_spaces(self):
         string = 'this-is_a#string!@#$%^&**)12344575{0}},./'
