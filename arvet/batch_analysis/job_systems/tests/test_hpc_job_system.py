@@ -3,6 +3,7 @@ import unittest
 import unittest.mock as mock
 import os
 import bson
+from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.job_systems.hpc_job_system as hpc
 import arvet.batch_analysis.scripts.run_task
 
@@ -278,7 +279,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         self.assertTrue(mock_open.called)
         filename = mock_open.call_args[0][0]
         # Creates in the home directory by default
@@ -294,7 +295,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         self.assertTrue(mock_open.called)
         filename = mock_open.call_args[0][0]
         # Creates in the home directory by default
@@ -302,28 +303,32 @@ class TestHPCJobSystem(unittest.TestCase):
                         "{0} is not in the target directory".format(filename))
 
     def test_run_task_writes_job_script(self):
-        task_id = bson.ObjectId()
+        mock_task = make_mock_task()
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(task_id)
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1}".format(hpc.quote(arvet.batch_analysis.scripts.run_task.__file__), task_id),
-                      script_contents)
+        self.assertIn("python {0} {1}".format(
+            hpc.quote(arvet.batch_analysis.scripts.run_task.__file__), mock_task.identifier
+        ), script_contents)
 
     def test_run_task_indicates_desired_cpus(self):
+        mock_task = make_mock_task()
+        mock_task.num_cpus = 15789
+
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId(), num_cpus=15789, num_gpus=0)
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -332,12 +337,15 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertNotIn("#PBS -l cputype=", script_contents)
 
     def test_run_task_indicates_desired_gpus(self):
+        mock_task = make_mock_task()
+        mock_task.num_gpus = 8026
+
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId(), num_gpus=8026)
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -347,12 +355,15 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertIn("#PBS -l cputype=E5-2680v4", script_contents)
 
     def test_run_task_indicates_desired_memory(self):
+        mock_task = make_mock_task()
+        mock_task.memory_requirements = '1542GB'
+
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId(), memory_requirements='1542GB')
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -360,12 +371,15 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertIn("#PBS -l mem={mem}".format(mem='1542GB'), script_contents)
 
     def test_run_task_indicates_expected_run_time(self):
+        mock_task = make_mock_task()
+        mock_task.expected_duration = '125:23:16'
+
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({})
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId(), expected_duration='125:23:16')
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -378,7 +392,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         self.assertTrue(mock_open.called)
         filename = mock_open.call_args[0][0]
         mock_file = mock_open()
@@ -397,7 +411,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         self.assertTrue(mock_open.called)
         filename = mock_open.call_args[0][0]
         mock_file = mock_open()
@@ -417,7 +431,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
@@ -431,7 +445,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
@@ -443,7 +457,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(bson.ObjectId())
+                subject.run_task(make_mock_task())
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
@@ -456,7 +470,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({})
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            subject.run_task(bson.ObjectId())
+            subject.run_task(make_mock_task())
         filename = mock_open.call_args[0][0]
         self.assertIn(mock.call(['qsub', filename], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
 
@@ -466,7 +480,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, job_id=25798)
-                result = subject.run_task(bson.ObjectId())
+                result = subject.run_task(make_mock_task())
         self.assertEqual(25798, result)
 
     def test_quote_passes_through_strings_without_spaces(self):
@@ -505,3 +519,13 @@ def patch_subprocess(mock_subprocess_run: mock.Mock, job_id=4, num_jobs=15):
 
     mock_subprocess_run.side_effect = lambda script_args, *args, **kwargs: \
         mock_qjobs_completed_process if script_args[0] is 'qjobs' else mock_qsub_completed_process
+
+
+def make_mock_task():
+    mock_task = mock.create_autospec(Task)
+    mock_task.identifier = bson.ObjectId()
+    mock_task.num_cpus = 1
+    mock_task.num_gpus = 0
+    mock_task.memory_requirements = '4GB'
+    mock_task.expected_duration = '1:00:00'
+    return mock_task

@@ -7,6 +7,7 @@ import re
 import time
 import bson
 import arvet.batch_analysis.job_system
+from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.scripts.run_task
 
 
@@ -51,7 +52,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         }
         :param config: A dict of configuration parameters
         """
-        self._node_id = config['node_id'] if 'node_id' in config else 'hpc-job-system'
+        super().__init__(config)
         self._virtual_env = None
         if 'environment' in config:
             self._virtual_env = config['environment']
@@ -65,16 +66,6 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
         self._checked_running_jobs = False
-
-    @property
-    def node_id(self) -> str:
-        """
-        All job systems should have a node id, controlled by the configuration.
-        The idea is that different job systems on different computers have different
-        node ids, so that we can track which system is supposed to be running which job id.
-        :return:
-        """
-        return self._node_id
 
     def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
         """
@@ -112,25 +103,22 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         output = result.stdout.lower()  # Case insensitive
         return 'unknown job id' not in output and 'job has finished' not in output
 
-    def run_task(self, task_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0, memory_requirements: str = '3GB',
-                 expected_duration: str = '1:00:00') -> int:
+    def run_task(self, task: Task) -> typing.Union[int, None]:
         """
         Run a particular task
-        :param task_id: The id of the task to run
-        :param num_cpus: The number of CPUs required for the job. Default 1.
-        :param num_gpus: The number of GPUs required for the job. Default 0.
-        :param memory_requirements: The memory required for this job. Default 3 GB.
-        :param expected_duration: The expected time this job will take. Default 1 hour.
+        :param task: The the task to run
         :return: The job id if the job has been started correctly, None if failed.
         """
-        return self.run_script(
-            script=arvet.batch_analysis.scripts.run_task.__file__,
-            script_args=[str(task_id)],
-            num_cpus=num_cpus,
-            num_gpus=num_gpus,
-            memory_requirements=memory_requirements,
-            expected_duration=expected_duration
-        )
+        if self.can_run_task(task):
+            return self.run_script(
+                script=os.path.abspath(arvet.batch_analysis.scripts.run_task.__file__),
+                script_args=[str(task.identifier)],
+                num_cpus=task.num_cpus,
+                num_gpus=task.num_gpus,
+                memory_requirements=task.memory_requirements,
+                expected_duration=task.expected_duration
+            )
+        return None
 
     def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
                    memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> typing.Union[int, None]:

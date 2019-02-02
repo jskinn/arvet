@@ -2,12 +2,37 @@
 import abc
 import typing
 import bson
+import arvet.util.dict_utils as du
+from arvet.batch_analysis.task import Task
+from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
+from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
+from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
+from arvet.batch_analysis.tasks.compare_trials_task import CompareTrialTask
 
 
 class JobSystem(metaclass=abc.ABCMeta):
 
+    def __init__(self, config):
+        self._node_id = config.get('node_id', type(self).__name__)
+
+        if config is not None and 'task_config' in config:
+            task_config = dict(config['task_config'])
+        else:
+            task_config = {}
+
+        # Default configuration. Also serves as an exemplar configuration argument
+        du.defaults(task_config, {
+            'allow_import_dataset': True,
+            'allow_run_system': True,
+            'allow_measure': True,
+            'allow_trial_comparison': True
+        })
+        self._allow_import_dataset = bool(task_config['allow_import_dataset'])
+        self._allow_run_system = bool(task_config['allow_run_system'])
+        self._allow_measure = bool(task_config['allow_measure'])
+        self._allow_trial_comparison = bool(task_config['allow_trial_comparison'])
+
     @property
-    @abc.abstractmethod
     def node_id(self) -> str:
         """
         All job systems should have a node id, controlled by the configuration.
@@ -15,7 +40,7 @@ class JobSystem(metaclass=abc.ABCMeta):
         node ids, so that we can track which system is supposed to be running which job id.
         :return:
         """
-        pass
+        return self._node_id
 
     @abc.abstractmethod
     def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
@@ -40,22 +65,17 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def run_task(self, task_id: bson.ObjectId, num_cpus: int = 1, num_gpus: int = 0, memory_requirements: str = '3GB',
-                 expected_duration: str = '1:00:00') -> int:
+    def run_task(self, task: Task) -> typing.Union[int, None]:
         """
         Run a particular task
-        :param task_id: The id of the task to run
-        :param num_cpus: The number of CPUs required
-        :param num_gpus: The number of GPUs required
-        :param memory_requirements: The required amount of memory
-        :param expected_duration: The duration given for the job to run
+        :param task: The task object to run
         :return: The job id if the job has been started correctly, None if failed.
         """
         pass
 
     @abc.abstractmethod
     def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
-                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> typing.Union[int, None]:
         """
         Run a python script that is not a task on this job system
         :param script: The path to the script to run
@@ -78,3 +98,20 @@ class JobSystem(metaclass=abc.ABCMeta):
         :return:
         """
         pass
+
+    def can_run_task(self, task: Task) -> bool:
+        """
+        Check if the job system is allowed to run tasks of a partiular type.
+        Task types are blacklisted here, unknown types will default to true.
+        Override this for custom tasks
+        :param task:
+        :return:
+        """
+        if (
+                (isinstance(task, ImportDatasetTask) and not self._allow_import_dataset) or
+                (isinstance(task, RunSystemTask) and not self._allow_run_system) or
+                (isinstance(task, MeasureTrialTask) and not self._allow_measure) or
+                (isinstance(task, CompareTrialTask) and not self._allow_trial_comparison)
+        ):
+            return False
+        return True

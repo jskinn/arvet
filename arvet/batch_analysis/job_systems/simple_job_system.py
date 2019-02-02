@@ -2,6 +2,7 @@
 import logging
 import typing
 import arvet.batch_analysis.job_system
+from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.scripts.run_task
 
 
@@ -16,18 +17,8 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
     """
 
     def __init__(self, config):
-        self._node_id = config['node_id'] if 'node_id' in config else 'simple-job-system'
+        super().__init__(config)
         self._queue = []
-
-    @property
-    def node_id(self):
-        """
-        All job systems should have a node id, controlled by the configuration.
-        The idea is that different job systems on different computers have different
-        node ids, so that we can track which system is supposed to be running which job id.
-        :return:
-        """
-        return self._node_id
 
     def can_generate_dataset(self, simulator, config):
         """
@@ -49,20 +40,22 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         return 0 <= job_id < len(self._queue)
 
-    def run_task(self, task_id, num_cpus: int = 1, num_gpus: int = 0,
-                 memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
+    def run_task(self, task: Task) -> typing.Union[int, None]:
         """
         Run a particular task
-        :param task_id: The id of the task to run
-        :param num_cpus: The number of CPUs required. Ignored.
-        :param num_gpus: The number of GPUs required. Ignored.
-        :param memory_requirements: The required amount of memory. Ignored.
-        :param expected_duration: The duration given for the job to run. Ignored.
+        :param task: The task object to run
         :return: The job id if the job has been started correctly, None if failed.
         """
-        return self.run_script(arvet.batch_analysis.scripts.run_task.__file__, [str(task_id)],
-                               num_cpus=num_cpus, num_gpus=num_gpus, memory_requirements=memory_requirements,
-                               expected_duration=expected_duration)
+        if self.can_run_task(task):
+            return self.run_script(
+                script=arvet.batch_analysis.scripts.run_task.__file__,
+                script_args=[str(task.identifier)],
+                num_cpus=task.num_cpus,
+                num_gpus=task.num_gpus,
+                memory_requirements=task.memory_requirements,
+                expected_duration=task.expected_duration
+            )
+        return None
 
     def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
                    memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
