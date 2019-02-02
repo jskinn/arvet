@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import logging
+from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
@@ -84,6 +85,43 @@ class TestCompareTrialsTaskDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_saving_throws_exeption_if_required_fields_are_missing(self):
+        obj = CompareTrialTask(
+            # metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = CompareTrialTask(
+            metric=self.metric,
+            # trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            # trial_results_2=[self.trial_result_2],
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2]
+            # state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
 
 
 class TestCompareTrialsTask(unittest.TestCase):

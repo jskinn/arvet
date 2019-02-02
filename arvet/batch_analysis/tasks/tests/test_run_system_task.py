@@ -1,25 +1,16 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import numpy as np
-import bson
-import arvet.database.tests.test_entity
-import arvet.core.image_source
-import arvet.core.system
-import arvet.util.dict_utils as du
-import arvet.batch_analysis.task
-import arvet.batch_analysis.tasks.run_system_task as task
-
-
-import unittest
 import logging
+from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
+from arvet.core.image_source import ImageSource
+from arvet.core.system import VisionSystem
 import arvet.core.trial_result as tr
-import arvet.core.metric as mtr
 from arvet.batch_analysis.task import Task, JobState
-from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
+from arvet.batch_analysis.tasks.run_system_task import RunSystemTask, run_system_with_source
 
 
 class TestRunSystemTaskDatabase(unittest.TestCase):
@@ -78,6 +69,31 @@ class TestRunSystemTaskDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_saving_throws_exeption_if_required_fields_are_missing(self):
+        obj = RunSystemTask(
+            # system=self.system,
+            image_source=self.image_source,
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = RunSystemTask(
+            system=self.system,
+            # image_source=self.image_source,
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source
+            # state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
 
 
 class TestRunSystemTask(unittest.TestCase):
@@ -155,11 +171,11 @@ class TestRunSystemWithSource(unittest.TestCase):
     def setUp(self):
         self._trial_result = mock.Mock()
 
-        self._system = mock.create_autospec(arvet.core.system.VisionSystem)
+        self._system = mock.create_autospec(VisionSystem)
         self._system.is_image_source_appropriate.return_value = True
         self._system.finish_trial.return_value = self._trial_result
 
-        self._image_source = mock.create_autospec(arvet.core.image_source.ImageSource)
+        self._image_source = mock.create_autospec(ImageSource)
         self._image_source.right_camera_pose = None
         self._image_source.camera_intrinsics = mock.Mock()
 
@@ -170,7 +186,7 @@ class TestRunSystemWithSource(unittest.TestCase):
         self._image_source.__iter__.side_effect = source_iter
 
     def test_run_system_calls_trial_functions_in_order_mono(self):
-        task.run_system_with_source(self._system, self._image_source)
+        run_system_with_source(self._system, self._image_source)
         mock_calls = self._system.mock_calls
         # set_camera_intrinsics; begin; 10 process image calls; end
         self.assertEqual(13, len(mock_calls))
@@ -182,7 +198,7 @@ class TestRunSystemWithSource(unittest.TestCase):
 
     def test_run_system_calls_trial_functions_in_order_stereo(self):
         self._image_source.right_camera_pose = mock.Mock()
-        task.run_system_with_source(self._system, self._image_source)
+        run_system_with_source(self._system, self._image_source)
         mock_calls = self._system.mock_calls
         # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end
         self.assertEqual(14, len(mock_calls))
@@ -194,11 +210,11 @@ class TestRunSystemWithSource(unittest.TestCase):
         self.assertEqual('finish_trial', mock_calls[13][0])
 
     def test_run_system_calls_iter(self):
-        task.run_system_with_source(self._system, self._image_source)
+        run_system_with_source(self._system, self._image_source)
         mock_calls = self._image_source.mock_calls
         self.assertEqual(1, len(mock_calls))
         self.assertEqual('__iter__', mock_calls[0][0])
 
     def test_run_system_returns_trial_result(self):
-        result = task.run_system_with_source(self._system, self._image_source)
+        result = run_system_with_source(self._system, self._image_source)
         self.assertEqual(self._trial_result, result)

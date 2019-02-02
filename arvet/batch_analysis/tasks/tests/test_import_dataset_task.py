@@ -3,6 +3,7 @@ import unittest
 import os
 import os.path as path
 import logging
+from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
@@ -76,6 +77,32 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_saving_throws_exeption_if_required_fields_are_missing(self):
+        obj = ImportDatasetTask(
+            # module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            # path='/dev/null',
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null'
+            # state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
 
 
 class TestImportDatasetTask(unittest.TestCase):

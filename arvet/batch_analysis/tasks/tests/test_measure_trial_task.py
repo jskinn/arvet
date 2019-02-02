@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import logging
+from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
@@ -75,6 +76,31 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_saving_throws_exeption_if_required_fields_are_missing(self):
+        obj = MeasureTrialTask(
+            # metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            # trial_results=[self.trial_result],
+            state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result]
+            # state=JobState.UNSTARTED
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
 
 
 class TestMeasureTrialTask(unittest.TestCase):

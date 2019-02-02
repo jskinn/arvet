@@ -1,5 +1,6 @@
 import enum
 import pymodm
+from pymodm.errors import ValidationError
 import unittest
 import arvet.database.tests.database_connection as dbconn
 from arvet.database.enum_field import EnumField
@@ -13,6 +14,14 @@ class MyEnum(enum.Enum):
 
 class TestEnumFieldMongoModel(pymodm.MongoModel):
     enum = EnumField(MyEnum)
+
+
+class TestEnumFieldRequiredModel(pymodm.MongoModel):
+    enum = EnumField(MyEnum, required=True)
+
+
+class TestSubclass(TestEnumFieldRequiredModel):
+    chars = pymodm.fields.CharField()
 
 
 class TestImageField(unittest.TestCase):
@@ -38,3 +47,12 @@ class TestImageField(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0].enum, MyEnum.BAZ)
         all_entities[0].delete()
+
+    def test_throws_exception_if_required_and_missing(self):
+        model = TestEnumFieldRequiredModel()
+        with self.assertRaises(ValidationError):
+            model.save()
+
+        model = TestSubclass()
+        with self.assertRaises(ValidationError):
+            model.save()
