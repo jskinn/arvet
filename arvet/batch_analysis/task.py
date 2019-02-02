@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import abc
 import enum
+import bson
 import pymodm
 import pymodm.fields as fields
 from arvet.database.pymodm_abc import ABCModelMeta
@@ -42,12 +43,20 @@ class Task(pymodm.MongoModel, metaclass=ABCModelMeta):
     That is what mark_job_complete is for
     """
     state = EnumField(JobState, required=True)
-    node_id = fields.CharField()
-    job_id = fields.IntegerField()
+    node_id = fields.CharField(blank=True)
+    job_id = fields.IntegerField(blank=True)
     num_cpus = fields.IntegerField(default=1, min_value=1)
     num_gpus = fields.IntegerField(default=0, min_value=0)
     memory_requirements = fields.CharField(default='3GB')
     expected_duration = fields.CharField(default='1:00:00')
+
+    @property
+    def identifier(self) -> bson.ObjectId:
+        """
+        Get the identifier for this task
+        :return: The object id for this task, use for querying
+        """
+        return self._id
 
     @property
     def is_unstarted(self) -> bool:

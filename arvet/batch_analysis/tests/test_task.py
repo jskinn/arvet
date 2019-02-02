@@ -54,6 +54,43 @@ class TestTaskDatabase(unittest.TestCase):
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
 
+    def test_stores_and_loads_after_change_state(self):
+        obj = MockTask(
+            state=task.JobState.RUNNING,
+            node_id='test-hpc',
+            job_id=15,
+            num_cpus=3,
+            num_gpus=150,
+            memory_requirements='4KB',
+            expected_duration='100:00:00'
+        )
+        obj.save()
+
+        all_entities = list(task.Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+
+        obj.mark_job_failed()
+        obj.save()
+
+        all_entities = list(task.Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+
+        obj.mark_job_started('test_node', 143)
+        obj.save()
+
+        all_entities = list(task.Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+
+        obj.mark_job_complete()
+        obj.save()
+
+        all_entities = list(task.Task.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
+
 
 class TestTask(unittest.TestCase):
 
@@ -201,10 +238,7 @@ class TestTask(unittest.TestCase):
             else:
                 subject.mark_job_failed()
             # Make sure that the node id and job id match the state
-            if subject.is_unstarted:
-                self.assertIsNone(subject.node_id)
-                self.assertIsNone(subject.job_id)
-            elif subject.is_finished:
+            if subject.is_unstarted or subject.is_finished:
                 self.assertIsNone(subject.node_id)
                 self.assertIsNone(subject.job_id)
             else:
