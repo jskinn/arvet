@@ -1,10 +1,6 @@
 # Copyright (c) 2017, John Skinner
-import pymongo.collection
 import bson
 import typing
-import arvet.util.dict_utils as du
-import arvet.database.client
-import arvet.database.entity_registry as entity_registry
 
 from arvet.core.image_source import ImageSource
 from arvet.core.system import VisionSystem
@@ -12,14 +8,12 @@ from arvet.core.trial_result import TrialResult
 from arvet.core.metric import Metric
 from arvet.core.trial_comparison import TrialComparisonMetric
 
-import arvet.batch_analysis.job_system
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
 from arvet.batch_analysis.tasks.compare_trials_task import CompareTrialTask
-import arvet.batch_analysis.scripts.warmup_image_cache
-import arvet.batch_analysis.scripts.perform_analysis
+from arvet.batch_analysis.job_system import JobSystem
 
 
 def get_import_dataset_task(
@@ -207,7 +201,7 @@ def get_trial_comparison_task(
         )
 
 
-def schedule_tasks(job_system: arvet.batch_analysis.job_system.JobSystem,
+def schedule_tasks(job_system: JobSystem,
                    task_ids: typing.Iterable[bson.ObjectId] = None):
         """
         Schedule all pending tasks using the provided job system
