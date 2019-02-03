@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import bson
 import pymodm
 import arvet.database.pymodm_abc as pymodm_abc
 from arvet.config.path_manager import PathManager
@@ -16,6 +17,14 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     This is the standard interface that everything must implement to work with this system.
     All systems must be entities and stored in the database, so that the framework can load them, and 
     """
+
+    @property
+    def identifier(self) -> bson.ObjectId:
+        """
+        Get the id of this vision system
+        :return:
+        """
+        return self._id
 
     @property
     @abc.abstractmethod

@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import pymodm
+import bson
 import arvet.core.system as system
 import arvet.core.image_source as image_source
 
@@ -26,3 +27,11 @@ class TrialResult(pymodm.MongoModel):
     success = pymodm.fields.BooleanField(required=True)
     settings = pymodm.fields.DictField()
     message = pymodm.fields.CharField()
+
+    @property
+    def identifier(self) -> bson.ObjectId:
+        """
+        Get the identifier for this trial result
+        :return:
+        """
+        return self._id

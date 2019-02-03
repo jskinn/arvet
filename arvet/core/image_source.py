@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import abc
 import typing
+import bson
 from pymodm import MongoModel
 from arvet.metadata.camera_intrinsics import CameraIntrinsics
 from arvet.database.pymodm_abc import ABCModelMeta
@@ -27,6 +28,14 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
     @abc.abstractmethod
     def __iter__(self) -> typing.Tuple[float, Image]:
         pass
+
+    @property
+    def identifier(self) -> bson.ObjectId:
+        """
+        Get the id for this vision system
+        :return:
+        """
+        return self._id
 
     @property
     @abc.abstractmethod

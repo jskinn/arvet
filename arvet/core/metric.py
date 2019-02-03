@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import abc
 import typing
+import bson
 import pymodm
 import pymodm.fields as fields
 import arvet.database.pymodm_abc as pymodm_abc
@@ -14,6 +15,14 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     This is an abstract base class defining an interface for all metrics,
     to allow them to be called easily and in a structured way.
     """
+
+    @property
+    def identifier(self) -> bson.ObjectId:
+        """
+        Get the id for this metric
+        :return:
+        """
+        return self._id
 
     @abc.abstractmethod
     def is_trial_appropriate(self, trial_result: arvet.core.trial_result.TrialResult) -> bool:
@@ -60,6 +69,14 @@ class MetricResult(pymodm.MongoModel):
                                                            required=True, on_delete=fields.ReferenceField.CASCADE))
     success = fields.BooleanField(required=True)
     message = fields.CharField()
+
+    @property
+    def identifier(self) -> bson.ObjectId:
+        """
+        Get the id of this metric result
+        :return:
+        """
+        return self._id
 
 
 def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_result.TrialResult]) -> bool:
