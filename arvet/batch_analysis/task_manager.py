@@ -63,7 +63,9 @@ def get_import_dataset_task(
 
 
 def get_run_system_task(
-        system: VisionSystem, image_source: ImageSource, repeat: int = 0,
+        system: typing.Union[VisionSystem, bson.ObjectId],
+        image_source: typing.Union[ImageSource, bson.ObjectId],
+        repeat: int = 0,
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
 ) -> RunSystemTask:
@@ -79,10 +81,18 @@ def get_run_system_task(
     :param expected_duration: The expected time this job will take. Default 1 hour.
     :return: A RunSystemTask
     """
+    if isinstance(system, VisionSystem):
+        system = system.identifier
+    elif VisionSystem.objects.raw({'_id': system}).count() < 1:
+        raise ValueError("system is not a valid VisionSystem id")
+    if isinstance(image_source, ImageSource):
+        image_source = image_source.identifier
+    elif ImageSource.objects.raw({'_id': image_source}).count() < 1:
+        raise ValueError("image_source is not a valid ImageSource id")
     try:
         return RunSystemTask.objects.get({
-            'system': system._id,
-            'image_source': image_source._id,
+            'system': system,
+            'image_source': image_source,
             'repeat': repeat
         })
     except RunSystemTask.DoesNotExist:
@@ -99,7 +109,8 @@ def get_run_system_task(
 
 
 def get_measure_trial_task(
-        trial_results: typing.Iterable[TrialResult], metric: Metric,
+        trial_results: typing.Union[typing.Iterable[TrialResult], typing.Iterable[bson.ObjectId]],
+        metric: typing.Union[Metric, bson.ObjectId],
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
 ) -> MeasureTrialTask:
@@ -114,11 +125,20 @@ def get_measure_trial_task(
     :param expected_duration: The expected time this job will take. Default 1 hour.
     :return: A BenchmarkTrialTask
     """
-    trial_results = [trial_result._id for trial_result in trial_results]
+    trial_results = [
+        trial_result.identifier if isinstance(trial_result, TrialResult) else trial_result
+        for trial_result in trial_results
+    ]
+    if TrialResult.objects.raw({'_id': {'$in': trial_results}}).count() < len(trial_results):
+        raise ValueError('trial_results contains invalid trial result id')
+    if isinstance(metric, Metric):
+        metric = metric.identifier
+    elif Metric.objects.raw({'_id': metric}).count() < 1:
+        raise ValueError("metric is not a valid Metric id")
     try:
         return MeasureTrialTask.objects.get({
             'trial_results': trial_results,
-            'metric': metric._id
+            'metric': metric
         })
     except MeasureTrialTask.DoesNotExist:
         return MeasureTrialTask(
@@ -133,9 +153,9 @@ def get_measure_trial_task(
 
 
 def get_trial_comparison_task(
-        trial_results_1: typing.Iterable[TrialResult],
-        trial_results_2: typing.Iterable[TrialResult],
-        comparison_metric: TrialComparisonMetric,
+        trial_results_1: typing.Union[typing.Iterable[TrialResult], typing.Iterable[bson.ObjectId]],
+        trial_results_2: typing.Union[typing.Iterable[TrialResult], typing.Iterable[bson.ObjectId]],
+        comparison_metric: typing.Union[TrialComparisonMetric, bson.ObjectId],
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
 ) -> CompareTrialTask:
@@ -151,13 +171,28 @@ def get_trial_comparison_task(
     :param expected_duration: The expected time this job will take. Default 1 hour.
     :return: A CompareTrialTask
     """
-    trial_results_1 = [trial_result._id for trial_result in trial_results_1]
-    trial_results_2 = [trial_result._id for trial_result in trial_results_2]
+    trial_results_1 = [
+        trial_result.identifier if isinstance(trial_result, TrialResult) else trial_result
+        for trial_result in trial_results_1
+    ]
+    trial_results_2 = [
+        trial_result.identifier if isinstance(trial_result, TrialResult) else trial_result
+        for trial_result in trial_results_2
+    ]
+    if TrialResult.objects.raw({'_id': {'$in': trial_results_1}}).count() < len(trial_results_1):
+        raise ValueError('trial_results_1 contains invalid trial result id')
+    if TrialResult.objects.raw({'_id': {'$in': trial_results_2}}).count() < len(trial_results_2):
+        raise ValueError('trial_results_2 contains invalid trial result id')
+    if isinstance(comparison_metric, TrialComparisonMetric):
+        comparison_metric = comparison_metric.identifier
+    elif TrialComparisonMetric.objects.raw({'_id': comparison_metric}).count() < 1:
+        raise ValueError("metric is not a valid Metric id")
+
     try:
         return CompareTrialTask.objects.get({
             'trial_results_1': trial_results_1,
             'trial_results_2': trial_results_2,
-            'metric': comparison_metric._id
+            'metric': comparison_metric
         })
     except CompareTrialTask.DoesNotExist:
         return CompareTrialTask(

@@ -2,6 +2,7 @@
 import os
 import unittest
 import unittest.mock as mock
+import bson
 import pymodm.manager
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
@@ -192,23 +193,59 @@ class TestTaskManagerRunSystem(unittest.TestCase):
         repeat = 14
         num_cpus = 12
         num_gpus = 3
-        result = task_manager.get_run_system_task(
+        task = task_manager.get_run_system_task(
             system=self.system,
             image_source=self.image_source,
             repeat=repeat,
             num_cpus=num_cpus,
             num_gpus=num_gpus
         )
-        self.assertIsInstance(result, RunSystemTask)
-        self.assertIsNone(result._id)
-        self.assertEqual(result.system, self.system)
-        self.assertEqual(result.image_source, self.image_source)
-        self.assertEqual(result.repeat, repeat)
-        self.assertEqual(result.num_cpus, num_cpus)
-        self.assertEqual(result.num_gpus, num_gpus)
-        self.assertTrue(result.is_unstarted)
-        self.assertFalse(result.is_running)
-        self.assertFalse(result.is_finished)
+        self.assertIsInstance(task, RunSystemTask)
+        self.assertIsNone(task._id)
+        self.assertEqual(task.system, self.system)
+        self.assertEqual(task.image_source, self.image_source)
+        self.assertEqual(task.repeat, repeat)
+        self.assertEqual(task.num_cpus, num_cpus)
+        self.assertEqual(task.num_gpus, num_gpus)
+        self.assertTrue(task.is_unstarted)
+        self.assertFalse(task.is_running)
+        self.assertFalse(task.is_finished)
+
+        # Check it saves and loads with no issues
+        task.save()
+        loaded_task = RunSystemTask.objects.get({'_id': task.identifier})
+        self.assertEqual(task, loaded_task)
+
+    def test_get_run_system_task_works_with_ids_only(self):
+        task = task_manager.get_run_system_task(
+            system=self.system.identifier,
+            image_source=self.image_source.identifier,
+            repeat=6,
+            num_cpus=43,
+            num_gpus=89
+        )
+
+        # Check it saves and loads with no issues
+        task.save()
+        loaded_task = RunSystemTask.objects.get({'_id': task.identifier})
+        self.assertEqual(task, loaded_task)
+
+    def test_get_run_system_task_cannot_save_with_invalid_ids(self):
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_run_system_task(
+                system=bson.ObjectId(),
+                image_source=self.image_source.identifier,
+                repeat=32
+            )
+        self.assertIn('system', str(exp.exception))
+
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_run_system_task(
+                system=self.system,
+                image_source=bson.ObjectId(),
+                repeat=32
+            )
+        self.assertIn('image_source', str(exp.exception))
 
 
 class TestTaskManagerMeasureTrials(unittest.TestCase):
@@ -299,6 +336,34 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         self.assertTrue(result.is_unstarted)
         self.assertFalse(result.is_running)
         self.assertFalse(result.is_finished)
+
+    def test_get_measure_trial_task_works_with_ids_only(self):
+        task = task_manager.get_measure_trial_task(
+            trial_results=[self.trial_result.identifier],
+            metric=self.metric.identifier,
+            num_cpus=32,
+            num_gpus=7
+        )
+
+        # Check it saves and loads with no issues
+        task.save()
+        loaded_task = MeasureTrialTask.objects.get({'_id': task.identifier})
+        self.assertEqual(task, loaded_task)
+
+    def test_get_measure_trial_task_cannot_save_with_invalid_ids(self):
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_measure_trial_task(
+                trial_results=[self.trial_result, bson.ObjectId()],
+                metric=self.metric
+            )
+        self.assertIn('trial_result', str(exp.exception))
+
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_measure_trial_task(
+                trial_results=[self.trial_result.identifier],
+                metric=bson.ObjectId()
+            )
+        self.assertIn('metric', str(exp.exception))
 
 
 class TestTaskManagerCompareTrials(unittest.TestCase):
@@ -402,6 +467,45 @@ class TestTaskManagerCompareTrials(unittest.TestCase):
         self.assertTrue(result.is_unstarted)
         self.assertFalse(result.is_running)
         self.assertFalse(result.is_finished)
+
+    def test_get_compare_trial_task_works_with_ids_only(self):
+        task = task_manager.get_trial_comparison_task(
+            trial_results_1=[self.trial_result_1.identifier],
+            trial_results_2=[self.trial_result_2.identifier],
+            comparison_metric=self.metric.identifier,
+            num_cpus=907,
+            num_gpus=67
+        )
+
+        # Check it saves and loads with no issues
+        task.save()
+        loaded_task = CompareTrialTask.objects.get({'_id': task.identifier})
+        self.assertEqual(task, loaded_task)
+
+    def test_get_compare_trial_task_cannot_save_with_invalid_ids(self):
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_trial_comparison_task(
+                trial_results_1=[self.trial_result_1, bson.ObjectId()],
+                trial_results_2=[self.trial_result_2.identifier],
+                comparison_metric=self.metric.identifier
+            )
+        self.assertIn('trial_results_1', str(exp.exception))
+
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_trial_comparison_task(
+                trial_results_1=[self.trial_result_1.identifier],
+                trial_results_2=[self.trial_result_2, bson.ObjectId()],
+                comparison_metric=self.metric.identifier
+            )
+        self.assertIn('trial_results_2', str(exp.exception))
+
+        with self.assertRaises(ValueError) as exp:
+            task_manager.get_trial_comparison_task(
+                trial_results_1=[self.trial_result_1.identifier],
+                trial_results_2=[self.trial_result_2.identifier],
+                comparison_metric=bson.ObjectId()
+            )
+        self.assertIn('metric', str(exp.exception))
 
 
 class TestTaskManagerScheduleTasks(unittest.TestCase):
