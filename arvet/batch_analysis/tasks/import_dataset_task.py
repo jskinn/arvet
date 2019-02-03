@@ -11,7 +11,7 @@ class ImportDatasetTask(Task):
     """
     module_name = fields.CharField(required=True)
     path = fields.CharField(required=True)
-    additional_args = fields.DictField()
+    additional_args = fields.DictField(default={}, blank=True)
     result = fields.ReferenceField(ImageCollection)
 
     def run_task(self, path_manager: PathManager):
