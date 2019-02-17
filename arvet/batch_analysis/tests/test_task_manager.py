@@ -252,7 +252,7 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
     system = None
     image_source = None
     metric = None
-    trial_result = None
+    trial_result_1 = None
     metric_result = None
 
     @classmethod
@@ -265,10 +265,13 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
-        cls.trial_result.save()
+        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1.save()
 
-        cls.metric_result = mtr.MetricResult(metric=cls.metric, trial_results=[cls.trial_result], success=True)
+        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2.save()
+
+        cls.metric_result = mtr.MetricResult(metric=cls.metric, trial_results=[cls.trial_result_1], success=True)
         cls.metric_result.save()
 
     def setUp(self):
@@ -289,19 +292,19 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         tmp_manager = MeasureTrialTask.objects
         mock_manager = mock.create_autospec(pymodm.manager.Manager)
         MeasureTrialTask.objects = mock_manager
-        task_manager.get_measure_trial_task([self.trial_result], self.metric)
+        task_manager.get_measure_trial_task([self.trial_result_1], self.metric)
         MeasureTrialTask.objects = tmp_manager
 
         self.assertTrue(mock_manager.get.called)
         query = mock_manager.get.call_args[0][0]
         self.assertIn('trial_results', query)
-        self.assertEqual([self.trial_result._id], query['trial_results'])
+        self.assertEqual({'$all': [self.trial_result_1._id]}, query['trial_results'])
         self.assertIn('metric', query)
         self.assertEqual(self.metric._id, query['metric'])
 
     def test_get_measure_trial_task_returns_existing(self):
         task = MeasureTrialTask(
-            trial_results=[self.trial_result],
+            trial_results=[self.trial_result_1, self.trial_result_2],
             metric=self.metric,
             num_cpus=15,
             num_gpus=6,
@@ -310,7 +313,26 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         )
         task.save()
 
-        result = task_manager.get_measure_trial_task([self.trial_result], self.metric)
+        result = task_manager.get_measure_trial_task([self.trial_result_1, self.trial_result_2], self.metric)
+        self.assertEqual(result.trial_results, task.trial_results)
+        self.assertEqual(result.metric, task.metric)
+        self.assertEqual(result.num_cpus, 15)
+        self.assertEqual(result.num_gpus, 6)
+        self.assertEqual(result.state, task.state)
+        self.assertEqual(result.result, task.result)
+
+    def test_get_measure_trial_task_returns_existing_changed_order(self):
+        task = MeasureTrialTask(
+            trial_results=[self.trial_result_1, self.trial_result_2],
+            metric=self.metric,
+            num_cpus=15,
+            num_gpus=6,
+            state=JobState.DONE,
+            result=self.metric_result
+        )
+        task.save()
+
+        result = task_manager.get_measure_trial_task([self.trial_result_2, self.trial_result_1], self.metric)
         self.assertEqual(result.trial_results, task.trial_results)
         self.assertEqual(result.metric, task.metric)
         self.assertEqual(result.num_cpus, 15)
@@ -322,14 +344,14 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         num_cpus = 12
         num_gpus = 3
         result = task_manager.get_measure_trial_task(
-            trial_results=[self.trial_result],
+            trial_results=[self.trial_result_1, self.trial_result_2],
             metric=self.metric,
             num_cpus=num_cpus,
             num_gpus=num_gpus
         )
         self.assertIsInstance(result, MeasureTrialTask)
         self.assertIsNone(result._id)
-        self.assertEqual(result.trial_results, [self.trial_result])
+        self.assertEqual(result.trial_results, [self.trial_result_1, self.trial_result_2])
         self.assertEqual(result.metric, self.metric)
         self.assertEqual(result.num_cpus, num_cpus)
         self.assertEqual(result.num_gpus, num_gpus)
@@ -339,7 +361,7 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
 
     def test_get_measure_trial_task_works_with_ids_only(self):
         task = task_manager.get_measure_trial_task(
-            trial_results=[self.trial_result.identifier],
+            trial_results=[self.trial_result_1.identifier],
             metric=self.metric.identifier,
             num_cpus=32,
             num_gpus=7
@@ -353,14 +375,14 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
     def test_get_measure_trial_task_cannot_save_with_invalid_ids(self):
         with self.assertRaises(ValueError) as exp:
             task_manager.get_measure_trial_task(
-                trial_results=[self.trial_result, bson.ObjectId()],
+                trial_results=[self.trial_result_1, bson.ObjectId()],
                 metric=self.metric
             )
         self.assertIn('trial_result', str(exp.exception))
 
         with self.assertRaises(ValueError) as exp:
             task_manager.get_measure_trial_task(
-                trial_results=[self.trial_result.identifier],
+                trial_results=[self.trial_result_1.identifier],
                 metric=bson.ObjectId()
             )
         self.assertIn('metric', str(exp.exception))

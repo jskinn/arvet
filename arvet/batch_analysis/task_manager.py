@@ -131,7 +131,7 @@ def get_measure_trial_task(
         raise ValueError("metric is not a valid Metric id")
     try:
         return MeasureTrialTask.objects.get({
-            'trial_results': trial_results,
+            'trial_results': {'$all': trial_results},
             'metric': metric
         })
     except MeasureTrialTask.DoesNotExist:
