@@ -13,7 +13,7 @@ with open(path.join(here, 'README.rst'), 'r', encoding='utf-8') as f:
 
 setup(
     name='arvet',
-    version='0.1.0',
+    version='2.0.0',
     description='Framework and utilities for performing robotic vision experiments',
     long_description=long_description,
     author='John Skinner',
@@ -41,6 +41,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
 
     url='https://gitub.com/jskinn/arvet',
