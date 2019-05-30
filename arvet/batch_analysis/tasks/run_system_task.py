@@ -58,7 +58,7 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
         self.mark_job_complete()
 
 
-def run_system_with_source(system: VisionSystem, image_source: ImageSource):
+def run_system_with_source(system: VisionSystem, image_source: ImageSource) -> TrialResult:
     """
     Run a given vision system with a given image source.
     This is the structure for how image sources and vision systems should be interacted with.
@@ -74,4 +74,6 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource):
     system.start_trial(image_source.sequence_type)
     for timestamp, image in image_source:
         system.process_image(image, timestamp)
-    return system.finish_trial()
+    trial_result = system.finish_trial()
+    trial_result.image_source = image_source
+    return trial_result

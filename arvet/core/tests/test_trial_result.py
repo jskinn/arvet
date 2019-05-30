@@ -34,7 +34,6 @@ class TestTrialResultDatabase(unittest.TestCase):
         # Clean up after ourselves by dropping the collection for this model
         tr.TrialResult._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        mock_types.MockSystem._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
 
     def test_stores_and_loads(self):

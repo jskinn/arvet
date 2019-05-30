@@ -169,11 +169,9 @@ class TestRunSystemTask(unittest.TestCase):
 class TestRunSystemWithSource(unittest.TestCase):
 
     def setUp(self):
-        self._trial_result = mock.Mock()
-
         self._system = mock.create_autospec(VisionSystem)
         self._system.is_image_source_appropriate.return_value = True
-        self._system.finish_trial.return_value = self._trial_result
+        self._system.finish_trial.side_effect = lambda: tr.TrialResult(system=self._system, success=True)
 
         self._image_source = mock.create_autospec(ImageSource)
         self._image_source.right_camera_pose = None
@@ -217,4 +215,49 @@ class TestRunSystemWithSource(unittest.TestCase):
 
     def test_run_system_returns_trial_result(self):
         result = run_system_with_source(self._system, self._image_source)
-        self.assertEqual(self._trial_result, result)
+        self.assertEqual(result.system, self._system)
+        self.assertEqual(result.image_source, self._image_source)
+        self.assertTrue(result.success)
+
+
+class TestRunSystemWithSourceDatabase(unittest.TestCase):
+    system = None
+    image_source = None
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        cls.system = mock_types.MockSystem()
+        cls.image_source = mock_types.MockImageSource()
+        cls.system.save()
+        cls.image_source.save()
+
+        # cls.system.is_image_source_appropriate.return_value = True
+        # cls.system.finish_trial.side_effect = lambda: tr.TrialResult(system=cls.system, success=True)
+
+        #cls.image_source.right_camera_pose = None
+        #cls.image_source.camera_intrinsics = mock.Mock()
+
+        #def source_iter():
+        #    for idx in range(10):
+        #        yield idx, mock.Mock()
+
+        #cls.image_source.__iter__.side_effect = source_iter
+
+    def setUp(self):
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        tr.TrialResult._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockImageSource._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+
+    def test_run_system_returns_trial_result_that_can_be_saved(self):
+        result = run_system_with_source(self.system, self.image_source)
+        self.assertEqual(result.system, self.system)
+        self.assertEqual(result.image_source, self.image_source)
+        self.assertTrue(result.success)
+        result.save()

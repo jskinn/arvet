@@ -36,7 +36,9 @@ class MockSystem(arvet.core.system.VisionSystem):
 
     def finish_trial(self):
         return arvet.core.trial_result.TrialResult(
-            self.identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
+            system=self.identifier,
+            success=True
+        )
 
 
 class MockImageSource(arvet.core.image_source.ImageSource):
