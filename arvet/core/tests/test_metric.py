@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import unittest
+from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.trial_result as tr
 import arvet.core.metric as mtr
@@ -78,6 +79,44 @@ class TestMetricResultDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_required_fields_are_required(self):
+        # missing metric
+        obj = mtr.MetricResult(
+            trial_results=[self.trial_result],
+            success=True,
+            message='Completed successfully'
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # Missing trial results
+        obj = mtr.MetricResult(
+            metric=self.metric,
+            success=True,
+            message='Completed successfully'
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # empty trial results
+        obj = mtr.MetricResult(
+            metric=self.metric,
+            trial_results=[],
+            success=True,
+            message='Completed successfully'
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # missing success
+        obj = mtr.MetricResult(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            message='Completed successfully'
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
 
 
 class TestCheckTrialCollection(unittest.TestCase):

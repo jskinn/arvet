@@ -5,6 +5,7 @@ import bson
 import pymodm
 import pymodm.fields as fields
 import arvet.database.pymodm_abc as pymodm_abc
+from arvet.database.reference_list_field import ReferenceListField
 import arvet.core.trial_result
 
 
@@ -65,8 +66,8 @@ class MetricResult(pymodm.MongoModel):
     A general superclass for metric results for all metrics
     """
     metric = fields.ReferenceField(Metric, required=True, on_delete=fields.ReferenceField.CASCADE)
-    trial_results = fields.ListField(fields.ReferenceField(arvet.core.trial_result.TrialResult,
-                                                           required=True, on_delete=fields.ReferenceField.CASCADE))
+    trial_results = ReferenceListField(arvet.core.trial_result.TrialResult,
+                                       required=True, on_delete=fields.ReferenceField.CASCADE)
     success = fields.BooleanField(required=True)
     message = fields.CharField()
 
