@@ -1,157 +1,88 @@
+import typing
 import logging
 import bson
-import arvet.database.client
-import arvet.core.image_collection
+from pymodm.context_managers import no_auto_dereference
+from arvet.core.image_source import ImageSource
+from arvet.core.system import VisionSystem
+from arvet.core.trial_result import TrialResult
+from arvet.core.metric import Metric, MetricResult
+from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
 
 
-def invalidate_dataset_loader(db_client: arvet.database.client.DatabaseClient, loader_module: str):
+def invalidate_dataset_loaders(loader_modules: typing.Iterable[str]):
     """
     Invalidate all image collections created by importing using a particular dataset loader module.
     Useful when there are bugs in the dataset loader
-    :param db_client:
-    :param loader_module:
+    :param loader_modules:
     :return:
     """
+    loader_module_list = list(loader_modules)
     # Step 1: Find all tasks with this module and invalidate the collections
-    image_collection_ids = [
-        s_task['result'] for s_task in db_client.tasks_collection.find({
-            'module_name': loader_module, 'result': {'$exists': True}}, {'result': True})
-    ]
+    with no_auto_dereference(ImportDatasetTask):
+        image_collection_ids = [task.result for task in ImportDatasetTask.objects.raw({
+            'module_name': {'$in': loader_module_list}, 'result': {'$exists': True}
+        }).only('result')]
+
+    # Step 2: Delete all the associated image collections
+    invalidate_image_collections(image_collection_ids)
 
     # Step 2: Remove all the tasks with this dataset loader
-    db_client.tasks_collection.delete_many({'module_name': loader_module})
-
-    # Step 3: Remove all the image collections we found in the first step
-    for image_collection_id in image_collection_ids:
-        invalidate_image_collection(db_client, image_collection_id)
+    ImportDatasetTask.objects.raw({
+        'module_name': {'$in': loader_module_list}
+    }).delete()
 
 
-def invalidate_image_collection(db_client: arvet.database.client.DatabaseClient, image_source_id: bson.ObjectId):
+def invalidate_image_collections(image_source_ids: typing.Iterable[bson.ObjectId]):
     """
     Invalidate the data associated with a particular image source.
     This cascades to derived trial results, and from there to benchmark results.
     Also cleans out tasks.
-    :param db_client:
-    :param image_source_id:
+    :param image_source_ids: The ids of the image sources to remove
     :return:
     """
-    # Step 1: Find all the descendant trials from the generate dataset tasks
-    for s_task in db_client.tasks_collection.find({'image_source_id': image_source_id, 'result': {'$exists': True}},
-                                                  {'result': True}):
-        invalidate_trial_result(db_client, s_task['result'])
-
-    # Step 2: Invalidate controllers based on this image collection
-    for s_controller in db_client.image_source_collection.find({'trajectory_source': image_source_id}, {'_id': True}):
-        invalidate_controller(db_client, s_controller['_id'])
-
-    # Step 3: Find all the tasks that involve this image source, and remove them
-    result = db_client.tasks_collection.delete_many({'$or': [{'image_source_id': image_source_id},
-                                                             {'result': image_source_id}]})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
-
-    # Step 4: Remove the image collection
-    arvet.core.image_collection.delete_image_collection(db_client, image_source_id)
-    logging.getLogger(__name__).info("removed 1 image sources")
+    # Just delete the image collections, reference fields should handle the rest
+    removed = ImageSource.objects.raw({
+        '_id': {'$in': list(image_source_ids)}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} image sources".format(removed))
+    return removed
 
 
-def invalidate_simulator(db_client: arvet.database.client.DatabaseClient, simulator_id: bson.ObjectId):
-    """
-    Invalidate a particular simulator, and all datasets generated from it
-    :param db_client:
-    :param simulator_id:
-    :return:
-    """
-    # Step 1: Find all tasks with this simulator and invalidate the collections
-    image_collection_ids = [
-        s_task['result'] for s_task in db_client.tasks_collection.find({
-            'simulator_id': simulator_id, 'result': {'$exists': True}}, {'result': True})
-    ]
-
-    # Step 2: Remove all the tasks with this simulator
-    db_client.tasks_collection.delete_many({'simulator_id': simulator_id})
-
-    # Step 3: Remove all the image collections we found in the first step
-    for image_collection_id in image_collection_ids:
-        invalidate_image_collection(db_client, image_collection_id)
-
-    # Step 4: Delete the simulator itself.
-    db_client.image_source_collection.delete_one({'_id': simulator_id})
-    logging.getLogger(__name__).info("removed 1 simulator")
+def invalidate_systems(system_id: typing.Iterable[bson.ObjectId]):
+    removed = VisionSystem.objects.raw({
+        '_id': {'$in': list(system_id)}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} systems".format(removed))
+    return removed
 
 
-def invalidate_controller(db_client: arvet.database.client.DatabaseClient, controller_id: bson.ObjectId):
-    """
-    Invalidate a particular simulation controller from the database, removing any datasets generated by it.
-    :param db_client:
-    :param controller_id: The id of the
-    :return:
-    """
-    # Step 1: Find all the descendant image collections from the generate dataset tasks
-    for s_task in db_client.tasks_collection.find({'controller_id': controller_id, 'result': {'$exists': True}},
-                                                  {'result': True}):
-        invalidate_image_collection(db_client, s_task['result'])
-
-    # Step 2: Remove all the tasks associated with this controller
-    result = db_client.tasks_collection.delete_many({'controller_id': controller_id})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
-
-    # Step 3: Remove the image controller itself
-    db_client.image_source_collection.delete_one({'_id': controller_id})
-    logging.getLogger(__name__).info("removed 1 controller")
+def invalidate_systems_by_name(system_name: typing.Iterable[str]):
+    removed = VisionSystem.objects.raw({
+        '_cls': {'$in': list(system_name)}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} systems".format(removed))
+    return removed
 
 
-def invalidate_system(db_client: arvet.database.client.DatabaseClient, system_id: bson.ObjectId):
-    # Step 1: Remove all the tasks that involve this system
-    result = db_client.tasks_collection.delete_many({'system_id': system_id})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
-
-    # Step 2: Find all the trial results that use this image source, and invalidate them
-    trials = db_client.trials_collection.find({'system': system_id}, {'_id': True})
-    for s_trial_result in trials:
-        invalidate_trial_result(db_client, s_trial_result['_id'])
-
-    # Step 3: Actually remove the system
-    result = db_client.system_collection.delete_one({'_id': system_id})
-    logging.getLogger(__name__).info("removed {0} systems".format(result.deleted_count))
+def invalidate_trial_results(trial_result_ids: typing.Iterable[bson.ObjectId]):
+    removed = TrialResult.objects.raw({
+        '_id': {'$in': list(trial_result_ids)}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} trial results".format(removed))
+    return removed
 
 
-def invalidate_trial_result(db_client: arvet.database.client.DatabaseClient, trial_result_id: bson.ObjectId):
-    # Step 1: Find all the tasks that involve this trial result, and remove them
-    result = db_client.tasks_collection.delete_many({'$or': [{'result': trial_result_id},
-                                                             {'trial_result_ids': trial_result_id},
-                                                             {'reference_trial_result_ids': trial_result_id}]})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
-
-    # Step 2: Find all the benchmark results that use this trial result, and invalidate them
-    results = db_client.results_collection.find({'trial_results': trial_result_id}, {'_id': True})
-    for s_result in results:
-        invalidate_benchmark_result(db_client, s_result['_id'])
-
-    # Step 3: actually remove the trial result
-    result = db_client.trials_collection.delete_one({'_id': trial_result_id})
-    logging.getLogger(__name__).info("removed {0} trials".format(result.deleted_count))
+def invalidate_metrics(metric_ids: typing.Iterable[bson.ObjectId]):
+    removed = Metric.objects.raw({
+        '_id': {'$in': list(metric_ids)}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} metrics".format(removed))
+    return removed
 
 
-def invalidate_benchmark(db_client: arvet.database.client.DatabaseClient, benchmark_id: bson.ObjectId):
-    # Step 1: Find all the tasks that involve this benchmark, and remove them
-    result = db_client.tasks_collection.delete_many({'$or': [{'benchmark_id': benchmark_id},
-                                                             {'comparison_id': benchmark_id},
-                                                             {'benchmark_result1_id': benchmark_id},
-                                                             {'benchmark_result2_id': benchmark_id}]})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
-
-    # Step 2: Find all the benchmark results that use this benchmark, and invalidate them
-    results = db_client.results_collection.find({'benchmark': benchmark_id}, {'_id': True})
-    for s_result in results:
-        invalidate_benchmark_result(db_client, s_result['_id'])
-
-    # Step 3: actually remove the benchmark
-    result = db_client.benchmarks_collection.delete_one({'_id': benchmark_id})
-    logging.getLogger(__name__).info("removed {0} benchmarks".format(result.deleted_count))
-
-
-def invalidate_benchmark_result(db_client: arvet.database.client.DatabaseClient, benchmark_result_id: bson.ObjectId):
-    result = db_client.tasks_collection.delete_many({'result': benchmark_result_id})
-    logging.getLogger(__name__).info("removed {0} tasks".format(result.deleted_count))
-    result = db_client.results_collection.delete_one({'_id': benchmark_result_id})
-    logging.getLogger(__name__).info("removed {0} results".format(result.deleted_count))
+def invalidate_metric_results(metric_result_ids: typing.Iterable[bson.ObjectId]):
+    removed = MetricResult.objects.raw({
+        '_id': {'$in': list(metric_result_ids)}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} metric results".format(removed))
+    return removed

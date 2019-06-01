@@ -1,6 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import pymodm.fields as fields
-from arvet.core.image_collection import ImageCollection
+from arvet.core.image_source import ImageSource
 from arvet.batch_analysis.task import Task
 from arvet.config.path_manager import PathManager
 
@@ -12,7 +12,7 @@ class ImportDatasetTask(Task):
     module_name = fields.CharField(required=True)
     path = fields.CharField(required=True)
     additional_args = fields.DictField(default={}, blank=True)
-    result = fields.ReferenceField(ImageCollection)
+    result = fields.ReferenceField(ImageSource, on_delete=fields.ReferenceField.CASCADE)
 
     def run_task(self, path_manager: PathManager):
         import logging

@@ -15,7 +15,7 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
     system = fields.ReferenceField(VisionSystem, required=True, on_delete=fields.ReferenceField.CASCADE)
     image_source = fields.ReferenceField(ImageSource, required=True, on_delete=fields.ReferenceField.CASCADE)
     repeat = fields.IntegerField(default=0, required=True)
-    result = fields.ReferenceField(TrialResult)
+    result = fields.ReferenceField(TrialResult, on_delete=fields.ReferenceField.CASCADE)
 
     def run_task(self, path_manager: PathManager):
         import traceback

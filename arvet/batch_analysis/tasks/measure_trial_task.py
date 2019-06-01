@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import logging
 import pymodm.fields as fields
+from arvet.database.reference_list_field import ReferenceListField
 from arvet.config.path_manager import PathManager
 from arvet.core.trial_result import TrialResult
 from arvet.core.metric import Metric, MetricResult
@@ -12,9 +13,7 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
     A task for benchmarking a trial result. Result is a BenchmarkResult id.
     """
     metric = fields.ReferenceField(Metric, required=True, on_delete=fields.ReferenceField.CASCADE)
-    trial_results = fields.ListField(
-        fields.ReferenceField(TrialResult, required=True, on_delete=fields.ReferenceField.CASCADE),
-        required=True)
+    trial_results = ReferenceListField(TrialResult, required=True, on_delete=fields.ReferenceField.CASCADE)
     result = fields.ReferenceField(MetricResult, on_delete=fields.ReferenceField.CASCADE)
 
     def run_task(self, path_manager: PathManager) -> None:

@@ -104,7 +104,6 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
             obj.save()
 
 
-
 class TestImportDatasetTask(unittest.TestCase):
 
     @classmethod

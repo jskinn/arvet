@@ -23,7 +23,8 @@ class TrialResult(pymodm.MongoModel):
     """
 
     system = pymodm.fields.ReferenceField(system.VisionSystem, required=True, on_delete=pymodm.ReferenceField.CASCADE)
-    image_source = pymodm.fields.ReferenceField(image_source.ImageSource, required=True)
+    image_source = pymodm.fields.ReferenceField(image_source.ImageSource, required=True,
+                                                on_delete=pymodm.ReferenceField.CASCADE)
     success = pymodm.fields.BooleanField(required=True)
     settings = pymodm.fields.DictField()
     message = pymodm.fields.CharField()
