@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import unittest
+from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.trial_result as tr
 import arvet.core.trial_comparison as mtr_comp
@@ -82,3 +83,40 @@ class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_required_fields_are_required(self):
+        # No metric
+        obj = mtr_comp.TrialComparisonResult(
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            success=True
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No trial results 1
+        obj = mtr_comp.TrialComparisonResult(
+            metric=self.metric,
+            trial_results_2=[self.trial_result_2],
+            success=True
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No trial results 2
+        obj = mtr_comp.TrialComparisonResult(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            success=True
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No success
+        obj = mtr_comp.TrialComparisonResult(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2]
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()

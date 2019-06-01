@@ -2,6 +2,7 @@
 import os
 import unittest
 import numpy as np
+from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
 from arvet.metadata.tests.test_image_metadata import make_metadata
@@ -63,6 +64,24 @@ class TestImageDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], img)
         all_entities[0].delete()
+
+    def test_required_fields_are_required(self):
+        # no pixels
+        img = im.Image(
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        with self.assertRaises(ValidationError):
+            img.save()
+
+        # no metadata
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        )
+        with self.assertRaises(ValidationError):
+            img.save()
 
 
 class TestImage(th.ExtendedTestCase):
@@ -157,6 +176,61 @@ class TestStereoImageDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], img)
         all_entities[0].delete()
+
+    def test_required_fields_are_required(self):
+        # no pixels
+        img = im.StereoImage(
+            right_pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            ),
+            right_metadata=imeta.ImageMetadata(
+                img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        with self.assertRaises(ValidationError):
+            img.save()
+
+        # no metadata
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_metadata=imeta.ImageMetadata(
+                img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        with self.assertRaises(ValidationError):
+            img.save()
+
+        # no right pixels
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            ),
+            right_metadata=imeta.ImageMetadata(
+                img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        with self.assertRaises(ValidationError):
+            img.save()
+
+        # no right metadata
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        with self.assertRaises(ValidationError):
+            img.save()
 
 
 class TestStereoImage(th.ExtendedTestCase):

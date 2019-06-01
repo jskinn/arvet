@@ -5,6 +5,7 @@ import pymodm
 import pymodm.fields as fields
 import typing
 import arvet.database.pymodm_abc as pymodm_abc
+from arvet.database.reference_list_field import ReferenceListField
 import arvet.core.trial_result
 from arvet.core.metric import MetricResult
 
@@ -73,10 +74,10 @@ class TrialComparisonResult(pymodm.MongoModel):
     A general superclass for metric results that compare two groups trials.
     """
     metric = fields.ReferenceField(TrialComparisonMetric, required=True, on_delete=fields.ReferenceField.CASCADE)
-    trial_results_1 = fields.ListField(fields.ReferenceField(arvet.core.trial_result.TrialResult,
-                                                             required=True, on_delete=fields.ReferenceField.CASCADE))
-    trial_results_2 = fields.ListField(fields.ReferenceField(arvet.core.trial_result.TrialResult,
-                                                             required=True, on_delete=fields.ReferenceField.CASCADE))
+    trial_results_1 = ReferenceListField(arvet.core.trial_result.TrialResult,
+                                         required=True, on_delete=fields.ReferenceField.CASCADE)
+    trial_results_2 = ReferenceListField(arvet.core.trial_result.TrialResult,
+                                         required=True, on_delete=fields.ReferenceField.CASCADE)
     success = fields.BooleanField(required=True)
     message = fields.CharField()
 

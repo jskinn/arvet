@@ -3,6 +3,7 @@ import unittest
 import os
 from operator import itemgetter
 import numpy as np
+from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
 import arvet.util.transform as tf
@@ -112,6 +113,46 @@ class TestImageCollectionDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], collection)
         all_entities[0].delete()
+
+    def test_required_fields_are_required(self):
+        images = []
+        for idx in range(10):
+            img = make_image(idx)
+            img.save()
+            images.append(img)
+
+        # Missing sequence type
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)]
+        )
+        with self.assertRaises(ValidationError):
+            collection.save()
+
+        # Missing images
+        collection = ic.ImageCollection(
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        with self.assertRaises(ValidationError):
+            collection.save()
+
+        # Missing timestamps
+        collection = ic.ImageCollection(
+            images=images,
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        with self.assertRaises(ValidationError):
+            collection.save()
+
+        # Empty images and timestamps
+        collection = ic.ImageCollection(
+            images=[],
+            timestamps=[],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        with self.assertRaises(ValidationError):
+            collection.save()
 
     def test_can_be_compared_without_loading_images(self):
         images = []

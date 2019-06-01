@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import unittest
+from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.trial_result as tr
 import arvet.core.tests.mock_types as mock_types
@@ -51,6 +52,31 @@ class TestTrialResultDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    def test_required_fields_are_required(self):
+        # No system
+        obj = tr.TrialResult(
+            image_source=self.image_source,
+            success=True
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No image source
+        obj = tr.TrialResult(
+            system=self.system,
+            success=True
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No success
+        obj = tr.TrialResult(
+            system=self.system,
+            image_source=self.image_source
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
 
     def test_loading_doesnt_load_image_source_unless_required(self):
         tracked_source = MonitoredImageSource()
