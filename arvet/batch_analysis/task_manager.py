@@ -18,7 +18,7 @@ from arvet.batch_analysis.job_system import JobSystem
 
 def get_import_dataset_task(
         module_name: str, path: str, additional_args: dict = None,
-        num_cpus: int =1, num_gpus: int = 0,
+        num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
 ) -> ImportDatasetTask:
     """
@@ -203,31 +203,31 @@ def get_trial_comparison_task(
 
 def schedule_tasks(job_system: JobSystem,
                    task_ids: typing.Iterable[bson.ObjectId] = None):
-        """
-        Schedule all pending tasks using the provided job system
-        This should both star
-        :param job_system: The job system used to run the tasks
-        :param task_ids: A limited set of job ids to schedule. If None, schedule all possible.
-        :return:
-        """
-        # First, check the jobs that should already be running on this node
-        all_running = Task.objects.raw({
-            'state': JobState.RUNNING.name,
-            'node_id': job_system.node_id
-        })
-        for task in all_running:
-            if not job_system.is_job_running(task.job_id):
-                # Task should be running, but job system says it isn't re-run
-                task.mark_job_failed()
-                task.save()
+    """
+    Schedule all pending tasks using the provided job system
+    This should both star
+    :param job_system: The job system used to run the tasks
+    :param task_ids: A limited set of job ids to schedule. If None, schedule all possible.
+    :return:
+    """
+    # First, check the jobs that should already be running on this node
+    all_running = Task.objects.raw({
+        'state': JobState.RUNNING.name,
+        'node_id': job_system.node_id
+    })
+    for task in all_running:
+        if not job_system.is_job_running(task.job_id):
+            # Task should be running, but job system says it isn't re-run
+            task.mark_job_failed()
+            task.save()
 
-        # Then, schedule all the unscheduled tasks
-        query = {'state': JobState.UNSTARTED.name}
-        if task_ids is not None:
-            query['_id'] = {'$in': list(task_ids)}
-        all_available = Task.objects.raw(query)
-        for task in all_available:
-            job_id = job_system.run_task(task)
-            if job_id is not None:
-                task.mark_job_started(job_system.node_id, job_id)
-                task.save()
+    # Then, schedule all the unscheduled tasks
+    query = {'state': JobState.UNSTARTED.name}
+    if task_ids is not None:
+        query['_id'] = {'$in': list(task_ids)}
+    all_available = Task.objects.raw(query)
+    for task in all_available:
+        job_id = job_system.run_task(task)
+        if job_id is not None:
+            task.mark_job_started(job_system.node_id, job_id)
+            task.save()
