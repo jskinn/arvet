@@ -19,11 +19,16 @@ import arvet.metadata.camera_intrinsics as cam_intr
 
 
 class MockSystem(arvet.core.system.VisionSystem):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sources_blacklist = []
+
     def is_deterministic(self):
         return True
 
     def is_image_source_appropriate(self, image_source):
-        return True
+        return image_source.identifier not in self.sources_blacklist
 
     def set_camera_intrinsics(self, camera_intrinsics):
         pass
@@ -58,8 +63,12 @@ class MockImageSource(arvet.core.image_source.ImageSource):
 
 class MockMetric(arvet.core.metric.Metric):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trials_blacklist = []
+
     def is_trial_appropriate(self, trial_result):
-        return True
+        return trial_result.identifier not in self.trials_blacklist
 
     def measure_results(self, trial_results):
         return arvet.core.metric.MetricResult(self, list(trial_results), True)
