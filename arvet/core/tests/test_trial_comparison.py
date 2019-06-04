@@ -32,6 +32,18 @@ class TestTrialComparisonMetricDatabase(unittest.TestCase):
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
 
+    def test_get_instance_returns_the_same_instance(self):
+        system1 = mock_types.MockTrialComparisonMetric.get_instance()
+        system2 = mock_types.MockTrialComparisonMetric.get_instance()
+        self.assertIsNone(system1.identifier)
+        self.assertIsNone(system2.identifier)
+
+        system1.save()
+        system3 = mock_types.MockTrialComparisonMetric.get_instance()
+        self.assertIsNotNone(system1.identifier)
+        self.assertIsNotNone(system3.identifier)
+        self.assertEqual(system1.identifier, system3.identifier)
+
 
 class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
     system = None

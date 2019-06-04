@@ -117,3 +117,20 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :return:
         """
         return cls.__module__ + '.' + cls.__name__
+
+    @classmethod
+    def get_instance(cls) -> 'VisionSystem':
+        """
+        Get an instance of this vision system, with some parameters, pulling from the database if possible,
+        or construct a new one if needed.
+        It is the responsibility of subclasses to ensure that as few instances of each system as possible exist
+        within the database.
+        Does not save the returned object, you'll usually want to do that straight away.
+        :return:
+        """
+        all_objects = cls.objects.all()
+        if all_objects.count() > 0:
+            return all_objects.first()
+        obj = cls()
+        # obj.save()
+        return obj

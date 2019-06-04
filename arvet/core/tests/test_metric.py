@@ -32,6 +32,18 @@ class TestMetricDatabase(unittest.TestCase):
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
 
+    def test_get_instance_returns_the_same_instance(self):
+        metric1 = mock_types.MockMetric.get_instance()
+        metric2 = mock_types.MockMetric.get_instance()
+        self.assertIsNone(metric1.identifier)
+        self.assertIsNone(metric2.identifier)
+
+        metric1.save()
+        metric3 = mock_types.MockMetric.get_instance()
+        self.assertIsNotNone(metric1.identifier)
+        self.assertIsNotNone(metric3.identifier)
+        self.assertEqual(metric1.identifier, metric3.identifier)
+
 
 class TestMetricResultDatabase(unittest.TestCase):
     system = None
