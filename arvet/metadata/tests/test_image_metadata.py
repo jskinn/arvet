@@ -143,8 +143,6 @@ class TestLabelledObjectDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
-        im_manager.set_image_manager(image_manager)
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
@@ -703,8 +701,6 @@ class ImageMetadataDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
-        im_manager.set_image_manager(image_manager)
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty

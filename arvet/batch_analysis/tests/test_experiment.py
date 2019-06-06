@@ -1,4 +1,5 @@
 # Copyright (c) 2017, John Skinner
+import os
 import unittest
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
@@ -88,6 +89,8 @@ class TestRunAllDatabase(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def test_makes_run_system_tasks(self):
         repeats = 2
@@ -290,6 +293,8 @@ class TestMeasureAllDatabase(unittest.TestCase):
         ImageCollection._mongometa.collection.drop()
         Metric._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def test_makes_measure_trial_tasks(self):
         self.assertEqual(0, MeasureTrialTask.objects.all().count())

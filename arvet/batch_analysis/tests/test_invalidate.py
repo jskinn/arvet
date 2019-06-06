@@ -1,3 +1,4 @@
+import os
 import unittest
 import unittest.mock as mock
 
@@ -32,6 +33,8 @@ class TestInvalidateDatasetLoader(unittest.TestCase):
         Task._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -137,6 +140,8 @@ class TestInvalidateImageCollection(unittest.TestCase):
         ImageCollection._mongometa.collection.drop()
         TrialResult._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -290,6 +295,8 @@ class TestInvalidateSystem(unittest.TestCase):
         ImageCollection._mongometa.collection.drop()
         TrialResult._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -443,6 +450,8 @@ class TestInvalidateTrial(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -617,6 +626,8 @@ class TestInvalidateMetric(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -748,6 +759,8 @@ class TestInvalidateMetricResult(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
