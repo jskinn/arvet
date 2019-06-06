@@ -53,7 +53,7 @@ class Image(pymodm.MongoModel):
         Shortcut access to the hash of this image data
         :return: The 64-bit xxhash of this image data, for simple equality checking
         """
-        return self.metadata.hash
+        return self.metadata.img_hash
 
 
 class StereoImage(Image):
@@ -110,7 +110,7 @@ class StereoImage(Image):
         Shortcut access to the hash of this image data
         :return: The 64-bit xxhash of this image data, for simple equality checking
         """
-        return self.metadata.hash
+        return self.right_metadata.img_hash
 
     # -------- LEFT --------
     @property

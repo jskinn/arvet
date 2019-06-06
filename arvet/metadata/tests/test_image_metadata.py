@@ -3,6 +3,7 @@ import os.path
 import unittest
 import numpy as np
 import pymodm
+import xxhash
 import arvet.util.transform as tf
 import arvet.util.dict_utils as du
 import arvet.database.tests.database_connection as dbconn
@@ -743,3 +744,213 @@ class ImageMetadataDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0].object, obj)
         all_entities[0].delete()
+
+
+class TestMakeMetadata(unittest.TestCase):
+
+    def test_infers_hash_from_pixels(self):
+        pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        img_hash = xxhash.xxh64(pixels).digest()
+        metadata = imeta.make_metadata(pixels)
+        self.assertEqual(img_hash, bytes(metadata.img_hash))
+
+    def test_infers_image_statistics_from_pixels(self):
+        pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        mean_red = np.mean(pixels[:, :, 0])
+        mean_green = np.mean(pixels[:, :, 1])
+        mean_blue = np.mean(pixels[:, :, 2])
+        std_red = np.std(pixels[:, :, 0])
+        std_green = np.std(pixels[:, :, 1])
+        std_blue = np.std(pixels[:, :, 2])
+
+        metadata = imeta.make_metadata(pixels)
+        self.assertEqual(mean_red, metadata.red_mean)
+        self.assertEqual(mean_green, metadata.green_mean)
+        self.assertEqual(mean_blue, metadata.blue_mean)
+        self.assertEqual(std_red, metadata.red_std)
+        self.assertEqual(std_green, metadata.green_std)
+        self.assertEqual(std_blue, metadata.blue_std)
+
+    def test_infers_depth_statistics_from_depth(self):
+        pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        depth = np.random.normal(100, 50, size=(10, 10))
+
+        metadata = imeta.make_metadata(pixels, depth=depth)
+        self.assertEqual(np.mean(depth), metadata.depth_mean)
+        self.assertEqual(np.std(depth), metadata.depth_std)
+
+    def test_overrides_arguments(self):
+        pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        depth = np.random.normal(100, 50, size=(100, 100))
+
+        true_hash = xxhash.xxh64(pixels).digest()
+        mean_red = np.mean(pixels[:, :, 0])
+        mean_green = np.mean(pixels[:, :, 1])
+        mean_blue = np.mean(pixels[:, :, 2])
+        std_red = np.std(pixels[:, :, 0])
+        std_green = np.std(pixels[:, :, 1])
+        std_blue = np.std(pixels[:, :, 2])
+
+        metadata = imeta.make_metadata(
+            pixels, depth,
+            img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+            red_mean=1000,
+            blue_mean=1000,
+            green_mean=1000,
+            red_std=1000,
+            green_std=1000,
+            blue_std=1000,
+            depth_mean=1000,
+            depth_std=1000
+        )
+
+        self.assertEqual(true_hash, bytes(metadata.img_hash))
+        self.assertEqual(mean_red, metadata.red_mean)
+        self.assertEqual(mean_green, metadata.green_mean)
+        self.assertEqual(mean_blue, metadata.blue_mean)
+        self.assertEqual(std_red, metadata.red_std)
+        self.assertEqual(std_green, metadata.green_std)
+        self.assertEqual(std_blue, metadata.blue_std)
+        self.assertEqual(np.mean(depth), metadata.depth_mean)
+        self.assertEqual(np.std(depth), metadata.depth_std)
+
+
+class TestMakeRightMetadata(unittest.TestCase):
+
+    def test_copies_some_metadata_fields(self):
+        right_pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        left_metadata = make_metadata()
+
+        right_metadata = imeta.make_right_metadata(right_pixels, left_metadata)
+
+        # These should be the same
+        self.assertEqual(left_metadata.source_type, right_metadata.source_type)
+
+        self.assertEqual(left_metadata.environment_type, right_metadata.environment_type)
+        self.assertEqual(left_metadata.light_level, right_metadata.light_level)
+        self.assertEqual(left_metadata.time_of_day, right_metadata.time_of_day)
+
+        self.assertEqual(left_metadata.simulation_world, right_metadata.simulation_world)
+        self.assertEqual(left_metadata.lighting_model, right_metadata.lighting_model)
+        self.assertEqual(left_metadata.texture_mipmap_bias, right_metadata.texture_mipmap_bias)
+        self.assertEqual(left_metadata.normal_maps_enabled, right_metadata.normal_maps_enabled)
+        self.assertEqual(left_metadata.roughness_enabled, right_metadata.roughness_enabled)
+        self.assertEqual(left_metadata.geometry_decimation, right_metadata.geometry_decimation)
+        self.assertEqual(left_metadata.procedural_generation_seed, right_metadata.procedural_generation_seed)
+
+        # These should not be
+        self.assertNotEqual(left_metadata.img_hash, right_metadata.img_hash)
+        self.assertNotEqual(left_metadata.camera_pose, right_metadata.camera_pose)
+        self.assertNotEqual(left_metadata.intrinsics, right_metadata.intrinsics)
+        self.assertNotEqual(left_metadata.lens_focal_distance, right_metadata.lens_focal_distance)
+        self.assertNotEqual(left_metadata.aperture, right_metadata.aperture)
+
+        self.assertNotEqual(left_metadata.red_mean, right_metadata.red_mean)
+        self.assertNotEqual(left_metadata.red_std, right_metadata.red_std)
+        self.assertNotEqual(left_metadata.green_mean, right_metadata.green_mean)
+        self.assertNotEqual(left_metadata.green_std, right_metadata.green_std)
+        self.assertNotEqual(left_metadata.blue_mean, right_metadata.blue_mean)
+        self.assertNotEqual(left_metadata.blue_std, right_metadata.blue_std)
+        self.assertNotEqual(left_metadata.depth_mean, right_metadata.depth_mean)
+        self.assertNotEqual(left_metadata.depth_std, right_metadata.depth_std)
+
+        self.assertNotEqual(left_metadata.labelled_objects, right_metadata.labelled_objects)
+
+    def test_infers_hash_from_pixels(self):
+        right_pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        left_metadata = make_metadata()
+        img_hash = xxhash.xxh64(right_pixels).digest()
+        right_metadata = imeta.make_right_metadata(right_pixels, left_metadata)
+        self.assertEqual(img_hash, bytes(right_metadata.img_hash))
+
+    def test_infers_image_statistics_from_pixels(self):
+        pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        left_metadata = make_metadata()
+        mean_red = np.mean(pixels[:, :, 0])
+        mean_green = np.mean(pixels[:, :, 1])
+        mean_blue = np.mean(pixels[:, :, 2])
+        std_red = np.std(pixels[:, :, 0])
+        std_green = np.std(pixels[:, :, 1])
+        std_blue = np.std(pixels[:, :, 2])
+
+        right_metadata = imeta.make_right_metadata(pixels, left_metadata)
+        self.assertEqual(mean_red, right_metadata.red_mean)
+        self.assertEqual(mean_green, right_metadata.green_mean)
+        self.assertEqual(mean_blue, right_metadata.blue_mean)
+        self.assertEqual(std_red, right_metadata.red_std)
+        self.assertEqual(std_green, right_metadata.green_std)
+        self.assertEqual(std_blue, right_metadata.blue_std)
+
+    def test_infers_depth_statistics_from_depth(self):
+        pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        depth = np.random.normal(100, 50, size=(10, 10))
+        left_metadata = make_metadata()
+
+        right_metadata = imeta.make_right_metadata(pixels, left_metadata, depth=depth)
+        self.assertEqual(np.mean(depth), right_metadata.depth_mean)
+        self.assertEqual(np.std(depth), right_metadata.depth_std)
+
+    def test_overrides_arguments(self):
+        pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        depth = np.random.normal(100, 50, size=(100, 100))
+        left_metadata = make_metadata()
+
+        true_hash = xxhash.xxh64(pixels).digest()
+        mean_red = np.mean(pixels[:, :, 0])
+        mean_green = np.mean(pixels[:, :, 1])
+        mean_blue = np.mean(pixels[:, :, 2])
+        std_red = np.std(pixels[:, :, 0])
+        std_green = np.std(pixels[:, :, 1])
+        std_blue = np.std(pixels[:, :, 2])
+
+        right_metadata = imeta.make_right_metadata(
+            pixels, left_metadata, depth,
+            img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+            source_type=imeta.ImageSourceType.REAL_WORLD,
+
+            environment_type=imeta.EnvironmentType.OUTDOOR_URBAN,
+            light_level=imeta.LightingLevel.POOR,
+            time_of_day=imeta.TimeOfDay.NIGHT,
+
+            red_mean=1000,
+            blue_mean=1000,
+            green_mean=1000,
+            red_std=1000,
+            green_std=1000,
+            blue_std=1000,
+            depth_mean=1000,
+            depth_std=1000,
+
+            simulation_world='TestSimulationWorld2',
+            lighting_model=imeta.LightingModel.UNLIT,
+            texture_mipmap_bias=2,
+            normal_maps_enabled=False,
+            roughness_enabled=False,
+            geometry_decimation=0.2,
+
+            procedural_generation_seed=6743,
+        )
+
+        self.assertEqual(true_hash, bytes(right_metadata.img_hash))
+        self.assertEqual(left_metadata.source_type, right_metadata.source_type)
+
+        self.assertEqual(left_metadata.environment_type, right_metadata.environment_type)
+        self.assertEqual(left_metadata.light_level, right_metadata.light_level)
+        self.assertEqual(left_metadata.time_of_day, right_metadata.time_of_day)
+
+        self.assertEqual(left_metadata.simulation_world, right_metadata.simulation_world)
+        self.assertEqual(left_metadata.lighting_model, right_metadata.lighting_model)
+        self.assertEqual(left_metadata.texture_mipmap_bias, right_metadata.texture_mipmap_bias)
+        self.assertEqual(left_metadata.normal_maps_enabled, right_metadata.normal_maps_enabled)
+        self.assertEqual(left_metadata.roughness_enabled, right_metadata.roughness_enabled)
+        self.assertEqual(left_metadata.geometry_decimation, right_metadata.geometry_decimation)
+        self.assertEqual(left_metadata.procedural_generation_seed, right_metadata.procedural_generation_seed)
+
+        self.assertEqual(mean_red, right_metadata.red_mean)
+        self.assertEqual(mean_green, right_metadata.green_mean)
+        self.assertEqual(mean_blue, right_metadata.blue_mean)
+        self.assertEqual(std_red, right_metadata.red_std)
+        self.assertEqual(std_green, right_metadata.green_std)
+        self.assertEqual(std_blue, right_metadata.blue_std)
+        self.assertEqual(np.mean(depth), right_metadata.depth_mean)
+        self.assertEqual(np.std(depth), right_metadata.depth_std)

@@ -3,6 +3,7 @@ import typing
 import enum
 import numpy as np
 import pymodm
+import xxhash
 from arvet.database.image_field import ImageField
 from arvet.database.transform_field import TransformField
 from arvet.database.enum_field import EnumField
@@ -144,8 +145,9 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
     """
     A collection of metadata properties for images.
     There's a lot of properties here, not all of which are always available.
+    Most of the time, don't construct this directly. Instead, use `make_metadata` to infer values from the pixels.
 
-    Instances of this class are associated with Image objects
+    Instances of this class are associated with Image objects.
     """
     img_hash = pymodm.BinaryField(required=True)
     source_type = EnumField(ImageSourceType, required=True)
@@ -246,3 +248,67 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
                 self.procedural_generation_seed
             ) + tuple(hash(obj) for obj in self.labelled_objects)
         )
+
+
+def make_metadata(pixels: np.ndarray, depth: np.ndarray = None, **kwargs) -> ImageMetadata:
+    """
+    Make the metadata object for a given Image.
+    A number of the metadata fields can be inferred from the pixel values.
+    We only want to do this once, rather than every time the object is constructed,
+    so use this instead of the ImageMetadata constructor.
+
+    :param pixels: The image pixels
+    :param depth: The image depth, if available.
+    :param kwargs:  Other arguments passed to the ImageMetdata constructor. Derived values will be overridden.
+    :return:
+    """
+    # We can always compute the hash
+    kwargs['img_hash'] = xxhash.xxh64(pixels).digest()
+
+    if len(pixels.shape) == 3 and pixels.shape[2] >= 3:
+        # Image is a colour image, we can infer colour distributions
+        kwargs['red_mean'] = np.mean(pixels[:, :, 0])
+        kwargs['red_std'] = np.std(pixels[:, :, 0])
+        kwargs['green_mean'] = np.mean(pixels[:, :, 1])
+        kwargs['green_std'] = np.std(pixels[:, :, 1])
+        kwargs['blue_mean'] = np.mean(pixels[:, :, 2])
+        kwargs['blue_std'] = np.std(pixels[:, :, 2])
+
+    if depth is not None:
+        # Depth is available, record it's statistics
+        kwargs['depth_mean'] = np.mean(depth)
+        kwargs['depth_std'] = np.std(depth)
+
+    return ImageMetadata(**kwargs)
+
+
+def make_right_metadata(pixels: np.array, left_metadata: ImageMetadata, depth: np.ndarray = None, **kwargs)\
+        -> ImageMetadata:
+    """
+    Make the metadata for the right image in a stereo pair.
+    Some properties will always be the same in both metadata objects,
+    such as the source type, or the procedural generation seed.
+    Others cannot be the same, such as the camera pose.
+
+    :param pixels: The right image pixels
+    :param left_metadata: The existing metadata for the left image in the stereo pair
+    :param depth: The right image depth, if available.
+    :return:
+    """
+    for field_name in [
+        'source_type',
+        'environment_type',
+        'light_level',
+        'time_of_day',
+        'simulation_world',
+        'lighting_model',
+        'texture_mipmap_bias',
+        'normal_maps_enabled',
+        'roughness_enabled',
+        'geometry_decimation',
+        'procedural_generation_seed'
+    ]:
+        value = getattr(left_metadata, field_name, None)
+        if value is not None:
+            kwargs[field_name] = value
+    return make_metadata(pixels, depth, **kwargs)

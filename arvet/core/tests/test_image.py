@@ -114,6 +114,17 @@ class TestImage(th.ExtendedTestCase):
         self.assertIsNone(img.camera_pose)
         self.assertIsNone(img.camera_transform_matrix)
 
+    def test_hash(self):
+        img_hash = b'\x1f`\xa8\x8aR\xed\x9f\x0b'
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=img_hash,
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertEqual(img_hash, bytes(img.hash))
+
 
 class TestStereoImageDatabase(unittest.TestCase):
 
@@ -370,6 +381,11 @@ class TestStereoImage(th.ExtendedTestCase):
                 'RoughnessQuality': True
             }
         })
+
+    def test_hash(self):
+        # Hash is hard-coded in SetUp
+        self.assertEqual(b'\x1f`\xa8\x8aR\xed\x9f\x0b', bytes(self.image.hash))
+        self.assertEqual(b'\xa5\xc9\x08\xaf$\x0b\x116', bytes(self.image.right_hash))
 
     def test_left_image_is_base(self):
         self.assertNPEqual(self.image.pixels, self.image.left_pixels)
