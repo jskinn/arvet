@@ -34,51 +34,46 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
     right_camera_pose = TransformField()
     right_camera_intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics)
 
+    # Extra properties for identifying the sequence and the trajectory
+    dataset = pymodm.fields.CharField()     # The name of the dataset. Should be unique when combined with sequence
+    sequence_name = pymodm.fields.CharField()   # The name of the sequence within the dataset.
+    trajectory_id = pymodm.fields.CharField()   # A unique name for the trajectory, so we can associate results by traj
+
     def __init__(self, *args, **kwargs):
-        if (len(args) >= 3 and args[2] is ImageSequenceType.INTERACTIVE) or \
-                ('sequence_type' in kwargs and kwargs['sequence_type'] is ImageSequenceType.INTERACTIVE):
-            raise ValueError("Image Collections cannot be interactive")
-        images = args[0] if len(args) >= 1 else kwargs.get('images', None)
-        timestamps = args[1] if len(args) >= 2 else kwargs.get('timestamps', None)
-        if images is not None and timestamps is not None:
-            if not len(images) == len(timestamps):
-                raise ValueError("The number of images must match the number of timestamps")
-
-            # Sort the images and timestamps together
-            pairs = sorted(zip(timestamps, images), key=itemgetter(0))
-            images = [pair[1] for pair in pairs]
-            timestamps = [pair[0] for pair in pairs]
-            if len(args) > 2:
-                args = (images, timestamps) + args[2:]
-            else:
-                args = ()
-                kwargs['images'] = images
-                kwargs['timestamps'] = timestamps
-
-            # Derive all the other properties if they are unspecified
-            if len(args) < 4 and 'is_depth_available' not in kwargs:
-                kwargs['is_depth_available'] = all(image.depth is not None for image in images)
-            if len(args) < 5 and 'is_normals_available' not in kwargs:
-                kwargs['is_normals_available'] = all(image.normals is not None for image in images)
-            if len(args) < 6 and 'is_stereo_available' not in kwargs:
-                kwargs['is_stereo_available'] = all(isinstance(image, StereoImage) for image in images)
-            if len(args) < 7 and 'is_labels_available' not in kwargs:
-                kwargs['is_labels_available'] = any(len(image.metadata.labelled_objects) > 0 for image in images)
-            if len(args) < 8 and 'is_masks_available' not in kwargs:
-                kwargs['is_masks_available'] = all(
-                    any(isinstance(label, MaskedObject) for label in image.metadata.labelled_objects)
-                    for image in images)
-            if len(images) > 0:
-                first_image = images[0]
-                if len(args) < 9 and 'camera_intrinsics' not in kwargs:
-                    kwargs['camera_intrinsics'] = first_image.metadata.intrinsics
-                if isinstance(first_image, StereoImage):
-                    if len(args) < 10 and 'right_camera_pose' not in kwargs:
-                        kwargs['right_camera_pose'] = first_image.left_camera_pose.find_relative(
-                            first_image.right_camera_pose)
-                    if len(args) < 11 and 'right_camera_intrinsics' not in kwargs:
-                        kwargs['right_camera_intrinsics'] = first_image.right_metadata.intrinsics
         super().__init__(*args, **kwargs)
+
+        # If the timestamps aren't sorted, re-sort them
+        if not all(self.timestamps[idx] >= self.timestamps[idx - 1] for idx in range(1, len(self.timestamps))):
+            pairs = sorted(zip(self.timestamps, self.images), key=itemgetter(0))
+            self.images = [pair[1] for pair in pairs]
+            self.timestamps = [pair[0] for pair in pairs]
+
+        # Infer missing properties from the images
+        if len(self.images) > 0:
+            if self.is_depth_available is None:
+                self.is_depth_available = all(image.depth is not None for image in self.images)
+            if self.is_normals_available is None:
+                self.is_normals_available = all(image.normals is not None for image in self.images)
+            if self.is_stereo_available is None:
+                self.is_stereo_available = all(isinstance(image, StereoImage) for image in self.images)
+            if self.is_labels_available is None:
+                self.is_labels_available = any(len(image.metadata.labelled_objects) > 0 for image in self.images)
+            if self.is_masks_available is None:
+                self.is_masks_available = all(
+                    any(isinstance(label, MaskedObject) for label in image.metadata.labelled_objects)
+                    for image in self.images)
+            if self.camera_intrinsics is None:
+                self.camera_intrinsics = self.images[0].metadata.intrinsics
+            if isinstance(self.images[0], StereoImage):
+                if self.right_camera_pose is None:
+                    self.right_camera_pose = self.images[0].left_camera_pose.find_relative(
+                            self.images[0].right_camera_pose)
+                if self.right_camera_intrinsics is None:
+                    self.right_camera_intrinsics = self.images[0].right_metadata.intrinsics
+
+        # Default value for trajectory id from the dataset and sequence name
+        if self.trajectory_id is None and self.dataset is not None and self.sequence_name is not None:
+            self.trajectory_id = self.dataset + ":" + self.sequence_name
 
     def __len__(self):
         """

@@ -50,7 +50,10 @@ class TestImageCollectionDatabase(unittest.TestCase):
             is_stereo_available=False,
             is_labels_available=True,
             is_masks_available=False,
-            camera_intrinsics=images[0].metadata.intrinsics
+            camera_intrinsics=images[0].metadata.intrinsics,
+            dataset='TestSequences',
+            sequence_name='Sequence1',
+            trajectory_id='simple-motion'
         )
         collection.save()
 
@@ -104,7 +107,10 @@ class TestImageCollectionDatabase(unittest.TestCase):
             is_masks_available=False,
             camera_intrinsics=images[0].metadata.intrinsics,
             right_camera_pose=images[0].right_camera_pose,
-            right_camera_intrinsics=images[0].right_metadata.intrinsics
+            right_camera_intrinsics=images[0].right_metadata.intrinsics,
+            dataset='TestSequences',
+            sequence_name='Sequence1',
+            trajectory_id='simple-motion'
         )
         collection.save()
 
@@ -293,6 +299,18 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(collection.right_camera_pose,
                          images[0].left_camera_pose.find_relative(images[0].right_camera_pose))
         self.assertEqual(collection.right_camera_intrinsics, images[0].right_metadata.intrinsics)
+
+    def test_chooses_a_default_trajectory_id(self):
+        images = [make_image(idx, depth=None) for idx in range(10)]
+
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL,
+            dataset='TestData',
+            sequence_name='Sequence1'
+        )
+        self.assertEqual('TestData:Sequence1', collection.trajectory_id)
 
     def test_iterates_over_timestamps_and_images_in_timestamp_order(self):
         pairs = [(10 - 0.8 * idx, make_image(idx, depth=None)) for idx in range(10)]
