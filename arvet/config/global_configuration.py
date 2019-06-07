@@ -17,23 +17,9 @@ def load_global_config(filename):
     # This is what you get if you don't have a configuration file.
     config = {
         'paths': ['~'],
-        'database_config': {    # Copied from arvet.database.config. Keep them in sync
-            'connection_parameters': {},
-            'database_name': 'benchmark_system',
-            'gridfs_bucket': 'fs',
-            'temp_folder': 'temp',
-            'collections': {
-                'trainer_collection': 'trainers',
-                'trainee_collection': 'trainees',
-                'system_collection': 'systems',
-                'image_source_collection': 'image_sources',
-                'image_collection': 'images',
-                'trials_collection': 'trials',
-                'benchmarks_collection': 'benchmarks',
-                'results_collection': 'results',
-                'experiments_collection': 'experiments',
-                'tasks_collection': 'tasks'
-            }
+        'database': {},
+        'image_manager': {
+            'path': '~/arvet-imgs.hdf5',
         },
         'task_config': {
             'allow_generate_dataset': True,

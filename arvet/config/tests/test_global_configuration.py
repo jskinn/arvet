@@ -69,14 +69,14 @@ class TestGlobalConfiguration(unittest.TestCase):
         mock_isfile.return_value = True
         config = {
             'test': 12.35,
-            'database_config': {
-                'database_name': 'a_different_database',
-                'gridfs_bucket': 'file_system_fs',
-                'collections': {
-                    'trainer_collection': 'these_are_the_trainers_yo',
-                    'system_collection': 'deze_sysTems',
-                    'benchmarks_collection': 'mark_those_benches',
-                }
+            'database': {
+                'database': 'a_different_database',
+                'host': '127.0.0.2',
+                'port': 'liverpool'
+            },
+            'image_manager': {
+                'path': '/dev/null',
+                'group': 'the null set'
             },
             'job_system_config': {
                 'a': 1
@@ -88,16 +88,19 @@ class TestGlobalConfiguration(unittest.TestCase):
         mock_yaml_load.return_value = config
         with mock.patch('arvet.config.global_configuration.open', mock.mock_open(), create=True):
             result = global_conf.load_global_config('test_config_file_6')
-        for key, val in config.items():
-            self.assertIn(key, result)
-            if isinstance(val, dict):
-                for inner1_key, inner1_val in val.items():
-                    self.assertIn(inner1_key, result[key])
-                    if isinstance(inner1_val, dict):
-                        for inner2_key, inner2_val in inner1_val.items():
-                            self.assertIn(inner2_key, result[key][inner1_key])
-                            self.assertEqual(inner2_val, result[key][inner1_key][inner2_key])
-                    else:
-                        self.assertEqual(inner1_val, result[key][inner1_key])
+        self.assertDictSubset(config, result)
+
+    def assertDictSubset(self, subset, actual):
+        """
+        Recursively assert that an actual dict contains all the values in a subset dict.
+        The actual dict may have extra keys (which is why we can't use assertEqual)
+        :param subset: The expected values that must exist in the
+        :param actual:
+        :return:
+        """
+        for key, value in subset.items():
+            self.assertIn(key, actual)
+            if isinstance(value, dict):
+                self.assertDictSubset(value, actual[key])
             else:
-                self.assertEqual(val, result[key])
+                self.assertEqual(value, actual[key])
