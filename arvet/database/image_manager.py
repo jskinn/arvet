@@ -135,7 +135,7 @@ def configure(config) -> None:
         config = config['image_manager']
     image_manager = DefaultImageManager(
         file_path=config['path'],
-        group_name=config.get('group', default='')
+        group_name=config.get('group', '')
     )
     set_image_manager(image_manager)
 
