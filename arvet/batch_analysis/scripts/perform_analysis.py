@@ -5,12 +5,13 @@ import os
 import logging
 import logging.config
 import traceback
-import bson.objectid
+from bson import ObjectId
 
-import arvet.config.global_configuration as global_conf
-import arvet.config.path_manager
-import arvet.database.client
-import arvet.util.database_helpers as dh
+from arvet.config.global_configuration import load_global_config
+from arvet.config.path_manager import PathManager
+import arvet.database.connection as dbconn
+import arvet.database.image_manager as im_manager
+from arvet.batch_analysis.experiment import Experiment
 
 
 def patch_cwd():
@@ -32,24 +33,39 @@ def main(*args):
     :return:
     """
     if len(args) >= 1:
-        experiment_id = bson.objectid.ObjectId(args[0])
-        patch_cwd()
+        experiment_id = ObjectId(args[0])
+        # patch_cwd()
 
-        config = global_conf.load_global_config('config.yml')
+        # Load the configuration
+        config = load_global_config('config.yml')
         if __name__ == '__main__':
             # Only configure the logging if this is the main function, don't reconfigure
             logging.config.dictConfig(config['logging'])
-        db_client = arvet.database.client.DatabaseClient(config=config)
 
-        experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id)
-        if experiment is not None:
-            try:
-                experiment.perform_analysis(db_client)
-            except Exception as exception:
-                logging.getLogger(__name__).error("Exception occurred while {0} was performing analysis: {1}".format(
-                    type(experiment).__name__, traceback.format_exc()
-                ))
-                raise exception
+        # Configure the database and the image manager
+        dbconn.configure(config['database'])
+        im_manager.configure(config['image_manager'])
+
+        # Set up the path manager
+        path_manger = PathManager(paths=config['paths'])
+
+        # Try and get the experiment object
+        try:
+            experiment = Experiment.objects.get({'_id': experiment_id})
+        except Exception as ex:
+            logging.getLogger(__name__).critical("Exception occurred while loading Experiment({0}):\n{1}".format(
+                str(experiment_id), traceback.format_exc()
+            ))
+            raise ex
+
+        # Since we got the experiment, run the analyis
+        try:
+            experiment.perform_analysis()
+        except Exception as ex:
+            logging.getLogger(__name__).critical("Exception occurred while performing analysis {0}({1}):\n{2}".format(
+                type(experiment).__name__, str(experiment_id), traceback.format_exc()
+            ))
+            raise ex
 
 
 if __name__ == '__main__':

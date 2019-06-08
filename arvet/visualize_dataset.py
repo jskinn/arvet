@@ -6,9 +6,11 @@ import numpy as np
 import matplotlib.pyplot as pyplot
 import matplotlib.animation as animation
 import functools
-import arvet.config.global_configuration as global_conf
-import arvet.database.client
-import arvet.core.image
+
+from arvet.config.global_configuration import load_global_config
+import arvet.database.connection as dbconn
+import arvet.database.image_manager as im_manager
+from arvet.core.image_collection import ImageCollection
 
 
 def make_display_image(image, stereo=False):
@@ -32,28 +34,24 @@ def make_display_image(image, stereo=False):
 
 
 def update_figure(idx, image_source, matplotlib_im, stereo=False, *_, **__):
-    with image_source:
-        image = image_source.get(idx)
+    _, image = image_source[idx]
     matplotlib_im.set_array(make_display_image(image, stereo))
     return matplotlib_im,  # Comma is important
 
 
-def visualize_dataset(db_client, dataset_id):
-    s_image_source = db_client.image_source_collection.find_one({'_id': dataset_id})
-    if s_image_source is not None:
-        image_source = db_client.deserialize_entity(s_image_source)
-        if image_source is not None:
-            fig = pyplot.figure()
-            with image_source:
-                first_image = image_source.get(min(image_source.timestamps))
-            im = pyplot.imshow(make_display_image(first_image,
-                                                  image_source.is_stereo_available or image_source.is_depth_available))
-            # Note, we apparently have to store the animation, at least temporarily, or it doesn't play
-            ani = animation.FuncAnimation(
-                fig, functools.partial(update_figure, image_source=image_source, matplotlib_im=im,
-                                       stereo=image_source.is_stereo_available or image_source.is_depth_available),
-                frames=image_source.timestamps, blit=True)
-            pyplot.show()
+def visualize_dataset(dataset_id: bson.ObjectId):
+    image_collection = ImageCollection.objects.get({'_id': dataset_id})
+
+    fig = pyplot.figure()
+    _, first_image = image_collection[0]
+    im = pyplot.imshow(make_display_image(first_image,
+                                          image_collection.is_stereo_available or image_collection.is_depth_available))
+    # Note, we apparently have to store the animation, at least temporarily, or it doesn't play
+    ani = animation.FuncAnimation(
+        fig, functools.partial(update_figure, image_source=image_collection, matplotlib_im=im,
+                               stereo=image_collection.is_stereo_available or image_collection.is_depth_available),
+        frames=image_collection.timestamps, blit=True)
+    pyplot.show()
 
 
 def main():
@@ -66,10 +64,14 @@ def main():
     parser.add_argument('dataset_id', help='The ID of the dataset to visualize.')
     args = parser.parse_args()
 
-    config = global_conf.load_global_config('config.yml')
-    db_client = arvet.database.client.DatabaseClient(config=config)
+    # Load the configuration
+    config = load_global_config('config.yml')
 
-    visualize_dataset(db_client, bson.ObjectId(args.dataset_id))
+    # Configure the database and the image manager
+    dbconn.configure(config['database'])
+    im_manager.configure(config['image_manager'])
+
+    visualize_dataset(bson.ObjectId(args.dataset_id))
 
 
 if __name__ == '__main__':

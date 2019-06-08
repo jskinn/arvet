@@ -1,11 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import sys
-import bson.objectid
-import arvet.config.global_configuration as global_conf
-import arvet.database.client
-import arvet.core.image_collection
-import arvet.core.image_entity
+from bson import ObjectId
 
+from arvet.config.global_configuration import load_global_config
+import arvet.database.connection as dbconn
+import arvet.database.image_manager as im_manager
+from arvet.core.image_collection import ImageCollection
 
 try:
     import cv2
@@ -23,38 +23,36 @@ def main(*args):
     :return:
     """
     if len(args) >= 1 and cv2 is not None:
-        image_source_id = bson.objectid.ObjectId(args[0])
+        image_source_id = ObjectId(args[0])
 
-        config = global_conf.load_global_config('config.yml')
-        db_client = arvet.database.client.DatabaseClient(config=config)
+        # Load the configuration
+        config = load_global_config('config.yml')
 
-        image_source = None
-        s_image_source = db_client.image_source_collection.find_one({'_id': image_source_id})
-        if s_image_source is not None:
-            image_source = db_client.deserialize_entity(s_image_source)
-        del s_image_source
+        # Configure the database and the image manager
+        dbconn.configure(config['database'])
+        im_manager.configure(config['image_manager'])
 
-        if image_source is not None:
-            image_source.begin()
-            while not image_source.is_complete():
-                image, _ = image_source.get_next_image()
-                debug_img = image.data[:, :, ::-1].copy()
-                for obj in image.metadata.labelled_objects:
-                    x, y, w, h = obj.bounding_box
-                    cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        image_source = ImageCollection.objects.get({'_id': image_source_id})
 
-                    text_label = str(obj.class_names[0])
-                    (retval, baseLine) = cv2.getTextSize(text_label, cv2.FONT_HERSHEY_COMPLEX, 1, 1)
-                    text_org = (x, y - 0)
+        for _, image in image_source:
+            image, _ = image_source.get_next_image()
+            debug_img = image.data[:, :, ::-1].copy()
+            for obj in image.metadata.labelled_objects:
+                x, y, w, h = obj.bounding_box
+                cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-                    cv2.rectangle(debug_img, (text_org[0] - 5, text_org[1] + baseLine - 5),
-                                  (text_org[0] + retval[0] + 5, text_org[1] - retval[1] - 5), (0, 0, 0), 2)
-                    cv2.rectangle(debug_img, (text_org[0] - 5, text_org[1] + baseLine - 5),
-                                  (text_org[0] + retval[0] + 5, text_org[1] - retval[1] - 5), (255, 255, 255), -1)
-                    cv2.putText(debug_img, text_label, text_org, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+                text_label = str(obj.class_names[0])
+                (retval, baseLine) = cv2.getTextSize(text_label, cv2.FONT_HERSHEY_COMPLEX, 1, 1)
+                text_org = (x, y - 0)
 
-                cv2.imshow('debug', debug_img)
-                cv2.waitKey(0)
+                cv2.rectangle(debug_img, (text_org[0] - 5, text_org[1] + baseLine - 5),
+                              (text_org[0] + retval[0] + 5, text_org[1] - retval[1] - 5), (0, 0, 0), 2)
+                cv2.rectangle(debug_img, (text_org[0] - 5, text_org[1] + baseLine - 5),
+                              (text_org[0] + retval[0] + 5, text_org[1] - retval[1] - 5), (255, 255, 255), -1)
+                cv2.putText(debug_img, text_label, text_org, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+
+            cv2.imshow('debug', debug_img)
+            cv2.waitKey(0)
 
 
 if __name__ == '__main__':

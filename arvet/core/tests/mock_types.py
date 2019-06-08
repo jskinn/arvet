@@ -14,7 +14,6 @@ import arvet.core.trial_result
 from arvet.core.sequence_type import ImageSequenceType
 import arvet.core.metric
 import arvet.core.trial_comparison
-import arvet.database.entity
 import arvet.metadata.camera_intrinsics as cam_intr
 
 

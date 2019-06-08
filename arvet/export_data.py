@@ -3,10 +3,13 @@
 import logging
 import logging.config
 import argparse
-import bson
-import arvet.config.global_configuration as global_conf
-import arvet.database.client
-import arvet.util.database_helpers as dh
+import traceback
+from bson import ObjectId
+
+from arvet.config.global_configuration import load_global_config
+import arvet.database.connection as dbconn
+import arvet.database.image_manager as im_manager
+from arvet.batch_analysis.experiment import Experiment
 
 
 def main(experiment_ids_to_plot=None):
@@ -15,26 +18,28 @@ def main(experiment_ids_to_plot=None):
     I'm currently using this for camera trajectories.
     :return:
     """
-    config = global_conf.load_global_config('config.yml')
+    # Load the configuration
+    config = load_global_config('config.yml')
     if __name__ == '__main__':
+        # Only configure the logging if this is the main function, don't reconfigure
         logging.config.dictConfig(config['logging'])
-    db_client = arvet.database.client.DatabaseClient(config=config)
+
+    # Configure the database and the image manager
+    dbconn.configure(config['database'])
+    im_manager.configure(config['image_manager'])
 
     query = {'enabled': {'$ne': False}}
     if experiment_ids_to_plot is not None and len(experiment_ids_to_plot) > 0:
-        query['_id'] = {'$in': [bson.ObjectId(id_) for id_ in experiment_ids_to_plot]}
-    experiment_ids = db_client.experiments_collection.find(query, {'_id': True})
+        query['_id'] = {'$in': [ObjectId(id_) for id_ in experiment_ids_to_plot]}
 
-    for ex_id in experiment_ids:
+    for experiment in Experiment.objects.raw(query, {'_id': True}):
         try:
-            experiment = dh.load_object(db_client, db_client.experiments_collection, ex_id['_id'])
-        except ValueError:
-            # Cannot deserialize experiment, skip to the next one.
-            logging.getLogger(__name__).info("... Cannot deserialize experiment {0} skipping".format(ex_id['_id']))
-            continue
-
-        if experiment is not None and experiment.enabled:
-            experiment.export_data(db_client)
+            experiment.export_data()
+        except Exception as ex:
+            logging.getLogger(__name__).critical("Exception occurred while performing analysis {0}({1}):\n{2}".format(
+                type(experiment).__name__, str(experiment.identifer), traceback.format_exc()
+            ))
+            raise ex
 
 
 if __name__ == '__main__':

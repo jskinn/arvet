@@ -6,58 +6,50 @@ import argparse
 import typing
 import traceback
 import bson
-import arvet.config.global_configuration as global_conf
-import arvet.config.path_manager
-import arvet.database.client
-import arvet.util.database_helpers as dh
-import arvet.batch_analysis.task_manager
+
+from arvet.config.global_configuration import load_global_config
+import arvet.database.connection as dbconn
+import arvet.database.image_manager as im_manager
+import arvet.batch_analysis.task_manager as task_manager
+from arvet.batch_analysis.experiment import Experiment
 import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
-def schedule(do_imports: bool = True, schedule_tasks: bool = True, run_tasks: bool = True,
+def schedule(schedule_tasks: bool = True, run_tasks: bool = True,
              experiment_ids: typing.List[str] = None):
     """
     Schedule tasks for all experiments.
     We need to find a way of running this repeatedly as a daemon
-    :param do_imports: Whether to do imports for all the experiments. Default true.
     :param schedule_tasks: Whether to schedule execution tasks for the experiments. Default true.
     :param experiment_ids: A limited set of experiments to schedule for. Default None, which is all experiments.
     :param run_tasks: Actually use the job system to execute scheduled tasks
     """
-    config = global_conf.load_global_config('config.yml')
+    # Load the configuration
+    config = load_global_config('config.yml')
     if __name__ == '__main__':
+        # Only configure the logging if this is the main function, don't reconfigure
         logging.config.dictConfig(config['logging'])
-    path_manger = arvet.config.path_manager.PathManager(paths=config['paths'])
-    db_client = arvet.database.client.DatabaseClient(config=config)
-    task_manager = arvet.batch_analysis.task_manager.TaskManager(db_client.tasks_collection, db_client, config)
 
-    if do_imports or schedule_tasks:
+    # Configure the database and the image manager
+    dbconn.configure(config['database'])
+    im_manager.configure(config['image_manager'])
+
+    if schedule_tasks:
         query = {'enabled': {'$ne': False}}
         if experiment_ids is not None and len(experiment_ids) > 0:
             query['_id'] = {'$in': [bson.ObjectId(id_) for id_ in experiment_ids]}
-        experiment_ids = db_client.experiments_collection.find(query, {'_id': True})
 
         logging.getLogger(__name__).info("Scheduling experiments...")
-        for experiment_id in experiment_ids:
+        for experiment in Experiment.objects.raw(query, {'_id': True}):
+            logging.getLogger(__name__).info(" ... experiment {0}".format(experiment.identifier))
             try:
-                experiment = dh.load_object(db_client, db_client.experiments_collection, experiment_id['_id'])
-            except ValueError:
-                # Cannot deserialize experiment, skip to the next one.
-                logging.getLogger(__name__).info(
-                    "... Cannot deserialize experiment {0} skipping".format(experiment_id['_id']))
-                continue
-
-            if experiment is not None and experiment.enabled:
-                logging.getLogger(__name__).info(" ... experiment {0}".format(experiment.identifier))
-                try:
-                    if do_imports:
-                        experiment.do_imports(task_manager, path_manger, db_client)
-                    if schedule_tasks:
-                        experiment.schedule_tasks(task_manager, db_client)
-                    experiment.save_updates(db_client)
-                except Exception:
-                    logging.getLogger(__name__).error(
-                        "Exception occurred during scheduling:\n{0}".format(traceback.format_exc()))
+                experiment.schedule_tasks()
+                experiment.save()
+            except Exception as ex:
+                logging.getLogger(__name__).error("Exception occurred during scheduling {0}({1}):\n{2}".format(
+                    type(experiment).__name__, str(experiment.identifer), traceback.format_exc()
+                ))
+                raise ex
 
     if run_tasks:
         logging.getLogger(__name__).info("Running tasks...")
@@ -77,8 +69,6 @@ def main():
     parser = argparse.ArgumentParser(
         description='Update and schedule tasks from experiments.'
                     'By default, this will update and schedule tasks for all experiments.')
-    parser.add_argument('--skip_imports', action='store_true',
-                        help='Skip import data for the experiments.')
     parser.add_argument('--skip_schedule_tasks', action='store_true',
                         help='Don\'t schedule the execution or evaluation of systems')
     parser.add_argument('--skip_run_tasks', action='store_true',
@@ -88,7 +78,7 @@ def main():
                              'You may specify any number of ids.')
 
     args = parser.parse_args()
-    schedule(not args.skip_imports, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
+    schedule(not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
 
 
 if __name__ == '__main__':
