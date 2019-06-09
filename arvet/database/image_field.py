@@ -1,7 +1,9 @@
+from collections import defaultdict
 import pymodm
 from pymodm import validators
 from pymodm.queryset import QuerySet
 from pymodm.manager import Manager
+from pymodm.common import get_document
 import numpy as np
 import arvet.database.image_manager
 
@@ -77,11 +79,14 @@ class ImageQuerySet(QuerySet):
         """
         # Search the model, and all embedded models for ImageFields
         image_paths = []
-        to_search = [
-            (self._model, [doc for doc in self.values()])
-        ]
-        while len(to_search) > 0:
-            model, docs = to_search.pop()
+        docs_by_cls = defaultdict(list)
+        for doc in self.values():
+            cls_name = doc.get('_cls', self._model._mongometa.object_name)
+            docs_by_cls[cls_name].append(doc)
+
+        while len(docs_by_cls) > 0:
+            cls_name, docs = docs_by_cls.popitem()
+            model = get_document(cls_name)
 
             # Find all the Image fields on this model
             fields = model._mongometa.get_fields()
@@ -92,19 +97,22 @@ class ImageQuerySet(QuerySet):
             ]
 
             # Get the values of those fields from the documents
-            image_paths.extend(doc[name] for name in image_fields for doc in docs)
+            image_paths.extend(doc[name] for name in image_fields for doc in docs if name in doc)
 
             # Look in embedded documents as well
-            to_search.extend(
-                (field.related_model, [doc[field.attname] for doc in docs])
-                for field in fields
-                if isinstance(field, pymodm.fields.EmbeddedDocumentField)
-            )
-            to_search.extend(
-                (field.related_model, [inner_doc for doc in docs for inner_doc in doc[field.attname]])
-                for field in fields
-                if isinstance(field, pymodm.fields.EmbeddedDocumentListField)
-            )
+            for field in fields:
+                if isinstance(field, pymodm.fields.EmbeddedDocumentField):
+                    for doc in docs:
+                        if field.attname in doc:
+                            inner_doc = doc[field.attname]
+                            cls_name = inner_doc.get('_cls', field.related_model._mongometa.object_name)
+                            docs_by_cls[cls_name].append(inner_doc)
+                elif isinstance(field, pymodm.fields.EmbeddedDocumentListField):
+                    for doc in docs:
+                        if field.attname in doc:
+                            for inner_doc in doc[field.attname]:
+                                cls_name = inner_doc.get('_cls', field.related_model._mongometa.object_name)
+                                docs_by_cls[cls_name].append(inner_doc)
 
         # Delete all the images at those paths
         if len(image_paths) > 0:

@@ -107,6 +107,40 @@ class TestImageField(ExtendedTestCase):
         model.delete()
         self.assertFalse(image_manager.is_valid_path(path))
 
+    def test_delete_ignores_missing(self):
+        # Save the model without an image
+        model = TestImageFieldModel()
+        model.save()
+        self.assertEqual(1, TestImageFieldModel.objects.all().count())
+
+        # Delete the model
+        model.delete()
+        self.assertEqual(0, TestImageFieldModel.objects.all().count())
+
+    def test_delete_removes_from_subclass(self):
+        image1 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
+        image2 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
+        path1 = image_manager.find_path_for_image(image1)
+        path2 = image_manager.find_path_for_image(image2)
+
+        # Define a subclass to an embedded document
+        class ImageFieldModelSubclass(TestImageFieldModel):
+            other_image = ImageField()
+            objects = ImageManager()
+
+        # Save the image
+        model = ImageFieldModelSubclass(image=image1, other_image=image2)
+        model.save()
+        self.assertTrue(image_manager.is_valid_path(path1))
+        self.assertTrue(image_manager.is_valid_path(path2))
+
+        # Delete the model
+        model.delete()
+        self.assertFalse(image_manager.is_valid_path(path1))
+        self.assertFalse(image_manager.is_valid_path(path2))
+
     def test_delete_removes_from_embedded_model(self):
         image = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
         image_manager = im_manager.DefaultImageManager(dbconn.image_file)
@@ -123,6 +157,43 @@ class TestImageField(ExtendedTestCase):
         # Delete the model
         model.delete()
         self.assertFalse(image_manager.is_valid_path(path))
+
+    def test_delete_ignores_missing_embedded(self):
+        # Save the model without an inner model
+        model = TestImageInEmbeddedDocumentModel()
+        model.save()
+        self.assertEqual(1, TestImageInEmbeddedDocumentModel.objects.all().count())
+
+        # Delete the model
+        model.delete()
+        self.assertEqual(0, TestImageInEmbeddedDocumentModel.objects.all().count())
+
+    def test_delete_removes_from_embedded_model_subclass(self):
+        image1 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
+        image2 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
+        path1 = image_manager.find_path_for_image(image1)
+        path2 = image_manager.find_path_for_image(image2)
+
+        # Define a subclass to an embedded document
+        class ImageFieldEmbeddedModelSubclass(TestImageFieldEmbeddedModel):
+            other_image = ImageField()
+
+        # Save the image
+        model = TestImageInEmbeddedDocumentModel(
+            inner=ImageFieldEmbeddedModelSubclass(
+                image=image1, other_image=image2
+            )
+        )
+        model.save()
+        self.assertTrue(image_manager.is_valid_path(path1))
+        self.assertTrue(image_manager.is_valid_path(path2))
+
+        # Delete the model
+        model.delete()
+        self.assertFalse(image_manager.is_valid_path(path1))
+        self.assertFalse(image_manager.is_valid_path(path2))
 
     def test_delete_removes_from_embedded_model_list(self):
         image_manager = im_manager.DefaultImageManager(dbconn.image_file)
@@ -145,6 +216,40 @@ class TestImageField(ExtendedTestCase):
         model.delete()
         self.assertFalse(image_manager.is_valid_path(path1))
         self.assertFalse(image_manager.is_valid_path(path2))
+
+    def test_delete_ignores_empty_embedded_model_list(self):
+        # Build the model without embedded documents
+        model = TestImageInEmbeddedDocumentListModel()
+        model.save()
+        self.assertEqual(1, TestImageInEmbeddedDocumentListModel.objects.all().count())
+
+        # Delete the model
+        model.delete()
+        self.assertEqual(0, TestImageInEmbeddedDocumentListModel.objects.all().count())
+
+    def test_delete_removes_from_subclass_in_embedded_model_list(self):
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
+
+        images = [np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8) for _ in range(4)]
+        paths = [image_manager.find_path_for_image(image) for image in images]
+
+        # Define a subclass to an embedded document
+        class ImageFieldEmbeddedModelSubclass(TestImageFieldEmbeddedModel):
+            other_image = ImageField()
+
+        # Build the model
+        inner1 = ImageFieldEmbeddedModelSubclass(image=images[0], other_image=images[1])
+        inner2 = ImageFieldEmbeddedModelSubclass(image=images[2], other_image=images[3])
+        model = TestImageInEmbeddedDocumentListModel(inner_list=[inner1, inner2])
+        model.save()
+        for path in paths:
+            self.assertTrue(image_manager.is_valid_path(path))
+
+        # Delete the model
+        model.delete()
+        for path in paths:
+            self.assertFalse(image_manager.is_valid_path(path))
 
     def test_delete_removes_from_complex_model(self):
         image_manager = im_manager.DefaultImageManager(dbconn.image_file)
@@ -242,3 +347,12 @@ class TestImageField(ExtendedTestCase):
             self.assertTrue(image_manager.is_valid_path(path))
         for path in deleted_paths:
             self.assertFalse(image_manager.is_valid_path(path))
+
+    def test_delete_ignores_empty_fields_in_complex_model(self):
+        model = TestComplexImageModel()
+        model.save()
+        self.assertEqual(1, TestComplexImageModel.objects.all().count())
+
+        # Delete the model
+        model.delete()
+        self.assertEqual(0, TestComplexImageModel.objects.all().count())
