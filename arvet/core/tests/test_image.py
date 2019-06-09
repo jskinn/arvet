@@ -83,6 +83,93 @@ class TestImageDatabase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             img.save()
 
+    def test_deletes_pixel_data_when_deleted(self):
+        image_manager = im_manager.get()
+        pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.Image(
+            pixels=pixels,
+            metadata=imeta.make_metadata(pixels, source_type=imeta.ImageSourceType.SYNTHETIC),
+            additional_metadata={'test': True}
+        )
+        img.save()
+        path = image_manager.find_path_for_image(pixels)
+
+        self.assertTrue(image_manager.is_valid_path(path))
+        im.Image.objects.all().delete()
+        self.assertFalse(image_manager.is_valid_path(path))
+
+    def test_deletes_all_image_data_when_deleted(self):
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=make_metadata(),
+            additional_metadata={'test': True},
+            depth=np.random.uniform(0.1, 7.1, size=(100, 100)),
+            ground_truth_depth=np.random.uniform(0.1, 7.1, size=(100, 100)),
+            normals=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+        )
+        img.save()
+
+        # Get the son image to find the image paths
+        documents = list(im.Image.objects.all().values())
+        self.assertEqual(len(documents), 1)
+        paths = [
+            documents[0]['pixels'],
+            documents[0]['depth'],
+            documents[0]['ground_truth_depth'],
+            documents[0]['normals']
+        ]
+
+        image_manager = im_manager.get()
+        for path in paths:
+            self.assertTrue(image_manager.is_valid_path(path))
+
+        # Delete all the images
+        im.Image.objects.all().delete()
+        for path in paths:
+            self.assertFalse(image_manager.is_valid_path(path))
+
+    def test_deletes_object_masks_when_deleted(self):
+        pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.Image(
+            pixels=pixels,
+            metadata=imeta.make_metadata(
+                pixels=pixels,
+                source_type=imeta.ImageSourceType.SYNTHETIC,
+                labelled_objects=[
+                    imeta.MaskedObject(
+                        class_names=('class_1',),
+                        x=152,
+                        y=239,
+                        mask=np.random.choice((True, False), size=(14, 78))
+                    ),
+                    imeta.MaskedObject(
+                        class_names=('class_2',),
+                        x=23,
+                        y=12,
+                        mask=np.random.choice((True, False), size=(14, 78))
+                    )
+                ]
+            ),
+        )
+        img.save()
+
+        # Get the son image to find the image paths
+        documents = list(im.Image.objects.all().values())
+        self.assertEqual(len(documents), 1)
+        paths = [
+            obj['mask']
+            for obj in documents[0]['metadata']['labelled_objects']
+        ]
+
+        image_manager = im_manager.get()
+        for path in paths:
+            self.assertTrue(image_manager.is_valid_path(path))
+
+        # Delete all the images
+        im.Image.objects.all().delete()
+        for path in paths:
+            self.assertFalse(image_manager.is_valid_path(path))
+
 
 class TestImage(th.ExtendedTestCase):
 
@@ -242,6 +329,135 @@ class TestStereoImageDatabase(unittest.TestCase):
         )
         with self.assertRaises(ValidationError):
             img.save()
+
+    def test_deletes_pixel_data_when_deleted(self):
+        image_manager = im_manager.get()
+        left_pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        right_pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        metadata = imeta.make_metadata(left_pixels, source_type=imeta.ImageSourceType.SYNTHETIC)
+        img = im.StereoImage(
+            pixels=left_pixels,
+            right_pixels=right_pixels,
+            metadata=metadata,
+            right_metadata=imeta.make_right_metadata(right_pixels, metadata),
+            additional_metadata={'test': True}
+        )
+        img.save()
+        left_path = image_manager.find_path_for_image(left_pixels)
+        right_path = image_manager.find_path_for_image(left_pixels)
+
+        self.assertTrue(image_manager.is_valid_path(left_path))
+        self.assertTrue(image_manager.is_valid_path(right_path))
+        im.StereoImage.objects.all().delete()
+        self.assertFalse(image_manager.is_valid_path(left_path))
+        self.assertFalse(image_manager.is_valid_path(right_path))
+
+    def test_deletes_all_image_data_when_deleted(self):
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=make_metadata(),
+            right_metadata=make_metadata(img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0'),
+            additional_metadata={'test': True},
+            depth=np.random.uniform(0.1, 7.1, size=(100, 100)),
+            right_depth=np.random.uniform(0.1, 7.1, size=(100, 100)),
+            ground_truth_depth=np.random.uniform(0.1, 7.1, size=(100, 100)),
+            right_ground_truth_depth=np.random.uniform(0.1, 7.1, size=(100, 100)),
+            normals=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_normals=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+        )
+        img.save()
+
+        # Get the son image to find the image paths
+        documents = list(im.StereoImage.objects.all().values())
+        self.assertEqual(len(documents), 1)
+        paths = [
+            documents[0]['pixels'],
+            documents[0]['right_pixels'],
+            documents[0]['depth'],
+            documents[0]['right_depth'],
+            documents[0]['ground_truth_depth'],
+            documents[0]['right_ground_truth_depth'],
+            documents[0]['normals'],
+            documents[0]['right_normals']
+        ]
+
+        image_manager = im_manager.get()
+        for path in paths:
+            self.assertTrue(image_manager.is_valid_path(path))
+
+        # Delete all the images
+        im.StereoImage.objects.all().delete()
+        for path in paths:
+            self.assertFalse(image_manager.is_valid_path(path))
+
+    def test_deletes_object_masks_when_deleted(self):
+        pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        right_pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        left_metadata = imeta.make_metadata(
+            pixels=pixels,
+            source_type=imeta.ImageSourceType.SYNTHETIC,
+            labelled_objects=[
+                imeta.MaskedObject(
+                    class_names=('class_1',),
+                    x=152,
+                    y=239,
+                    mask=np.random.choice((True, False), size=(14, 78))
+                ),
+                imeta.MaskedObject(
+                    class_names=('class_2',),
+                    x=23,
+                    y=12,
+                    mask=np.random.choice((True, False), size=(14, 78))
+                )
+            ]
+        )
+        right_metadata = imeta.make_right_metadata(
+            pixels=right_pixels,
+            left_metadata=left_metadata,
+            labelled_objects=[
+                imeta.MaskedObject(
+                    class_names=('class_1',),
+                    x=151,
+                    y=29,
+                    mask=np.random.choice((True, False), size=(14, 78))
+                ),
+                imeta.MaskedObject(
+                    class_names=('class_2',),
+                    x=213,
+                    y=26,
+                    mask=np.random.choice((True, False), size=(14, 78))
+                )
+            ]
+        )
+        img = im.StereoImage(
+            pixels=pixels,
+            right_pixels=right_pixels,
+            metadata=left_metadata,
+            right_metadata=right_metadata
+        )
+        img.save()
+
+        # Get the son image to find the image paths
+        documents = list(im.StereoImage.objects.all().values())
+        self.assertEqual(len(documents), 1)
+        paths = [
+            obj['mask']
+            for obj in documents[0]['metadata']['labelled_objects']
+        ]
+        paths.extend(
+            obj['mask']
+            for obj in documents[0]['right_metadata']['labelled_objects']
+        )
+
+        image_manager = im_manager.get()
+        for path in paths:
+            self.assertTrue(image_manager.is_valid_path(path))
+
+        # Delete all the images
+        im.StereoImage.objects.all().delete()
+        for path in paths:
+            self.assertFalse(image_manager.is_valid_path(path))
 
 
 class TestStereoImage(th.ExtendedTestCase):

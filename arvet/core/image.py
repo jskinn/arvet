@@ -1,6 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import pymodm
-from arvet.database.image_field import ImageField
+from arvet.database.image_field import ImageField, ImageManager
 import arvet.metadata.image_metadata as imeta
 
 
@@ -11,6 +11,9 @@ class Image(pymodm.MongoModel):
     depth = ImageField()
     ground_truth_depth = ImageField()
     normals = ImageField()
+
+    # Custom manager to handle deletes
+    objects = ImageManager()
 
     @property
     def camera_location(self):
@@ -67,6 +70,9 @@ class StereoImage(Image):
     right_depth = ImageField()
     right_ground_truth_depth = ImageField()
     right_normals = ImageField()
+
+    # Custom manager to handle deletes
+    objects = ImageManager()
 
     # -------- RIGHT --------
     @property
