@@ -1,117 +1,256 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import arvet.core.trial_result
-import arvet.core.benchmark
-import arvet.core.sequence_type
+import unittest.mock as mock
+from pymodm.errors import ValidationError
+from bson import ObjectId
+import arvet.database.tests.database_connection as dbconn
+from arvet.core.trial_result import TrialResult
+from arvet.core.metric import MetricResult
 import arvet.core.tests.mock_types as mock_core
-import arvet.database.tests.mock_database_client as mock_client_factory
-import arvet.database.tests.test_entity
-import arvet.database.client
-import arvet.util.dict_utils as du
-import arvet.batch_analysis.simple_experiment as ex
+from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
+from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
+from arvet.batch_analysis.simple_experiment import SimpleExperiment
 
 
-# A minimal experiment, so we can instantiate the abstract class
-class MockExperiment(ex.SimpleExperiment):
+class TestExperimentDatabase(unittest.TestCase):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def do_imports(self, task_manager, path_manager, db_client):
-        pass
-
-
-class TestExperiment(unittest.TestCase, arvet.database.tests.test_entity.EntityContract):
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
 
     def setUp(self):
-        # Some complete results, so that we can have a non-empty trial map and result map on entity tests
-        self.systems = [mock_core.MockSystem()]
-        self.image_sources = [mock_core.MockImageSource() for _ in range(2)]
-        self.trial_results = [arvet.core.trial_result.TrialResult(
-                    system.identifier, True, arvet.core.sequence_type.ImageSequenceType.NON_SEQUENTIAL, {})
-            for _ in self.image_sources for system in self.systems]
-        self.benchmarks = [mock_core.MockBenchmark() for _ in range(2)]
-        self.benchmark_results = [arvet.core.benchmark.BenchmarkResult(benchmark.identifier, [trial_result.identifier],
-                                                                       True)
-                                  for benchmark in self.benchmarks for trial_result in self.trial_results]
+        # Remove the collection as the start of the test, so that we're sure it's empty
+        SimpleExperiment._mongometa.collection.drop()
 
-    def get_class(self):
-        return MockExperiment
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        SimpleExperiment._mongometa.collection.drop()
+        mock_core.MockMetric._mongometa.collection.drop()
+        mock_core.MockSystem._mongometa.collection.drop()
+        mock_core.MockImageSource._mongometa.collection.drop()
 
-    def make_instance(self, *args, **kwargs):
-        du.defaults(kwargs, {
-            'systems': {'system-{0}'.format(idx): self.systems[idx] for idx in range(len(self.systems))},
-            'datasets': {'dataset-{0}'.format(idx): self.image_sources[idx] for idx in range(len(self.image_sources))},
-            'benchmarks': {'benchmark-{0}'.format(idx): self.benchmarks[idx] for idx in range(len(self.benchmarks))},
-            'trial_map': {
-                system.identifier: {
-                    image_source.identifier: {
-                        'trials': {trial_result.identifier
-                                   for trial_result in self.trial_results
-                                   if trial_result.identifier is not None and
-                                   trial_result.system_id == system.identifier},
-                        'results': {
-                            benchmark.identifier: benchmark_result.identifier
-                            for benchmark in self.benchmarks
-                            if benchmark.identifier is not None
-                            for benchmark_result in self.benchmark_results
-                            if benchmark_result.identifier is not None and
-                            benchmark_result.benchmark == benchmark.identifier and
-                            benchmark_result.trial_result in [
-                                   trial_result.identifier
-                                   for trial_result in self.trial_results
-                                   if trial_result.identifier is not None and
-                                   trial_result.system_id == system.identifier
-                               ]
-                        }
-                    }
-                    for image_source in self.image_sources
-                    if image_source.identifier is not None
-                }
-                for system in self.systems if system.identifier is not None
-            },
-        })
-        return MockExperiment(*args, **kwargs)
+    def test_stores_and_loads(self):
+        system = mock_core.MockSystem()
+        system.save()
 
-    def assert_models_equal(self, experiment1, experiment2):
-        """
-        Helper to assert that two tasks are equal
-        We're going to violate encapsulation for a bit
-        :param experiment1:
-        :param experiment2:
-        :return:
-        """
-        if (not isinstance(experiment1, ex.SimpleExperiment) or
-                not isinstance(experiment2, ex.SimpleExperiment)):
-            self.fail('object was not an Experiment')
-        self.assertEqual(experiment1.identifier, experiment2.identifier)
-        self.assertEqual(experiment1.enabled, experiment2.enabled)
-        self.assertEqual(experiment1._trial_map, experiment2._trial_map)
-        self.assertEqual(experiment1.systems, experiment2.systems)
-        self.assertEqual(experiment1.datasets, experiment2.datasets)
-        self.assertEqual(experiment1.benchmarks, experiment2.benchmarks)
+        image_source = mock_core.MockImageSource()
+        image_source.save()
 
-    def create_mock_db_client(self):
-        mock_db_client = super().create_mock_db_client()
+        metric = mock_core.MockMetric()
+        metric.save()
 
-        # Insert all the background data we expect.
-        for system in self.systems:
-            result = mock_db_client.system_collection.insert_one(system.serialize())
-            system.refresh_id(result.inserted_id)
-        for image_source in self.image_sources:
-            result = mock_db_client.image_source_collection.insert_one(image_source.serialize())
-            image_source.refresh_id(result.inserted_id)
-        for trial_result in self.trial_results:
-            result = mock_db_client.trials_collection.insert_one(trial_result.serialize())
-            trial_result.refresh_id(result.inserted_id)
-        for benchmark in self.benchmarks:
-            result = mock_db_client.benchmarks_collection.insert_one(benchmark.serialize())
-            benchmark.refresh_id(result.inserted_id)
-        for benchmark_result in self.benchmark_results:
-            result = mock_db_client.results_collection.insert_one(benchmark_result.serialize())
-            benchmark_result.refresh_id(result.inserted_id)
+        obj = SimpleExperiment(
+            enabled=True,
+            systems=[system],
+            image_sources=[image_source],
+            metrics=[metric]
+        )
+        obj.save()
 
-        return mock_db_client
+        # Load all the entities
+        all_entities = list(SimpleExperiment.objects.all())
+        self.assertGreaterEqual(len(all_entities), 1)
+        self.assertEqual(all_entities[0], obj)
 
-    def test_constructor_works_with_minimal_arguments(self):
-        MockExperiment()
+        # Clean up
+        SimpleExperiment.objects.all().delete()
+
+    def test_required_fields_are_required(self):
+        system = mock_core.MockSystem()
+        system.save()
+
+        image_source = mock_core.MockImageSource()
+        image_source.save()
+
+        metric = mock_core.MockMetric()
+        metric.save()
+
+        # No systems
+        obj = SimpleExperiment(
+            image_sources=[image_source],
+            metrics=[metric]
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # Empty systems
+        obj = SimpleExperiment(
+            systems=[],
+            image_sources=[image_source],
+            metrics=[metric]
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No image sources
+        obj = SimpleExperiment(
+            systems=[system],
+            metrics=[metric]
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # Empty image sources
+        obj = SimpleExperiment(
+            systems=[system],
+            image_sources=[],
+            metrics=[metric]
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # No metrics
+        obj = SimpleExperiment(
+            systems=[system],
+            image_sources=[image_source],
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+        # Empty metrics
+        obj = SimpleExperiment(
+            systems=[system],
+            image_sources=[image_source],
+            metrics=[]
+        )
+        with self.assertRaises(ValidationError):
+            obj.save()
+
+
+class TestSimpleExperiment(unittest.TestCase):
+
+    @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
+    def test_schedule_tasks_runs_all_systems_with_all_image_sources_repeatedly(self, mock_task_manager):
+        systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
+        metric = mock_core.MockMetric(_id=ObjectId())
+        repeats = 2
+
+        subject = SimpleExperiment(
+            systems=systems,
+            image_sources=image_sources,
+            metrics=[metric],
+            repeats=repeats
+        )
+        subject.schedule_tasks()
+
+        for system in systems:
+            for image_source in image_sources:
+                for repeat in range(repeats):
+                    self.assertIn(mock.call(
+                        system=system,
+                        image_source=image_source,
+                        repeat=repeat,
+                        num_cpus=mock.ANY, num_gpus=mock.ANY,
+                        memory_requirements=mock.ANY,
+                        expected_duration=mock.ANY
+                    ), mock_task_manager.get_run_system_task.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
+    def test_schedule_tasks_measures_all_trial_results(self, mock_task_manager):
+        systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
+        metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(3)]
+        repeats = 2
+
+        trial_results_map = make_trial_map(systems, image_sources, repeats)
+        trial_groups = [
+            trial_group
+            for trials_by_source in trial_results_map.values()
+            for trial_group in trials_by_source.values()
+        ]
+        make_mock_get_run_system_task(mock_task_manager, trial_results_map)
+
+        subject = SimpleExperiment(
+            systems=systems,
+            image_sources=image_sources,
+            metrics=metrics,
+            repeats=repeats
+        )
+        subject.schedule_tasks()
+
+        for trial_group in trial_groups:
+            for metric in metrics:
+                self.assertIn(mock.call(
+                    trial_results=trial_group,
+                    metric=metric,
+                    num_cpus=mock.ANY, num_gpus=mock.ANY,
+                    memory_requirements=mock.ANY,
+                    expected_duration=mock.ANY
+                ), mock_task_manager.get_measure_trial_task.call_args_list,
+                    "Couldn't find measure_trial_task for metric {0}, trials {1}".format(
+                        metric.pk, [t.pk for t in trial_group])
+                )
+
+    @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
+    def test_schedule_tasks_stores_metric_results(self, mock_task_manager):
+        systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
+        metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(3)]
+        repeats = 2
+
+        trial_results_map = make_trial_map(systems, image_sources, repeats)
+        make_mock_get_run_system_task(mock_task_manager, trial_results_map)
+
+        metric_results = []
+
+        def mock_get_measure_trial_task(trial_results, metric, *_, **__):
+            result = MetricResult(
+                _id=ObjectId(),
+                metric=metric,
+                trial_results=trial_results,
+                success=True
+            )
+            metric_results.append(result)
+            mock_task = mock.create_autospec(MeasureTrialTask)
+            mock_task.is_finished = True
+            mock_task.result = result
+            return mock_task
+
+        mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
+
+        subject = SimpleExperiment(
+            systems=systems,
+            image_sources=image_sources,
+            metrics=metrics,
+            repeats=repeats,
+        )
+        subject.schedule_tasks()
+
+        for metric_result in metric_results:
+            self.assertIn(metric_result, subject.metric_results)
+
+
+def make_trial_map(systems,  image_sources, repeats):
+    """
+    A helper to make trial results for each sytem for each image source for each repeat
+    :param systems:
+    :param image_sources:
+    :param repeats:
+    :return:
+    """
+    trial_results_map = {}
+    for sys in systems:
+        trial_results_map[sys.pk] = {}
+        for img_source in image_sources:
+            trial_results_map[sys.pk][img_source.pk] = []
+            for repeat in range(repeats):
+                trial_result = TrialResult(
+                    _id=ObjectId(),
+                    image_source=img_source,
+                    system=sys,
+                    success=True
+                )
+                trial_results_map[sys.pk][img_source.pk].append(trial_result)
+    return trial_results_map
+
+
+def make_mock_get_run_system_task(mock_task_manager, trial_results_map):
+    def mock_get_run_system_task(system, image_source, repeat, *_, **__):
+        mock_task = mock.create_autospec(RunSystemTask)
+        mock_task.is_finished = True
+        mock_task.result = trial_results_map[system.pk][image_source.pk][repeat]
+        return mock_task
+
+    mock_task_manager.get_run_system_task.side_effect = mock_get_run_system_task

@@ -30,7 +30,7 @@ class MockExperiment(ex.Experiment):
         pass
 
 
-class TestVisionSystemDatabase(unittest.TestCase):
+class TestExperimentDatabase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -46,7 +46,7 @@ class TestVisionSystemDatabase(unittest.TestCase):
         ex.Experiment._mongometa.collection.drop()
 
     def test_stores_and_loads(self):
-        obj = MockExperiment(enabled=True)
+        obj = MockExperiment()
         obj.save()
 
         # Load all the entities

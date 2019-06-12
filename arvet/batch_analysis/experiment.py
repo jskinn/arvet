@@ -25,7 +25,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     of association or meta-data that we can't articulate or encapsulate in the image_metadata.
     """
 
-    enabled = fields.BooleanField(required=True)
+    enabled = fields.BooleanField(required=True, default=True)
     metric_results = fields.ListField(
         fields.ReferenceField(MetricResult, on_delete=fields.ReferenceField.PULL)
     )
