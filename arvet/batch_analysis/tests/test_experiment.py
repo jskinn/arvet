@@ -20,8 +20,8 @@ import arvet.batch_analysis.experiment as ex
 # A minimal experiment, so we can instantiate the abstract class
 class MockExperiment(ex.Experiment):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, name="MockExperiment", *args, **kwargs):
+        super().__init__(name=name, *args, **kwargs)
 
     def do_imports(self, path_manager):
         pass
@@ -220,6 +220,49 @@ class TestRunAllDatabase(unittest.TestCase):
                         trial_results[system.identifier][image_source.identifier][repeat],
                         existing_results[system.identifier][image_source.identifier][repeat].identifier
                     )
+
+
+@unittest.skip("Not running profiling")
+class TestRunAllDatabaseProfile(unittest.TestCase):
+    systems = None
+    image_sources = None
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
+
+        # Ensure we have a clean slate in the database
+        Task._mongometa.collection.drop()
+        TrialResult._mongometa.collection.drop()
+        Image._mongometa.collection.drop()
+        ImageCollection._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collections for all the models used
+        Image._mongometa.collection.drop()
+        ImageCollection._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
+
+    def test_profile(self):
+        import cProfile as profile
+
+        # Create systems and image sources
+        systems = [mock_types.MockSystem() for _ in range(5)]
+        for system in systems:
+            system.save()
+        image_sources = [make_image_collection() for _ in range(5)]
+        repeats = 10
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+
+        stats_file = "run_all.prof"
+        profile.runctx("ex.run_all(systems, image_sources, repeats)",
+                       locals=locals(), globals=globals(), filename=stats_file)
 
 
 class TestMeasureAllDatabase(unittest.TestCase):

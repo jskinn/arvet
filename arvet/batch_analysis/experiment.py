@@ -24,7 +24,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     The groupings of the ids are meaningful for the particular experiment, to convey some level
     of association or meta-data that we can't articulate or encapsulate in the image_metadata.
     """
-
+    name = fields.CharField(primary_key=True)
     enabled = fields.BooleanField(required=True, default=True)
     metric_results = fields.ListField(
         fields.ReferenceField(MetricResult, on_delete=fields.ReferenceField.PULL)
@@ -115,7 +115,8 @@ def run_all(
                         trial_results[system.identifier][image_source.identifier].append(task.result)
                     else:
                         remaining += 1
-                        task.save()
+                        if task.pk is None:
+                            task.save()
     return trial_results, remaining
 
 
@@ -153,5 +154,6 @@ def measure_all(
                     metric_results[metric.identifier].append(task.result)
                 else:
                     remaining += 1
-                    task.save()
+                    if task.pk is None:
+                        task.save()
     return metric_results, remaining

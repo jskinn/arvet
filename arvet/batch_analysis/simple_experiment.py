@@ -12,9 +12,9 @@ class SimpleExperiment(ex.Experiment):
     and then are run with all benchmarks.
     If this common case is not your experiment, override base Experiment instead
     """
-    systems = ReferenceListField(VisionSystem, on_delete=fields.ReferenceField.PULL, required=True)
-    image_sources = ReferenceListField(ImageSource, on_delete=fields.ReferenceField.PULL, required=True)
-    metrics = ReferenceListField(Metric, on_delete=fields.ReferenceField.PULL, required=True)
+    systems = ReferenceListField(VisionSystem, on_delete=fields.ReferenceField.PULL)
+    image_sources = ReferenceListField(ImageSource, on_delete=fields.ReferenceField.PULL)
+    metrics = ReferenceListField(Metric, on_delete=fields.ReferenceField.PULL)
     repeats = fields.IntegerField(required=True, default=1)
 
     def schedule_tasks(self):
