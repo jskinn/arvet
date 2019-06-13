@@ -26,6 +26,7 @@ class TrialResult(pymodm.MongoModel):
     image_source = pymodm.fields.ReferenceField(image_source.ImageSource, required=True,
                                                 on_delete=pymodm.ReferenceField.CASCADE)
     success = pymodm.fields.BooleanField(required=True)
+    run_time = pymodm.FloatField()
     settings = pymodm.fields.DictField()
     message = pymodm.fields.CharField()
 

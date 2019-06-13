@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import logging
+import time
 import pymodm.fields as fields
 from arvet.config.path_manager import PathManager
 from arvet.core.system import VisionSystem
@@ -70,10 +71,36 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource) -> T
     system.set_camera_intrinsics(image_source.camera_intrinsics)
     if image_source.right_camera_pose is not None:
         system.set_stereo_offset(image_source.right_camera_pose)
+    logging.getLogger(__name__).info("  Initialized system")
 
+    # Preload images into memory, so we don't have to wait while the system is running
+    for _, image in image_source:
+        system.preload_image_data(image)
+    logging.getLogger(__name__).info("  Pre-loaded images")
+
+    # Actually run the system, tracking the time between frames
+    previous_timestamp = None
+    previous_actual = None
+    start_time = time.time()
     system.start_trial(image_source.sequence_type)
     for timestamp, image in image_source:
         system.process_image(image, timestamp)
+        actual_time = time.time()
+
+        if previous_timestamp is not None and previous_actual is not None:
+            stamp_diff = timestamp - previous_timestamp
+            actual_diff = actual_time - previous_actual
+            if actual_diff > stamp_diff:
+                logging.getLogger(__name__).warning("  Frame delta-time {0} exceeded timestamp delta {1}".format(
+                    actual_diff, stamp_diff))
+
+        previous_timestamp = timestamp
+        previous_actual = actual_time
+
     trial_result = system.finish_trial()
+    finish_time = time.time()
+    logging.getLogger(__name__).info("  Finished running system in {0}s".format(finish_time - start_time))
+
     trial_result.image_source = image_source
+    trial_result.duration = finish_time - start_time
     return trial_result

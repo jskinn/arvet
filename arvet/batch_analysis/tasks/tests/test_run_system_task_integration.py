@@ -69,7 +69,8 @@ class TimerTrialResult(TrialResult):
     actual_times = fields.ListField(fields.FloatField())
 
 
-class TestRunSystemTaskIntegration(unittest.TestCase):
+# @unittest.skip("Not running performance tests")
+class TestRunSystemTaskPerformance(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
