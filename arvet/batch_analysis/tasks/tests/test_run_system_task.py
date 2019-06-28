@@ -168,54 +168,64 @@ class TestRunSystemTask(unittest.TestCase):
 class TestRunSystemWithSource(unittest.TestCase):
 
     def setUp(self):
-        self._system = mock.create_autospec(VisionSystem)
-        self._system.is_image_source_appropriate.return_value = True
-        self._system.finish_trial.side_effect = lambda: mock_types.MockTrialResult(system=self._system, success=True)
+        self.system = mock.create_autospec(VisionSystem)
+        self.system.is_image_source_appropriate.return_value = True
+        self.system.finish_trial.side_effect = lambda: mock_types.MockTrialResult(system=self.system, success=True)
 
-        self._image_source = mock.create_autospec(ImageSource)
-        self._image_source.right_camera_pose = None
-        self._image_source.camera_intrinsics = mock.Mock()
+        self.image_source = mock.create_autospec(ImageSource)
+        self.image_source.right_camera_pose = None
+        self.image_source.camera_intrinsics = mock.Mock()
 
         def source_iter():
             for idx in range(10):
                 yield idx, mock.Mock()
 
-        self._image_source.__iter__.side_effect = source_iter
+        self.image_source.__iter__.side_effect = source_iter
 
     def test_run_system_calls_trial_functions_in_order_mono(self):
-        run_system_with_source(self._system, self._image_source)
-        mock_calls = self._system.mock_calls
+        run_system_with_source(self.system, self.image_source)
+        mock_calls = self.system.mock_calls
         # set_camera_intrinsics; begin; 10 process image calls; end
-        self.assertEqual(13, len(mock_calls))
+        self.assertEqual(23, len(mock_calls))
         self.assertEqual('set_camera_intrinsics', mock_calls[0][0])
-        self.assertEqual('start_trial', mock_calls[1][0])
+
+        # first, preload the images
         for i in range(10):
-            self.assertEqual('process_image', mock_calls[2 + i][0])
-        self.assertEqual('finish_trial', mock_calls[12][0])
+            self.assertEqual('preload_image_data', mock_calls[1 + i][0])
+
+        # then, do the trial
+        self.assertEqual('start_trial', mock_calls[11][0])
+        for i in range(10):
+            self.assertEqual('process_image', mock_calls[12 + i][0])
+        self.assertEqual('finish_trial', mock_calls[22][0])
 
     def test_run_system_calls_trial_functions_in_order_stereo(self):
-        self._image_source.right_camera_pose = mock.Mock()
-        run_system_with_source(self._system, self._image_source)
-        mock_calls = self._system.mock_calls
+        self.image_source.right_camera_pose = mock.Mock()
+        run_system_with_source(self.system, self.image_source)
+        mock_calls = self.system.mock_calls
         # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end
-        self.assertEqual(14, len(mock_calls))
+        self.assertEqual(24, len(mock_calls))
         self.assertEqual('set_camera_intrinsics', mock_calls[0][0])
         self.assertEqual('set_stereo_offset', mock_calls[1][0])
-        self.assertEqual('start_trial', mock_calls[2][0])
+
+        # first, preload the images
         for i in range(10):
-            self.assertEqual('process_image', mock_calls[3 + i][0])
-        self.assertEqual('finish_trial', mock_calls[13][0])
+            self.assertEqual('preload_image_data', mock_calls[2 + i][0])
+
+        # then, do the trial
+        self.assertEqual('start_trial', mock_calls[12][0])
+        for i in range(10):
+            self.assertEqual('process_image', mock_calls[13 + i][0])
+        self.assertEqual('finish_trial', mock_calls[23][0])
 
     def test_run_system_calls_iter(self):
-        run_system_with_source(self._system, self._image_source)
-        mock_calls = self._image_source.mock_calls
-        self.assertEqual(1, len(mock_calls))
-        self.assertEqual('__iter__', mock_calls[0][0])
+        run_system_with_source(self.system, self.image_source)
+        self.assertTrue(self.image_source.__iter__.called)
 
     def test_run_system_returns_trial_result(self):
-        result = run_system_with_source(self._system, self._image_source)
-        self.assertEqual(result.system, self._system)
-        self.assertEqual(result.image_source, self._image_source)
+        result = run_system_with_source(self.system, self.image_source)
+        self.assertEqual(result.system, self.system)
+        self.assertEqual(result.image_source, self.image_source)
         self.assertTrue(result.success)
 
 
