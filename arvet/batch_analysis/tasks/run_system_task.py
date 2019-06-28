@@ -83,8 +83,8 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource) -> T
     :return: The TrialResult storing the results of the run. Save it to the database, or None if there's a problem.
     """
     system.set_camera_intrinsics(image_source.camera_intrinsics)
-    if image_source.right_camera_pose is not None:
-        system.set_stereo_offset(image_source.right_camera_pose)
+    if image_source.stereo_offset is not None:
+        system.set_stereo_offset(image_source.stereo_offset)
     logging.getLogger(__name__).info("  Initialized system")
 
     # Preload images into memory, so we don't have to wait while the system is running

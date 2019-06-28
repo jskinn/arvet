@@ -33,7 +33,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
     is_stored_in_database = True
 
     camera_intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics, required=True)
-    right_camera_pose = TransformField()
+    stereo_offset = TransformField()
     right_camera_intrinsics = pymodm.fields.EmbeddedDocumentField(cam_intr.CameraIntrinsics)
 
     # Extra properties for identifying the sequence and the trajectory
@@ -74,8 +74,8 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
             if self.camera_intrinsics is None:
                 self.camera_intrinsics = self.images[0].metadata.intrinsics
             if isinstance(self.images[0], StereoImage):
-                if self.right_camera_pose is None:
-                    self.right_camera_pose = self.images[0].stereo_offset
+                if self.stereo_offset is None:
+                    self.stereo_offset = self.images[0].stereo_offset
                 if self.right_camera_intrinsics is None:
                     self.right_camera_intrinsics = self.images[0].right_metadata.intrinsics
 

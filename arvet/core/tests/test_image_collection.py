@@ -106,7 +106,7 @@ class TestImageCollectionDatabase(unittest.TestCase):
             is_labels_available=True,
             is_masks_available=False,
             camera_intrinsics=images[0].metadata.intrinsics,
-            right_camera_pose=images[0].right_camera_pose,
+            stereo_offset=images[0].left_camera_pose.find_relative(images[0].right_camera_pose),
             right_camera_intrinsics=images[0].right_metadata.intrinsics,
             dataset='TestSequences',
             sequence_name='Sequence1',
@@ -247,7 +247,7 @@ class TestImageCollection(unittest.TestCase):
         self.assertFalse(collection.is_masks_available)
 
         self.assertEqual(collection.camera_intrinsics, images[0].metadata.intrinsics)
-        self.assertIsNone(collection.right_camera_pose)
+        self.assertIsNone(collection.stereo_offset)
         self.assertIsNone(collection.right_camera_intrinsics)
 
         images = [
@@ -278,7 +278,7 @@ class TestImageCollection(unittest.TestCase):
         self.assertTrue(collection.is_masks_available)
 
         self.assertEqual(collection.camera_intrinsics, images[0].metadata.intrinsics)
-        self.assertIsNone(collection.right_camera_pose)
+        self.assertIsNone(collection.stereo_offset)
         self.assertIsNone(collection.right_camera_intrinsics)
 
     def test_infers_properties_from_stereo_images(self):
@@ -296,7 +296,7 @@ class TestImageCollection(unittest.TestCase):
         self.assertFalse(collection.is_masks_available)
 
         self.assertEqual(collection.camera_intrinsics, images[0].metadata.intrinsics)
-        self.assertEqual(collection.right_camera_pose,
+        self.assertEqual(collection.stereo_offset,
                          images[0].left_camera_pose.find_relative(images[0].right_camera_pose))
         self.assertEqual(collection.right_camera_intrinsics, images[0].right_metadata.intrinsics)
 

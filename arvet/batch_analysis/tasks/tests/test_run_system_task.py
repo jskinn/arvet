@@ -173,7 +173,7 @@ class TestRunSystemWithSource(unittest.TestCase):
         self.system.finish_trial.side_effect = lambda: mock_types.MockTrialResult(system=self.system, success=True)
 
         self.image_source = mock.create_autospec(ImageSource)
-        self.image_source.right_camera_pose = None
+        self.image_source.stereo_offset = None
         self.image_source.camera_intrinsics = mock.Mock()
 
         def source_iter():
@@ -200,7 +200,7 @@ class TestRunSystemWithSource(unittest.TestCase):
         self.assertEqual('finish_trial', mock_calls[22][0])
 
     def test_run_system_calls_trial_functions_in_order_stereo(self):
-        self.image_source.right_camera_pose = mock.Mock()
+        self.image_source.stereo_offset = mock.Mock()
         run_system_with_source(self.system, self.image_source)
         mock_calls = self.system.mock_calls
         # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end

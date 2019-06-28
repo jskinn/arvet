@@ -139,5 +139,5 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
         pass
 
     # Optional properties for sources of stereo images
-    right_camera_pose = None
+    stereo_offset = None
     right_camera_intrinsics = None
