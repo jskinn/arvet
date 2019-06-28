@@ -8,7 +8,6 @@ import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.image_source import ImageSource
 from arvet.core.system import VisionSystem
-import arvet.core.trial_result as tr
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask, run_system_with_source
 
@@ -26,7 +25,7 @@ class TestRunSystemTaskDatabase(unittest.TestCase):
         cls.system.save()
         cls.image_source.save()
 
-        cls.trial_result = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result.save()
 
     def setUp(self):
@@ -37,7 +36,7 @@ class TestRunSystemTaskDatabase(unittest.TestCase):
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
 
@@ -151,7 +150,7 @@ class TestRunSystemTask(unittest.TestCase):
         self.assertEqual(self.image_source, subject.result.image_source)
 
     def test_run_task_records_returned_metric_result(self):
-        trial_result = tr.TrialResult(system=self.system, image_source=self.image_source, success=True)
+        trial_result = mock_types.MockTrialResult(system=self.system, image_source=self.image_source, success=True)
         self.system.finish_trial = lambda: trial_result
         subject = RunSystemTask(
             system=self.system,
@@ -171,7 +170,7 @@ class TestRunSystemWithSource(unittest.TestCase):
     def setUp(self):
         self._system = mock.create_autospec(VisionSystem)
         self._system.is_image_source_appropriate.return_value = True
-        self._system.finish_trial.side_effect = lambda: tr.TrialResult(system=self._system, success=True)
+        self._system.finish_trial.side_effect = lambda: mock_types.MockTrialResult(system=self._system, success=True)
 
         self._image_source = mock.create_autospec(ImageSource)
         self._image_source.right_camera_pose = None
@@ -246,12 +245,12 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
 

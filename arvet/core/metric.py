@@ -2,6 +2,7 @@
 import abc
 import typing
 import bson
+import pandas as pd
 import pymodm
 import pymodm.fields as fields
 import arvet.database.pymodm_abc as pymodm_abc
@@ -77,7 +78,7 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         return obj
 
 
-class MetricResult(pymodm.MongoModel):
+class MetricResult(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     """
     A general superclass for metric results for all metrics
     """
@@ -87,6 +88,9 @@ class MetricResult(pymodm.MongoModel):
     success = fields.BooleanField(required=True)
     message = fields.CharField()
 
+    # The set of plots available to visualize_results.
+    available_plots = set()
+
     @property
     def identifier(self) -> bson.ObjectId:
         """
@@ -94,6 +98,36 @@ class MetricResult(pymodm.MongoModel):
         :return:
         """
         return self._id
+
+    @abc.abstractmethod
+    def get_columns(self) -> typing.Set[str]:
+        """
+        Get a list of available results columns
+        Should delegate to the linked trial results, systems, etc for the full list
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_results(self, columns: typing.Iterable[str] = None) -> typing.List[dict]:
+        """
+
+        :return:
+        """
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def visualize_results(cls, results: typing.Iterable['MetricResult'], output_folder: str,
+                          plots: typing.Iterable[str] = None) -> None:
+        """
+
+        :param results:
+        :param plots:
+        :param output_folder:
+        :return:
+        """
+        pass
 
 
 def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_result.TrialResult]) -> bool:

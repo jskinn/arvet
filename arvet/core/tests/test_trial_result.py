@@ -38,7 +38,7 @@ class TestTrialResultDatabase(unittest.TestCase):
         mock_types.MockImageSource._mongometa.collection.drop()
 
     def test_stores_and_loads(self):
-        obj = tr.TrialResult(
+        obj = mock_types.MockTrialResult(
             system=self.system,
             image_source=self.image_source,
             success=True,
@@ -55,7 +55,7 @@ class TestTrialResultDatabase(unittest.TestCase):
 
     def test_required_fields_are_required(self):
         # No system
-        obj = tr.TrialResult(
+        obj = mock_types.MockTrialResult(
             image_source=self.image_source,
             success=True
         )
@@ -63,7 +63,7 @@ class TestTrialResultDatabase(unittest.TestCase):
             obj.save()
 
         # No image source
-        obj = tr.TrialResult(
+        obj = mock_types.MockTrialResult(
             system=self.system,
             success=True
         )
@@ -71,7 +71,7 @@ class TestTrialResultDatabase(unittest.TestCase):
             obj.save()
 
         # No success
-        obj = tr.TrialResult(
+        obj = mock_types.MockTrialResult(
             system=self.system,
             image_source=self.image_source
         )
@@ -83,7 +83,7 @@ class TestTrialResultDatabase(unittest.TestCase):
         tracked_source.save()
         MonitoredImageSource.instance_count = 0
 
-        obj = tr.TrialResult(
+        obj = mock_types.MockTrialResult(
             system=self.system,
             image_source=tracked_source,
             success=True

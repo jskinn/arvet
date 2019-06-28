@@ -5,7 +5,6 @@ from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
-import arvet.core.trial_result as tr
 from arvet.core.trial_comparison import TrialComparisonResult
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.compare_trials_task import CompareTrialTask
@@ -29,8 +28,8 @@ class TestCompareTrialsTaskDatabase(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
-        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_1.save()
         cls.trial_result_2.save()
 
@@ -50,7 +49,7 @@ class TestCompareTrialsTaskDatabase(unittest.TestCase):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
         TrialComparisonResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
@@ -135,8 +134,8 @@ class TestCompareTrialsTask(unittest.TestCase):
         image_source = mock_types.MockImageSource()
         self.path_manager = PathManager(['~'])
         self.metric = mock_types.MockTrialComparisonMetric()
-        self.trial_result_1 = tr.TrialResult(system=system, image_source=image_source, success=False)
-        self.trial_result_2 = tr.TrialResult(system=system, image_source=image_source, success=False)
+        self.trial_result_1 = mock_types.MockTrialResult(system=system, image_source=image_source, success=False)
+        self.trial_result_2 = mock_types.MockTrialResult(system=system, image_source=image_source, success=False)
 
     def test_run_task_records_unable_to_measure_trial_in_group_1(self):
         self.metric.is_trial_appropriate_for_first = lambda _: False

@@ -6,8 +6,7 @@ import arvet.database.image_manager as im_manager
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image import Image
 from arvet.core.image_collection import ImageCollection
-from arvet.core.trial_result import TrialResult
-from arvet.core.metric import Metric, MetricResult
+from arvet.core.metric import Metric
 
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
@@ -68,7 +67,7 @@ class TestRunAllDatabase(unittest.TestCase):
 
         # Ensure we have a clean slate in the database
         Task._mongometa.collection.drop()
-        TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
@@ -81,7 +80,7 @@ class TestRunAllDatabase(unittest.TestCase):
     def tearDown(self) -> None:
         # Ensure there are no tasks left at the end of each test
         Task._mongometa.collection.drop()
-        TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
 
     @classmethod
     def tearDownClass(cls):
@@ -192,7 +191,7 @@ class TestRunAllDatabase(unittest.TestCase):
             for image_source in self.image_sources[1:]:
                 trial_results[system.identifier][image_source.identifier] = []
                 for repeat in range(repeats - 1):
-                    trial_result = TrialResult(
+                    trial_result = mock_types.MockTrialResult(
                         system=system,
                         image_source=image_source,
                         success=True
@@ -235,7 +234,7 @@ class TestRunAllDatabaseProfile(unittest.TestCase):
 
         # Ensure we have a clean slate in the database
         Task._mongometa.collection.drop()
-        TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
@@ -280,8 +279,8 @@ class TestMeasureAllDatabase(unittest.TestCase):
 
         # Ensure we have a clean slate in the database
         Task._mongometa.collection.drop()
-        MetricResult._mongometa.collection.drop()
-        TrialResult._mongometa.collection.drop()
+        mock_types.MockMetricResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         Metric._mongometa.collection.drop()
@@ -302,7 +301,7 @@ class TestMeasureAllDatabase(unittest.TestCase):
             for image_source in cls.image_sources:
                 cls.trial_results[system.identifier][image_source.identifier] = []
                 for repeat in range(2):
-                    trial_result = TrialResult(
+                    trial_result = mock_types.MockTrialResult(
                         system=system,
                         image_source=image_source,
                         success=True
@@ -326,12 +325,12 @@ class TestMeasureAllDatabase(unittest.TestCase):
     def tearDown(self) -> None:
         # Ensure there are no tasks left at the end of each test
         Task._mongometa.collection.drop()
-        MetricResult._mongometa.collection.drop()
+        mock_types.MockMetricResult._mongometa.collection.drop()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collections for all the models used
-        TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         Metric._mongometa.collection.drop()
@@ -422,7 +421,7 @@ class TestMeasureAllDatabase(unittest.TestCase):
         for metric in self.metrics[1:]:
             metric_results[metric.identifier] = {}
             for tr_idx, tr_group in enumerate(self.trial_result_groups[1:]):
-                metric_result = MetricResult(
+                metric_result = mock_types.MockMetricResult(
                     metric=metric,
                     trial_results=tr_group,
                     success=True

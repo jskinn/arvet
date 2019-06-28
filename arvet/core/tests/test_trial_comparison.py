@@ -2,7 +2,6 @@
 import unittest
 from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
-import arvet.core.trial_result as tr
 import arvet.core.trial_comparison as mtr_comp
 import arvet.core.tests.mock_types as mock_types
 
@@ -62,9 +61,9 @@ class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_1.save()
-        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_2.save()
 
     def setUp(self):
@@ -75,7 +74,7 @@ class TestTrialComparisonMetricResultDatabase(unittest.TestCase):
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         mtr_comp.TrialComparisonResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()

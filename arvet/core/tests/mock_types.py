@@ -39,10 +39,16 @@ class MockSystem(arvet.core.system.VisionSystem):
         pass
 
     def finish_trial(self):
-        return arvet.core.trial_result.TrialResult(
+        return MockTrialResult(
             system=self.identifier,
             success=True
         )
+
+    def get_columns(self):
+        return set()
+
+    def get_properties(self, columns=None):
+        return {}
 
 
 class MockImageSource(arvet.core.image_source.ImageSource):
@@ -59,6 +65,21 @@ class MockImageSource(arvet.core.image_source.ImageSource):
         for idx in range(10):
             yield 0.6 * idx, make_image(idx)
 
+    def get_columns(self):
+        return set()
+
+    def get_properties(self, columns=None):
+        return {}
+
+
+class MockTrialResult(arvet.core.trial_result.TrialResult):
+
+    def get_columns(self):
+        return set()
+
+    def get_properties(self, columns=None):
+        return {}
+
 
 class MockMetric(arvet.core.metric.Metric):
 
@@ -70,7 +91,20 @@ class MockMetric(arvet.core.metric.Metric):
         return trial_result.identifier not in self.trials_blacklist
 
     def measure_results(self, trial_results):
-        return arvet.core.metric.MetricResult(self, list(trial_results), True)
+        return MockMetricResult(self, list(trial_results), True)
+
+
+class MockMetricResult(arvet.core.metric.MetricResult):
+
+    def get_columns(self):
+        return set()
+
+    def get_results(self, columns=None):
+        return {}
+
+    @classmethod
+    def visualize_results(cls, results, output_folder):
+        pass
 
 
 class MockTrialComparisonMetric(arvet.core.trial_comparison.TrialComparisonMetric):

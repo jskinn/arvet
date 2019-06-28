@@ -10,8 +10,6 @@ import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
 import arvet.core.image as im
 import arvet.core.image_collection as ic
-import arvet.core.trial_result as tr
-import arvet.core.metric as mtr
 import arvet.core.trial_comparison as tcmp
 import arvet.batch_analysis.task_manager as task_manager
 import arvet.batch_analysis.job_system
@@ -137,7 +135,7 @@ class TestTaskManagerRunSystem(unittest.TestCase):
         cls.system.save()
         cls.image_source.save()
 
-        cls.trial_result = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result.save()
 
     def setUp(self):
@@ -148,7 +146,7 @@ class TestTaskManagerRunSystem(unittest.TestCase):
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
 
@@ -265,13 +263,14 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_1.save()
 
-        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_2.save()
 
-        cls.metric_result = mtr.MetricResult(metric=cls.metric, trial_results=[cls.trial_result_1], success=True)
+        cls.metric_result = mock_types.MockMetricResult(metric=cls.metric, trial_results=[cls.trial_result_1],
+                                                        success=True)
         cls.metric_result.save()
 
     def setUp(self):
@@ -282,8 +281,8 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
-        mtr.MetricResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockMetricResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
@@ -406,8 +405,8 @@ class TestTaskManagerCompareTrials(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
-        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_1.save()
         cls.trial_result_2.save()
 
@@ -427,7 +426,7 @@ class TestTaskManagerCompareTrials(unittest.TestCase):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
         tcmp.TrialComparisonResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
@@ -552,12 +551,13 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         cls.metric.save()
         cls.comparison_metric.save()
 
-        cls.trial_result_1 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
-        cls.trial_result_2 = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_1 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result_2 = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result_1.save()
         cls.trial_result_2.save()
 
-        cls.metric_result = mtr.MetricResult(metric=cls.metric, trial_results=[cls.trial_result_1], success=True)
+        cls.metric_result = mock_types.MockMetricResult(metric=cls.metric, trial_results=[cls.trial_result_1],
+                                                        success=True)
         cls.metric_result.save()
         cls.comparison_result = tcmp.TrialComparisonResult(
             metric=cls.comparison_metric,
@@ -575,7 +575,7 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
         tcmp.TrialComparisonResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()

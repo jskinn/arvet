@@ -4,8 +4,6 @@ import unittest.mock as mock
 from pymodm.errors import ValidationError
 from bson import ObjectId
 import arvet.database.tests.database_connection as dbconn
-from arvet.core.trial_result import TrialResult
-from arvet.core.metric import MetricResult
 import arvet.core.tests.mock_types as mock_core
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
@@ -185,7 +183,7 @@ class TestSimpleExperiment(unittest.TestCase):
         metric_results = []
 
         def mock_get_measure_trial_task(trial_results, metric, *_, **__):
-            result = MetricResult(
+            result = mock_core.MockMetricResult(
                 _id=ObjectId(),
                 metric=metric,
                 trial_results=trial_results,
@@ -224,7 +222,7 @@ class TestSimpleExperiment(unittest.TestCase):
         metric_results = []
 
         def mock_get_measure_trial_task(trial_results, metric, *_, **__):
-            result = MetricResult(
+            result = mock_core.MockMetricResult(
                 _id=ObjectId(),
                 metric=metric,
                 trial_results=trial_results,
@@ -265,7 +263,7 @@ def make_trial_map(systems,  image_sources, repeats):
         for img_source in image_sources:
             trial_results_map[sys.pk][img_source.pk] = []
             for repeat in range(repeats):
-                trial_result = TrialResult(
+                trial_result = mock_core.MockTrialResult(
                     _id=ObjectId(),
                     image_source=img_source,
                     system=sys,

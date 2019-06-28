@@ -1,6 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import logging
 import time
+import typing
+
 import pymodm.fields as fields
 from arvet.config.path_manager import PathManager
 from arvet.core.system import VisionSystem
@@ -50,13 +52,25 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
         :return:
         """
         logging.getLogger(__name__).error(message)
-        self.result = TrialResult(
+        self.result = FailedTaskTrialResult(
             system=self.system,
             image_source=self.image_source,
-            success=False,
             message=message
         )
         self.mark_job_complete()
+
+
+class FailedTaskTrialResult(TrialResult):
+    """
+    A tiny Trial Result that records a failure. Has no columns, because
+    """
+    success = False
+
+    def get_columns(self) -> typing.Set[str]:
+        return set()
+
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+        return {}
 
 
 def run_system_with_source(system: VisionSystem, image_source: ImageSource) -> TrialResult:

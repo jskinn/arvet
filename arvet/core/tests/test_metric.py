@@ -2,7 +2,6 @@
 import unittest
 from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
-import arvet.core.trial_result as tr
 import arvet.core.metric as mtr
 import arvet.core.tests.mock_types as mock_types
 
@@ -61,7 +60,7 @@ class TestMetricResultDatabase(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result.save()
 
     def setUp(self):
@@ -72,13 +71,13 @@ class TestMetricResultDatabase(unittest.TestCase):
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         mtr.MetricResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
 
     def test_stores_and_loads(self):
-        obj = mtr.MetricResult(
+        obj = mock_types.MockMetricResult(
             metric=self.metric,
             trial_results=[self.trial_result],
             success=True,
@@ -94,7 +93,7 @@ class TestMetricResultDatabase(unittest.TestCase):
 
     def test_required_fields_are_required(self):
         # missing metric
-        obj = mtr.MetricResult(
+        obj = mock_types.MockMetricResult(
             trial_results=[self.trial_result],
             success=True,
             message='Completed successfully'
@@ -103,7 +102,7 @@ class TestMetricResultDatabase(unittest.TestCase):
             obj.save()
 
         # Missing trial results
-        obj = mtr.MetricResult(
+        obj = mock_types.MockMetricResult(
             metric=self.metric,
             success=True,
             message='Completed successfully'
@@ -112,7 +111,7 @@ class TestMetricResultDatabase(unittest.TestCase):
             obj.save()
 
         # empty trial results
-        obj = mtr.MetricResult(
+        obj = mock_types.MockMetricResult(
             metric=self.metric,
             trial_results=[],
             success=True,
@@ -122,7 +121,7 @@ class TestMetricResultDatabase(unittest.TestCase):
             obj.save()
 
         # missing success
-        obj = mtr.MetricResult(
+        obj = mock_types.MockMetricResult(
             metric=self.metric,
             trial_results=[self.trial_result],
             message='Completed successfully'
@@ -140,15 +139,15 @@ class TestCheckTrialCollection(unittest.TestCase):
         image_source2 = mock_types.MockImageSource()
 
         group1 = [
-            tr.TrialResult(image_source=image_source1, system=system1, success=True)
+            mock_types.MockTrialResult(image_source=image_source1, system=system1, success=True)
             for _ in range(10)
         ]
         group2 = [
-            tr.TrialResult(image_source=image_source2, system=system1, success=True)
+            mock_types.MockTrialResult(image_source=image_source2, system=system1, success=True)
             for _ in range(10)
         ]
         group3 = [
-            tr.TrialResult(image_source=image_source1, system=system2, success=True)
+            mock_types.MockTrialResult(image_source=image_source1, system=system2, success=True)
             for _ in range(10)
         ]
         self.assertTrue(mtr.check_trial_collection(group1))

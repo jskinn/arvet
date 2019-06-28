@@ -121,6 +121,23 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def get_columns(self) -> typing.Set[str]:
+        """
+        Get the set of available properties for this system. Pass these to "get_properties", below.
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+        """
+        Get the values of the requested properties
+        :param columns:
+        :return:
+        """
+        pass
+
     # Optional properties for sources of stereo images
     right_camera_pose = None
     right_camera_intrinsics = None

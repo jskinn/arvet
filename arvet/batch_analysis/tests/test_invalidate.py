@@ -138,7 +138,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
         Task._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
-        TrialResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
         if os.path.isfile(dbconn.image_file):
             os.remove(dbconn.image_file)
@@ -183,7 +183,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
             self.trial_results[image_collection.identifier] = []
 
             for system in self.systems:
-                trial_result = TrialResult(
+                trial_result = mock_types.MockTrialResult(
                         system=system,
                         image_source=image_collection,
                         success=True
@@ -321,7 +321,7 @@ class TestInvalidateSystem(unittest.TestCase):
             self.trial_results[system.identifier] = []
 
             for image_collection in self.image_collections:
-                trial_result = TrialResult(
+                trial_result = mock_types.MockTrialResult(
                     system=system,
                     image_source=image_collection,
                     success=True
@@ -466,7 +466,7 @@ class TestInvalidateTrial(unittest.TestCase):
             for system in self.systems:
                 trial_result_group = []
                 for repeat in range(3):
-                    trial_result = TrialResult(
+                    trial_result = mock_types.MockTrialResult(
                         system=system,
                         image_source=image_collection,
                         success=True
@@ -490,7 +490,7 @@ class TestInvalidateTrial(unittest.TestCase):
             self.measure_trial_tasks[group_id] = []
             self.metric_results[group_id] = []
             for metric in self.metrics:
-                metric_result = MetricResult(
+                metric_result = mock_types.MockMetricResult(
                     metric=metric,
                     trial_results=trial_result_group,
                     success=True
@@ -600,7 +600,7 @@ class TestInvalidateMetric(unittest.TestCase):
 
         for image_collection in cls.image_collections:
             for system in cls.systems:
-                trial_result = TrialResult(
+                trial_result = mock_types.MockTrialResult(
                     system=system,
                     image_source=image_collection,
                     success=True
@@ -608,7 +608,7 @@ class TestInvalidateMetric(unittest.TestCase):
                 trial_result.save()
                 cls.trials.append(trial_result)
 
-                trial_result = TrialResult(
+                trial_result = mock_types.MockTrialResult(
                     system=system,
                     image_source=image_collection,
                     success=True
@@ -646,7 +646,7 @@ class TestInvalidateMetric(unittest.TestCase):
             self.metric_results[metric.identifier] = []
 
             for trial_result in self.trials:
-                metric_result = MetricResult(
+                metric_result = mock_types.MockMetricResult(
                     metric=metric,
                     trial_results=[trial_result],
                     success=True
@@ -741,7 +741,7 @@ class TestInvalidateMetricResult(unittest.TestCase):
 
         for image_collection in cls.image_collections:
             for system in cls.systems:
-                trial_result = TrialResult(
+                trial_result = mock_types.MockTrialResult(
                     system=system,
                     image_source=image_collection,
                     success=True
@@ -771,7 +771,7 @@ class TestInvalidateMetricResult(unittest.TestCase):
         self.measure_trial_tasks = {}
         for metric in self.metrics:
             for trial_result in self.trials:
-                metric_result = MetricResult(
+                metric_result = mock_types.MockMetricResult(
                     metric=metric,
                     trial_results=[trial_result],
                     success=True

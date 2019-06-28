@@ -5,8 +5,6 @@ from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
-import arvet.core.trial_result as tr
-import arvet.core.metric as mtr
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
 
@@ -28,10 +26,11 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
         cls.image_source.save()
         cls.metric.save()
 
-        cls.trial_result = tr.TrialResult(image_source=cls.image_source, system=cls.system, success=True)
+        cls.trial_result = mock_types.MockTrialResult(image_source=cls.image_source, system=cls.system, success=True)
         cls.trial_result.save()
 
-        cls.metric_result = mtr.MetricResult(metric=cls.metric, trial_results=[cls.trial_result], success=True)
+        cls.metric_result = mock_types.MockMetricResult(metric=cls.metric, trial_results=[cls.trial_result],
+                                                        success=True)
         cls.metric_result.save()
 
     def setUp(self):
@@ -42,8 +41,8 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
-        mtr.MetricResult._mongometa.collection.drop()
-        tr.TrialResult._mongometa.collection.drop()
+        mock_types.MockMetricResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockMetric._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
@@ -114,7 +113,7 @@ class TestMeasureTrialTask(unittest.TestCase):
         image_source = mock_types.MockImageSource()
         self.path_manager = PathManager(['~'])
         self.metric = mock_types.MockMetric()
-        self.trial_result = tr.TrialResult(system=system, image_source=image_source, success=False)
+        self.trial_result = mock_types.MockTrialResult(system=system, image_source=image_source, success=False)
 
     def test_run_task_records_unable_to_measure_trial(self):
         self.metric.is_trial_appropriate = lambda _: False
@@ -178,7 +177,7 @@ class TestMeasureTrialTask(unittest.TestCase):
         self.assertEqual([self.trial_result], subject.result.trial_results)
 
     def test_run_task_records_returned_metric_result(self):
-        metric_result = mtr.MetricResult(metric=self.metric, trial_results=[self.trial_result], success=True)
+        metric_result = mock_types.MockMetricResult(metric=self.metric, trial_results=[self.trial_result], success=True)
         self.metric.measure_results = lambda _: metric_result
         subject = MeasureTrialTask(
             metric=self.metric,

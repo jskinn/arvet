@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
-from operator import itemgetter
+from operator import itemgetter, attrgetter
+import typing
 import pymodm
 
 from arvet.database.enum_field import EnumField
@@ -38,6 +39,13 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
     dataset = pymodm.fields.CharField()     # The name of the dataset. Should be unique when combined with sequence
     sequence_name = pymodm.fields.CharField()   # The name of the sequence within the dataset.
     trajectory_id = pymodm.fields.CharField()   # A unique name for the trajectory, so we can associate results by traj
+
+    # List of available columns, and a getter for retrieving the value of each
+    columns = {
+        'dataset': attrgetter('dataset'),
+        'sequence_name': attrgetter('sequence_name'),
+        'trajectory_id': attrgetter('trajectory_id')
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,3 +107,24 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
         :return:
         """
         return self.timestamps[item], self.images[item]
+
+    def get_columns(self) -> typing.Set[str]:
+        """
+        Get the set of available properties for this system. Pass these to "get_properties", below.
+        :return:
+        """
+        return set(self.columns.keys())
+
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+        """
+        Get the values of the requested properties
+        :param columns:
+        :return:
+        """
+        if columns is None:
+            columns = self.get_columns()
+        return {
+            col_name: self.columns[col_name](self)
+            for col_name in columns
+            if col_name in self.columns
+        }

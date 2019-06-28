@@ -1,5 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import abc
+import typing
 import bson
 import pymodm
 import arvet.database.pymodm_abc as pymodm_abc
@@ -107,6 +108,23 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         Return none if no trial is started.
         :return:
         :rtype TrialResult:
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_columns(self) -> typing.Set[str]:
+        """
+        Get the set of available properties for this system. Pass these to "get_properties", below.
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+        """
+        Get the values of the requested properties
+        :param columns:
+        :return:
         """
         pass
 
