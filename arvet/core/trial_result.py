@@ -1,14 +1,11 @@
 # Copyright (c) 2017, John Skinner
-import abc
-import typing
 import pymodm
 import bson
-import arvet.database.pymodm_abc as pymodm_abc
 import arvet.core.system as system
 import arvet.core.image_source as image_source
 
 
-class TrialResult(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
+class TrialResult(pymodm.MongoModel):
     """
     The result of running a particular system with images from a particular image source.
     Contains all the relevant information from the run, and is passed to the benchmark to measure the performance.
@@ -40,20 +37,3 @@ class TrialResult(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :return:
         """
         return self._id
-
-    @abc.abstractmethod
-    def get_columns(self) -> typing.Set[str]:
-        """
-        Get the set of available properties for this system. Pass these to "get_properties", below.
-        :return:
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
-        """
-        Get the values of the requested properties
-        :param columns:
-        :return:
-        """
-        pass

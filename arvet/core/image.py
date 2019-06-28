@@ -1,5 +1,11 @@
 # Copyright (c) 2017, John Skinner
+import typing
+import numpy as np
+from operator import attrgetter
 import pymodm
+
+from arvet.util.transform import Transform
+from arvet.util.column_list import ColumnList
 from arvet.database.image_field import ImageField, ImageManager
 import arvet.metadata.image_metadata as imeta
 
@@ -14,6 +20,33 @@ class Image(pymodm.MongoModel):
 
     # Custom manager to handle deletes
     objects = ImageManager()
+
+    # List of available metadata columns, and getters for each
+    columns = ColumnList(
+        source_type=attrgetter('metadata.source_type'),
+        lens_focal_distance=attrgetter('metadata.lens_focal_distance'),
+        aperture=attrgetter('metadata.aperture'),
+
+        red_mean=attrgetter('metadata.red_mean'),
+        red_std=attrgetter('metadata.red_std'),
+        green_mean=attrgetter('metadata.green_mean'),
+        green_std=attrgetter('metadata.green_std'),
+        blue_mean=attrgetter('metadata.blue_mean'),
+        blue_std=attrgetter('metadata.blue_std'),
+        depth_mean=attrgetter('metadata.depth_mean'),
+        depth_std=attrgetter('metadata.depth_std'),
+
+        environment_type=attrgetter('metadata.environment_type'),
+        light_level=lambda obj: obj.metadata.light_level.value,
+        time_of_day=attrgetter('metadata.time_of_day'),
+
+        simulation_world=attrgetter('metadata.simulation_world'),
+        lighting_model=attrgetter('metadata.lighting_model'),
+        texture_mipmap_bias=attrgetter('metadata.texture_mipmap_bias'),
+        normal_maps_enabled=attrgetter('metadata.normal_maps_enabled'),
+        roughness_enabled=attrgetter('metadata.roughness_enabled'),
+        geometry_decimation=attrgetter('metadata.geometry_decimation')
+    )
 
     @property
     def camera_location(self):
@@ -42,7 +75,7 @@ class Image(pymodm.MongoModel):
         return self.camera_pose.transform_matrix if self.camera_pose is not None else None
 
     @property
-    def camera_pose(self):
+    def camera_pose(self) -> Transform:
         """
         Get the underlying Transform object representing the pose of the camera.
         This is useful to do things like convert points or poses to camera-relative
@@ -51,12 +84,33 @@ class Image(pymodm.MongoModel):
         return self.metadata.camera_pose
 
     @property
-    def hash(self):
+    def hash(self) -> bytes:
         """
         Shortcut access to the hash of this image data
         :return: The 64-bit xxhash of this image data, for simple equality checking
         """
         return self.metadata.img_hash
+
+    def get_columns(self) -> typing.Set[str]:
+        """
+        Get the set of available properties for this system. Pass these to "get_properties", below.
+        :return:
+        """
+        return set(self.columns.keys())
+
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+        """
+        Get the values of the requested properties
+        :param columns:
+        :return:
+        """
+        if columns is None:
+            columns = self.columns.keys()
+        return {
+            col_name: self.columns.get_value(self, col_name)
+            for col_name in columns
+            if col_name in self.columns
+        }
 
 
 class StereoImage(Image):
@@ -73,6 +127,23 @@ class StereoImage(Image):
 
     # Custom manager to handle deletes
     objects = ImageManager()
+
+    # Columns, extending the image columns, above
+    columns = ColumnList(
+        Image.columns,
+        stereo_offset=lambda obj: np.linalg.norm(obj.stereo_offset.location),
+        right_lens_focal_distance=attrgetter('right_metadata.lens_focal_distance'),
+        right_aperture=attrgetter('right_metadata.aperture'),
+
+        right_red_mean=attrgetter('right_metadata.red_mean'),
+        right_red_std=attrgetter('right_metadata.red_std'),
+        right_green_mean=attrgetter('right_metadata.green_mean'),
+        right_green_std=attrgetter('right_metadata.green_std'),
+        right_blue_mean=attrgetter('right_metadata.blue_mean'),
+        right_blue_std=attrgetter('right_metadata.blue_std'),
+        right_depth_mean=attrgetter('right_metadata.depth_mean'),
+        right_depth_std=attrgetter('right_metadata.depth_std'),
+    )
 
     # -------- RIGHT --------
     @property
@@ -102,7 +173,7 @@ class StereoImage(Image):
         return self.right_camera_pose.transform_matrix if self.right_camera_pose is not None else None
 
     @property
-    def right_camera_pose(self):
+    def right_camera_pose(self) -> Transform:
         """
         Get the underlying Transform object representing the pose of the camera.
         This is useful to do things like convert points or poses to camera-relative
@@ -124,7 +195,7 @@ class StereoImage(Image):
         return self.pixels
 
     @property
-    def left_metadata(self):
+    def left_metadata(self) -> imeta.ImageMetadata:
         return self.metadata
 
     @property
@@ -182,7 +253,7 @@ class StereoImage(Image):
         return self.camera_transform_matrix
 
     @property
-    def left_camera_pose(self):
+    def left_camera_pose(self) -> Transform:
         """
         Get the underlying Transform object representing the pose of the left camera.
         This is useful to do things like convert points or poses to camera-relative.
@@ -190,6 +261,16 @@ class StereoImage(Image):
         :return: A Transform object
         """
         return self.camera_pose
+
+    # -------- STEREO --------
+    @property
+    def stereo_offset(self) -> Transform:
+        """
+        The pose of the right camera relative to the left camera.
+        Used for setting the stereo offset of systems
+        :return:
+        """
+        return self.left_camera_pose.find_relative(self.right_camera_pose)
 
     @classmethod
     def make_from_images(cls, left_image: Image, right_image: Image) -> 'StereoImage':

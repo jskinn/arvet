@@ -3,6 +3,7 @@ from operator import itemgetter, attrgetter
 import typing
 import pymodm
 
+from arvet.util.column_list import ColumnList
 from arvet.database.enum_field import EnumField
 from arvet.database.transform_field import TransformField
 import arvet.metadata.camera_intrinsics as cam_intr
@@ -41,11 +42,11 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
     trajectory_id = pymodm.fields.CharField()   # A unique name for the trajectory, so we can associate results by traj
 
     # List of available columns, and a getter for retrieving the value of each
-    columns = {
-        'dataset': attrgetter('dataset'),
-        'sequence_name': attrgetter('sequence_name'),
-        'trajectory_id': attrgetter('trajectory_id')
-    }
+    columns = ColumnList(
+        dataset=attrgetter('dataset'),
+        sequence_name=attrgetter('sequence_name'),
+        trajectory_id=attrgetter('trajectory_id')
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,8 +75,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
                 self.camera_intrinsics = self.images[0].metadata.intrinsics
             if isinstance(self.images[0], StereoImage):
                 if self.right_camera_pose is None:
-                    self.right_camera_pose = self.images[0].left_camera_pose.find_relative(
-                            self.images[0].right_camera_pose)
+                    self.right_camera_pose = self.images[0].stereo_offset
                 if self.right_camera_intrinsics is None:
                     self.right_camera_intrinsics = self.images[0].right_metadata.intrinsics
 
@@ -122,9 +122,9 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
         :return:
         """
         if columns is None:
-            columns = self.get_columns()
+            columns = self.columns.keys()
         return {
-            col_name: self.columns[col_name](self)
+            col_name: self.columns.get_value(self, col_name)
             for col_name in columns
             if col_name in self.columns
         }

@@ -212,6 +212,190 @@ class TestImage(th.ExtendedTestCase):
         )
         self.assertEqual(img_hash, bytes(img.hash))
 
+    def test_get_columns_returns_column_list(self):
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertEqual({
+            'source_type',
+            'lens_focal_distance',
+            'aperture',
+
+            'red_mean',
+            'red_std',
+            'green_mean',
+            'green_std',
+            'blue_mean',
+            'blue_std',
+            'depth_mean',
+            'depth_std',
+
+            'environment_type',
+            'light_level',
+            'time_of_day',
+
+            'simulation_world',
+            'lighting_model',
+            'texture_mipmap_bias',
+            'normal_maps_enabled',
+            'roughness_enabled',
+            'geometry_decimation',
+        }, img.get_columns())
+
+    def test_get_properties_returns_the_value_of_all_columns(self):
+        source_type = imeta.ImageSourceType.SYNTHETIC
+        lens_focal_distance = np.random.uniform(10, 1000)
+        aperture = np.random.uniform(1.2, 3.6)
+
+        red_mean = np.random.uniform(10, 240)
+        red_std = np.random.uniform(1, 10)
+        green_mean = np.random.uniform(10, 240)
+        green_std = np.random.uniform(1, 10)
+        blue_mean = np.random.uniform(10, 240)
+        blue_std = np.random.uniform(1, 10)
+        depth_mean = np.random.uniform(100, 2000)
+        depth_std = np.random.uniform(10, 100)
+
+        environment_type = imeta.EnvironmentType.OUTDOOR_URBAN
+        light_level = imeta.LightingLevel.DIM
+        time_of_day = imeta.TimeOfDay.TWILIGHT
+
+        simulation_world = "Generated World {0}".format(np.random.randint(0, 2**16))
+        lighting_model = imeta.LightingModel.UNLIT
+        texture_mipmap_bias = np.random.randint(1, 8)
+        normal_maps_enabled = False
+        roughness_enabled = True
+        geometry_decimation = np.random.uniform(0, 1)
+
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=source_type,
+                lens_focal_distance=lens_focal_distance,
+                aperture=aperture,
+                red_mean=red_mean,
+                red_std=red_std,
+                green_mean=green_mean,
+                green_std=green_std,
+                blue_mean=blue_mean,
+                blue_std=blue_std,
+                depth_mean=depth_mean,
+                depth_std=depth_std,
+                environment_type=environment_type,
+                light_level=light_level,
+                time_of_day=time_of_day,
+                simulation_world=simulation_world,
+                lighting_model=lighting_model,
+                texture_mipmap_bias=texture_mipmap_bias,
+                normal_maps_enabled=normal_maps_enabled,
+                roughness_enabled=roughness_enabled,
+                geometry_decimation=geometry_decimation
+            )
+        )
+        self.assertEqual({
+            'source_type': source_type,
+            'lens_focal_distance': lens_focal_distance,
+            'aperture': aperture,
+
+            'red_mean': red_mean,
+            'red_std': red_std,
+            'green_mean': green_mean,
+            'green_std': green_std,
+            'blue_mean': blue_mean,
+            'blue_std': blue_std,
+            'depth_mean': depth_mean,
+            'depth_std': depth_std,
+
+            'environment_type': environment_type,
+            'light_level': light_level.value,
+            'time_of_day': time_of_day,
+
+            'simulation_world': simulation_world,
+            'lighting_model': lighting_model,
+            'texture_mipmap_bias': texture_mipmap_bias,
+            'normal_maps_enabled': normal_maps_enabled,
+            'roughness_enabled': roughness_enabled,
+            'geometry_decimation': geometry_decimation
+        }, img.get_properties())
+
+    def test_get_properties_returns_only_requested_columns_that_exist(self):
+        source_type = imeta.ImageSourceType.SYNTHETIC
+        lens_focal_distance = np.random.uniform(10, 1000)
+        aperture = np.random.uniform(1.2, 3.6)
+
+        red_mean = np.random.uniform(10, 240)
+        red_std = np.random.uniform(1, 10)
+        green_mean = np.random.uniform(10, 240)
+        green_std = np.random.uniform(1, 10)
+        blue_mean = np.random.uniform(10, 240)
+        blue_std = np.random.uniform(1, 10)
+        depth_mean = np.random.uniform(100, 2000)
+        depth_std = np.random.uniform(10, 100)
+
+        environment_type = imeta.EnvironmentType.OUTDOOR_URBAN
+        light_level = imeta.LightingLevel.DIM
+        time_of_day = imeta.TimeOfDay.TWILIGHT
+
+        simulation_world = "Generated World {0}".format(np.random.randint(0, 2**16))
+        lighting_model = imeta.LightingModel.UNLIT
+        texture_mipmap_bias = np.random.randint(1, 8)
+        normal_maps_enabled = False
+        roughness_enabled = True
+        geometry_decimation = np.random.uniform(0, 1)
+
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=source_type,
+                lens_focal_distance=lens_focal_distance,
+                aperture=aperture,
+                red_mean=red_mean,
+                red_std=red_std,
+                green_mean=green_mean,
+                green_std=green_std,
+                blue_mean=blue_mean,
+                blue_std=blue_std,
+                depth_mean=depth_mean,
+                depth_std=depth_std,
+                environment_type=environment_type,
+                light_level=light_level,
+                time_of_day=time_of_day,
+                simulation_world=simulation_world,
+                lighting_model=lighting_model,
+                texture_mipmap_bias=texture_mipmap_bias,
+                normal_maps_enabled=normal_maps_enabled,
+                roughness_enabled=roughness_enabled,
+                geometry_decimation=geometry_decimation
+            )
+        )
+        self.assertEqual({
+            'red_mean': red_mean,
+            'red_std': red_std,
+            'green_mean': green_mean,
+            'green_std': green_std,
+            'blue_mean': blue_mean,
+            'blue_std': blue_std,
+            'depth_mean': depth_mean,
+            'depth_std': depth_std
+        }, img.get_properties({
+            'red_mean',
+            'red_std',
+            'green_mean',
+            'green_std',
+            'blue_mean',
+            'blue_std',
+            'depth_mean',
+            'depth_std',
+            'not_a_real_column',
+            'another_not_a_real_column'
+        }))
+
 
 class TestStereoImageDatabase(unittest.TestCase):
 
@@ -694,3 +878,135 @@ class TestStereoImage(th.ExtendedTestCase):
         self.assertNPEqual(stereo_image.right_pixels, right_image.pixels)
         self.assertNPEqual(stereo_image.right_depth, right_image.depth)
         self.assertNPEqual(stereo_image.right_normals, right_image.normals)
+
+    def test_get_columns_returns_column_list(self):
+        self.assertEqual({
+            # Left columns
+            'source_type',
+            'lens_focal_distance',
+            'aperture',
+
+            'red_mean',
+            'red_std',
+            'green_mean',
+            'green_std',
+            'blue_mean',
+            'blue_std',
+            'depth_mean',
+            'depth_std',
+
+            'environment_type',
+            'light_level',
+            'time_of_day',
+
+            'simulation_world',
+            'lighting_model',
+            'texture_mipmap_bias',
+            'normal_maps_enabled',
+            'roughness_enabled',
+            'geometry_decimation',
+
+            # Right columns
+            'stereo_offset',
+            'right_lens_focal_distance',
+            'right_aperture',
+
+            'right_red_mean',
+            'right_red_std',
+            'right_green_mean',
+            'right_green_std',
+            'right_blue_mean',
+            'right_blue_std',
+            'right_depth_mean',
+            'right_depth_std'
+        }, self.image.get_columns())
+
+    def test_get_properties_returns_the_value_of_all_columns(self):
+        self.assertEqual({
+            # Left image properties
+            'source_type': imeta.ImageSourceType.SYNTHETIC,
+            'lens_focal_distance': 5.0,
+            'aperture': 22,
+
+            'red_mean': self.full_metadata.red_mean,
+            'red_std': self.full_metadata.red_std,
+            'green_mean': self.full_metadata.green_mean,
+            'green_std': self.full_metadata.green_std,
+            'blue_mean': self.full_metadata.blue_mean,
+            'blue_std': self.full_metadata.blue_std,
+            'depth_mean': self.full_metadata.depth_mean,
+            'depth_std': self.full_metadata.depth_std,
+
+            'environment_type': imeta.EnvironmentType.INDOOR_CLOSE,
+            'light_level': imeta.LightingLevel.WELL_LIT.value,
+            'time_of_day': imeta.TimeOfDay.DAY,
+
+            'simulation_world': 'TestSimulationWorld',
+            'lighting_model': imeta.LightingModel.LIT,
+            'texture_mipmap_bias': 1,
+            'normal_maps_enabled': True,
+            'roughness_enabled': True,
+            'geometry_decimation': 0.8,
+
+            # Right columns
+            'stereo_offset': np.linalg.norm(self.full_image.stereo_offset.location),
+            'right_lens_focal_distance': self.full_image.right_metadata.lens_focal_distance,
+            'right_aperture': self.full_image.right_metadata.aperture,
+
+            'right_red_mean': self.full_image.right_metadata.red_mean,
+            'right_red_std': self.full_image.right_metadata.red_std,
+            'right_green_mean': self.full_image.right_metadata.green_mean,
+            'right_green_std': self.full_image.right_metadata.green_std,
+            'right_blue_mean': self.full_image.right_metadata.blue_mean,
+            'right_blue_std': self.full_image.right_metadata.blue_std,
+            'right_depth_mean': self.full_image.right_metadata.depth_mean,
+            'right_depth_std': self.full_image.right_metadata.depth_std
+
+        }, self.full_image.get_properties())
+
+    def test_get_properties_returns_only_requested_columns_that_exist(self):
+        self.assertEqual({
+            # Left image properties
+            'source_type': imeta.ImageSourceType.SYNTHETIC,
+            'lens_focal_distance': 5.0,
+            'aperture': 22.0,
+
+            'environment_type': imeta.EnvironmentType.INDOOR_CLOSE,
+            'light_level': imeta.LightingLevel.WELL_LIT.value,
+            'time_of_day': imeta.TimeOfDay.DAY,
+
+            'simulation_world': 'TestSimulationWorld',
+            'lighting_model': imeta.LightingModel.LIT,
+            'texture_mipmap_bias': 1,
+            'normal_maps_enabled': True,
+            'roughness_enabled': True,
+            'geometry_decimation': 0.8,
+
+            # Right columns
+            'stereo_offset': np.linalg.norm(self.full_image.stereo_offset.location),
+            'right_lens_focal_distance': self.full_image.right_metadata.lens_focal_distance,
+            'right_aperture': self.full_image.right_metadata.aperture
+
+        }, self.full_image.get_properties({
+            'source_type',
+            'lens_focal_distance',
+            'aperture',
+
+            'environment_type',
+            'light_level',
+            'time_of_day',
+
+            'not_a_real_column',
+            'another_not_real_column',
+
+            'simulation_world',
+            'lighting_model',
+            'texture_mipmap_bias',
+            'normal_maps_enabled',
+            'roughness_enabled',
+            'geometry_decimation',
+
+            'stereo_offset',
+            'right_lens_focal_distance',
+            'right_aperture',
+        }))

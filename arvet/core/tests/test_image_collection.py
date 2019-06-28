@@ -328,6 +328,53 @@ class TestImageCollection(unittest.TestCase):
                 self.assertGreater(timestamp, prev_timestamp)
             prev_timestamp = timestamp
 
+    def test_get_columns_returns_column_list(self):
+        images = [make_image(idx, depth=None) for idx in range(10)]
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        self.assertEqual({
+            'dataset',
+            'sequence_name',
+            'trajectory_id',
+        }, collection.get_columns())
+
+    def test_get_properties_returns_the_value_of_all_columns(self):
+        dataset = 'my dataset'
+        sequence_name = 'this is a sequence'
+        trajectory_id = 'trajectory 6'
+        images = [make_image(idx, depth=None) for idx in range(10)]
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL,
+            dataset=dataset,
+            sequence_name=sequence_name,
+            trajectory_id=trajectory_id
+        )
+        self.assertEqual({
+            'dataset': dataset,
+            'sequence_name': sequence_name,
+            'trajectory_id': trajectory_id
+        }, collection.get_properties())
+
+    def test_get_properties_returns_only_requested_columns_that_exist(self):
+        dataset = 'my dataset'
+        sequence_name = 'this is a sequence'
+        trajectory_id = 'trajectory 6'
+        images = [make_image(idx, depth=None) for idx in range(10)]
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL,
+            dataset=dataset,
+            sequence_name=sequence_name,
+            trajectory_id=trajectory_id
+        )
+        self.assertEqual({'dataset': dataset}, collection.get_properties({'dataset', 'not_a_column'}))
+
     # @mock.patch('arvet.core.image_collection.os.path.isfile', autospec=os.path.isfile)
     # def test_loads_images_from_cache_if_available(self, mock_isfile):
     #     db_client = self.create_mock_db_client()
