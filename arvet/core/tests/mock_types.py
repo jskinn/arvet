@@ -96,16 +96,7 @@ class MockMetric(arvet.core.metric.Metric):
 
 
 class MockMetricResult(arvet.core.metric.MetricResult):
-
-    def get_columns(self):
-        return set()
-
-    def get_results(self, columns=None):
-        return {}
-
-    @classmethod
-    def visualize_results(cls, results, output_folder, plots=None):
-        pass
+    pass
 
 
 class MockTrialComparisonMetric(arvet.core.trial_comparison.TrialComparisonMetric):

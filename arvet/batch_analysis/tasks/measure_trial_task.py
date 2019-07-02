@@ -59,24 +59,10 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
         :return:
         """
         logging.getLogger(__name__).error(message)
-        self.result = FailedTaskMetricResult(
+        self.result = MetricResult(
             metric=self.metric,
             trial_results=self.trial_results,
+            success=False,
             message=message
         )
         self.mark_job_complete()
-
-
-class FailedTaskMetricResult(MetricResult):
-    success = False
-
-    def get_columns(self) -> typing.Set[str]:
-        return set()
-
-    def get_results(self, columns: typing.Iterable[str] = None) -> typing.List[dict]:
-        return []
-
-    @classmethod
-    def visualize_results(cls, results: typing.Iterable[MetricResult], output_folder: str,
-                          plots: typing.Iterable[str] = None) -> None:
-        pass

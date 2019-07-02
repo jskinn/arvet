@@ -94,7 +94,7 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         return obj
 
 
-class MetricResult(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
+class MetricResult(pymodm.MongoModel):
     """
     A general superclass for metric results for all metrics
     """
@@ -115,25 +115,27 @@ class MetricResult(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         return self._id
 
-    @abc.abstractmethod
     def get_columns(self) -> typing.Set[str]:
         """
-        Get a list of available results columns
-        Should delegate to the linked trial results, systems, etc for the full list
+        Get a list of available results columns, which are the possible keys in dictionaries returned by get_results.
+        Should delegate to the linked trial results, systems, etc for the full list.
         :return:
         """
-        pass
+        return set()
 
-    @abc.abstractmethod
     def get_results(self, columns: typing.Iterable[str] = None) -> typing.List[dict]:
         """
+        Get the results from this metric result, as a list of dictionaries we can turn into a Pandas data frame.
+        Each dictionary should include as much data as possible, including data about the system, the image source,
+        the particular image, etc...
+        Use the argument to restrict the columns to a limited set, should return all by default.
+        This must return a non-empty list for any trial result where success is True.
 
         :return:
         """
-        pass
+        return []
 
     @classmethod
-    @abc.abstractmethod
     def visualize_results(cls, results: typing.Iterable['MetricResult'], output_folder: str,
                           plots: typing.Iterable[str] = None) -> None:
         """
