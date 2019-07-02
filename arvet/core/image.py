@@ -37,7 +37,7 @@ class Image(pymodm.MongoModel):
         depth_std=attrgetter('metadata.depth_std'),
 
         environment_type=attrgetter('metadata.environment_type'),
-        light_level=lambda obj: obj.metadata.light_level.value,
+        light_level=lambda obj: obj.metadata.light_level.value if obj.metadata.light_level is not None else None,
         time_of_day=attrgetter('metadata.time_of_day'),
 
         simulation_world=attrgetter('metadata.simulation_world'),
@@ -131,7 +131,7 @@ class StereoImage(Image):
     # Columns, extending the image columns, above
     columns = ColumnList(
         Image.columns,
-        stereo_offset=lambda obj: np.linalg.norm(obj.stereo_offset.location),
+        stereo_offset=lambda obj: np.linalg.norm(obj.stereo_offset.location) if obj.stereo_offset is not None else None,
         right_lens_focal_distance=attrgetter('right_metadata.lens_focal_distance'),
         right_aperture=attrgetter('right_metadata.aperture'),
 
@@ -270,6 +270,8 @@ class StereoImage(Image):
         Used for setting the stereo offset of systems
         :return:
         """
+        if self.left_camera_pose is None:
+            return None
         return self.left_camera_pose.find_relative(self.right_camera_pose)
 
     @classmethod

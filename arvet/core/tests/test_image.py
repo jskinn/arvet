@@ -323,6 +323,42 @@ class TestImage(th.ExtendedTestCase):
             'geometry_decimation': geometry_decimation
         }, img.get_properties())
 
+    def test_get_properties_returns_defaults_for_minimal_parameters(self):
+        source_type = imeta.ImageSourceType.SYNTHETIC
+
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=source_type
+            )
+        )
+        self.assertEqual({
+            'source_type': source_type,
+            'lens_focal_distance': None,
+            'aperture': None,
+
+            'red_mean': None,
+            'red_std': None,
+            'green_mean': None,
+            'green_std': None,
+            'blue_mean': None,
+            'blue_std': None,
+            'depth_mean': None,
+            'depth_std': None,
+
+            'environment_type': None,
+            'light_level': None,
+            'time_of_day': None,
+
+            'simulation_world': None,
+            'lighting_model': None,
+            'texture_mipmap_bias': None,
+            'normal_maps_enabled': None,
+            'roughness_enabled': None,
+            'geometry_decimation': None
+        }, img.get_properties())
+
     def test_get_properties_returns_only_requested_columns_that_exist(self):
         source_type = imeta.ImageSourceType.SYNTHETIC
         lens_focal_distance = np.random.uniform(10, 1000)
@@ -963,6 +999,62 @@ class TestStereoImage(th.ExtendedTestCase):
             'right_depth_std': self.full_image.right_metadata.depth_std
 
         }, self.full_image.get_properties())
+
+    def test_get_properties_returns_defaults_for_minimal_parameters(self):
+        source_type = imeta.ImageSourceType.SYNTHETIC
+
+        img = im.StereoImage(
+            pixels=self.left_pixels,
+            right_pixels=self.right_pixels,
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            ),
+            right_metadata = imeta.ImageMetadata(
+                img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertEqual({
+            # Left image properties
+            'source_type': source_type,
+            'lens_focal_distance': None,
+            'aperture': None,
+
+            'red_mean': None,
+            'red_std': None,
+            'green_mean': None,
+            'green_std': None,
+            'blue_mean': None,
+            'blue_std': None,
+            'depth_mean': None,
+            'depth_std': None,
+
+            'environment_type': None,
+            'light_level': None,
+            'time_of_day': None,
+
+            'simulation_world': None,
+            'lighting_model': None,
+            'texture_mipmap_bias': None,
+            'normal_maps_enabled': None,
+            'roughness_enabled': None,
+            'geometry_decimation': None,
+
+            # Right columns
+            'stereo_offset': None,
+            'right_lens_focal_distance': None,
+            'right_aperture': None,
+
+            'right_red_mean': None,
+            'right_red_std': None,
+            'right_green_mean': None,
+            'right_green_std': None,
+            'right_blue_mean': None,
+            'right_blue_std': None,
+            'right_depth_mean': None,
+            'right_depth_std': None
+        }, img.get_properties())
 
     def test_get_properties_returns_only_requested_columns_that_exist(self):
         self.assertEqual({
