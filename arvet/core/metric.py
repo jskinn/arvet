@@ -2,7 +2,6 @@
 import abc
 import typing
 import bson
-import pandas as pd
 import pymodm
 import pymodm.fields as fields
 import arvet.database.pymodm_abc as pymodm_abc
@@ -50,6 +49,23 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         These are assumed to be repeat runs of the same system on the same data.
         :return: A MetricResult object containing either the results, or explaining the error
         :rtype: MetricResult
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_columns(self) -> typing.Set[str]:
+        """
+        Get the set of available properties for this metric. Pass these to "get_properties", below.
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+        """
+        Get the values of the requested properties
+        :param columns:
+        :return:
         """
         pass
 

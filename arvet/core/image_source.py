@@ -124,7 +124,7 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
     @abc.abstractmethod
     def get_columns(self) -> typing.Set[str]:
         """
-        Get the set of available properties for this system. Pass these to "get_properties", below.
+        Get the set of available properties for this image source. Pass these to "get_properties", below.
         :return:
         """
         pass

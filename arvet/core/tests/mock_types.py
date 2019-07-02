@@ -73,12 +73,7 @@ class MockImageSource(arvet.core.image_source.ImageSource):
 
 
 class MockTrialResult(arvet.core.trial_result.TrialResult):
-
-    def get_columns(self):
-        return set()
-
-    def get_properties(self, columns=None):
-        return {}
+    pass
 
 
 class MockMetric(arvet.core.metric.Metric):
@@ -93,6 +88,12 @@ class MockMetric(arvet.core.metric.Metric):
     def measure_results(self, trial_results):
         return MockMetricResult(self, list(trial_results), True)
 
+    def get_columns(self):
+        pass
+
+    def get_properties(self, columns=None):
+        pass
+
 
 class MockMetricResult(arvet.core.metric.MetricResult):
 
@@ -103,7 +104,7 @@ class MockMetricResult(arvet.core.metric.MetricResult):
         return {}
 
     @classmethod
-    def visualize_results(cls, results, output_folder):
+    def visualize_results(cls, results, output_folder, plots=None):
         pass
 
 
