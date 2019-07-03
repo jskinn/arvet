@@ -158,6 +158,8 @@ def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_resul
     """
     first_trial = None
     for idx, trial in enumerate(trial_results):
+        if not trial.success:
+            return "Trial {0} (1) is failed".format(idx, trial.pk)
         if first_trial is None:
             first_trial = trial
         else:

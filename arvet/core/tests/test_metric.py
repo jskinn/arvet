@@ -132,32 +132,67 @@ class TestMetricResultDatabase(unittest.TestCase):
 
 class TestCheckTrialCollection(unittest.TestCase):
 
-    def test_returns_none_iff_all_trials_have_same_image_source_and_system(self):
+    def test_returns_none_if_all_trials_succeed_and_have_same_image_source_and_system(self):
+        system = mock_types.MockSystem()
+        image_source = mock_types.MockImageSource()
+
+        group1 = [
+            mock_types.MockTrialResult(image_source=image_source, system=system, success=True)
+            for _ in range(10)
+        ]
+        self.assertIsNone(mtr.check_trial_collection(group1))
+
+    def test_returns_error_message_if_trials_have_failed(self):
+        system = mock_types.MockSystem()
+        image_source = mock_types.MockImageSource()
+
+        group1 = [
+            mock_types.MockTrialResult(image_source=image_source, system=system, success=True)
+            for _ in range(10)
+        ]
+        group2 = [
+            mock_types.MockTrialResult(image_source=image_source, system=system, success=False)
+            for _ in range(10)
+        ]
+        message = mtr.check_trial_collection(group1 + group2)
+        self.assertIsNotNone(message)
+        self.assertIn('failed', message)
+
+    def test_returns_error_message_if_trials_have_different_systems(self):
         system1 = mock_types.MockSystem()
         system2 = mock_types.MockSystem()
+        image_source = mock_types.MockImageSource()
+
+        group1 = [
+            mock_types.MockTrialResult(image_source=image_source, system=system1, success=True)
+            for _ in range(10)
+        ]
+        group2 = [
+            mock_types.MockTrialResult(image_source=image_source, system=system2, success=True)
+            for _ in range(10)
+        ]
+        message = mtr.check_trial_collection(group1 + group2)
+        self.assertIsNotNone(message)
+        self.assertIn('system', message)
+
+    def test_returns_error_message_if_trials_have_different_image_sources(self):
+        system = mock_types.MockSystem()
         image_source1 = mock_types.MockImageSource()
         image_source2 = mock_types.MockImageSource()
 
         group1 = [
-            mock_types.MockTrialResult(image_source=image_source1, system=system1, success=True)
+            mock_types.MockTrialResult(image_source=image_source1, system=system, success=True)
             for _ in range(10)
         ]
         group2 = [
-            mock_types.MockTrialResult(image_source=image_source2, system=system1, success=True)
+            mock_types.MockTrialResult(image_source=image_source2, system=system, success=True)
             for _ in range(10)
         ]
-        group3 = [
-            mock_types.MockTrialResult(image_source=image_source1, system=system2, success=True)
-            for _ in range(10)
-        ]
-        self.assertIsNone(mtr.check_trial_collection(group1))
-        self.assertIsNone(mtr.check_trial_collection(group2))
-        self.assertIsNone(mtr.check_trial_collection(group3))
-        self.assertIsNotNone(mtr.check_trial_collection(group1 + group2))
-        self.assertIsNotNone(mtr.check_trial_collection(group1 + group3))
-        self.assertIsNotNone(mtr.check_trial_collection(group2 + group3))
+        message = mtr.check_trial_collection(group1 + group2)
+        self.assertIsNotNone(message)
+        self.assertIn('image source', message)
 
-    def test_returns_differrent_error_messages_if_systems_or_image_sources_are_different(self):
+    def test_returns_different_error_messages_if_systems_or_image_sources_are_different(self):
         system1 = mock_types.MockSystem()
         system2 = mock_types.MockSystem()
         image_source1 = mock_types.MockImageSource()
