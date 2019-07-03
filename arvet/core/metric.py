@@ -148,7 +148,8 @@ class MetricResult(pymodm.MongoModel):
         pass
 
 
-def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_result.TrialResult]) -> bool:
+def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_result.TrialResult]) \
+        -> typing.Union[str, None]:
     """
     A helper function to check that all the given trial results come from the same system and image source.
     Call this at the start of Metric.measure_results
@@ -156,9 +157,11 @@ def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_resul
     :return: None if all the trials are OK, string explaining the problem if they are not
     """
     first_trial = None
-    for trial in trial_results:
+    for idx, trial in enumerate(trial_results):
         if first_trial is None:
             first_trial = trial
-        elif trial.image_source != first_trial.image_source or trial.system != first_trial.system:
-            return False
-    return True
+        else:
+            if trial.image_source != first_trial.image_source:
+                return "Trial {0} ({1}) does not have the same image source as the first trial".format(idx, trial.pk)
+            if trial.system != first_trial.system:
+                return "Trial {0} ({1}) does not have the same system as the first trial".format(idx, trial.pk)
