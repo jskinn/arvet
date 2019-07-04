@@ -141,6 +141,42 @@ class TestTransform(unittest.TestCase):
         self.assertNotEqual(hash(trans1), hash(trans4))
         self.assertEqual({trans1, trans1, trans1}, {trans1})    # Set literals
 
+    def test_inverse_inverts_location(self):
+        transform = tf.Transform(location=(10, 9, 8))
+        inverse = transform.inverse()
+        self.assert_array((-10, -9, -8), inverse.location)
+
+    def test_inverse_inverts_rotation(self):
+        quat = (-0.5, 0.5, 0.5, -0.5)
+        q_inv = tf3d.quaternions.qinverse(quat)
+        transform = tf.Transform(rotation=quat, w_first=True)
+        inverse = transform.inverse()
+        self.assert_array(q_inv, inverse.rotation_quat(w_first=True))
+
+    def test_inverse_of_inverse_is_original(self):
+        transform = tf.Transform(location=(13.2, -23.9, 5.5), rotation=_make_quat((1, 2, 4), np.pi / 7), w_first=True)
+        inverse = transform.inverse()
+        self.assertEqual(transform, inverse.inverse())
+
+    def test_inverse_is_origin_relative_to_transform(self):
+        transform = tf.Transform(location=(13.2, -23.9, 5.5), rotation=_make_quat((1, 2, 4), np.pi / 7), w_first=True)
+        inverse = transform.inverse()
+        self.assertEqual(transform.find_relative(tf.Transform()), inverse)
+
+    def test_inverse_cancels_with_find_independent(self):
+        transform = tf.Transform(location=(13.2, -23.9, 5.5), rotation=_make_quat((1, 2, 4), np.pi / 7), w_first=True)
+        inverse = transform.inverse()
+        self.assertEqual(tf.Transform(), transform.find_independent(inverse))
+        self.assertEqual(tf.Transform(), inverse.find_independent(transform))
+
+    def test_inverse_undoes_offset(self):
+        transform_1 = tf.Transform(location=(13.2, -23.9, 5.5), rotation=_make_quat((1, 2, 4), np.pi / 7), w_first=True)
+        offset = tf.Transform(location=(-6, 33.9, 8.2), rotation=_make_quat((6, 3, 0), 8 * np.pi / 19), w_first=True)
+        transform_2 = transform_1.find_independent(offset)
+        back_transform = transform_2.find_independent(offset.inverse())
+        self.assert_close(transform_1.location, back_transform.location)
+        self.assert_close(transform_1.rotation_quat(True), back_transform.rotation_quat(True))
+
     def test_find_relative_point_moves_origin(self):
         point = (11, 12, 13)
         trans = tf.Transform(location=(10, 9, 8))
@@ -171,6 +207,10 @@ class TestTransform(unittest.TestCase):
         pose_rel = trans.find_relative(pose)
         self.assert_close(pose_rel.euler, (0, -np.pi / 4, -np.pi / 2))
 
+    def test_find_relative_of_self_is_origin(self):
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        self.assertEqual(tf.Transform(), trans.find_relative(trans))
+
     def test_find_independent_point_moves_origin(self):
         point = (1, 3, 5)
         trans = tf.Transform(location=(10, 9, 8))
@@ -188,6 +228,10 @@ class TestTransform(unittest.TestCase):
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose_rel = trans.find_independent(pose)
         self.assert_close(pose_rel.euler, (0, np.pi / 4, np.pi / 2))
+
+    def test_find_independent_of_origin_is_self(self):
+        trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        self.assertEqual(trans, trans.find_independent(tf.Transform()))
 
     def test_find_relative_undoes_point(self):
         loc = (-13, 27, -127)

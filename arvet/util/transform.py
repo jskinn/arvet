@@ -35,32 +35,36 @@ class Transform:
         if isinstance(location, Transform):
             self._x, self._y, self._z = location.location
             self._qw, self._qx, self._qy, self._qz = location.rotation_quat(w_first=True)
-        elif isinstance(location, np.ndarray) and location.shape == (4, 4):
-            # first parameter is a homogenous transformation matrix, turn it back into
-            # location and quaternion
-            trans, rot, zooms, shears = tf.affines.decompose44(location)
-            self._x, self._y, self._z = trans
-            self._qw, self._qx, self._qy, self._qz = tf.quaternions.mat2quat(rot)
+            return
+
+        if isinstance(location, np.ndarray):
+            if location.shape == (4, 4):
+                # first parameter is a homogenous transformation matrix, turn it back into
+                # location and quaternion
+                trans, rot, zooms, shears = tf.affines.decompose44(location)
+                self._x, self._y, self._z = trans
+                self._qw, self._qx, self._qy, self._qz = tf.quaternions.mat2quat(rot)
+                return
+
+        # Location
+        if location is not None and len(location) >= 3:
+            self._x, self._y, self._z = location
         else:
-            # Location
-            if location is not None and len(location) >= 3:
-                self._x, self._y, self._z = location
+            self._x = self._y = self._z = 0
+        # rotation
+        if rotation is not None and len(rotation) == 3:
+            # Rotation is euler angles, convert to quaternion
+            # I'm using the roll, pitch, yaw order of input, for consistency with Unreal
+            self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
+        elif rotation is not None and len(rotation) >= 4:
+            rotation = np.asarray(rotation, dtype=np.dtype('float'))
+            if w_first:
+                self._qw, self._qx, self._qy, self._qz = robust_normalize(rotation)
             else:
-                self._x = self._y = self._z = 0
-            # rotation
-            if rotation is not None and len(rotation) == 3:
-                # Rotation is euler angles, convert to quaternion
-                # I'm using the roll, pitch, yaw order of input, for consistency with Unreal
-                self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
-            elif rotation is not None and len(rotation) >= 4:
-                rotation = np.asarray(rotation, dtype=np.dtype('float'))
-                if w_first:
-                    self._qw, self._qx, self._qy, self._qz = robust_normalize(rotation)
-                else:
-                    self._qx, self._qy, self._qz, self._qw = robust_normalize(rotation)
-            else:
-                self._qw = 1
-                self._qx = self._qy = self._qz = 0
+                self._qx, self._qy, self._qz, self._qw = robust_normalize(rotation)
+        else:
+            self._qw = 1
+            self._qx = self._qy = self._qz = 0
 
     def __repr__(self):
         return "Transform([{x}, {y}, {z}], [{qx}, {qy}, {qz}, {qw}])".format(
@@ -188,6 +192,16 @@ class Transform:
     @property
     def left(self) -> np.ndarray:
         return tf.quaternions.rotate_vector((0, 1, 0), (self._qw, self._qx, self._qy, self._qz))
+
+    def inverse(self) -> 'Transform':
+        """
+        Find the inverse of the transform
+        That is, a transformation that when combined with this one returns to the origin.
+        :return:
+        """
+        inv_rot = tf.quaternions.qinverse(self.rotation_quat(w_first=True))
+        loc = tf.quaternions.rotate_vector(-1 * self.location, inv_rot)
+        return Transform(location=loc, rotation=inv_rot, w_first=True)
 
     def find_relative(self, pose: typing.Union['Transform', typing.Sequence, np.ndarray]) \
             -> typing.Union['Transform', np.ndarray]:
@@ -343,6 +357,3 @@ def compute_average_pose(poses: typing.Iterable[Transform]) -> Transform:
         rotation=quat_mean([data[1] for data in pose_data]),
         w_first=True
     )
-
-def _safe_arccos(value) -> float:
-    return float(np.arccos(min(1, max(-1, value))))
