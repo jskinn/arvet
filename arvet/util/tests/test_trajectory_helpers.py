@@ -1,11 +1,13 @@
 import unittest
 import typing
 import numpy as np
+import transforms3d as tf3d
 import arvet.util.transform as tf
+from arvet.util.test_helpers import ExtendedTestCase
 import arvet.util.trajectory_helpers as th
 
 
-class TestZeroTrajectory(unittest.TestCase):
+class TestZeroTrajectory(ExtendedTestCase):
 
     def test_zero_trajectory_starts_result_at_zero(self):
         traj = create_trajectory(start_location=np.array([100, 200, 300]))
@@ -27,12 +29,6 @@ class TestZeroTrajectory(unittest.TestCase):
         for time in original_motions.keys():
             self.assertNPClose(original_motions[time].location, result_motions[time].location)
             self.assertNPClose(original_motions[time].rotation_quat(True), result_motions[time].rotation_quat(True))
-
-    def assertNPEqual(self, arr1, arr2):
-        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
-
-    def assertNPClose(self, arr1, arr2):
-        self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
 
 
 class TestFindTrajectoryScale(unittest.TestCase):
@@ -63,7 +59,7 @@ class TestFindTrajectoryScale(unittest.TestCase):
             traj[float(time) + 1] = tf.Transform(location=new_location)
             prev_location = new_location
         result = th.find_trajectory_scale(traj)
-        self.assertAlmostEqual(np.mean(speeds), result, places=13)
+        self.assertAlmostEqual(float(np.mean(speeds)), result, places=13)
 
     def test_is_independent_of_direction_or_orientation(self):
         random = np.random.RandomState(15646)
@@ -80,7 +76,7 @@ class TestFindTrajectoryScale(unittest.TestCase):
             prev_location = new_location
         no_motion_ref = th.find_trajectory_scale(traj1)
         result = th.find_trajectory_scale(traj2)
-        self.assertAlmostEqual(np.mean(speeds), result, places=13)
+        self.assertAlmostEqual(float(np.mean(speeds)), result, places=13)
         self.assertEqual(no_motion_ref, result)
 
     def test_scales_with_time(self):
@@ -98,10 +94,10 @@ class TestFindTrajectoryScale(unittest.TestCase):
             prev_location = new_location
             prev_time = prev_time + times[idx]
         result = th.find_trajectory_scale(traj)
-        self.assertAlmostEqual(np.mean(speeds), result, places=13)
+        self.assertAlmostEqual(float(np.mean(speeds)), result, places=13)
 
 
-class TestRescaleTrajectory(unittest.TestCase):
+class TestRescaleTrajectory(ExtendedTestCase):
 
     def test_does_nothing_to_empty_trajectory(self):
         self.assertEqual({}, th.rescale_trajectory({}, 3))
@@ -161,12 +157,6 @@ class TestRescaleTrajectory(unittest.TestCase):
                         places=10
                     )
 
-    def assertNPEqual(self, arr1, arr2):
-        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
-
-    def assertNPClose(self, arr1, arr2):
-        self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
-
 
 class TestTrajectoryToMotionSequence(unittest.TestCase):
 
@@ -194,22 +184,201 @@ class TestTrajectoryToMotionSequence(unittest.TestCase):
             prev_time = time
 
 
-class TestComputeAverageTrajectory(unittest.TestCase):
+class TestComputeAverageTrajectory(ExtendedTestCase):
 
     def test_produces_average_location(self):
-        centres = {time: np.array([time, 1000 - time * time, time * time - 4 * time]) for time in range(100)}
-        variations = {time: np.random.normal(0, 4, (10, 3)) for time in centres.keys()}
-        mean_trajectory = th.compute_average_trajectory({
-            time: tf.Transform(location=centres[time] + variations[time][traj_idx])
-            for time in centres.keys()
-        } for traj_idx in range(10))
-        for time in centres.keys():
-            self.assertIn(time, mean_trajectory)
-            self.assertNPClose(centres[time] + np.mean(variations[time], axis=0), mean_trajectory[time].location)
+        # this is 5 sequences of 10 3-vector locations
+        locations = np.random.normal(0, 4, (10, 5, 3))
+        locations += np.array([[[idx, 25 - idx * idx, 3]] for idx in range(10)])
 
-    def assertNPClose(self, arr1, arr2, atol=1e-10):
-        self.assertTrue(np.all(np.isclose(arr1, arr2, rtol=0, atol=atol)),
-                        "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
+        # Flatten across the 5 sequences, giving 10 3-vectors
+        mean_locations = np.mean(locations, axis=1)
+
+        # Find the mean trajectory
+        trajectories = [
+            {
+                time: tf.Transform(location=locations[time, traj_idx, :])
+                for time in range(10)
+            }
+            for traj_idx in range(5)
+        ]
+        mean_trajectory = th.compute_average_trajectory(trajectories)
+
+        # Check the locations are averaged
+        for time in range(10):
+            self.assertIn(time, mean_trajectory)
+            self.assertNPEqual(mean_locations[time], mean_trajectory[time].location)
+
+    def test_produces_average_orientation(self):
+        # this is 5 sequences of 10 quaternion orientations that are close together
+        orientations = [
+            [
+                tf3d.quaternions.axangle2quat(
+                    (1, time_idx, 3),
+                    (time_idx + np.random.uniform(-0.1, 0.1)) * np.pi / 17
+                )
+                for _ in range(5)
+            ]
+            for time_idx in range(10)
+        ]
+
+        # Flatten across the 5 sequences, giving 10 quaternions
+        # We use our custom quat_mean, because average orientations are hard
+        mean_orientations = [
+            tf.quat_mean(orientations_at_time)
+            for orientations_at_time in orientations
+        ]
+
+        # Find the mean trajectory
+        trajectories = [
+            {
+                time_idx: tf.Transform(location=(time_idx, 0, 0),
+                                       rotation=orientations[time_idx][traj_idx], w_first=True)
+                for time_idx in range(10)
+            }
+            for traj_idx in range(5)
+        ]
+        mean_trajectory = th.compute_average_trajectory(trajectories)
+
+        # Check the locations are averaged
+        for time_idx in range(10):
+            self.assertIn(time_idx, mean_trajectory)
+            self.assertNPEqual(mean_orientations[time_idx], mean_trajectory[time_idx].rotation_quat(w_first=True))
+
+    def test_associates_on_median_times(self):
+        # 5 sequences of times, each length 10, randomly varied by 0.05, which is as much variance as this will handle
+        times = np.random.uniform(-0.05, 0.05, (10, 5))
+        times += np.arange(10).reshape(10, 1)   # Make time increase linearly
+
+        # Find the median times
+        median_times = np.median(times, axis=1)
+
+        # this is 5 sequences of 10 3-vector locations
+        locations = np.random.normal(0, 4, (10, 5, 3))
+        locations += np.array([[[idx, 25 - idx * idx, 3]] for idx in range(10)])
+
+        # Flatten across the 5 sequences, giving 10 3-vectors
+        mean_locations = np.mean(locations, axis=1)
+
+        # Find the mean trajectory
+        trajectories = [
+            {
+                times[time_idx, traj_idx]: tf.Transform(location=locations[time_idx, traj_idx, :])
+                for time_idx in range(10)
+            }
+            for traj_idx in range(5)
+        ]
+        mean_trajectory = th.compute_average_trajectory(trajectories)
+
+        # Check the locations are averaged
+        for time_idx in range(10):
+            self.assertIn(median_times[time_idx], mean_trajectory)
+            self.assertNPEqual(mean_locations[time_idx], mean_trajectory[median_times[time_idx]].location)
+
+    def test_handles_missing_poses(self):
+        # Choose different times in different trajectories where the pose will be missing
+        missing = [[(time_idx + 1) * (traj_idx + 1) % 12 == 0 for traj_idx in range(5)] for time_idx in range(10)]
+
+        # this is 5 sequences of 10 3-vector locations
+        locations = np.random.normal(0, 4, (10, 5, 3))
+        locations += np.array([[[idx, 25 - idx * idx, 3]] for idx in range(10)])
+
+        # Flatten across the 5 sequences, giving 10 3-vectors
+        # We have to leave the missing poses out of the mean
+        mean_locations = [
+            np.mean([
+                locations[time_idx, traj_idx, :]
+                for traj_idx in range(5)
+                if not missing[time_idx][traj_idx]
+            ], axis=0)
+            for time_idx in range(10)
+        ]
+
+        # Find the mean trajectory
+        trajectories = [
+            {
+                time_idx: tf.Transform(location=locations[time_idx, traj_idx, :])
+                for time_idx in range(10)
+                if not missing[time_idx][traj_idx]
+            }
+            for traj_idx in range(5)
+        ]
+        mean_trajectory = th.compute_average_trajectory(trajectories)
+
+        # Check the locations are averaged
+        for time in range(10):
+            self.assertIn(time, mean_trajectory)
+            self.assertNPEqual(mean_locations[time], mean_trajectory[time].location)
+
+    def test_handles_poses_being_none(self):
+        # Choose different times in different trajectories where the pose will be missing
+        missing = [[(time_idx + 1) * (traj_idx + 1) % 12 == 0 for traj_idx in range(5)] for time_idx in range(10)]
+
+        # this is 5 sequences of 10 3-vector locations
+        locations = np.random.normal(0, 4, (10, 5, 3))
+        locations += np.array([[[idx, 25 - idx * idx, 3]] for idx in range(10)])
+
+        # Flatten across the 5 sequences, giving 10 3-vectors
+        # We have to leave the missing poses out of the mean
+        mean_locations = [
+            np.mean([
+                locations[time_idx, traj_idx, :]
+                for traj_idx in range(5)
+                if not missing[time_idx][traj_idx]
+            ], axis=0)
+            for time_idx in range(10)
+        ]
+
+        # Find the mean trajectory
+        trajectories = [
+            {
+                time_idx: tf.Transform(location=locations[time_idx, traj_idx, :])
+                if not missing[time_idx][traj_idx] else None
+                for time_idx in range(10)
+            }
+            for traj_idx in range(5)
+        ]
+        mean_trajectory = th.compute_average_trajectory(trajectories)
+
+        # Check the locations are averaged
+        for time in range(10):
+            self.assertIn(time, mean_trajectory)
+            self.assertNPEqual(mean_locations[time], mean_trajectory[time].location)
+
+    def test_handles_all_poses_at_given_time_being_none(self):
+
+        # this is 5 sequences of 9 3-vector locations
+        locations = np.random.normal(0, 4, (9, 5, 3))
+        locations += np.array([[[idx, 25 - idx * idx, 3]] for idx in range(9)])
+
+        # Flatten across the 5 sequences, giving 10 3-vectors
+        # We have to leave the missing poses out of the mean
+        mean_locations = [
+            np.mean([
+                locations[time_idx, traj_idx, :]
+                for traj_idx in range(5)
+            ], axis=0)
+            for time_idx in range(9)
+        ]
+
+        # Find the mean trajectory
+        trajectories = [
+            {
+                time_idx: tf.Transform(location=locations[time_idx - 1, traj_idx, :])
+                if time_idx > 0 else None
+                for time_idx in range(10)
+            }
+            for traj_idx in range(5)
+        ]
+        mean_trajectory = th.compute_average_trajectory(trajectories)
+
+        # Check the locations are averaged
+        for time_idx in range(10):
+            self.assertIn(time_idx, mean_trajectory)
+            if time_idx == 0:
+                self.assertIsNone(mean_trajectory[time_idx])
+            else:
+                self.assertNPEqual(mean_locations[time_idx - 1], mean_trajectory[time_idx].location)
 
 
 def create_trajectory(length=100, start_location=None, start_rotation=None, seed=0) -> \
