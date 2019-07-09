@@ -2,6 +2,7 @@
 import unittest
 import numpy as np
 import transforms3d as tf3d
+from arvet.util.test_helpers import ExtendedTestCase
 import arvet.util.transform as tf
 
 
@@ -13,23 +14,23 @@ def _make_quat(axis, theta):
     return q
 
 
-class TestTransform(unittest.TestCase):
+class TestTransform(ExtendedTestCase):
 
     def test_constructor_clone(self):
         trans1 = tf.Transform(location=(1, 2, 3),
                               rotation=(4, 5, 6, 7))
         trans2 = tf.Transform(trans1)
-        self.assert_array(trans1.location, trans2.location)
-        self.assert_array(trans1.rotation_quat(w_first=True), trans2.rotation_quat(w_first=True))
-        self.assert_array(trans1.transform_matrix, trans2.transform_matrix)
+        self.assertNPEqual(trans1.location, trans2.location)
+        self.assertNPEqual(trans1.rotation_quat(w_first=True), trans2.rotation_quat(w_first=True))
+        self.assertNPEqual(trans1.transform_matrix, trans2.transform_matrix)
 
     def test_location_basic(self):
         trans = tf.Transform(location=(1, 2, 3))
-        self.assert_array((1, 2, 3), trans.location)
+        self.assertNPEqual((1, 2, 3), trans.location)
 
     def test_location_default(self):
         trans = tf.Transform()
-        self.assert_array(np.zeros(3), trans.location)
+        self.assertNPEqual(np.zeros(3), trans.location)
 
     def test_constructor_location_from_homogeneous(self):
         hom = np.array([[0.80473785, -0.31061722, 0.50587936, 1],
@@ -37,28 +38,28 @@ class TestTransform(unittest.TestCase):
                         [-0.31061722, 0.50587936, 0.80473785, 3],
                         [0, 0, 0, 1]])
         trans = tf.Transform(hom)
-        self.assert_array((1, 2, 3), trans.location)
+        self.assertNPEqual((1, 2, 3), trans.location)
 
     def test_constructor_rotation_basic(self):
         # The rotation here is for 45 degrees around axis 1,2,3
         trans = tf.Transform(location=(1, 2, 3), rotation=(0.92387953, 0.10227645, 0.2045529, 0.30682935), w_first=True)
-        self.assert_close(trans.rotation_quat(w_first=True),
-                          np.array([0.92387953, 0.10227645, 0.2045529, 0.30682935]))
-        self.assert_close(trans.rotation_quat(w_first=False),
-                          np.array([0.10227645, 0.2045529, 0.30682935, 0.92387953]))
+        self.assertNPClose(trans.rotation_quat(w_first=True),
+                           np.array([0.92387953, 0.10227645, 0.2045529, 0.30682935]))
+        self.assertNPClose(trans.rotation_quat(w_first=False),
+                           np.array([0.10227645, 0.2045529, 0.30682935, 0.92387953]))
 
     def test_constructor_rotation_handles_non_unit(self):
         trans = tf.Transform(rotation=(10, 1, 2, 3), w_first=True)
-        self.assert_close(trans.rotation_quat(w_first=True), (0.93658581, 0.09365858, 0.18731716, 0.28097574))
+        self.assertNPClose(trans.rotation_quat(w_first=True), (0.93658581, 0.09365858, 0.18731716, 0.28097574))
 
     def test_constructor_rotation_default(self):
         trans = tf.Transform()
-        self.assert_array(trans.rotation_quat(True), (1, 0, 0, 0))
+        self.assertNPEqual(trans.rotation_quat(True), (1, 0, 0, 0))
 
     def test_constructor_euler_rotation(self):
         trans = tf.Transform(rotation=(np.pi / 6, np.pi / 4, np.pi / 3), w_first=True)
-        self.assert_close(trans.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
-        self.assert_close(trans.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
+        self.assertNPClose(trans.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
+        self.assertNPClose(trans.euler, (np.pi / 6, np.pi / 4, np.pi / 3))
 
     def test_constructor_rotation_from_homogeneous(self):
         hom = np.array([[0.80473785, -0.31061722, 0.50587936, 1],
@@ -66,11 +67,11 @@ class TestTransform(unittest.TestCase):
                         [-0.31061722, 0.50587936, 0.80473785, 3],
                         [0, 0, 0, 1]])
         trans = tf.Transform(hom)
-        self.assert_close(trans.rotation_quat(True), (0.92387953, 0.22094238, 0.22094238, 0.22094238))
+        self.assertNPClose(trans.rotation_quat(True), (0.92387953, 0.22094238, 0.22094238, 0.22094238))
 
     def test_rotation_matrix(self):
         trans = tf.Transform(rotation=(0.92387953, 0.22094238, 0.22094238, 0.22094238), w_first=True)
-        self.assert_close(trans.rotation_matrix, np.array([[0.80473785, -0.31061722, 0.50587936],
+        self.assertNPClose(trans.rotation_matrix, np.array([[0.80473785, -0.31061722, 0.50587936],
                                                            [0.50587936, 0.80473785, -0.31061722],
                                                            [-0.31061722, 0.50587936, 0.80473785]]))
 
@@ -78,15 +79,15 @@ class TestTransform(unittest.TestCase):
         # Yaw
         qrot = _make_quat((0, 0, 1), np.pi / 6)
         trans = tf.Transform(rotation=qrot, w_first=True)
-        self.assert_array(trans.euler, np.array([0, 0, np.pi / 6]))
+        self.assertNPEqual(trans.euler, np.array([0, 0, np.pi / 6]))
         # Pitch
         qrot = _make_quat((0, 1, 0), np.pi / 6)
         trans = tf.Transform(rotation=qrot, w_first=True)
-        self.assert_array(trans.euler, np.array([0, np.pi / 6, 0]))
+        self.assertNPEqual(trans.euler, np.array([0, np.pi / 6, 0]))
         # Roll
         qrot = _make_quat((1, 0, 0), np.pi / 6)
         trans = tf.Transform(rotation=qrot, w_first=True)
-        self.assert_array(trans.euler, np.array([np.pi / 6, 0, 0]))
+        self.assertNPEqual(trans.euler, np.array([np.pi / 6, 0, 0]))
 
     def test_equals(self):
         trans1 = tf.Transform(location=(1, 2, 3), rotation=(-0.5, 0.5, 0.5, -0.5))
@@ -144,19 +145,31 @@ class TestTransform(unittest.TestCase):
     def test_inverse_inverts_location(self):
         transform = tf.Transform(location=(10, 9, 8))
         inverse = transform.inverse()
-        self.assert_array((-10, -9, -8), inverse.location)
+        self.assertNPEqual((-10, -9, -8), inverse.location)
 
     def test_inverse_inverts_rotation(self):
         quat = (-0.5, 0.5, 0.5, -0.5)
         q_inv = tf3d.quaternions.qinverse(quat)
         transform = tf.Transform(rotation=quat, w_first=True)
         inverse = transform.inverse()
-        self.assert_array(q_inv, inverse.rotation_quat(w_first=True))
+        self.assertNPEqual(q_inv, inverse.rotation_quat(w_first=True))
 
     def test_inverse_of_inverse_is_original(self):
         transform = tf.Transform(location=(13.2, -23.9, 5.5), rotation=_make_quat((1, 2, 4), np.pi / 7), w_first=True)
         inverse = transform.inverse()
         self.assertEqual(transform, inverse.inverse())
+
+        # Try with lots of decimal places to cause floating point drift
+        transform = tf.Transform(
+            location=(-66.7355710351855, -21.289673951307723, -29.36176666440087),
+            rotation=(-0.4385385108943525, -0.7390089172206592, -0.4385385108943525, 0.2631231065366115),
+            w_first=True
+        )
+        inverse = transform.inverse()
+        double_inverse = inverse.inverse()
+        # The locations are only close becaue rotating the vector and then rotating it back causes drift. still too far
+        self.assertNPClose(transform.location, double_inverse.location, atol=1e-13, rtol=0)
+        self.assertNPEqual(transform.rotation_quat(True), double_inverse.rotation_quat(True))
 
     def test_inverse_is_origin_relative_to_transform(self):
         transform = tf.Transform(location=(13.2, -23.9, 5.5), rotation=_make_quat((1, 2, 4), np.pi / 7), w_first=True)
@@ -174,60 +187,68 @@ class TestTransform(unittest.TestCase):
         offset = tf.Transform(location=(-6, 33.9, 8.2), rotation=_make_quat((6, 3, 0), 8 * np.pi / 19), w_first=True)
         transform_2 = transform_1.find_independent(offset)
         back_transform = transform_2.find_independent(offset.inverse())
-        self.assert_close(transform_1.location, back_transform.location)
-        self.assert_close(transform_1.rotation_quat(True), back_transform.rotation_quat(True))
+        self.assertNPClose(transform_1.location, back_transform.location)
+        self.assertNPClose(transform_1.rotation_quat(True), back_transform.rotation_quat(True))
 
     def test_find_relative_point_moves_origin(self):
         point = (11, 12, 13)
         trans = tf.Transform(location=(10, 9, 8))
         point_rel = trans.find_relative(point)
-        self.assert_array(point_rel, (1, 3, 5))
+        self.assertNPEqual(point_rel, (1, 3, 5))
 
     def test_find_relative_pose_moves_origin(self):
         pose = tf.Transform(location=(11, 12, 13))
         trans = tf.Transform(location=(10, 9, 8))
         pose_rel = trans.find_relative(pose)
-        self.assert_array(pose_rel.location, (1, 3, 5))
+        self.assertNPEqual(pose_rel.location, (1, 3, 5))
 
     def test_find_relative_point_changes_location_coordinates(self):
         point = (11, 12, 13)
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         point_rel = trans.find_relative(point)
-        self.assert_close(point_rel, (3, -1, 5))
+        self.assertNPClose(point_rel, (3, -1, 5))
 
     def test_find_relative_pose_changes_location_coordinates(self):
         pose = tf.Transform(location=(11, 12, 13))
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose_rel = trans.find_relative(pose)
-        self.assert_close(pose_rel.location, (3, -1, 5))
+        self.assertNPClose(pose_rel.location, (3, -1, 5))
 
     def test_find_relative_pose_changes_orientation(self):
         pose = tf.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose_rel = trans.find_relative(pose)
-        self.assert_close(pose_rel.euler, (0, -np.pi / 4, -np.pi / 2))
+        self.assertNPClose(pose_rel.euler, (0, -np.pi / 4, -np.pi / 2))
 
     def test_find_relative_of_self_is_origin(self):
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
+        self.assertEqual(tf.Transform(), trans.find_relative(trans))
+
+        # Try with lots of decimal places to cause floating point drift
+        trans = tf.Transform(
+            location=(-66.7355710351855, -21.289673951307723, -29.36176666440087),
+            rotation=(-0.4385385108943525, -0.7390089172206592, -0.4385385108943525, 0.2631231065366115),
+            w_first=True
+        )
         self.assertEqual(tf.Transform(), trans.find_relative(trans))
 
     def test_find_independent_point_moves_origin(self):
         point = (1, 3, 5)
         trans = tf.Transform(location=(10, 9, 8))
         point_rel = trans.find_independent(point)
-        self.assert_array(point_rel, (11, 12, 13))
+        self.assertNPEqual(point_rel, (11, 12, 13))
 
     def test_find_independent_pose_moves_origin(self):
         pose = tf.Transform(location=(1, 3, 5))
         trans = tf.Transform(location=(10, 9, 8))
         pose_rel = trans.find_independent(pose)
-        self.assert_array(pose_rel.location, (11, 12, 13))
+        self.assertNPEqual(pose_rel.location, (11, 12, 13))
 
     def test_find_independent_pose_changes_orientation(self):
         pose = tf.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
         pose_rel = trans.find_independent(pose)
-        self.assert_close(pose_rel.euler, (0, np.pi / 4, np.pi / 2))
+        self.assertNPClose(pose_rel.euler, (0, np.pi / 4, np.pi / 2))
 
     def test_find_independent_of_origin_is_self(self):
         trans = tf.Transform(location=(10, 9, 8), rotation=_make_quat((0, 0, 1), np.pi / 2), w_first=True)
@@ -241,7 +262,7 @@ class TestTransform(unittest.TestCase):
         point = (1, 2, 3)
         point_rel = trans.find_relative(point)
         point_prime = trans.find_independent(point_rel)
-        self.assert_close(point_prime, point)
+        self.assertNPClose(point_prime, point)
 
     def test_find_relative_undoes_pose(self):
         loc = (-13, 27, -127)
@@ -252,8 +273,8 @@ class TestTransform(unittest.TestCase):
         pose_rel = trans.find_relative(pose)
         pose_prime = trans.find_independent(pose_rel)
 
-        self.assert_close(pose_prime.location, pose.location)
-        self.assert_close(pose_prime.rotation_quat(w_first=True), pose.rotation_quat(w_first=True))
+        self.assertNPClose(pose_prime.location, pose.location)
+        self.assertNPClose(pose_prime.rotation_quat(w_first=True), pose.rotation_quat(w_first=True))
 
     def test_find_relative_preserves_equals(self):
         start_pose = tf.Transform(location=(11, 12, 13), rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
@@ -274,7 +295,7 @@ class TestTransform(unittest.TestCase):
         point_rel = pose_rel.location
         point_prime = trans.find_independent(point_rel)
 
-        self.assert_close(point, point_prime)
+        self.assertNPClose(point, point_prime)
 
     def test_serialize_and_deserialise(self):
         random = np.random.RandomState(seed=1251)
@@ -297,10 +318,10 @@ class TestTransform(unittest.TestCase):
 
     def test_forward_is_forward_vector(self):
         pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
-        self.assert_close((np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.forward)
+        self.assertNPClose((np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.forward)
 
         pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
-        self.assert_close((np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.forward)
+        self.assertNPClose((np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.forward)
 
     def test_forward_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
@@ -308,14 +329,14 @@ class TestTransform(unittest.TestCase):
         forward = pose.forward
         for _ in range(10):
             pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
-            self.assert_array(forward, pose.forward)
+            self.assertNPEqual(forward, pose.forward)
 
     def test_back_is_back_vector(self):
         pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
-        self.assert_close((-np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.back)
+        self.assertNPClose((-np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.back)
 
         pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
-        self.assert_close((-np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.back)
+        self.assertNPClose((-np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.back)
 
     def test_back_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
@@ -323,14 +344,14 @@ class TestTransform(unittest.TestCase):
         back = pose.back
         for _ in range(10):
             pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
-            self.assert_array(back, pose.back)
+            self.assertNPEqual(back, pose.back)
 
     def test_left_is_left_vector(self):
         pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        self.assert_close((0, np.sqrt(2) / 2, np.sqrt(2) / 2), pose.left)
+        self.assertNPClose((0, np.sqrt(2) / 2, np.sqrt(2) / 2), pose.left)
 
         pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
-        self.assert_close((-np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.left)
+        self.assertNPClose((-np.sqrt(2) / 2, np.sqrt(2) / 2, 0), pose.left)
 
     def test_left_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
@@ -338,14 +359,14 @@ class TestTransform(unittest.TestCase):
         left = pose.left
         for _ in range(10):
             pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
-            self.assert_array(left, pose.left)
+            self.assertNPEqual(left, pose.left)
 
     def test_right_is_left_vector(self):
         pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        self.assert_close((0, -np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.right)
+        self.assertNPClose((0, -np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.right)
 
         pose = tf.Transform(rotation=_make_quat((0, 0, 1), np.pi / 4), w_first=True)
-        self.assert_close((np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.right)
+        self.assertNPClose((np.sqrt(2) / 2, -np.sqrt(2) / 2, 0), pose.right)
 
     def test_right_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
@@ -353,14 +374,14 @@ class TestTransform(unittest.TestCase):
         right = pose.right
         for _ in range(10):
             pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
-            self.assert_array(right, pose.right)
+            self.assertNPEqual(right, pose.right)
 
     def test_up_is_up_vector(self):
         pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        self.assert_close((0, -np.sqrt(2) / 2, np.sqrt(2) / 2), pose.up)
+        self.assertNPClose((0, -np.sqrt(2) / 2, np.sqrt(2) / 2), pose.up)
 
         pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
-        self.assert_close((np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.up)
+        self.assertNPClose((np.sqrt(2) / 2, 0, np.sqrt(2) / 2), pose.up)
 
     def test_up_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
@@ -368,14 +389,14 @@ class TestTransform(unittest.TestCase):
         up = pose.up
         for _ in range(10):
             pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
-            self.assert_array(up, pose.up)
+            self.assertNPEqual(up, pose.up)
 
     def test_down_is_down_vector(self):
         pose = tf.Transform(rotation=_make_quat((1, 0, 0), np.pi / 4), w_first=True)
-        self.assert_close((0, np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.down)
+        self.assertNPClose((0, np.sqrt(2) / 2, -np.sqrt(2) / 2), pose.down)
 
         pose = tf.Transform(rotation=_make_quat((0, 1, 0), np.pi / 4), w_first=True)
-        self.assert_close((-np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.down)
+        self.assertNPClose((-np.sqrt(2) / 2, 0, -np.sqrt(2) / 2), pose.down)
 
     def test_down_is_independent_of_location(self):
         quat = _make_quat((13, -4, 5), 13 * np.pi / 27)
@@ -383,7 +404,7 @@ class TestTransform(unittest.TestCase):
         down = pose.down
         for _ in range(10):
             pose = tf.Transform(location=np.random.uniform(-1000, 1000, 3), rotation=quat, w_first=True)
-            self.assert_array(down, pose.down)
+            self.assertNPEqual(down, pose.down)
 
     def test_robust_normalize_sets_the_norm_to_approximately_1(self):
         for _ in range(100):
@@ -396,21 +417,7 @@ class TestTransform(unittest.TestCase):
             x = np.random.uniform(-1, 1, 4)
             x = tf.robust_normalize(x)
             normed_x = tf.robust_normalize(x)
-            self.assert_array(x, normed_x)
-
-    def assert_array(self, arr1, arr2, msg=None):
-        a1 = np.asarray(arr1)
-        a2 = np.asarray(arr2)
-        if msg is None:
-            msg = "{0} is not equal to {1}".format(str(a1), str(a2))
-        self.assertTrue(np.array_equal(a1, a2), msg)
-
-    def assert_close(self, arr1, arr2, msg=None):
-        a1 = np.asarray(arr1)
-        a2 = np.asarray(arr2)
-        if msg is None:
-            msg = "{0} is not close to {1}".format(str(a1), str(a2))
-        self.assertTrue(np.all(np.isclose(a1, a2)), msg)
+            self.assertNPEqual(x, normed_x)
 
 
 class TestHelpers(unittest.TestCase):
@@ -468,6 +475,11 @@ class TestHelpers(unittest.TestCase):
         self.assertAlmostEqual(np.pi / 3, result3)
         self.assertAlmostEqual(np.pi / 3, result4)
 
+    def test_quat_diff_self_is_zero(self):
+        # Lots of decimal points for floating point drift
+        quat = (-0.4385385108943525, -0.7390089172206592, -0.4385385108943525, 0.2631231065366115)
+        self.assertEqual(0, tf.quat_diff(quat, quat))
+
     def test_quat_diff_is_reflexive(self):
         quat1 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), np.pi / 6)
         quat2 = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), -np.pi / 6)
@@ -493,6 +505,32 @@ class TestHelpers(unittest.TestCase):
                 answer = 2 * np.pi - answer
             self.assertAlmostEqual(answer, result1)
             self.assertAlmostEqual(answer, result2)
+
+    def test_quat_diff_produces_small_error_for_same_pose_after_offset(self):
+        # This is the setup for a failing test on the error metric where quat_diff is used
+        trans = tf.Transform(
+            location=(16.389379405011255, -85.03500666334568, -51.69305337092376),
+            rotation=(0.6145343116748422, 0.3246468670840711, -0.6939486709531719, 0.18811494770259948),
+            w_first=True
+        )
+        offset1 = tf.Transform(
+            location=(16.65563753033885, 96.33045615504847, 64.32950789444678),
+            rotation=(0.7307086444661256, 0.4245241714699869, 0.5141574256257561, -0.14658187614467802),
+            w_first=True
+        )
+        offset2 = tf.Transform(
+            location=(-12.186467067325978, 63.70748963078293, 45.56715304286254),
+            rotation=(0.5457655023078376, 0.344691367849787, -0.7487668973247178, -0.15058556003558843),
+            w_first=True
+        )
+        pose1 = offset1.find_relative(offset1.find_independent(trans))
+        pose2 = offset2.find_relative(offset2.find_independent(trans))
+        quat1 = pose1.rotation_quat(w_first=True)
+        quat2 = pose2.rotation_quat(w_first=True)
+
+        # Check that the error is small, the quats should be the same, aside from float drift
+        # the trouble is the arccos, np.arccos(np.nextafter(1, 0)) is only 1e-8, which is pretty far from 0
+        self.assertAlmostEqual(0, tf.quat_diff(quat1, quat2), places=7)
 
     def test_quat_mean_of_single_quat_is_that_quat(self):
         quat = tf3d.quaternions.axangle2quat(np.array([1, -2, 3]), 1.32234252)

@@ -84,19 +84,13 @@ class Transform:
         :return: 
         """
         if isinstance(other, Transform):
-            ox, oy, oz = other.location
-            oqw, oqx, oqy, oqz = other.rotation_quat(w_first=True)
-            if ox == self._x and oy == self._y and oz == self._z:
-                if (np.isclose(oqw, self._qw, atol=1e-16) and np.isclose(oqx, self._qx, atol=1e-16) and
-                        np.isclose(oqy, self._qy, atol=1e-16) and np.isclose(oqz, self._qz, atol=1e-16)):
+            if np.all(np.array_equal((self._x, self._y, self._z), other.location)):
+                other_rot = other.rotation_quat(w_first=True)
+                if np.all(np.isclose(other_rot, (self._qw, self._qx, self._qy, self._qz), atol=1e-15, rtol=0)):
                     return True
                 # Wasn't equal with same handedness, invert and try again because q is the same as -q for orientations
-                oqw = -1 * oqw
-                oqx = -1 * oqx
-                oqy = -1 * oqy
-                oqz = -1 * oqz
-                if (np.isclose(oqw, self._qw, atol=1e-16) and np.isclose(oqx, self._qx, atol=1e-16) and
-                        np.isclose(oqy, self._qy, atol=1e-16) and np.isclose(oqz, self._qz, atol=1e-16)):
+                other_rot = -1 * other_rot
+                if np.all(np.isclose(other_rot, (self._qw, self._qx, self._qy, self._qz), atol=1e-15, rtol=0)):
                     return True
             return False
         return NotImplemented
@@ -199,8 +193,8 @@ class Transform:
         That is, a transformation that when combined with this one returns to the origin.
         :return:
         """
-        inv_rot = tf.quaternions.qinverse(self.rotation_quat(w_first=True))
-        loc = tf.quaternions.rotate_vector(-1 * self.location, inv_rot)
+        inv_rot = (self._qw, -1.0 * self._qx, -1.0 * self._qy, -1.0 * self._qz)
+        loc = tf.quaternions.rotate_vector(-1.0 * self.location, inv_rot)
         return Transform(location=loc, rotation=inv_rot, w_first=True)
 
     def find_relative(self, pose: typing.Union['Transform', typing.Sequence, np.ndarray]) \
@@ -216,14 +210,13 @@ class Transform:
         """
         # Remember, the pose matrix gives the position in world coordinates from a local position,
         # So to find the world position, we have to reverse it
+        inv_rot = (self._qw, -1.0 * self._qx, -1.0 * self._qy, -1.0 * self._qz)
         if isinstance(pose, Transform):
-            inv_rot = tf.quaternions.qinverse(self.rotation_quat(w_first=True))
             loc = tf.quaternions.rotate_vector(pose.location - self.location, inv_rot)
             rot = tf.quaternions.qmult(inv_rot, pose.rotation_quat(w_first=True))
             return Transform(location=loc, rotation=rot, w_first=True)
         elif len(pose) >= 3:
-            return tf.quaternions.rotate_vector(pose - self.location,
-                                                tf.quaternions.qinverse((self._qw, self._qx, self._qy, self._qz)))
+            return tf.quaternions.rotate_vector(pose - self.location, inv_rot)
         else:
             raise TypeError('find_relative needs to transform a point or pose')
 
