@@ -312,6 +312,8 @@ class TestComputeAverageTrajectory(ExtendedTestCase):
 
     def test_handles_poses_being_none(self):
         # Choose different times in different trajectories where the pose will be missing
+        lost_start = 3
+        lost_end = 7
         missing = [[(time_idx + 1) * (traj_idx + 1) % 12 == 0 for traj_idx in range(5)] for time_idx in range(10)]
 
         # this is 5 sequences of 10 3-vector locations
@@ -324,7 +326,7 @@ class TestComputeAverageTrajectory(ExtendedTestCase):
             np.mean([
                 locations[time_idx, traj_idx, :]
                 for traj_idx in range(5)
-                if not missing[time_idx][traj_idx]
+                if not lost_start + traj_idx <= time_idx < lost_end
             ], axis=0)
             for time_idx in range(10)
         ]
@@ -333,7 +335,7 @@ class TestComputeAverageTrajectory(ExtendedTestCase):
         trajectories = [
             {
                 time_idx: tf.Transform(location=locations[time_idx, traj_idx, :])
-                if not missing[time_idx][traj_idx] else None
+                if not lost_start + traj_idx <= time_idx < lost_end else None
                 for time_idx in range(10)
             }
             for traj_idx in range(5)

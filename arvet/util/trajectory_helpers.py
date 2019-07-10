@@ -133,8 +133,7 @@ def compute_average_trajectory(trajectories: typing.Iterable[typing.Mapping[floa
         # Add all the times in this trajectory that don't have associations yet
         for time in traj_times:
             associated_times[time] = [time]
-            if traj[time] is not None:
-                associated_poses[time] = [traj[time]]
+            associated_poses[time] = [traj[time]] if traj[time] is not None else []
     # Take the median associated time and pose together
     return {
         np.median(associated_times[time]):
