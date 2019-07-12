@@ -15,17 +15,18 @@ from arvet.batch_analysis.experiment import Experiment
 import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
-def schedule(schedule_tasks: bool = True, run_tasks: bool = True,
+def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = True,
              experiment_ids: typing.List[str] = None):
     """
     Schedule tasks for all experiments.
     We need to find a way of running this repeatedly as a daemon
+    :param config_file: The location of the config file to load.
     :param schedule_tasks: Whether to schedule execution tasks for the experiments. Default true.
     :param experiment_ids: A limited set of experiments to schedule for. Default None, which is all experiments.
     :param run_tasks: Actually use the job system to execute scheduled tasks
     """
     # Load the configuration
-    config = load_global_config('config.yml')
+    config = load_global_config(config_file)
     if __name__ == '__main__':
         # Only configure the logging if this is the main function, don't reconfigure
         logging.config.dictConfig(config['logging'])
@@ -69,6 +70,8 @@ def main():
     parser = argparse.ArgumentParser(
         description='Update and schedule tasks from experiments.'
                     'By default, this will update and schedule tasks for all experiments.')
+    parser.add_argument('--config', default='config.yml',
+                        help='The path to the config file to use. default to \'config.yml\'')
     parser.add_argument('--skip_schedule_tasks', action='store_true',
                         help='Don\'t schedule the execution or evaluation of systems')
     parser.add_argument('--skip_run_tasks', action='store_true',
@@ -78,7 +81,7 @@ def main():
                              'You may specify any number of ids.')
 
     args = parser.parse_args()
-    schedule(not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
+    schedule(args.config, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
 
 
 if __name__ == '__main__':
