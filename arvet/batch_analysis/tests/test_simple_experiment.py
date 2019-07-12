@@ -2,12 +2,37 @@
 import unittest
 import unittest.mock as mock
 from pymodm.errors import ValidationError
+from pymodm.context_managers import no_auto_dereference
 from bson import ObjectId
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_core
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
 from arvet.batch_analysis.simple_experiment import SimpleExperiment
+
+
+class CountedSystem(mock_core.MockSystem):
+    instances = 0
+
+    def __init__(self, *args, **kwargs):
+        super(CountedSystem, self).__init__(*args, **kwargs)
+        CountedSystem.instances += 1
+
+
+class CountedImageSource(mock_core.MockImageSource):
+    instances = 0
+
+    def __init__(self, *args, **kwargs):
+        super(CountedImageSource, self).__init__(*args, **kwargs)
+        CountedImageSource.instances += 1
+
+
+class CountedMetric(mock_core.MockMetric):
+    instances = 0
+
+    def __init__(self, *args, **kwargs):
+        super(CountedMetric, self).__init__(*args, **kwargs)
+        CountedMetric.instances += 1
 
 
 class TestExperimentDatabase(unittest.TestCase):
@@ -55,16 +80,7 @@ class TestExperimentDatabase(unittest.TestCase):
         # Clean up
         SimpleExperiment.objects.all().delete()
 
-    def test_stores_and_loads_minial(self):
-        system = mock_core.MockSystem()
-        system.save()
-
-        image_source = mock_core.MockImageSource()
-        image_source.save()
-
-        metric = mock_core.MockMetric()
-        metric.save()
-
+    def test_stores_and_loads_minimal(self):
         obj = SimpleExperiment(name="TestSimpleExperiment")
         obj.save()
 
@@ -81,6 +97,96 @@ class TestExperimentDatabase(unittest.TestCase):
         obj = SimpleExperiment()
         with self.assertRaises(ValidationError):
             obj.save()
+
+    def test_add_vision_systems_enforces_uniqueness_without_dereferencing(self):
+        system1 = CountedSystem()
+        system1.save()
+
+        system2 = CountedSystem()
+        system2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            enabled=True,
+            systems=[system1]
+        )
+        obj.save()
+
+        del obj  # Clear the obj to clear existing objects and references
+        CountedSystem.instances = 0
+
+        obj = next(SimpleExperiment.objects.all())
+        self.assertEqual(0, CountedSystem.instances)
+        obj.add_vision_systems([system1, system2])
+        self.assertEqual(0, CountedSystem.instances)
+        # this will auto-dereference
+        self.assertEqual(obj.systems, [system1, system2])
+
+        # check we can still save
+        obj.save()
+
+        # Clean up
+        SimpleExperiment.objects.all().delete()
+
+    def test_add_image_sources_enforces_uniqueness_without_dereferencing(self):
+        image_source1 = CountedImageSource()
+        image_source1.save()
+
+        image_source2 = CountedImageSource()
+        image_source2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            enabled=True,
+            image_sources=[image_source1]
+        )
+        obj.save()
+
+        del obj  # Clear the obj to clear existing objects and references
+        CountedImageSource.instances = 0
+
+        obj = next(SimpleExperiment.objects.all())
+        self.assertEqual(0, CountedImageSource.instances)
+        obj.add_image_sources([image_source1, image_source2])
+        self.assertEqual(0, CountedImageSource.instances)
+        # this will auto-dereference
+        self.assertEqual(obj.image_sources, [image_source1, image_source2])
+
+        # check we can still save
+        obj.save()
+
+        # Clean up
+        SimpleExperiment.objects.all().delete()
+
+    def test_add_metrics_enforces_uniqueness_without_dereferencing(self):
+        metric1 = CountedMetric()
+        metric1.save()
+
+        metric2 = CountedMetric()
+        metric2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            enabled=True,
+            metrics=[metric1]
+        )
+        obj.save()
+
+        del obj  # Clear the obj to clear existing objects and references
+        CountedMetric.instances = 0
+
+        obj = next(SimpleExperiment.objects.all())
+        self.assertEqual(0, CountedMetric.instances)
+        obj.add_metrics([metric1, metric2])
+        self.assertEqual(0, CountedMetric.instances)
+        # this will auto-dereference
+        self.assertEqual(obj.metrics, [metric1, metric2])
+
+        # check we can still save
+        obj.save()
+
+        # Clean up
+        SimpleExperiment.objects.all().delete()
 
 
 class TestSimpleExperiment(unittest.TestCase):

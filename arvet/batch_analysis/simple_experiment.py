@@ -1,4 +1,6 @@
+import typing
 import pymodm.fields as fields
+from pymodm.context_managers import no_auto_dereference
 from arvet.database.reference_list_field import ReferenceListField
 from arvet.core.system import VisionSystem
 from arvet.core.image_source import ImageSource
@@ -41,3 +43,59 @@ class SimpleExperiment(ex.Experiment):
             metric_result for metric_result_list in metric_results.values()
             for metric_result in metric_result_list
         )
+
+    def add_vision_systems(self, vision_systems: typing.Iterable[VisionSystem]):
+        """
+        Add the given vision systems to this experiment if they are not already associated with it
+        :param vision_systems:
+        :return:
+        """
+        with no_auto_dereference(SimpleExperiment):
+            if self.systems is None:
+                existing_pks = set()
+            else:
+                existing_pks = set(self.systems)
+            new_vision_systems = [vision_system for vision_system in vision_systems
+                                  if vision_system.pk not in existing_pks]
+            if len(new_vision_systems) > 0:
+                if self.systems is None:
+                    self.systems = new_vision_systems
+                else:
+                    self.systems.extend(new_vision_systems)
+
+    def add_image_sources(self, image_sources: typing.Iterable[ImageSource]):
+        """
+        Add the given image sources to this experiment if they are not already associated with it
+        :param image_sources:
+        :return:
+        """
+        with no_auto_dereference(SimpleExperiment):
+            if self.image_sources is None:
+                existing_pks = set()
+            else:
+                existing_pks = set(self.image_sources)
+            new_image_sources = [image_source for image_source in image_sources if image_source.pk not in existing_pks]
+            if len(new_image_sources) > 0:
+                if self.image_sources is None:
+                    self.image_sources = new_image_sources
+                else:
+                    self.image_sources.extend(new_image_sources)
+
+    def add_metrics(self, metrics: typing.Iterable[Metric]):
+        """
+        Add the given metrics to this experiment if they are not already associated with it
+        :param metrics:
+        :return:
+        """
+        with no_auto_dereference(SimpleExperiment):
+            if self.metrics is None:
+                existing_pks = set()
+            else:
+                existing_pks = set(self.metrics)
+            new_metrics = [metric for metric in metrics if metric.pk not in existing_pks]
+            if len(new_metrics) > 0:
+                if self.metrics is None:
+                    self.metrics = new_metrics
+                else:
+                    self.metrics.extend(new_metrics)
+        pass
