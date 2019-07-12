@@ -191,7 +191,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "auto_task_[0-9-]+\.sub$")
+        self.assertRegex(filename, "auto_task_[0-9-]+\\.sub$")
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)
@@ -210,7 +210,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "job_auto_task_[0-9-]+\.sub$")
+        self.assertRegex(filename, "job_auto_task_[0-9-]+\\.sub$")
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)
@@ -402,7 +402,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "auto_task_[0-9-]+\.sub$")
+        self.assertRegex(filename, "auto_task_[0-9-]+\\.sub$")
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)
@@ -421,7 +421,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "job_auto_task_[0-9-]+\.sub$")
+        self.assertRegex(filename, "job_auto_task_[0-9-]+\\.sub$")
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)

@@ -134,12 +134,13 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         # Optionally limit the number of jobs
         if self._max_jobs is not None:
-            # If we haven't yet, get the current number of running jobs, so we don't double up by running this repeatedly
+            # If we haven't yet, get the current number of running jobs,
+            # so we don't double up by running this repeatedly
             if not self._checked_running_jobs:
                 result = subprocess.run(['qjobs'], stdout=subprocess.PIPE, universal_newlines=True)
-                re_match = re.search('(\d+) running jobs found', result.stdout)
+                re_match = re.search('(\\d+) running jobs found', result.stdout)
                 if re_match is not None:
-                    num_jobs = int(re_match.groups(default=0)[0])
+                    num_jobs = int(re_match.groups(default='0')[0])
                     self._max_jobs -= num_jobs
                     self._checked_running_jobs = True
 
@@ -181,7 +182,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
 
         logging.getLogger(__name__).info("Submitting job file {0}".format(job_file_path))
         result = subprocess.run(['qsub', job_file_path], stdout=subprocess.PIPE, universal_newlines=True)
-        job_id = re.search('(\d+)', result.stdout).group()
+        job_id = re.search('(\\d+)', result.stdout).group()
         return int(job_id)
 
     def run_queued_jobs(self):
