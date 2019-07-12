@@ -1,6 +1,8 @@
 # Copyright (c) 2017, John Skinner
 import logging
 import typing
+import os
+import subprocess
 import arvet.batch_analysis.job_system
 from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.scripts.run_task
@@ -78,8 +80,19 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         Does so in a subprocess to maintain a clean state between tasks.
         :return: void
         """
-        import subprocess
+        # work out if the current python is within a conda environment or a python env
+        run_args = []
+        if 'CONDA_DEFAULT_ENV' in os.environ:
+            logging.getLogger(__name__).info("Using Anaconda environment {0}".format(
+                os.environ['CONDA_DEFAULT_ENV']))
+            run_args = ['conda', 'run', '-n', os.environ['CONDA_DEFAULT_ENV']]
+        # TODO: Handle virtualenv
+        # elif 'VIRTUAL_ENV' in os.environ:
+        #     run_args = []
+        else:
+            logging.getLogger(__name__).info("Using default python")
+
         logging.getLogger(__name__).info("Running {0} jobs...".format(len(self._queue)))
         for script_path, script_args in self._queue:
-            subprocess.run(['python', script_path] + script_args)
+            subprocess.run(run_args + ['python', script_path] + script_args, cwd=os.getcwd())
         self._queue = []
