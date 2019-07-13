@@ -1,9 +1,9 @@
 # Copyright (c) 2017, John Skinner
-import arvet.batch_analysis.job_systems.hpc_job_system
-import arvet.batch_analysis.job_systems.simple_job_system
+from arvet.batch_analysis.job_systems.hpc_job_system import HPCJobSystem
+from arvet.batch_analysis.job_systems.simple_job_system import SimpleJobSystem
 
 
-def create_job_system(config):
+def create_job_system(config, config_file):
     """
     A factory class that reads global configuration
     and constructs the job system for this platform.
@@ -16,11 +16,15 @@ def create_job_system(config):
         }
     }
     :param config:
+    :param config_file: The path of the config file used, to pass to the tasks.
     :return:
     """
-    job_system_config = config['job_system_config'] if 'job_system_config' in config else {}
-    job_system_type = job_system_config['job_system'] if 'job_system' in job_system_config else 'simple'
+    # Read the configuration for the job system to use
+    job_system_config = config.get('job_system_config', default={})
+    job_system_type = job_system_config.get('job_system', default='simple')
     job_system_type = job_system_type.lower()
+
+    # Make the appropriate job system
     if job_system_type == 'hpc':
-        return arvet.batch_analysis.job_systems.hpc_job_system.HPCJobSystem(job_system_config)
-    return arvet.batch_analysis.job_systems.simple_job_system.SimpleJobSystem(job_system_config)
+        return HPCJobSystem(job_system_config, config_file=config_file)
+    return SimpleJobSystem(job_system_config, config_file=config_file)

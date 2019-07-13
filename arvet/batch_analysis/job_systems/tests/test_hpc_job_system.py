@@ -15,15 +15,15 @@ import arvet.batch_analysis.scripts.run_task
 class TestHPCJobSystem(unittest.TestCase):
 
     def test_works_with_empty_config(self):
-        hpc.HPCJobSystem({})
+        hpc.HPCJobSystem({}, 'myconf.yml')
 
     def test_cannot_generate_dataset(self):
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         self.assertFalse(subject.can_generate_dataset(bson.ObjectId(), {}))
 
     def test_configure_node_id(self):
         node_id = 'test-node-id-157890'
-        subject = hpc.HPCJobSystem({'node_id': node_id})
+        subject = hpc.HPCJobSystem({'node_id': node_id}, 'myconf.yml')
         self.assertEqual(node_id, subject.node_id)
 
     @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
@@ -31,7 +31,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
-        subject = hpc.HPCJobSystem({'max_jobs': 100})
+        subject = hpc.HPCJobSystem({'max_jobs': 100}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_script('test_script', [])
         self.assertIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
@@ -41,14 +41,14 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_script('test_script', [])
         self.assertNotIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
 
     def test_run_script_wont_submit_more_scripts_than_job_limit(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'max_jobs': 10})
+        subject = hpc.HPCJobSystem({'max_jobs': 10}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, num_jobs=0)
@@ -65,7 +65,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({
             'max_jobs': 10
-        })
+        }, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, num_jobs=5)
@@ -81,7 +81,7 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_script_creates_job_file(self):
         mock_open = mock.mock_open()
         mock_open.return_value = mock.MagicMock()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -97,7 +97,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         mock_open.return_value = mock.MagicMock()
         target_folder = os.path.join('/tmp', 'trial-{}'.format(bson.ObjectId()))
-        subject = hpc.HPCJobSystem({'job_location': target_folder})
+        subject = hpc.HPCJobSystem({'job_location': target_folder}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -112,7 +112,7 @@ class TestHPCJobSystem(unittest.TestCase):
         script_name = 'demo_script_' + str(bson.ObjectId())
         script_args = ['--test', str(bson.ObjectId())]
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -126,7 +126,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_indicates_desired_cpus(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -140,7 +140,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_indicates_desired_gpus(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -155,7 +155,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_indicates_desired_memory(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -168,7 +168,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_indicates_expected_run_time(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -181,7 +181,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_job_name_matches_filename(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -200,7 +200,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_job_name_has_configured_prefix(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'})
+        subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -220,7 +220,7 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_script_uses_configured_environment(self):
         mock_open = mock.mock_open()
         virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
-        subject = hpc.HPCJobSystem({'environment': virtualenv_path})
+        subject = hpc.HPCJobSystem({'environment': virtualenv_path}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -234,7 +234,7 @@ class TestHPCJobSystem(unittest.TestCase):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'
         mock_open = mock.mock_open()
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
-            subject = hpc.HPCJobSystem({})
+            subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -246,7 +246,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_uses_current_working_directory(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -261,7 +261,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_script('test_script', [])
         filename = mock_open.call_args[0][0]
@@ -269,7 +269,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_script_returns_job_id(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, job_id=25798)
@@ -279,7 +279,7 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_creates_job_file(self):
         mock_open = mock.mock_open()
         mock_open.return_value = mock.MagicMock()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -295,7 +295,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         mock_open.return_value = mock.MagicMock()
         target_folder = os.path.join('/tmp', 'trial-{}'.format(bson.ObjectId()))
-        subject = hpc.HPCJobSystem({'job_location': target_folder})
+        subject = hpc.HPCJobSystem({'job_location': target_folder}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -309,7 +309,7 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_writes_job_script(self):
         mock_task = make_mock_task()
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -319,8 +319,10 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertTrue(script_contents.startswith('#!/bin/bash'), "Did not create a bash script")
-        self.assertIn("python {0} {1}".format(
-            hpc.quote(arvet.batch_analysis.scripts.run_task.__file__), mock_task.identifier
+        self.assertIn("python {0} --config {1} {2}".format(
+            hpc.quote(arvet.batch_analysis.scripts.run_task.__file__),
+            os.path.abspath('myconf.yml'),
+            mock_task.identifier
         ), script_contents)
 
     def test_run_task_indicates_desired_cpus(self):
@@ -328,7 +330,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_task.num_cpus = 15789
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -345,7 +347,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_task.num_gpus = 8026
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -363,7 +365,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_task.memory_requirements = '1542GB'
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -379,7 +381,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_task.expected_duration = '125:23:16'
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -392,7 +394,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_task_job_name_matches_filename(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -411,7 +413,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_task_job_name_has_configured_prefix(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'})
+        subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -431,7 +433,7 @@ class TestHPCJobSystem(unittest.TestCase):
     def test_run_task_uses_configured_environment(self):
         mock_open = mock.mock_open()
         virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
-        subject = hpc.HPCJobSystem({'environment': virtualenv_path})
+        subject = hpc.HPCJobSystem({'environment': virtualenv_path}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -445,7 +447,7 @@ class TestHPCJobSystem(unittest.TestCase):
         virtualenv_path = '/home/user/virtualenv/benchmark-framework'
         mock_open = mock.mock_open()
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
-            subject = hpc.HPCJobSystem({})
+            subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -457,7 +459,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_task_uses_current_working_directory(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -472,7 +474,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open = mock.mock_open()
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_task(make_mock_task())
         filename = mock_open.call_args[0][0]
@@ -480,7 +482,7 @@ class TestHPCJobSystem(unittest.TestCase):
 
     def test_run_task_returns_job_id(self):
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({})
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, job_id=25798)
@@ -491,7 +493,7 @@ class TestHPCJobSystem(unittest.TestCase):
         task = ImportDatasetTask(_id=bson.ObjectId())
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'task_config': {'allow_import_dataset': False}})
+        subject = hpc.HPCJobSystem({'task_config': {'allow_import_dataset': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -503,7 +505,7 @@ class TestHPCJobSystem(unittest.TestCase):
         task = RunSystemTask(_id=bson.ObjectId())
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'task_config': {'allow_run_system': False}})
+        subject = hpc.HPCJobSystem({'task_config': {'allow_run_system': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -515,7 +517,7 @@ class TestHPCJobSystem(unittest.TestCase):
         task = MeasureTrialTask(_id=bson.ObjectId())
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'task_config': {'allow_measure': False}})
+        subject = hpc.HPCJobSystem({'task_config': {'allow_measure': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
@@ -527,7 +529,7 @@ class TestHPCJobSystem(unittest.TestCase):
         task = CompareTrialTask(_id=bson.ObjectId())
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({'task_config': {'allow_trial_comparison': False}})
+        subject = hpc.HPCJobSystem({'task_config': {'allow_trial_comparison': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)

@@ -39,7 +39,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
 
     """
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, config_file: str):
         """
         Takes configuration parameters in a dict with the following format:
         {
@@ -53,6 +53,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param config: A dict of configuration parameters
         """
         super().__init__(config)
+        self._config_path = os.path.abspath(config_file)
         self._virtual_env = None
         if 'environment' in config:
             self._virtual_env = config['environment']
@@ -112,7 +113,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         if self.can_run_task(task):
             return self.run_script(
                 script=os.path.abspath(arvet.batch_analysis.scripts.run_task.__file__),
-                script_args=[str(task.identifier)],
+                script_args=['--config', self._config_path, str(task.identifier)],
                 num_cpus=task.num_cpus,
                 num_gpus=task.num_gpus,
                 memory_requirements=task.memory_requirements,

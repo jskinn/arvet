@@ -54,7 +54,7 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
 
     if run_tasks:
         logging.getLogger(__name__).info("Running tasks...")
-        job_system = job_system_factory.create_job_system(config=config)
+        job_system = job_system_factory.create_job_system(config=config, config_file=config_file)
         task_manager.schedule_tasks(job_system)
 
         # Actually run the queued jobs.

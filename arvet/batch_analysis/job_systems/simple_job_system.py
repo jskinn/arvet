@@ -18,9 +18,10 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
     It does ignore provided job requirements.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, config_file):
         super().__init__(config)
         self._queue = []
+        self._config_path = os.path.abspath(config_file)
 
     def can_generate_dataset(self, simulator, config):
         """
@@ -51,7 +52,7 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         if self.can_run_task(task):
             return self.run_script(
                 script=arvet.batch_analysis.scripts.run_task.__file__,
-                script_args=[str(task.identifier)],
+                script_args=['--config', self._config_path, str(task.identifier)],
                 num_cpus=task.num_cpus,
                 num_gpus=task.num_gpus,
                 memory_requirements=task.memory_requirements,
