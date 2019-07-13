@@ -10,15 +10,8 @@ from arvet.config.global_configuration import load_global_config
 from arvet.config.path_manager import PathManager
 import arvet.database.connection as dbconn
 import arvet.database.image_manager as im_manager
+from arvet.database.autoload_modules import autoload_modules
 from arvet.batch_analysis.task import Task
-
-# These imports are necessary for the tasks to actually load the task subclasses
-# noinspection PyUnresolvedReferences
-from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
-# noinspection PyUnresolvedReferences
-from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
-# noinspection PyUnresolvedReferences
-from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 
 
 def main(task_id: str, config_file: str = 'config.yml'):
@@ -43,6 +36,7 @@ def main(task_id: str, config_file: str = 'config.yml'):
     path_manger = PathManager(paths=config['paths'])
 
     # Try and get the task object
+    autoload_modules(Task, [task_id])   # Try and autoload the task subclass
     try:
         task = Task.objects.get({'_id': task_id})
     except Exception as ex:

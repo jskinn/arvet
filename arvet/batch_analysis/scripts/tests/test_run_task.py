@@ -28,10 +28,11 @@ class MockTask(Task):
 
 class TestRunTask(unittest.TestCase):
 
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
-    def test_connects_to_database(self, mock_conf_load, mock_dbconfigure, _):
+    def test_connects_to_database(self, mock_conf_load, mock_dbconfigure, *_):
         db_config = {'test': 22}
         mock_conf_load.return_value = {'paths': ['~'], 'database': db_config, 'image_manager': {'path': '/dev/null'}}
 
@@ -39,11 +40,12 @@ class TestRunTask(unittest.TestCase):
         self.assertTrue(mock_dbconfigure.called)
         self.assertEqual(mock.call(db_config), mock_dbconfigure.call_args)
 
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.im_manager.configure", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
-    def test_configures_image_manager(self, mock_conf_load, _, mock_im_manager, __):
+    def test_configures_image_manager(self, mock_conf_load, _, mock_im_manager, *__):
         im_manager_conf = {'path': '~/my.hdf5'}
         mock_conf_load.return_value = {'paths': ['~'], 'database': {}, 'image_manager': im_manager_conf}
 
@@ -51,9 +53,23 @@ class TestRunTask(unittest.TestCase):
         self.assertTrue(mock_im_manager.called)
         self.assertEqual(mock.call(im_manager_conf), mock_im_manager.call_args)
 
+    @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.im_manager.configure", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
+    def test_autoloads_task_type_for_given_task_only(self, mock_conf_load, mock_autoload, *_):
+        mock_conf_load.return_value = {'paths': ['~'], 'database': {}, 'image_manager': {'path': '/dev/null'}}
+
+        task_id = ObjectId()
+        run_task.main(str(task_id))
+        self.assertTrue(mock_autoload.called)
+        self.assertEqual(mock.call(Task, [task_id]), mock_autoload.call_args)
+
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
-    def test_runs_task(self, mock_conf_load, _):
+    def test_runs_task(self, mock_conf_load, *_):
         mock_conf_load.return_value = {'paths': ['~'], 'database': {}, 'image_manager': {'path': '/dev/null'}}
 
         mock_task = mock.create_autospec(Task, spec_set=True)
@@ -63,9 +79,10 @@ class TestRunTask(unittest.TestCase):
 
         self.assertTrue(mock_task.run_task.called)
 
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
-    def test_marks_job_failed_if_it_raises_exception(self, mock_conf_load, _):
+    def test_marks_job_failed_if_it_raises_exception(self, mock_conf_load, *_):
         logging.disable(logging.CRITICAL)
         mock_conf_load.return_value = {'paths': ['~'], 'database': {}, 'image_manager': {'path': '/dev/null'}}
 

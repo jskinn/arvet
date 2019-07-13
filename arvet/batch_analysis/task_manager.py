@@ -231,3 +231,11 @@ def schedule_tasks(job_system: JobSystem,
         if job_id is not None:
             task.mark_job_started(job_system.node_id, job_id)
             task.save()
+
+
+def count_pending_tasks() -> int:
+    """
+    Get the number of task objects that are not marked as done.
+    :return:
+    """
+    return Task.objects.raw({'state': {'$ne': JobState.DONE.name}}).count()

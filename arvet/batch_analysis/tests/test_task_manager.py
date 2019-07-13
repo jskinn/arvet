@@ -767,3 +767,174 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         self.assertTrue(mock_job_system.run_task.called)
         self.assertEqual(1, mock_job_system.run_task.call_count)
         self.assertEqual(mock.call(included_task), mock_job_system.run_task.call_args)
+
+
+class TestTaskManagerCountPendingTasks(unittest.TestCase):
+    system = None
+    image = None
+    image_collection = None
+    metric = None
+    comparison_metric = None
+    trial_result_1 = None
+    trial_result_2 = None
+    metric_result = None
+    comaprison_result = None
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
+
+        cls.image = mock_types.make_image()
+        cls.image.save()
+
+        cls.image_collection = ic.ImageCollection(
+            images=[cls.image],
+            timestamps=[1.2],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        cls.image_collection.save()
+
+        cls.system = mock_types.MockSystem()
+        cls.image_source = mock_types.MockImageSource()
+        cls.metric = mock_types.MockMetric()
+        cls.comparison_metric = mock_types.MockTrialComparisonMetric()
+        cls.system.save()
+        cls.metric.save()
+        cls.comparison_metric.save()
+
+        cls.trial_result_1 = mock_types.MockTrialResult(
+            image_source=cls.image_collection, system=cls.system, success=True)
+        cls.trial_result_2 = mock_types.MockTrialResult(
+            image_source=cls.image_collection, system=cls.system, success=True)
+        cls.trial_result_1.save()
+        cls.trial_result_2.save()
+
+        cls.metric_result = mock_types.MockMetricResult(metric=cls.metric, trial_results=[cls.trial_result_1],
+                                                        success=True)
+        cls.metric_result.save()
+        cls.comparison_result = tcmp.TrialComparisonResult(
+            metric=cls.comparison_metric,
+            trial_results_1=[cls.trial_result_1],
+            trial_results_2=[cls.trial_result_2],
+            success=True)
+        cls.comparison_result.save()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        Task._mongometa.collection.drop()
+        tcmp.TrialComparisonResult._mongometa.collection.drop()
+        mock_types.MockTrialResult._mongometa.collection.drop()
+        mock_types.MockMetric._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+        ic.ImageCollection._mongometa.collection.drop()
+        im.Image._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
+
+    def test_returns_number_of_incomplete_tasks(self):
+        # Set up initial database state. We have 3 tasks of each type, 1 complete, 1 running, 1 unstarted of each
+        Task._mongometa.collection.drop()
+        # Import dataset tasks
+        task = ImportDatasetTask(
+            module_name='test',
+            path='/dev/null',
+            state=JobState.UNSTARTED
+        )
+        task.save()
+        task = ImportDatasetTask(
+            module_name='test',
+            path='/dev/null',
+            state=JobState.RUNNING,
+            node_id='here',
+            job_id=10
+        )
+        task.save()
+        task = ImportDatasetTask(
+            module_name='my_importer',
+            path='/dev/null',
+            state=JobState.DONE,
+            result=self.image_collection
+        )
+        task.save()
+
+        # Run system tasks
+        task = RunSystemTask(
+            system=self.system,
+            image_source=self.image_collection,
+            repeat=1,
+            state=JobState.UNSTARTED
+        )
+        task.save()
+        task = RunSystemTask(
+            system=self.system,
+            image_source=self.image_collection,
+            repeat=2,
+            state=JobState.RUNNING,
+            node_id='here',
+            job_id=11
+        )
+        task.save()
+        task = RunSystemTask(
+            system=self.system,
+            image_source=self.image_collection,
+            repeat=3,
+            state=JobState.DONE,
+            result=self.trial_result_1
+        )
+        task.save()
+
+        # Measure trial tasks
+        task = MeasureTrialTask(
+            trial_results=[self.trial_result_1, self.trial_result_2],
+            metric=self.metric,
+            state=JobState.UNSTARTED
+        )
+        task.save()
+        task = MeasureTrialTask(
+            trial_results=[self.trial_result_1, self.trial_result_2],
+            metric=self.metric,
+            state=JobState.RUNNING,
+            node_id='here',
+            job_id=12
+        )
+        task.save()
+        task = MeasureTrialTask(
+            trial_results=[self.trial_result_1, self.trial_result_2],
+            metric=self.metric,
+            state=JobState.DONE,
+            result=self.metric_result
+        )
+        task.save()
+
+        # Compare trials tasks
+        task = CompareTrialTask(
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            metric=self.comparison_metric,
+            state=JobState.UNSTARTED
+        )
+        task.save()
+        task = CompareTrialTask(
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            metric=self.comparison_metric,
+            state=JobState.RUNNING,
+            node_id='here',
+            job_id=12
+        )
+        task.save()
+        task = CompareTrialTask(
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            metric=self.comparison_metric,
+            state=JobState.DONE,
+            result=self.comparison_result
+        )
+        task.save()
+
+        # Tell me how many are not done
+        # Should be 12 total, 4 of which are done, leaving 8
+        self.assertEqual(8, task_manager.count_pending_tasks())

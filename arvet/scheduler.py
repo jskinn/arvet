@@ -10,6 +10,7 @@ import bson
 from arvet.config.global_configuration import load_global_config
 import arvet.database.connection as dbconn
 import arvet.database.image_manager as im_manager
+from arvet.database.autoload_modules import autoload_modules
 import arvet.batch_analysis.task_manager as task_manager
 from arvet.batch_analysis.experiment import Experiment
 import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
@@ -36,21 +37,36 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
     im_manager.configure(config['image_manager'])
 
     if schedule_tasks:
+        # Build the query and load the relevant experiment types
         query = {'enabled': {'$ne': False}}
         if experiment_ids is not None and len(experiment_ids) > 0:
-            query['_id'] = {'$in': [bson.ObjectId(id_) for id_ in experiment_ids]}
+            experiment_ids = [bson.ObjectId(ex_id) for ex_id in experiment_ids]
+            if len(experiment_ids) == 1:
+                query['_id'] = experiment_ids[0]
+            else:
+                query['_id'] = {'$in': experiment_ids}
 
+            logging.getLogger(__name__).info("Loading experiment types...")
+            autoload_modules(Experiment, experiment_ids)
+        else:
+            logging.getLogger(__name__).info("Loading experiment types...")
+            autoload_modules(Experiment)
+
+        # Schedule the experiments
         logging.getLogger(__name__).info("Scheduling experiments...")
-        for experiment in Experiment.objects.raw(query, {'_id': True}):
-            logging.getLogger(__name__).info(" ... experiment {0}".format(experiment.identifier))
+        for experiment in Experiment.objects.raw(query):
+            logging.getLogger(__name__).info(" ... experiment {0}".format(experiment.pk))
             try:
                 experiment.schedule_tasks()
                 experiment.save()
             except Exception as ex:
                 logging.getLogger(__name__).error("Exception occurred during scheduling {0}({1}):\n{2}".format(
-                    type(experiment).__name__, str(experiment.identifer), traceback.format_exc()
+                    type(experiment).__name__, str(experiment.pk), traceback.format_exc()
                 ))
                 raise ex
+        logging.getLogger(__name__).info("Scheduling complete, there are {0} pending tasks.".format(
+            task_manager.count_pending_tasks()
+        ))
 
     if run_tasks:
         logging.getLogger(__name__).info("Running tasks...")
