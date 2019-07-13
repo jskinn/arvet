@@ -20,8 +20,8 @@ def create_job_system(config, config_file):
     :return:
     """
     # Read the configuration for the job system to use
-    job_system_config = config.get('job_system_config', default={})
-    job_system_type = job_system_config.get('job_system', default='simple')
+    job_system_config = config.get('job_system_config', {})
+    job_system_type = job_system_config.get('job_system', 'simple')
     job_system_type = job_system_type.lower()
 
     # Make the appropriate job system
