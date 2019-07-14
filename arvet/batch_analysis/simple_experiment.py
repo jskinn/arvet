@@ -1,6 +1,8 @@
 import typing
+import bson
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
+from arvet.database.autoload_modules import autoload_modules
 from arvet.database.reference_list_field import ReferenceListField
 from arvet.core.system import VisionSystem
 from arvet.core.image_source import ImageSource
@@ -24,6 +26,9 @@ class SimpleExperiment(ex.Experiment):
         Schedule the running of systems with image sources, and the benchmarking of the trial results so produced.
         :return:
         """
+        # Load the referenced models. We need this before we can dereference our reference fields
+        self.load_referenced_models()
+
         trial_results, trials_remaining = ex.run_all(
             systems=self.systems,
             image_sources=self.image_sources,
@@ -43,6 +48,30 @@ class SimpleExperiment(ex.Experiment):
             metric_result for metric_result_list in metric_results.values()
             for metric_result in metric_result_list
         )
+
+    def load_referenced_models(self):
+        """
+        Go through the models referenced by this experiment and ensure their model types have been loaded.
+        This is necessary or accessing any of the reference fields will cause an exception
+        :return:
+        """
+        # Load system models
+        with no_auto_dereference(SimpleExperiment):
+            model_ids = set(sys_id for sys_id in self.systems if isinstance(sys_id, bson.ObjectId))
+        if len(model_ids) > 0:
+            autoload_modules(VisionSystem, ids=list(model_ids))
+
+        # Load image source models
+        with no_auto_dereference(SimpleExperiment):
+            model_ids = set(source_id for source_id in self.image_sources if isinstance(source_id, bson.ObjectId))
+        if len(model_ids) > 0:
+            autoload_modules(ImageSource, ids=list(model_ids))
+
+        # Load metric models
+        with no_auto_dereference(SimpleExperiment):
+            model_ids = set(metric_id for metric_id in self.metrics if isinstance(metric_id, bson.ObjectId))
+        if len(model_ids) > 0:
+            autoload_modules(Metric, ids=list(model_ids))
 
     def add_vision_systems(self, vision_systems: typing.Iterable[VisionSystem]):
         """

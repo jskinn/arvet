@@ -1,7 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import unittest
+import unittest.mock as mock
 import os
 import os.path as path
+import bson
 import logging
 from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
@@ -9,6 +11,7 @@ import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
+from arvet.core.image_source import ImageSource
 import arvet.core.image as im
 import arvet.core.image_collection as ic
 from arvet.batch_analysis.task import Task, JobState
@@ -16,7 +19,7 @@ from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
 import arvet.batch_analysis.tasks.tests.mock_importer as mock_importer
 
 
-class TestMeasureTrialTaskDatabase(unittest.TestCase):
+class TestImportDatasetTaskDatabase(unittest.TestCase):
     image = None
     image_collection = None
 
@@ -102,6 +105,92 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
         )
         with self.assertRaises(ValidationError):
             obj.save()
+
+    def test_result_id_gets_id_without_dereferencing(self):
+        result = InitMonitoredImageSource()
+        result.save()
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.DONE,
+            result=result
+        )
+        obj.save()
+
+        # Set up mocks
+        dereferenced = False
+
+        def init_side_effect(_):
+            nonlocal dereferenced
+            dereferenced = True
+
+        InitMonitoredImageSource.side_effect = init_side_effect
+
+        # Delete and reload the object to reset the references to object ids
+        del obj
+        obj = next(Task.objects.all())
+
+        # Autoload the model types
+        _ = obj.result_id
+        self.assertFalse(dereferenced)
+
+        # Clean up
+        InitMonitoredImageSource.side_effect = None
+
+    @mock.patch('arvet.batch_analysis.tasks.import_dataset_task.autoload_modules')
+    def test_get_result_autoloads_model_type_before_dereferencing(self, mock_autoload):
+        # Set up objects
+        result = InitMonitoredImageSource()
+        result.save()
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.DONE,
+            result=result
+        )
+        obj.save()
+
+        # Set up mocks
+        loaded = False
+        constructed = False
+        loaded_first = False
+
+        def autoload_side_effect(model, *_, **__):
+            nonlocal loaded
+            if model == ImageSource:
+                loaded = True
+        mock_autoload.side_effect = autoload_side_effect
+
+        def init_result_side_effect(_):
+            nonlocal loaded, constructed, loaded_first
+            constructed = True
+            if loaded:
+                loaded_first = True
+        InitMonitoredImageSource.side_effect = init_result_side_effect
+
+        # Delete and reload the object to reset the references to object ids
+        del obj
+        obj = next(Task.objects.all())
+
+        # get the result
+        obj.get_result()
+        self.assertTrue(mock_autoload.called)
+        self.assertEqual(mock.call(ImageSource, [result.pk]), mock_autoload.call_args)
+        self.assertTrue(constructed)
+        self.assertTrue(loaded)
+        self.assertTrue(loaded_first)
+
+        # Clean up
+        InitMonitoredImageSource.side_effect = None
+
+
+class InitMonitoredImageSource(mock_types.MockImageSource):
+    side_effect = None
+
+    def __init__(self, *args, **kwargs):
+        super(InitMonitoredImageSource, self).__init__(*args, **kwargs)
+        if self.side_effect is not None:
+            self.side_effect()
 
 
 class TestImportDatasetTask(unittest.TestCase):
@@ -231,3 +320,22 @@ class TestImportDatasetTask(unittest.TestCase):
         self.assertFalse(subject.is_running)
         self.assertTrue(subject.is_finished)
         self.assertEqual(self.image_collection, subject.result)
+
+    def test_result_id_is_none_if_result_is_none(self):
+        obj = ImportDatasetTask(
+            module_name=mock_importer.__name__,
+            path='/dev/null',
+            state=JobState.UNSTARTED
+        )
+        self.assertIsNone(obj.result_id)
+
+    def test_result_id_is_result_primary_key(self):
+        result = mock_types.MockImageSource()
+        result.pk = bson.ObjectId()
+        obj = ImportDatasetTask(
+            module_name=mock_importer.__name__,
+            path='/dev/null',
+            state=JobState.DONE,
+            result=result
+        )
+        self.assertEqual(result.pk, obj.result_id)

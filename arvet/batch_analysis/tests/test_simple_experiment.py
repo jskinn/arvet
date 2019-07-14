@@ -5,6 +5,9 @@ from pymodm.errors import ValidationError
 from pymodm.context_managers import no_auto_dereference
 from bson import ObjectId
 import arvet.database.tests.database_connection as dbconn
+from arvet.core.system import VisionSystem
+from arvet.core.image_source import ImageSource
+from arvet.core.metric import Metric
 import arvet.core.tests.mock_types as mock_core
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
@@ -97,6 +100,59 @@ class TestExperimentDatabase(unittest.TestCase):
         obj = SimpleExperiment()
         with self.assertRaises(ValidationError):
             obj.save()
+
+    @mock.patch('arvet.batch_analysis.simple_experiment.autoload_modules', autospec=True)
+    def test_load_referenced_models_autoloads_models_that_are_just_ids(self, mock_autoload):
+        system = mock_core.MockSystem()
+        system.save()
+
+        image_source = mock_core.MockImageSource()
+        image_source.save()
+
+        metric = mock_core.MockMetric()
+        metric.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            enabled=True,
+            systems=[system],
+            image_sources=[image_source],
+            metrics=[metric]
+        )
+        obj.save()
+        del obj     # Clear existing references, which should reset the references to ids
+
+        obj = next(SimpleExperiment.objects.all())
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(VisionSystem, ids=[system.identifier]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(ImageSource, ids=[image_source.identifier]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(Metric, ids=[metric.identifier]), mock_autoload.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.simple_experiment.autoload_modules', autospec=True)
+    def test_load_referenced_models_does_nothing_to_models_that_are_already_objects(self, mock_autoload):
+        system = mock_core.MockSystem()
+        system.save()
+
+        image_source = mock_core.MockImageSource()
+        image_source.save()
+
+        metric = mock_core.MockMetric()
+        metric.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            enabled=True,
+            systems=[system],
+            image_sources=[image_source],
+            metrics=[metric]
+        )
+        obj.save()
+
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertFalse(mock_autoload.called)
 
     def test_add_vision_systems_enforces_uniqueness_without_dereferencing(self):
         system1 = CountedSystem()

@@ -1,5 +1,9 @@
 # Copyright (c) 2017, John Skinner
+import typing
+import bson
 import pymodm.fields as fields
+from pymodm.context_managers import no_auto_dereference
+from arvet.database.autoload_modules import autoload_modules
 from arvet.core.image_source import ImageSource
 from arvet.batch_analysis.task import Task
 from arvet.config.path_manager import PathManager
@@ -64,3 +68,32 @@ class ImportDatasetTask(Task):
             self.result = image_collection
             self.mark_job_complete()
             logging.getLogger(__name__).info("Successfully imported dataset")
+
+    @property
+    def result_id(self) -> typing.Union[bson.ObjectId, None]:
+        """
+        Get the id of the result, without attempting to construct the object.
+        Makes it easier for other objects to refer to this result, without loading large result objects.
+        :return:
+        """
+        with no_auto_dereference(ImportDatasetTask):
+            if self.result is None:
+                return None
+            if isinstance(self.result, bson.ObjectId):
+                return self.result
+        return self.result.pk
+
+    def get_result(self) -> typing.Union[ImageSource, None]:
+        """
+        Actually get the result object.
+        This will auto-load the result model, and then attempt to construct it.
+        :return:
+        """
+        with no_auto_dereference(ImportDatasetTask):
+            if self.result is None:
+                return None
+            if isinstance(self.result, bson.ObjectId):
+                # result is an id and not a model, autoload the model
+                autoload_modules(ImageSource, [self.result])
+        # This will now dereference correctly
+        return self.result

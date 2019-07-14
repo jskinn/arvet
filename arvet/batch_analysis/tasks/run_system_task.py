@@ -1,8 +1,12 @@
 # Copyright (c) 2017, John Skinner
 import logging
 import time
+import typing
+import bson
 
 import pymodm.fields as fields
+from pymodm.context_managers import no_auto_dereference
+from arvet.database.autoload_modules import autoload_modules
 from arvet.config.path_manager import PathManager
 from arvet.core.system import VisionSystem
 from arvet.core.image_source import ImageSource
@@ -19,8 +23,40 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
     repeat = fields.IntegerField(default=0, required=True)
     result = fields.ReferenceField(TrialResult, on_delete=fields.ReferenceField.CASCADE)
 
+    @property
+    def result_id(self) -> typing.Union[bson.ObjectId, None]:
+        """
+        Get the id of the result, without attempting to construct the object.
+        Makes it easier for other objects to refer to this result, without loading large result objects.
+        :return:
+        """
+        with no_auto_dereference(RunSystemTask):
+            if self.result is None:
+                return None
+            if isinstance(self.result, bson.ObjectId):
+                return self.result
+        return self.result.pk
+
+    def get_result(self) -> typing.Union[TrialResult, None]:
+        """
+        Actually get the result object.
+        This will auto-load the result model, and then attempt to construct it.
+        :return:
+        """
+        with no_auto_dereference(RunSystemTask):
+            if self.result is None:
+                return None
+            if isinstance(self.result, bson.ObjectId):
+                # result is an id and not a model, autoload the model
+                autoload_modules(TrialResult, [self.result])
+        # This will now dereference correctly
+        return self.result
+
     def run_task(self, path_manager: PathManager):
         import traceback
+
+        # Before we do anything, make sure we've imported the relevant models for our referenced fields.
+        self.load_referenced_modules()
 
         if not self.system.is_image_source_appropriate(self.image_source):
             self.fail_with_message("Image source is inappropriate for system {0}".format(self.system.get_pretty_name()))
@@ -43,6 +79,24 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
             logging.getLogger(__name__).info("Successfully ran system {0}".format(self.system.get_pretty_name()))
         self.result = trial_result
         self.mark_job_complete()
+
+    def load_referenced_modules(self):
+        logging.getLogger(__name__).info("Loading referenced models...")
+        # Load the system model
+        model_id = None
+        with no_auto_dereference(RunSystemTask):
+            if isinstance(self.system, bson.ObjectId):
+                model_id = self.system
+        if model_id is not None:
+            autoload_modules(VisionSystem, [model_id])
+
+        # Load the image source model
+        model_id = None
+        with no_auto_dereference(RunSystemTask):
+            if isinstance(self.image_source, bson.ObjectId):
+                model_id = self.image_source
+        if model_id is not None:
+            autoload_modules(ImageSource, [model_id])
 
     def fail_with_message(self, message):
         """

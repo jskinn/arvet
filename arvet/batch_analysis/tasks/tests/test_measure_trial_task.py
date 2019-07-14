@@ -1,10 +1,14 @@
 # Copyright (c) 2017, John Skinner
 import unittest
+import unittest.mock as mock
 import logging
+import bson
 from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
 import arvet.core.tests.mock_types as mock_types
+from arvet.core.trial_result import TrialResult
+from arvet.core.metric import Metric, MetricResult
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
 
@@ -101,6 +105,120 @@ class TestMeasureTrialTaskDatabase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             obj.save()
 
+    @mock.patch('arvet.batch_analysis.tasks.measure_trial_task.autoload_modules')
+    def test_load_referenced_models_loads_metric_and_trial_models(self, mock_autoload):
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.UNSTARTED
+        )
+        obj.save()
+
+        # Delete and reload the object to reset the references to object ids
+        del obj
+        obj = next(Task.objects.all())
+
+        # Autoload the model types
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_modules()
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(Metric, [self.metric.pk]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(TrialResult, [self.trial_result.pk]), mock_autoload.call_args_list)
+
+    def test_result_id_gets_id_without_dereferencing(self):
+        result = InitMonitoredResult(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            success=True
+        )
+        result.save()
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.DONE,
+            result=result
+        )
+        obj.save()
+
+        # Set up mocks
+        dereferenced = False
+
+        def init_side_effect(_):
+            nonlocal dereferenced
+            dereferenced = True
+        InitMonitoredResult.side_effect = init_side_effect
+
+        # Delete and reload the object to reset the references to object ids
+        del obj
+        obj = next(Task.objects.all())
+
+        # Autoload the model types
+        _ = obj.result_id
+        self.assertFalse(dereferenced)
+
+        # Clean up
+        InitMonitoredResult.side_effect = None
+
+    @mock.patch('arvet.batch_analysis.tasks.measure_trial_task.autoload_modules')
+    def test_get_result_autoloads_model_type_before_dereferencing(self, mock_autoload):
+        # Set up objects
+        result = InitMonitoredResult(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            success=True
+        )
+        result.save()
+
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.DONE,
+            result=result
+        )
+        obj.save()
+
+        # Set up mocks
+        loaded = False
+        constructed = False
+        loaded_first = False
+
+        def autoload_side_effect(model, *_, **__):
+            nonlocal loaded
+            if model == MetricResult:
+                loaded = True
+        mock_autoload.side_effect = autoload_side_effect
+
+        def init_result_side_effect(_):
+            nonlocal loaded, constructed, loaded_first
+            constructed = True
+            if loaded:
+                loaded_first = True
+        InitMonitoredResult.side_effect = init_result_side_effect
+
+        # Delete and reload the object to reset the references to object ids
+        del obj
+        obj = next(Task.objects.all())
+
+        # get the result
+        obj.get_result()
+        self.assertTrue(mock_autoload.called)
+        self.assertEqual(mock.call(MetricResult, [result.pk]), mock_autoload.call_args)
+        self.assertTrue(constructed)
+        self.assertTrue(loaded)
+        self.assertTrue(loaded_first)
+
+        # Clean up
+        InitMonitoredResult.side_effect = None
+
+
+class InitMonitoredResult(mock_types.MockMetricResult):
+    side_effect = None
+
+    def __init__(self, *args, **kwargs):
+        super(InitMonitoredResult, self).__init__(*args, **kwargs)
+        if self.side_effect is not None:
+            self.side_effect()
+
 
 class TestMeasureTrialTask(unittest.TestCase):
 
@@ -190,3 +308,22 @@ class TestMeasureTrialTask(unittest.TestCase):
         subject.run_task(self.path_manager)
         self.assertTrue(subject.is_finished)
         self.assertEqual(subject.result, metric_result)
+
+    def test_result_id_is_none_if_result_is_none(self):
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.UNSTARTED
+        )
+        self.assertIsNone(obj.result_id)
+
+    def test_result_id_is_result_primary_key(self):
+        result = mock_types.MockMetricResult()
+        result.pk = bson.ObjectId()
+        obj = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.DONE,
+            result=result
+        )
+        self.assertEqual(result.pk, obj.result_id)

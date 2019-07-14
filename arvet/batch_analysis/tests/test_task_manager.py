@@ -95,7 +95,7 @@ class TestTaskManagerImportDataset(unittest.TestCase):
         self.assertEqual(result.num_cpus, 15)
         self.assertEqual(result.num_gpus, 6)
         self.assertEqual(result.state, task.state)
-        self.assertEqual(result.result, task.result)
+        self.assertEqual(result.result_id, task.result_id)
 
     def test_get_import_dataset_task_returns_new_instance_if_no_existing(self):
         module_name = 'test_module'
@@ -466,7 +466,7 @@ class TestTaskManagerCompareTrials(unittest.TestCase):
         self.assertEqual(result.num_cpus, 15)
         self.assertEqual(result.num_gpus, 6)
         self.assertEqual(result.state, task.state)
-        self.assertEqual(result.result, task.result)
+        self.assertEqual(result.result_id, task.result_id)
 
     def test_get_trial_comparison_task_returns_new_instance_if_no_existing(self):
         num_cpus = 12
