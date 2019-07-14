@@ -112,7 +112,7 @@ def run_all(
                             trial_results[system.identifier] = {}
                         if image_source.identifier not in trial_results[system.identifier]:
                             trial_results[system.identifier][image_source.identifier] = []
-                        trial_results[system.identifier][image_source.identifier].append(task.result)
+                        trial_results[system.identifier][image_source.identifier].append(task.get_result())
                     else:
                         remaining += 1
                         if task.pk is None:
@@ -151,7 +151,7 @@ def measure_all(
                 if task.is_finished:
                     if metric.identifier not in metric_results:
                         metric_results[metric.identifier] = []
-                    metric_results[metric.identifier].append(task.result)
+                    metric_results[metric.identifier].append(task.get_result())
                 else:
                     remaining += 1
                     if task.pk is None:

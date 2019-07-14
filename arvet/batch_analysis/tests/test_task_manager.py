@@ -185,7 +185,7 @@ class TestTaskManagerRunSystem(unittest.TestCase):
         self.assertEqual(result.num_cpus, 15)
         self.assertEqual(result.num_gpus, 6)
         self.assertEqual(result.state, task.state)
-        self.assertEqual(result.result, task.result)
+        self.assertEqual(result.result_id, task.result_id)
 
     def test_get_run_system_task_returns_new_instance_if_no_existing(self):
         repeat = 14
@@ -318,7 +318,7 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         self.assertEqual(result.num_cpus, 15)
         self.assertEqual(result.num_gpus, 6)
         self.assertEqual(result.state, task.state)
-        self.assertEqual(result.result, task.result)
+        self.assertEqual(result.result_id, task.result_id)
 
     def test_get_measure_trial_task_returns_existing_changed_order(self):
         task = MeasureTrialTask(
@@ -337,7 +337,7 @@ class TestTaskManagerMeasureTrials(unittest.TestCase):
         self.assertEqual(result.num_cpus, 15)
         self.assertEqual(result.num_gpus, 6)
         self.assertEqual(result.state, task.state)
-        self.assertEqual(result.result, task.result)
+        self.assertEqual(result.result_id, task.result_id)
 
     def test_get_measure_trial_task_returns_new_instance_if_no_existing(self):
         num_cpus = 12
