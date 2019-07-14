@@ -268,8 +268,8 @@ class TestRunSystemTask(unittest.TestCase):
         self.assertEqual(self.system, subject.result.system)
         self.assertEqual(self.image_source, subject.result.image_source)
 
-    def test_run_task_records_returned_metric_result(self):
-        trial_result = mock_types.MockTrialResult(system=self.system, image_source=self.image_source, success=True)
+    def test_run_task_records_returned_trial_result(self):
+        trial_result = mock.create_autospec(mock_types.MockTrialResult)
         self.system.finish_trial = lambda: trial_result
         subject = RunSystemTask(
             system=self.system,
@@ -282,6 +282,20 @@ class TestRunSystemTask(unittest.TestCase):
         subject.run_task(self.path_manager)
         self.assertTrue(subject.is_finished)
         self.assertEqual(subject.result, trial_result)
+
+    def test_run_task_saves_result(self):
+        trial_result = mock.create_autospec(mock_types.MockTrialResult)
+        self.system.finish_trial = lambda: trial_result
+        subject = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(trial_result.save.called)
+        subject.run_task(self.path_manager)
+        self.assertTrue(trial_result.save.called)
 
     def test_result_id_is_none_if_result_is_none(self):
         obj = RunSystemTask(

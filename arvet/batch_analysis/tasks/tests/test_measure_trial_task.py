@@ -295,7 +295,7 @@ class TestMeasureTrialTask(unittest.TestCase):
         self.assertEqual([self.trial_result], subject.result.trial_results)
 
     def test_run_task_records_returned_metric_result(self):
-        metric_result = mock_types.MockMetricResult(metric=self.metric, trial_results=[self.trial_result], success=True)
+        metric_result = mock.create_autospec(mock_types.MockMetricResult)
         self.metric.measure_results = lambda _: metric_result
         subject = MeasureTrialTask(
             metric=self.metric,
@@ -308,6 +308,20 @@ class TestMeasureTrialTask(unittest.TestCase):
         subject.run_task(self.path_manager)
         self.assertTrue(subject.is_finished)
         self.assertEqual(subject.result, metric_result)
+
+    def test_run_task_saves_result(self):
+        metric_result = mock.create_autospec(mock_types.MockMetricResult)
+        self.metric.measure_results = lambda _: metric_result
+        subject = MeasureTrialTask(
+            metric=self.metric,
+            trial_results=[self.trial_result],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(metric_result.save.called)
+        subject.run_task(self.path_manager)
+        self.assertTrue(metric_result.save.called)
 
     def test_result_id_is_none_if_result_is_none(self):
         obj = MeasureTrialTask(

@@ -349,12 +349,7 @@ class TestCompareTrialsTask(unittest.TestCase):
         self.assertEqual([self.trial_result_2], subject.result.trial_results_2)
 
     def test_run_task_records_returned_metric_result(self):
-        comparison_result = TrialComparisonResult(
-            metric=self.metric,
-            trial_results_1=[self.trial_result_1],
-            trial_results_2=[self.trial_result_2],
-            success=True
-        )
+        comparison_result = mock.create_autospec(TrialComparisonResult)
         self.metric.compare_trials = lambda *args, **kwargs: comparison_result
         subject = CompareTrialTask(
             metric=self.metric,
@@ -368,6 +363,21 @@ class TestCompareTrialsTask(unittest.TestCase):
         subject.run_task(self.path_manager)
         self.assertTrue(subject.is_finished)
         self.assertEqual(subject.result, comparison_result)
+
+    def test_run_task_saves_result(self):
+        comparison_result = mock.create_autospec(TrialComparisonResult)
+        self.metric.compare_trials = lambda *args, **kwargs: comparison_result
+        subject = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.RUNNING,
+            node_id='test',
+            job_id=1
+        )
+        self.assertFalse(comparison_result.save.called)
+        subject.run_task(self.path_manager)
+        self.assertTrue(comparison_result.save.called)
 
     def test_result_id_is_none_if_result_is_none(self):
         obj = CompareTrialTask(

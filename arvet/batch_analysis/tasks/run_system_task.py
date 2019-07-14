@@ -77,6 +77,10 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
                     self.system.get_pretty_name(), trial_result.message))
         else:
             logging.getLogger(__name__).info("Successfully ran system {0}".format(self.system.get_pretty_name()))
+
+        logging.getLogger(__name__).info("Saving trial result...")
+        trial_result.save()
+
         self.result = trial_result
         self.mark_job_complete()
 
