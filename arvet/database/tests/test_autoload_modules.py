@@ -198,6 +198,25 @@ class TestGetModelClassesDatabase(unittest.TestCase):
         self.assertNotIn(TestBaseModel, result)
         self.assertIn(TestSubclassModel, result)
 
+    def test_accepts_set_of_ids(self):
+        model_ids = []
+
+        model = TestBaseModel()
+        model.save()
+        model_ids.append(model.pk)
+
+        model = TestSubclassModel()
+        model.save()
+        model_ids.append(model.pk)
+
+        result = get_model_classes(TestBaseModel, set(model_ids))
+        self.assertEqual(2, len(result))
+        self.assertIn(TestBaseModel, result)
+        self.assertIn(TestSubclassModel, result)
+
+        result = get_model_classes(TestBaseModel, {model_ids[0]})
+        self.assertEqual([TestBaseModel], result)
+
     @mock.patch('arvet.database.autoload_modules.sys', spec=['modules'])
     @mock.patch('arvet.database.autoload_modules.importlib.import_module', autospec=True)
     def test_returns_but_doesnt_try_and_load_subclasses_of_final_models(self, mock_import_module, mock_sys):

@@ -2,10 +2,10 @@ import typing
 import sys
 import importlib
 import logging
-from pymodm.base.models import MongoModelMetaclass
+from pymodm import MongoModel
 
 
-def autoload_modules(model: MongoModelMetaclass, ids: typing.List[typing.Any] = None) -> None:
+def autoload_modules(model: typing.Type[MongoModel], ids: typing.List[typing.Any] = None) -> None:
     """
     Find and automatically load the subtypes of a given model class.
     Used to allow me to use base model types with many different subclasses,
@@ -49,7 +49,11 @@ def autoload_modules(model: MongoModelMetaclass, ids: typing.List[typing.Any] = 
                 pass
 
 
-def get_model_classes(model: MongoModelMetaclass, ids: typing.List[typing.Any]) -> typing.List[MongoModelMetaclass]:
+ModelType = typing.TypeVar('ModelType', bound=MongoModel)
+
+
+def get_model_classes(model: typing.Type[ModelType], ids: typing.Collection[typing.Any]) \
+        -> typing.List[typing.Type[ModelType]]:
     """
     Get the model class objects for specific objects, useful to run class methods
     Will try and load the models if they are missing.
@@ -74,9 +78,9 @@ def get_model_classes(model: MongoModelMetaclass, ids: typing.List[typing.Any]) 
     query = {'_cls': {'$exists': True}}
     if ids is not None:
         if len(ids) == 1:
-            query['_id'] = ids[0]
+            query['_id'] = next(iter(ids))  # Is this the cleanest way to get the single element?
         else:
-            query['_id'] = {'$in': ids}
+            query['_id'] = {'$in': list(ids)}
 
     # Use the mongo collection directly to find the set of all the classes of models in the collection
     model_classes = []
