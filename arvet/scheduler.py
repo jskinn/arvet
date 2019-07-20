@@ -5,7 +5,6 @@ import logging.config
 import argparse
 import typing
 import traceback
-import bson
 
 from arvet.config.global_configuration import load_global_config
 import arvet.database.connection as dbconn
@@ -40,7 +39,6 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
         # Build the query and load the relevant experiment types
         query = {'enabled': {'$ne': False}}
         if experiment_ids is not None and len(experiment_ids) > 0:
-            experiment_ids = [bson.ObjectId(ex_id) for ex_id in experiment_ids]
             if len(experiment_ids) == 1:
                 query['_id'] = experiment_ids[0]
             else:
