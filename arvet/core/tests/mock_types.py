@@ -23,6 +23,9 @@ class MockSystem(arvet.core.system.VisionSystem):
         super().__init__(*args, **kwargs)
         self.sources_blacklist = []
 
+    def __repr__(self):
+        return "{0}({1})".format(type(self).__name__, self.pk)
+
     def is_deterministic(self):
         return True
 
@@ -65,6 +68,9 @@ class MockImageSource(arvet.core.image_source.ImageSource):
         for idx in range(10):
             yield 0.6 * idx, make_image(idx)
 
+    def __repr__(self):
+        return "{0}({1})".format(type(self).__name__, self.pk)
+
     def get_columns(self):
         return set()
 
@@ -73,7 +79,9 @@ class MockImageSource(arvet.core.image_source.ImageSource):
 
 
 class MockTrialResult(arvet.core.trial_result.TrialResult):
-    pass
+
+    def __repr__(self):
+        return "{0}({1})".format(type(self).__name__, self.pk)
 
 
 class MockMetric(arvet.core.metric.Metric):
@@ -81,6 +89,9 @@ class MockMetric(arvet.core.metric.Metric):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.trials_blacklist = []
+
+    def __repr__(self):
+        return "{0}({1})".format(type(self).__name__, self.pk)
 
     def is_trial_appropriate(self, trial_result):
         return trial_result.identifier not in self.trials_blacklist
@@ -96,10 +107,15 @@ class MockMetric(arvet.core.metric.Metric):
 
 
 class MockMetricResult(arvet.core.metric.MetricResult):
-    pass
+
+    def __repr__(self):
+        return "{0}({1})".format(type(self).__name__, self.pk)
 
 
 class MockTrialComparisonMetric(arvet.core.trial_comparison.TrialComparisonMetric):
+
+    def __repr__(self):
+        return "{0}({1})".format(type(self).__name__, self.pk)
 
     def is_trial_appropriate_for_first(self, trial_result):
         return True

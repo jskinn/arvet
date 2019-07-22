@@ -155,11 +155,14 @@ class MetricResult(pymodm.MongoModel):
                           plots: typing.Iterable[str],
                           display: bool = True, output: str = '') -> None:
         """
+        Given a number of metric results, visualize those results in some number of plots.
+        Will be passed multiple metric results that are instances of this class, and a set of plot names.
+        The result should aggregate date from all the given results, and then produce the specified plots.
 
-        :param results:
-        :param plots:
-        :param display: Should the results be displayed
-        :param output:
+        :param results: A group of metric results to form the data.
+        :param plots: A list of plot names to create. Will be a subset of the results from get_available_plots
+        :param display: Should the results be displayed to the screen? if false, suppress window output.
+        :param output: Where should the plots be saved? If empty, do not save the plots.
         :return:
         """
         pass
