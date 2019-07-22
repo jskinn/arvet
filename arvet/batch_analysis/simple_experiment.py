@@ -1,12 +1,13 @@
 import typing
+import logging
 import bson
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
-from arvet.database.autoload_modules import autoload_modules
+from arvet.database.autoload_modules import autoload_modules, get_model_classes
 from arvet.database.reference_list_field import ReferenceListField
 from arvet.core.system import VisionSystem
 from arvet.core.image_source import ImageSource
-from arvet.core.metric import Metric
+from arvet.core.metric import Metric, MetricResult
 import arvet.batch_analysis.experiment as ex
 
 
@@ -128,3 +129,89 @@ class SimpleExperiment(ex.Experiment):
                 else:
                     self.metrics.extend(new_metrics)
         pass
+
+    def get_plots(self) -> typing.Set[str]:
+        """
+        Get the list of available plots for this experiment.
+        Defers to the metric results objects for the list.
+        See MetricResult.get_available_plots
+
+        :return: The union of all the available plots on all the available metric results.
+        """
+        # First, go through the known results, without loading any we don't already have
+        plot_names = set()
+        known_types = set()
+        ids_to_load = []
+        with no_auto_dereference(SimpleExperiment):
+            for metric_result in self.metric_results:
+                if isinstance(metric_result, bson.ObjectId):
+                    # This result isn't loaded, we'll get the class later
+                    ids_to_load.append(metric_result)
+                else:
+                    # This metric result is already loaded, ask it's class for the available plots
+                    metric_result_type = type(metric_result)
+                    type_key = metric_result_type.__module__ + '.' + metric_result_type.__name__
+                    if type_key not in known_types:
+                        known_types.add(type_key)
+                        plot_names |= metric_result_type.get_available_plots()
+
+        # if all the metric results are already loaded, we have the full set of plots. return.
+        if len(ids_to_load) <= 0:
+            return plot_names
+
+        # Otherwise, go and load the model types of the metric results we were missing
+        metric_result_types = get_model_classes(MetricResult, ids_to_load)
+
+        # From each metric result type, get it's set of available plot names
+        return plot_names | set(
+            plot_name
+            for metric_result_type in metric_result_types
+            for plot_name in metric_result_type.get_available_plots()
+        )
+
+    def plot_results(self, plot_names: typing.Collection[str], display: bool = False, output: str = '') -> None:
+        """
+        Plot the stored metric results for this experiment.
+        Called from the plot_results script.
+        Actual plotting is delegated to the
+
+        :param plot_names: The
+        :param display:
+        :param output:
+        :return:
+        """
+        # Autoload the referenced model types, Lets us query the database.
+        logging.getLogger(__name__).info("Loading referenced types...")
+        self.load_referenced_models()
+
+        # Get the ids of all the metric results, without loading types yet
+        with no_auto_dereference(SimpleExperiment):
+            metric_result_ids = list(set(
+                result if isinstance(result, bson.ObjectId) else result.pk
+                for result in self.metric_results
+            ))
+
+        # Get all the metric types
+        metric_result_types = get_model_classes(MetricResult, metric_result_ids)
+
+        # Step 2: group up metric results by type
+        plot_names = set(plot_names)
+
+        for metric_result_type in metric_result_types:
+            plots_for_this_type = plot_names & metric_result_type.get_available_plots()
+            if len(plots_for_this_type) <= 0:
+                # No desired plots for this type, continue to the next
+                continue
+
+            logging.getLogger(__name__).info("Loading {0} models ...".format(metric_result_type.__name__))
+            metric_results = list(metric_result_type.objects.raw({'_id': {'$in': metric_result_ids}}))
+
+            logging.getLogger(__name__).info("Creating {0} plots ...".format(metric_result_type.__name__))
+            metric_result_type.visualize_results(
+                results=metric_results,
+                plots=plots_for_this_type,
+                display=display,
+                output=output
+            )
+            # Clear the metric results to free up memory before we load the next one
+            del metric_results

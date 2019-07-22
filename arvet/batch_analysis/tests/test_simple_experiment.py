@@ -2,7 +2,6 @@
 import unittest
 import unittest.mock as mock
 from pymodm.errors import ValidationError
-from pymodm.context_managers import no_auto_dereference
 from bson import ObjectId
 import arvet.database.tests.database_connection as dbconn
 from arvet.core.system import VisionSystem
@@ -12,6 +11,9 @@ import arvet.core.tests.mock_types as mock_core
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
 from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
 from arvet.batch_analysis.simple_experiment import SimpleExperiment
+
+
+# ------------------------- HELPER TYPES -------------------------
 
 
 class CountedSystem(mock_core.MockSystem):
@@ -38,23 +40,59 @@ class CountedMetric(mock_core.MockMetric):
         CountedMetric.instances += 1
 
 
+class CountedMetricResult(mock_core.MockMetricResult):
+    instances = 0
+
+    def __init__(self, *args, **kwargs):
+        super(CountedMetricResult, self).__init__(*args, **kwargs)
+        self._inc_counter()
+
+    @classmethod
+    def _inc_counter(cls):
+        cls.instances += 1
+
+
+class CountedPlottedMetricResult1(CountedMetricResult):
+
+    @classmethod
+    def get_available_plots(cls):
+        return {'my_plot_1'}
+
+
+class CountedPlottedMetricResult2(CountedMetricResult):
+
+    @classmethod
+    def get_available_plots(cls):
+        return {'plot_2', 'custom_demo_plot_newest'}
+
+
+# ------------------------- DATABASE TESTS -------------------------
+
+
 class TestExperimentDatabase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
 
-    def setUp(self):
-        # Remove the collection as the start of the test, so that we're sure it's empty
-        SimpleExperiment._mongometa.collection.drop()
+    def tearDown(self) -> None:
+        # Clean up any objects we've created
+        SimpleExperiment.objects.all().delete()
+        mock_core.MockMetricResult.objects.all().delete()
+        mock_core.MockTrialResult.objects.all().delete()
+        mock_core.MockSystem.objects.all().delete()
+        mock_core.MockImageSource.objects.all().delete()
+        mock_core.MockMetric.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         SimpleExperiment._mongometa.collection.drop()
         mock_core.MockMetric._mongometa.collection.drop()
+        mock_core.MockTrialResult._mongometa.collection.drop()
         mock_core.MockSystem._mongometa.collection.drop()
         mock_core.MockImageSource._mongometa.collection.drop()
+        mock_core.MockMetricResult._mongometa.collection.drop()
 
     def test_stores_and_loads(self):
         system = mock_core.MockSystem()
@@ -80,9 +118,6 @@ class TestExperimentDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
 
-        # Clean up
-        SimpleExperiment.objects.all().delete()
-
     def test_stores_and_loads_minimal(self):
         obj = SimpleExperiment(name="TestSimpleExperiment")
         obj.save()
@@ -91,9 +126,6 @@ class TestExperimentDatabase(unittest.TestCase):
         all_entities = list(SimpleExperiment.objects.all())
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
-
-        # Clean up
-        SimpleExperiment.objects.all().delete()
 
     def test_required_fields_are_required(self):
         # No name
@@ -114,7 +146,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         obj = SimpleExperiment(
             name="TestSimpleExperiment",
-            enabled=True,
             systems=[system],
             image_sources=[image_source],
             metrics=[metric]
@@ -143,7 +174,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         obj = SimpleExperiment(
             name="TestSimpleExperiment",
-            enabled=True,
             systems=[system],
             image_sources=[image_source],
             metrics=[metric]
@@ -163,7 +193,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         obj = SimpleExperiment(
             name="TestSimpleExperiment",
-            enabled=True,
             systems=[system1]
         )
         obj.save()
@@ -171,7 +200,7 @@ class TestExperimentDatabase(unittest.TestCase):
         del obj  # Clear the obj to clear existing objects and references
         CountedSystem.instances = 0
 
-        obj = next(SimpleExperiment.objects.all())
+        obj = SimpleExperiment.objects.all().first()
         self.assertEqual(0, CountedSystem.instances)
         obj.add_vision_systems([system1, system2])
         self.assertEqual(0, CountedSystem.instances)
@@ -180,9 +209,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         # check we can still save
         obj.save()
-
-        # Clean up
-        SimpleExperiment.objects.all().delete()
 
     def test_add_image_sources_enforces_uniqueness_without_dereferencing(self):
         image_source1 = CountedImageSource()
@@ -193,7 +219,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         obj = SimpleExperiment(
             name="TestSimpleExperiment",
-            enabled=True,
             image_sources=[image_source1]
         )
         obj.save()
@@ -201,7 +226,7 @@ class TestExperimentDatabase(unittest.TestCase):
         del obj  # Clear the obj to clear existing objects and references
         CountedImageSource.instances = 0
 
-        obj = next(SimpleExperiment.objects.all())
+        obj = SimpleExperiment.objects.all().first()
         self.assertEqual(0, CountedImageSource.instances)
         obj.add_image_sources([image_source1, image_source2])
         self.assertEqual(0, CountedImageSource.instances)
@@ -210,9 +235,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         # check we can still save
         obj.save()
-
-        # Clean up
-        SimpleExperiment.objects.all().delete()
 
     def test_add_metrics_enforces_uniqueness_without_dereferencing(self):
         metric1 = CountedMetric()
@@ -223,7 +245,6 @@ class TestExperimentDatabase(unittest.TestCase):
 
         obj = SimpleExperiment(
             name="TestSimpleExperiment",
-            enabled=True,
             metrics=[metric1]
         )
         obj.save()
@@ -231,7 +252,7 @@ class TestExperimentDatabase(unittest.TestCase):
         del obj  # Clear the obj to clear existing objects and references
         CountedMetric.instances = 0
 
-        obj = next(SimpleExperiment.objects.all())
+        obj = SimpleExperiment.objects.all().first()
         self.assertEqual(0, CountedMetric.instances)
         obj.add_metrics([metric1, metric2])
         self.assertEqual(0, CountedMetric.instances)
@@ -241,8 +262,52 @@ class TestExperimentDatabase(unittest.TestCase):
         # check we can still save
         obj.save()
 
-        # Clean up
-        SimpleExperiment.objects.all().delete()
+    def test_get_plots_returns_result_plots_without_dereferencing(self):
+        # Build the heirarchy of references necessary to save a metric result
+        system = mock_core.MockSystem()
+        system.save()
+
+        image_source = mock_core.MockImageSource()
+        image_source.save()
+
+        metric = mock_core.MockMetric()
+        metric.save()
+
+        trial_result = mock_core.MockTrialResult(system=system, image_source=image_source, success=True)
+        trial_result.save()
+
+        CountedPlottedMetricResult1.instances = 0
+        CountedPlottedMetricResult2.instances = 0
+
+        # Make some metric results that provide plots
+        metric_result_1 = CountedPlottedMetricResult1(metric=metric, trial_results=[trial_result], success=True)
+        metric_result_1.save()
+
+        metric_result_2 = CountedPlottedMetricResult2(metric=metric, trial_results=[trial_result], success=True)
+        metric_result_2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            metric_results=[metric_result_1, metric_result_2]
+        )
+        obj.save()
+
+        # Check that creating the metric results increased the instance count
+        self.assertEqual(1, CountedPlottedMetricResult1.instances)
+        self.assertEqual(1, CountedPlottedMetricResult2.instances)
+
+        del obj  # Clear the obj to clear existing objects and references
+        CountedPlottedMetricResult1.instances = 0
+        CountedPlottedMetricResult2.instances = 0
+
+        obj = SimpleExperiment.objects.all().first()
+        self.assertEqual(CountedPlottedMetricResult1.get_available_plots() |
+                         CountedPlottedMetricResult2.get_available_plots(), obj.get_plots())
+        self.assertEqual(0, CountedPlottedMetricResult1.instances)
+        self.assertEqual(0, CountedPlottedMetricResult2.instances)
+
+
+# ------------------------- TESTS WITHOUT DATABASE -------------------------
 
 
 class TestSimpleExperiment(unittest.TestCase):
@@ -319,8 +384,8 @@ class TestSimpleExperiment(unittest.TestCase):
         )
         subject.schedule_tasks()
 
-        for trial_group in trial_groups:
-            for metric in metrics:
+        for group_idx, trial_group in enumerate(trial_groups):
+            for metric_idx, metric in enumerate(metrics):
                 self.assertIn(mock.call(
                     trial_results=trial_group,
                     metric=metric,
@@ -328,8 +393,7 @@ class TestSimpleExperiment(unittest.TestCase):
                     memory_requirements=mock.ANY,
                     expected_duration=mock.ANY
                 ), mock_task_manager.get_measure_trial_task.call_args_list,
-                    "Couldn't find measure_trial_task for metric {0}, trials {1}".format(
-                        metric.pk, [t.pk for t in trial_group])
+                    "\nCouldn't find measure_trial_task for metric {0}, trial group {1}".format(metric_idx, group_idx)
                 )
 
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
@@ -354,7 +418,7 @@ class TestSimpleExperiment(unittest.TestCase):
             metric_results.append(result)
             mock_task = mock.MagicMock()
             mock_task.is_finished = True
-            mock_task.result = result
+            mock_task.get_result.return_value = result
             return mock_task
 
         mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
@@ -393,7 +457,7 @@ class TestSimpleExperiment(unittest.TestCase):
             metric_results.append(result)
             mock_task = mock.create_autospec(MeasureTrialTask)
             mock_task.is_finished = True
-            mock_task.result = result
+            mock_task.get_result.return_value = result
             return mock_task
 
         mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
@@ -409,6 +473,44 @@ class TestSimpleExperiment(unittest.TestCase):
 
         for metric_result in metric_results:
             self.assertIn(metric_result, subject.metric_results)
+
+    def test_get_plots_returns_plots_from_metric_results(self):
+
+        class PlottedMetricResult1(mock_core.MockMetricResult):
+
+            @classmethod
+            def get_available_plots(cls):
+                return {'my_awesome_plot', 'plot_2_fixed'}
+
+        class PlottedMetricResult2(mock_core.MockMetricResult):
+
+            @classmethod
+            def get_available_plots(cls):
+                return {'demoplot_newer_2'}
+
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            metric_results=[PlottedMetricResult1(), PlottedMetricResult2()]
+        )
+        self.assertEqual({'my_awesome_plot', 'plot_2_fixed', 'demoplot_newer_2'}, subject.get_plots())
+
+    def test_get_plots_requests_each_type_only_once(self):
+        call_count = 0
+
+        class PlotttedMetricResult(mock_core.MockMetricResult):
+
+            @classmethod
+            def get_available_plots(cls):
+                nonlocal call_count
+                call_count += 1
+                return {'my_awesome_plot', 'plot_2'}
+
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            metric_results=[PlotttedMetricResult() for _ in range(10)]
+        )
+        self.assertEqual({'my_awesome_plot', 'plot_2'}, subject.get_plots())
+        self.assertEqual(1, call_count)
 
 
 def make_trial_map(systems,  image_sources, repeats):
@@ -443,7 +545,7 @@ def make_mock_get_run_system_task(mock_task_manager, trial_results_map, autospec
         else:
             mock_task = mock.MagicMock()
         mock_task.is_finished = True
-        mock_task.result = trial_results_map[system.pk][image_source.pk][repeat]
+        mock_task.get_result.return_value = trial_results_map[system.pk][image_source.pk][repeat]
         return mock_task
 
     mock_task_manager.get_run_system_task.side_effect = mock_get_run_system_task

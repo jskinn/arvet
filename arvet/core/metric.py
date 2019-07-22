@@ -94,6 +94,10 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         return obj
 
 
+# A type variable bound at MetricResult
+T_MetricResult = typing.TypeVar('T_MetricResult', bound='MetricResult')
+
+
 class MetricResult(pymodm.MongoModel):
     """
     A general superclass for metric results for all metrics
@@ -136,13 +140,26 @@ class MetricResult(pymodm.MongoModel):
         return []
 
     @classmethod
-    def visualize_results(cls, results: typing.Iterable['MetricResult'], output_folder: str,
-                          plots: typing.Iterable[str] = None) -> None:
+    def get_available_plots(cls) -> typing.Set[str]:
+        """
+        Get the set of available plots for this metric.
+        That is, these are the values that when passed to visualise_results, actually do something.
+        They should also be human-readable names.
+        :return: A set of valid plot names
+        """
+        return set()
+
+    @classmethod
+    def visualize_results(cls: typing.Type[T_MetricResult],
+                          results: typing.Collection[T_MetricResult],
+                          plots: typing.Iterable[str],
+                          display: bool = True, output: str = '') -> None:
         """
 
         :param results:
         :param plots:
-        :param output_folder:
+        :param display: Should the results be displayed
+        :param output:
         :return:
         """
         pass

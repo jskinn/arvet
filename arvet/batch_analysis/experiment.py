@@ -1,6 +1,5 @@
 # Copyright (c) 2017, John Skinner
 import abc
-import os.path
 import typing
 import bson
 import pymodm
@@ -38,15 +37,27 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
-    def plot_results(self):
+    @abc.abstractmethod
+    def get_plots(self) -> typing.Set[str]:
         """
-        Visualise the results from this experiment.
-        Non-compulsory, but will be called from plot_results.py
+        Get a list of valid plots for this experiment.
+        Each experiment pro
         :return:
         """
         pass
 
-    def export_data(self):
+    def plot_results(self, plot_names: typing.Collection[str], display: bool = False, output: str = '') -> None:
+        """
+        Visualise the results from this experiment in different ways.
+
+        :param plot_names: The names of the plot to create, should only care about the values from get_plots
+        :param display: Should the plot be displayed to the screen. Default false.
+        :param output: The base path to save the plots to. Default '', which means they will not be saved.
+        :return: Nothing
+        """
+        pass
+
+    def export_data(self) -> None:
         """
         Allow experiments to export some data, usually to file.
         I'm currently using this to dump camera trajectories so I can build simulations around them,
@@ -54,24 +65,6 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :return:
         """
         pass
-
-    def perform_analysis(self):
-        """
-        Method by which an experiment can perform large-scale analysis as a job.
-        This is what is called by AnalyseResultsTask
-        This should save it's output somehow, preferably within the output folder given by get_output_folder()
-        :return:
-        """
-        pass
-
-    @classmethod
-    def get_output_folder(cls):
-        """
-        Get a unique output folder for this experiment.
-        Really, we just name the folder after the experiment, but it's nice to do this in a standardized way.
-        :return:
-        """
-        return os.path.join('results', cls.__name__)
 
 
 def run_all(
