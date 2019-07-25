@@ -2,6 +2,7 @@ import typing
 import sys
 import importlib
 import logging
+import traceback
 from pymodm import MongoModel
 
 
@@ -40,12 +41,14 @@ def autoload_modules(model: typing.Type[MongoModel], ids: typing.List[typing.Any
         # For each class we found, try and load the module it contains
         module_name = type_name.rpartition('.')[0]
         if module_name is not '' and module_name not in sys.modules:
+            logging.getLogger(__name__).debug("Auto-Loading module {0}...".format(module_name))
             try:
                 importlib.import_module(module_name)
             except ImportError:
                 logging.getLogger(__name__).warning(
                     "Could not import module {0} containing model {1},"
                     "models of that type will not be returned".format(module_name, type_name))
+                logging.getLogger(__name__).debug("Exception was:\n{0}".format(traceback.format_exc()))
                 pass
 
 
@@ -98,12 +101,14 @@ def get_model_classes(model: typing.Type[ModelType], ids: typing.Collection[typi
                 module = sys.modules[module_name]
             else:
                 # Module is not loaded, try and load it
+                logging.getLogger(__name__).debug("Auto-Loading module {0}...".format(module_name))
                 try:
                     module = importlib.import_module(module_name)
                 except ImportError:
                     logging.getLogger(__name__).warning(
-                        "Could not import module {0} containing model {1},"
+                        "Could not import module {0} containing model {1}, "
                         "models of that type will not be returned".format(module_name, type_name))
+                    logging.getLogger(__name__).debug("Exception was:\n{0}".format(traceback.format_exc()))
                     continue
 
         # Then, if we found a found a module, try and get the model from it
