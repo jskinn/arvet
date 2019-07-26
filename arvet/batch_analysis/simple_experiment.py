@@ -203,15 +203,11 @@ class SimpleExperiment(ex.Experiment):
                 # No desired plots for this type, continue to the next
                 continue
 
-            logging.getLogger(__name__).info("Loading {0} models ...".format(metric_result_type.__name__))
-            metric_results = list(metric_result_type.objects.raw({'_id': {'$in': metric_result_ids}}))
-
             logging.getLogger(__name__).info("Creating {0} plots ...".format(metric_result_type.__name__))
+            metric_results = metric_result_type.objects.raw({'_id': {'$in': metric_result_ids}})
             metric_result_type.visualize_results(
                 results=metric_results,
                 plots=plots_for_this_type,
                 display=display,
                 output=output
             )
-            # Clear the metric results to free up memory before we load the next one
-            del metric_results

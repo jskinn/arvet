@@ -114,7 +114,7 @@ class TestPlotResultsDatabase(unittest.TestCase):
         self.assertEqual(1, PlottedMetricResult2.visualize_results.call_count)
         self.assertEqual(1, MetricResultSubclass.visualize_results.call_count)
 
-        results = PlottedMetricResult1.visualize_results.call_args[1]['results']
+        results = list(PlottedMetricResult1.visualize_results.call_args[1]['results'])
         plot_names = PlottedMetricResult1.visualize_results.call_args[1]['plots']
         self.assertEqual(2, len(results))
         keys = set()
@@ -124,14 +124,14 @@ class TestPlotResultsDatabase(unittest.TestCase):
         self.assertEqual(keys, {self.metric_result_1.pk, self.metric_result_3.pk})
         self.assertEqual(PlottedMetricResult1.get_available_plots(), set(plot_names))
 
-        results = PlottedMetricResult2.visualize_results.call_args[1]['results']
+        results = list(PlottedMetricResult2.visualize_results.call_args[1]['results'])
         plot_names = PlottedMetricResult2.visualize_results.call_args[1]['plots']
         self.assertEqual(1, len(results))
         self.assertIsInstance(results[0], PlottedMetricResult2)
         self.assertEqual(results[0].pk, self.metric_result_2.pk)
         self.assertEqual(PlottedMetricResult2.get_available_plots(), set(plot_names))
 
-        results = MetricResultSubclass.visualize_results.call_args[1]['results']
+        results = list(MetricResultSubclass.visualize_results.call_args[1]['results'])
         plot_names = MetricResultSubclass.visualize_results.call_args[1]['plots']
         self.assertEqual(1, len(results))
         self.assertIsInstance(results[0], MetricResultSubclass)
@@ -183,6 +183,12 @@ class TestPlotResultsDatabase(unittest.TestCase):
                 self.assertEqual(output, MetricResultSubclass.visualize_results.call_args[1]['output'])
 
     def test_doesnt_load_results_if_not_needed_for_plot(self, *_):
+        # Patch the visualize results so it actually forces a load of the results.
+        PlottedMetricResult1.visualize_results.side_effect = \
+            lambda results, plots, display=True, output='': list(results)
+        MetricResultSubclass.visualize_results.side_effect = \
+            lambda results, plots, display=True, output='': list(results)
+
         experiment = SimpleExperiment.objects.all().first()
 
         PlottedMetricResult1.instances = 0
@@ -194,4 +200,45 @@ class TestPlotResultsDatabase(unittest.TestCase):
         self.assertEqual(1, PlottedMetricResult1.instances)
         self.assertEqual(0, PlottedMetricResult2.instances)
         # The one instance gets loaded twice, once for the parent, once for the subclass
+        self.assertEqual(2, MetricResultSubclass.instances)
+
+    def test_doesnt_load_results_until_generator_is_called(self, *_):
+        # Patch the visualize results to let us store the generator that is passed in.
+        plotted_metric_results = []
+        metric_result_subclass = []
+
+        def plotted_metric_visualize(results, *_, **__):
+            nonlocal plotted_metric_results
+            plotted_metric_results = results
+        PlottedMetricResult1.visualize_results.side_effect = plotted_metric_visualize
+
+        def metric_result_subclass_visualize(results, *_, **__):
+            nonlocal metric_result_subclass
+            metric_result_subclass = results
+        MetricResultSubclass.visualize_results.side_effect = metric_result_subclass_visualize
+
+        experiment = SimpleExperiment.objects.all().first()
+
+        PlottedMetricResult1.instances = 0
+        PlottedMetricResult2.instances = 0
+        MetricResultSubclass.instances = 0
+
+        experiment.plot_results(PlottedMetricResult1.get_available_plots())
+
+        self.assertEqual(0, PlottedMetricResult1.instances)
+        self.assertEqual(0, PlottedMetricResult2.instances)
+        self.assertEqual(0, MetricResultSubclass.instances)
+
+        # Exhaust the PlottedMetricResult1 generator
+        list(plotted_metric_results)
+
+        self.assertEqual(1, PlottedMetricResult1.instances)
+        self.assertEqual(0, PlottedMetricResult2.instances)
+        self.assertEqual(1, MetricResultSubclass.instances)
+
+        # Exhaust the PlottedMetricResult1 generator
+        list(metric_result_subclass)
+
+        self.assertEqual(1, PlottedMetricResult1.instances)
+        self.assertEqual(0, PlottedMetricResult2.instances)
         self.assertEqual(2, MetricResultSubclass.instances)

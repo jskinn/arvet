@@ -28,6 +28,9 @@ class MockExperiment(ex.Experiment):
     def schedule_tasks(self):
         pass
 
+    def get_plots(self):
+        return {}
+
 
 class TestExperimentDatabase(unittest.TestCase):
 
