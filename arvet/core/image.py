@@ -27,6 +27,10 @@ class Image(pymodm.MongoModel):
         lens_focal_distance=attrgetter('metadata.lens_focal_distance'),
         aperture=attrgetter('metadata.aperture'),
 
+        pos_x=lambda obj: obj.camera_location[0] if obj.camera_location is not None else None,
+        pos_y=lambda obj: obj.camera_location[1] if obj.camera_location is not None else None,
+        pos_z=lambda obj: obj.camera_location[2] if obj.camera_location is not None else None,
+
         red_mean=attrgetter('metadata.red_mean'),
         red_std=attrgetter('metadata.red_std'),
         green_mean=attrgetter('metadata.green_mean'),

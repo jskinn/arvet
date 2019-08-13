@@ -225,6 +225,10 @@ class TestImage(th.ExtendedTestCase):
             'lens_focal_distance',
             'aperture',
 
+            'pos_x',
+            'pos_y',
+            'pos_z',
+
             'red_mean',
             'red_std',
             'green_mean',
@@ -251,6 +255,10 @@ class TestImage(th.ExtendedTestCase):
         lens_focal_distance = np.random.uniform(10, 1000)
         aperture = np.random.uniform(1.2, 3.6)
 
+        pos_x = np.random.uniform(-1000, 1000)
+        pos_y = np.random.uniform(-1000, 1000)
+        pos_z = np.random.uniform(-1000, 1000)
+
         red_mean = np.random.uniform(10, 240)
         red_std = np.random.uniform(1, 10)
         green_mean = np.random.uniform(10, 240)
@@ -275,6 +283,7 @@ class TestImage(th.ExtendedTestCase):
             pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
             metadata=imeta.ImageMetadata(
                 img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                camera_pose=tf.Transform(location=[pos_x, pos_y, pos_z]),
                 source_type=source_type,
                 lens_focal_distance=lens_focal_distance,
                 aperture=aperture,
@@ -301,6 +310,10 @@ class TestImage(th.ExtendedTestCase):
             'source_type': source_type,
             'lens_focal_distance': lens_focal_distance,
             'aperture': aperture,
+
+            'pos_x': pos_x,
+            'pos_y': pos_y,
+            'pos_z': pos_z,
 
             'red_mean': red_mean,
             'red_std': red_std,
@@ -337,6 +350,10 @@ class TestImage(th.ExtendedTestCase):
             'source_type': source_type,
             'lens_focal_distance': None,
             'aperture': None,
+
+            'pos_x': None,
+            'pos_y': None,
+            'pos_z': None,
 
             'red_mean': None,
             'red_std': None,
@@ -922,6 +939,10 @@ class TestStereoImage(th.ExtendedTestCase):
             'lens_focal_distance',
             'aperture',
 
+            'pos_x',
+            'pos_y',
+            'pos_z',
+
             'red_mean',
             'red_std',
             'green_mean',
@@ -963,6 +984,10 @@ class TestStereoImage(th.ExtendedTestCase):
             'source_type': imeta.ImageSourceType.SYNTHETIC,
             'lens_focal_distance': 5.0,
             'aperture': 22,
+
+            'pos_x': self.full_left_pose.location[0],
+            'pos_y': self.full_left_pose.location[1],
+            'pos_z': self.full_left_pose.location[2],
 
             'red_mean': self.full_metadata.red_mean,
             'red_std': self.full_metadata.red_std,
@@ -1020,6 +1045,10 @@ class TestStereoImage(th.ExtendedTestCase):
             'source_type': source_type,
             'lens_focal_distance': None,
             'aperture': None,
+
+            'pos_x': None,
+            'pos_y': None,
+            'pos_z': None,
 
             'red_mean': None,
             'red_std': None,
