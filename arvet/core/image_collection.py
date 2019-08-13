@@ -2,6 +2,7 @@
 from operator import itemgetter, attrgetter
 import typing
 import pymodm
+import numpy as np
 
 from arvet.util.column_list import ColumnList
 from arvet.database.enum_field import EnumField
@@ -107,6 +108,15 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
         :return:
         """
         return self.timestamps[item], self.images[item]
+
+    @property
+    def framerate(self) -> float:
+        """
+        Get the average framerate of the image collection,
+        that is, the total number of frames divided by the total time.
+        :return:
+        """
+        return len(self.timestamps) / (max(self.timestamps) - min(self.timestamps))
 
     def get_columns(self) -> typing.Set[str]:
         """

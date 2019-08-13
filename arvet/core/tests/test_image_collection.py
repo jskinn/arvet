@@ -328,6 +328,17 @@ class TestImageCollection(unittest.TestCase):
                 self.assertGreater(timestamp, prev_timestamp)
             prev_timestamp = timestamp
 
+    def test_framerate_returns_average_time_interval_between_frames(self):
+        images = [make_image(idx, depth=None) for idx in range(10)]
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[3.2 + 0.25 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        # Due to fencepost error, we do 10 frames with at timestamp of 3 + 9*0.25 on the final frame,
+        # So the total time is only 2.25s (not 2.5s, which would give us a framerate of 4)
+        self.assertEqual(4 * 10 / 9, collection.framerate)
+
     def test_get_columns_returns_column_list(self):
         images = [make_image(idx, depth=None) for idx in range(10)]
         collection = ic.ImageCollection(

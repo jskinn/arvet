@@ -111,6 +111,16 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
 
     @property
     @abc.abstractmethod
+    def framerate(self) -> float:
+        """
+        Get the frame rate of the image source.
+        That is, the difference in time between successive images.
+        :return:
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
     def camera_intrinsics(self) -> CameraIntrinsics:
         """
         Get the intrinsics of the camera in this image source.
