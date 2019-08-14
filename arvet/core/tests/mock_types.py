@@ -71,6 +71,10 @@ class MockImageSource(arvet.core.image_source.ImageSource):
     def __repr__(self):
         return "{0}({1})".format(type(self).__name__, self.pk)
 
+    @property
+    def framerate(self):
+        return 0.0
+
     def get_columns(self):
         return set()
 
