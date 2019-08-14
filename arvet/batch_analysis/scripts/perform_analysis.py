@@ -47,7 +47,7 @@ def main(*args):
         im_manager.configure(config['image_manager'])
 
         # Set up the path manager
-        path_manger = PathManager(paths=config['paths'])
+        path_manger = PathManager(paths=config['paths'], temp_folder=config['temp_folder'])
 
         # Try and get the experiment object
         try:

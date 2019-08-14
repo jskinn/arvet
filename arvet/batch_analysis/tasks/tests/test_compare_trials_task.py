@@ -256,7 +256,7 @@ class TestCompareTrialsTask(unittest.TestCase):
     def setUp(self):
         system = mock_types.MockSystem()
         image_source = mock_types.MockImageSource()
-        self.path_manager = PathManager(['~'])
+        self.path_manager = PathManager(['~'], '~/tmp')
         self.metric = mock_types.MockTrialComparisonMetric()
         self.trial_result_1 = mock_types.MockTrialResult(system=system, image_source=image_source, success=False)
         self.trial_result_2 = mock_types.MockTrialResult(system=system, image_source=image_source, success=False)

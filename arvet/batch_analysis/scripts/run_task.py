@@ -33,7 +33,7 @@ def main(task_id: str, config_file: str = 'config.yml'):
     im_manager.configure(config['image_manager'])
 
     # Set up the path manager
-    path_manger = PathManager(paths=config['paths'])
+    path_manger = PathManager(paths=config['paths'], temp_folder=config['temp_folder'])
 
     # Try and get the task object
     autoload_modules(Task, [task_id])   # Try and autoload the task subclass

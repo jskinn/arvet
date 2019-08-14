@@ -5,6 +5,7 @@ import os
 import os.path as path
 import bson
 import logging
+from pathlib import Path
 from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
@@ -200,7 +201,7 @@ class TestImportDatasetTask(unittest.TestCase):
         logging.disable(logging.CRITICAL)
 
     def setUp(self):
-        self.path_manager = PathManager(['~'])
+        self.path_manager = PathManager(['~'], '~/tmp')
         mock_importer.reset()
         image = mock_types.make_image()
         self.image_collection = ic.ImageCollection(
@@ -313,7 +314,7 @@ class TestImportDatasetTask(unittest.TestCase):
         self.assertFalse(mock_importer.called)
         subject.run_task(self.path_manager)
         self.assertTrue(mock_importer.called)
-        self.assertEqual(dataset_path, mock_importer.called_path)
+        self.assertEqual(Path(dataset_path), mock_importer.called_path)
         self.assertEqual(additional_args, mock_importer.called_kwargs)
 
         self.assertFalse(subject.is_unstarted)

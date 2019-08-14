@@ -101,7 +101,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             os.remove(dbconn.image_file)
 
     def test_runs_real_time_10_fps_320x240(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 10, 320, 240, 600)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)
@@ -120,7 +120,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             self.assertLessEqual(delta_actual, delta_timestamp)
 
     def test_runs_real_time_10_fps_640x480(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 10, 640, 480, 600)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)
@@ -139,7 +139,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             self.assertLessEqual(delta_actual, delta_timestamp)
 
     def test_runs_real_time_30_fps_640x480(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 30, 640, 480, 1800)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)
@@ -158,7 +158,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             self.assertLessEqual(delta_actual, delta_timestamp)
 
     def test_runs_real_time_60_fps_640x480(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 60, 640, 480, 3600)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)
@@ -177,7 +177,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             self.assertLessEqual(delta_actual, delta_timestamp)
 
     def test_runs_real_time_10_fps_1920x1080(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 10, 1920, 1080, 600)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)
@@ -196,7 +196,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             self.assertLessEqual(delta_actual, delta_timestamp)
 
     def test_runs_real_time_30_fps_1920x1080(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 30, 1920, 1080, 1800)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)
@@ -215,7 +215,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
             self.assertLessEqual(delta_actual, delta_timestamp)
 
     def test_runs_real_time_60_fps_1920x1080(self):
-        path_manager = PathManager(['~'])
+        path_manager = PathManager(['~'], '~/tmp')
         task_id = make_task_for_test(1 / 60, 1920, 1080, 3600)
         task = Task.objects.get({'_id': task_id})
         task.mark_job_started('unittest', 0)

@@ -1,8 +1,9 @@
-import typing
+from typing import List, Union, Callable
 import os
+from os import PathLike
+from pathlib import Path
 
 
-# TODO: Once we standardize on 3.6, use pathlib
 class PathManager:
     """
     A simple class to allow node-independent location of files and folders.
@@ -12,11 +13,21 @@ class PathManager:
     and return the first potential match.
     """
 
-    def __init__(self, paths: typing.List[str]):
-        paths = [os.path.abspath(os.path.expanduser(path)) for path in paths]
-        self._roots = [path for path in paths if os.path.isdir(path)]
+    def __init__(self, paths: List[Union[str, PathLike]],
+                 temp_folder: Union[str, PathLike] = '/tmp'):
+        paths = [Path(path).expanduser().resolve() for path in paths]
+        self._roots = [path for path in paths if path.is_dir()]
+        self._temp_folder = Path(temp_folder).expanduser().resolve()
 
-    def check_dir(self, directory: str) -> bool:
+    def get_temp_folder(self) -> Path:
+        """
+        Get a folder where we can create temp files
+        TODO: Manage temp files here, and automatically clean them up on a context exit
+        :return:
+        """
+        return self._temp_folder
+
+    def check_dir(self, directory: Union[str, PathLike]) -> bool:
         """
         Check if a given directory can be found by the path manager
         :param directory: The directory to check
@@ -24,7 +35,7 @@ class PathManager:
         """
         return find_absolute_path(directory, self._roots, os.path.isdir) is not None
 
-    def find_dir(self, directory: str) -> str:
+    def find_dir(self, directory: Union[str, PathLike]) -> Path:
         """
         Find a particular directory. Raises FileNotFoundError if it doesn't exist.
         :param directory: The directory to find, relative to one of the configured base folders
@@ -35,7 +46,7 @@ class PathManager:
             raise FileNotFoundError("Could not find directory {0} within {1}".format(directory, str(self._roots)))
         return full_path
 
-    def check_file(self, file: str) -> bool:
+    def check_file(self, file: Union[str, PathLike]) -> bool:
         """
         Check if a given file can be found by the path manager
         :param file: The file path, relative to one of the configured root folders
@@ -43,7 +54,7 @@ class PathManager:
         """
         return find_absolute_path(file, self._roots, os.path.isfile) is not None
 
-    def find_file(self, file: str) -> str:
+    def find_file(self, file: Union[str, PathLike]) -> Path:
         """
         Find a particular file. Raises FileNotFoundError if it doesn't exist.
         :param file: The file to find, relative to one of the configured
@@ -54,7 +65,7 @@ class PathManager:
             raise FileNotFoundError("Could not find file {0} within {1}".format(file, str(self._roots)))
         return full_path
 
-    def check_path(self, relative_path: str) -> bool:
+    def check_path(self, relative_path: Union[str, PathLike]) -> bool:
         """
         Check if a given path (file or directory) exists and can be found by the path manager
         :param relative_path: The relative path
@@ -62,7 +73,7 @@ class PathManager:
         """
         return find_absolute_path(relative_path, self._roots, os.path.exists) is not None
 
-    def find_path(self, relative_path: str) -> str:
+    def find_path(self, relative_path: Union[str, PathLike]) -> Path:
         """
         Find either a file or directory
         :param relative_path: The relative path of file or folder to find
@@ -75,8 +86,8 @@ class PathManager:
         return full_path
 
 
-def find_absolute_path(path: str, roots: typing.List[str], filter_func: typing.Callable[[str], bool]) \
-        -> typing.Union[str, None]:
+def find_absolute_path(path: Union[str, PathLike], roots: List[Path], filter_func: Callable[[PathLike], bool]) \
+        -> Union[Path, None]:
     """
     A helper to do the heavy lifting for the path manager.
     Finds full paths that match a certain function, usually one of isdir, isfile, or exists
@@ -86,7 +97,7 @@ def find_absolute_path(path: str, roots: typing.List[str], filter_func: typing.C
     :return: The full path, if it exists, or None if it doesnt
     """
     for root in roots:
-        full_path = os.path.join(root, path)
-        if filter_func(full_path):
-            return os.path.abspath(full_path)
+        full_path = root / path
+        if filter_func(full_path):  # This is a path, which is a pathlike, I don't understand pylint's error
+            return full_path.resolve()
     return None

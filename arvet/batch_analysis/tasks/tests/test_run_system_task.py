@@ -223,7 +223,7 @@ class TestRunSystemTask(unittest.TestCase):
     def setUp(self):
         self.system = mock_types.MockSystem()
         self.image_source = mock_types.MockImageSource()
-        self.path_manager = PathManager(['~'])
+        self.path_manager = PathManager(['~'], '~/tmp')
 
     def test_run_task_records_unable_to_measure_trial(self):
         self.system.is_image_source_appropriate = lambda _: False
