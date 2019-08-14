@@ -136,7 +136,10 @@ def compute_average_trajectory(trajectories: typing.Iterable[typing.Mapping[floa
             associated_poses[time] = [traj[time]] if traj[time] is not None else []
     # Take the median associated time and pose together
     return {
-        np.median(associated_times[time]):
-            tf.compute_average_pose(associated_poses[time]) if time in associated_poses else None
+        np.median(associated_times[time]): (
+            tf.compute_average_pose(associated_poses[time])
+            if time in associated_poses and len(associated_poses[time]) > 0
+            else None
+        )
         for time in associated_times.keys()
     }

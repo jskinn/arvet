@@ -364,6 +364,6 @@ def make_mock_module(*module_classes):
 
 
 def make_mock_logger(mock_logging):
-    mock_logger = mock.Mock(spec=['warning', 'error'])
+    mock_logger = mock.Mock(spec=['warning', 'error', 'debug'])
     mock_logging.getLogger.return_value = mock_logger
     return mock_logger
