@@ -111,10 +111,12 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
 
     @property
     @abc.abstractmethod
-    def framerate(self) -> float:
+    def average_timestep(self) -> float:
         """
-        Get the frame rate of the image source.
-        That is, the difference in time between successive images.
+        Get the average time interval between frames.
+        Used to configure a system to run at the correct rate.
+        average timestep is approximately 1/framerate
+        (there is some fence-post error, basically no timestep before first frame)
         :return:
         """
         pass

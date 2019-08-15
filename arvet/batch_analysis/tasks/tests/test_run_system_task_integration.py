@@ -1,4 +1,5 @@
 # Copyright (c) 2017, John Skinner
+import typing
 import unittest
 import os
 import time
@@ -35,7 +36,13 @@ class TimerVisionSystem(VisionSystem):
     def is_image_source_appropriate(self, image_source: ImageSource) -> bool:
         return True
 
-    def set_camera_intrinsics(self, camera_intrinsics: CameraIntrinsics) -> None:
+    def set_camera_intrinsics(self, camera_intrinsics: CameraIntrinsics, average_timestep: float) -> None:
+        pass
+
+    def get_columns(self) -> typing.Set[str]:
+        pass
+
+    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
         pass
 
     def start_trial(self, sequence_type: ImageSequenceType) -> None:

@@ -32,7 +32,7 @@ class MockSystem(arvet.core.system.VisionSystem):
     def is_image_source_appropriate(self, image_source):
         return image_source.identifier not in self.sources_blacklist
 
-    def set_camera_intrinsics(self, camera_intrinsics):
+    def set_camera_intrinsics(self, camera_intrinsics, average_timestep):
         pass
 
     def start_trial(self, sequence_type):
@@ -72,7 +72,7 @@ class MockImageSource(arvet.core.image_source.ImageSource):
         return "{0}({1})".format(type(self).__name__, self.pk)
 
     @property
-    def framerate(self):
+    def average_timestep(self):
         return 0.0
 
     def get_columns(self):

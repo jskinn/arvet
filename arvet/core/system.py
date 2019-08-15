@@ -52,11 +52,12 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def set_camera_intrinsics(self, camera_intrinsics: CameraIntrinsics) -> None:
+    def set_camera_intrinsics(self, camera_intrinsics: CameraIntrinsics, average_timestep: float) -> None:
         """
         Set the intrinsics used by this image source to process images.
         Many systems take this as configuration.
         :param camera_intrinsics: A camera intrinsics object.
+        :param average_timestep: The average time interval between frames, 1 / framerate.
         :return:
         """
         pass

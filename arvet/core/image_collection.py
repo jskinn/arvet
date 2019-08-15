@@ -110,13 +110,12 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
         return self.timestamps[item], self.images[item]
 
     @property
-    def framerate(self) -> float:
+    def average_timestep(self) -> float:
         """
-        Get the average framerate of the image collection,
-        that is, the total number of frames divided by the total time.
-        :return:
+        Get the average time interval between frames.
+        :return: The total time divided by 1 less than the number of frames (the number of intervals)
         """
-        return len(self.timestamps) / (max(self.timestamps) - min(self.timestamps))
+        return (max(self.timestamps) - min(self.timestamps)) / (len(self.timestamps) - 1)
 
     def get_columns(self) -> typing.Set[str]:
         """
