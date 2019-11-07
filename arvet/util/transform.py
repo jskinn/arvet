@@ -104,6 +104,18 @@ class Transform:
         return hash((self._x, self._y, self._z, self._qw, self._qx, self._qy, self._qz))
 
     @property
+    def x(self) -> float:
+        return self._x
+
+    @property
+    def y(self) -> float:
+        return self._y
+
+    @property
+    def z(self) -> float:
+        return self._z
+
+    @property
     def location(self) -> np.ndarray:
         """
         Get the location represented by this pose.
