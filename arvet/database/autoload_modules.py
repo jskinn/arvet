@@ -6,7 +6,8 @@ import traceback
 from pymodm import MongoModel
 
 
-def autoload_modules(model: typing.Type[MongoModel], ids: typing.List[typing.Any] = None) -> None:
+def autoload_modules(model: typing.Type[MongoModel], ids: typing.Sequence[typing.Any] = None,
+                     classes: typing.Iterable[str] = None) -> None:
     """
     Find and automatically load the subtypes of a given model class.
     Used to allow me to use base model types with many different subclasses,
@@ -15,6 +16,7 @@ def autoload_modules(model: typing.Type[MongoModel], ids: typing.List[typing.Any
 
     :param model: The base model to query
     :param ids: An optional list of ids, will limit the loaded models to those with the given ids
+    :param classes: An optional list of classes to load, only those types will be loaded. Needs to be the full
     :return: None
     """
     # First, get the pymodm metainformation
@@ -28,7 +30,10 @@ def autoload_modules(model: typing.Type[MongoModel], ids: typing.List[typing.Any
         return
 
     # Work out which classes we want to load
-    query = {'_cls': {'$exists': True}}
+    if classes is None:
+        query = {'_cls': {'$exists': True}}
+    else:
+        query = {'_cls': {'$in': list(classes)}}
     if ids is not None:
         if len(ids) == 1:
             query['_id'] = ids[0]

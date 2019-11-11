@@ -7,9 +7,11 @@ import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image import Image
+from arvet.core.image_source import ImageSource
 from arvet.core.image_collection import ImageCollection
+from arvet.core.system import VisionSystem
 from arvet.core.trial_result import TrialResult
-from arvet.core.metric import MetricResult
+from arvet.core.metric import Metric, MetricResult
 
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
@@ -278,6 +280,12 @@ class TestInvalidateImageCollection(unittest.TestCase):
             for run_system_task_id in self.run_system_tasks[self.image_collections[i].identifier]:
                 self.assertEqual(1, Task.objects.raw({'_id': run_system_task_id}).count())
 
+    @mock.patch('arvet.batch_analysis.invalidate.autoload_modules')
+    def test_invalidate_image_collection_autoloads_image_collection_types(self, mock_autoload):
+        invalidate.invalidate_image_collections([self.image_collections[0].pk])
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(ImageSource, [self.image_collections[0].pk]), mock_autoload.call_args_list)
+
 
 class TestInvalidateSystem(unittest.TestCase):
 
@@ -388,6 +396,12 @@ class TestInvalidateSystem(unittest.TestCase):
             for run_system_task_id in self.run_system_tasks[self.systems[i].identifier]:
                 self.assertEqual(1, Task.objects.raw({'_id': run_system_task_id}).count())
 
+    @mock.patch('arvet.batch_analysis.invalidate.autoload_modules')
+    def test_invalidate_system_autoloads_system_types(self, mock_autoload):
+        invalidate.invalidate_systems([self.systems[0].pk])
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(VisionSystem, [self.systems[0].pk]), mock_autoload.call_args_list)
+
     def test_invalidate_system_by_name_removes_systems(self):
         invalidate.invalidate_systems_by_name(['arvet.core.tests.mock_types.MockSystem'])
 
@@ -413,6 +427,13 @@ class TestInvalidateSystem(unittest.TestCase):
         for system in self.systems:
             for run_system_task_id in self.run_system_tasks[system.identifier]:
                 self.assertEqual(0, Task.objects.raw({'_id': run_system_task_id}).count())
+
+    @mock.patch('arvet.batch_analysis.invalidate.autoload_modules')
+    def test_invalidate_system_by_name_autoloads_system_types(self, mock_autoload):
+        invalidate.invalidate_systems_by_name(['arvet.core.tests.mock_types.MockSystem'])
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(VisionSystem, classes=['arvet.core.tests.mock_types.MockSystem']),
+                      mock_autoload.call_args_list)
 
 
 class TestInvalidateTrial(unittest.TestCase):
@@ -579,6 +600,12 @@ class TestInvalidateTrial(unittest.TestCase):
             for task_id in self.measure_trial_tasks[i]:
                 self.assertEqual(1, Task.objects.raw({'_id': task_id}).count())
 
+    @mock.patch('arvet.batch_analysis.invalidate.autoload_modules')
+    def test_invalidate_trial_autoloads_trial_types(self, mock_autoload):
+        invalidate.invalidate_trial_results([self.trial_result_groups[0][0].pk])
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(TrialResult, [self.trial_result_groups[0][0].pk]), mock_autoload.call_args_list)
+
 
 class TestInvalidateMetric(unittest.TestCase):
     systems = []
@@ -716,6 +743,12 @@ class TestInvalidateMetric(unittest.TestCase):
             for task_id in self.measure_trial_tasks[self.metrics[i].identifier]:
                 self.assertEqual(1, Task.objects.raw({'_id': task_id}).count())
 
+    @mock.patch('arvet.batch_analysis.invalidate.autoload_modules')
+    def test_invalidate_metric_autoloads_metric_types(self, mock_autoload):
+        invalidate.invalidate_metrics([self.metrics[0].pk])
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(Metric, [self.metrics[0].pk]), mock_autoload.call_args_list)
+
 
 class TestInvalidateMetricResult(unittest.TestCase):
     systems = []
@@ -815,6 +848,12 @@ class TestInvalidateMetricResult(unittest.TestCase):
             self.assertEqual(1, Task.objects.raw({
                 '_id': self.measure_trial_tasks[self.metric_results[i].identifier]
             }).count())
+
+    @mock.patch('arvet.batch_analysis.invalidate.autoload_modules')
+    def test_invalidate_metric_result_autoloads_result_types(self, mock_autoload):
+        invalidate.invalidate_metric_results([self.metric_results[0].pk])
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(MetricResult, [self.metric_results[0].pk]), mock_autoload.call_args_list)
 
 
 def make_image_collection(length=3) -> ImageCollection:

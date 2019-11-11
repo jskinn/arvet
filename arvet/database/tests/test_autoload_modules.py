@@ -100,6 +100,60 @@ class TestAutoloadModulesDatabase(unittest.TestCase):
 
     @mock.patch('arvet.database.autoload_modules.sys', spec=['modules'])
     @mock.patch('arvet.database.autoload_modules.importlib.import_module', autospec=True)
+    def test_only_looks_for_models_for_the_given_classes(self, mock_import_module, mock_sys):
+        base_model = TestBaseModel()
+        base_model.save()
+
+        sub_model = TestSubclassModel()
+        sub_model.save()
+
+        # Make it seem like no modules are loaded
+        mock_sys.modules = {}
+
+        autoload_modules(TestBaseModel, classes=[sub_model.__module__ + '.TestSubclassModel'])
+
+        self.assertTrue(mock_import_module.called)
+        self.assertEqual(1, len(mock_import_module.call_args_list))
+        self.assertNotIn(mock.call(base_model.__module__), mock_import_module.call_args_list)
+        self.assertIn(mock.call(sub_model.__module__), mock_import_module.call_args_list)
+
+    @mock.patch('arvet.database.autoload_modules.sys', spec=['modules'])
+    @mock.patch('arvet.database.autoload_modules.importlib.import_module', autospec=True)
+    def test_only_tries_to_load_modules_that_appear_in_the_database(self, mock_import_module, mock_sys):
+        base_model = TestBaseModel()
+        base_model.save()
+
+        sub_model = TestSubclassModel()
+        sub_model.save()
+
+        # Make it seem like no modules are loaded
+        mock_sys.modules = {}
+
+        autoload_modules(TestBaseModel, classes=[sub_model.__module__ + '.TestSubclassModel', 'bad.Module'])
+
+        self.assertTrue(mock_import_module.called)
+        self.assertEqual(1, len(mock_import_module.call_args_list))
+        self.assertNotIn(mock.call(base_model.__module__), mock_import_module.call_args_list)
+        self.assertNotIn(mock.call('bad'), mock_import_module.call_args_list)
+        self.assertIn(mock.call(sub_model.__module__), mock_import_module.call_args_list)
+
+    @mock.patch('arvet.database.autoload_modules.sys', spec=['modules'])
+    @mock.patch('arvet.database.autoload_modules.importlib.import_module', autospec=True)
+    def test_doesnt_load_any_modules_when_given_no_classes(self, mock_import_module, mock_sys):
+        model = TestBaseModel()
+        model.save()
+        model = TestSubclassModel()
+        model.save()
+
+        # Make it seem like no modules are loaded
+        mock_sys.modules = {}
+
+        autoload_modules(TestBaseModel, classes=[])
+
+        self.assertFalse(mock_import_module.called)
+
+    @mock.patch('arvet.database.autoload_modules.sys', spec=['modules'])
+    @mock.patch('arvet.database.autoload_modules.importlib.import_module', autospec=True)
     def test_doesnt_reload_modules_already_loaded(self, mock_import_module, mock_sys):
         base_model = TestBaseModel()
         base_model.save()
