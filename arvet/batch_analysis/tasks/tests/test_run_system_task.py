@@ -320,6 +320,7 @@ class TestRunSystemTask(unittest.TestCase):
 class TestRunSystemWithSource(unittest.TestCase):
 
     def setUp(self):
+        self.path_manager = PathManager(['~'], '~/tmp')
         self.system = mock.create_autospec(VisionSystem)
         self.system.is_image_source_appropriate.return_value = True
         self.system.finish_trial.side_effect = lambda: mock_types.MockTrialResult(system=self.system, success=True)
@@ -335,30 +336,12 @@ class TestRunSystemWithSource(unittest.TestCase):
         self.image_source.__iter__.side_effect = source_iter
 
     def test_run_system_calls_trial_functions_in_order_mono(self):
-        run_system_with_source(self.system, self.image_source)
+        run_system_with_source(self.system, self.image_source, self.path_manager)
         mock_calls = self.system.mock_calls
         # set_camera_intrinsics; begin; 10 process image calls; end
-        self.assertEqual(23, len(mock_calls))
-        self.assertEqual('set_camera_intrinsics', mock_calls[0][0])
-
-        # first, preload the images
-        for i in range(10):
-            self.assertEqual('preload_image_data', mock_calls[1 + i][0])
-
-        # then, do the trial
-        self.assertEqual('start_trial', mock_calls[11][0])
-        for i in range(10):
-            self.assertEqual('process_image', mock_calls[12 + i][0])
-        self.assertEqual('finish_trial', mock_calls[22][0])
-
-    def test_run_system_calls_trial_functions_in_order_stereo(self):
-        self.image_source.stereo_offset = mock.Mock()
-        run_system_with_source(self.system, self.image_source)
-        mock_calls = self.system.mock_calls
-        # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end
         self.assertEqual(24, len(mock_calls))
-        self.assertEqual('set_camera_intrinsics', mock_calls[0][0])
-        self.assertEqual('set_stereo_offset', mock_calls[1][0])
+        self.assertEqual('resolve_paths', mock_calls[0][0])
+        self.assertEqual('set_camera_intrinsics', mock_calls[1][0])
 
         # first, preload the images
         for i in range(10):
@@ -370,12 +353,32 @@ class TestRunSystemWithSource(unittest.TestCase):
             self.assertEqual('process_image', mock_calls[13 + i][0])
         self.assertEqual('finish_trial', mock_calls[23][0])
 
+    def test_run_system_calls_trial_functions_in_order_stereo(self):
+        self.image_source.stereo_offset = mock.Mock()
+        run_system_with_source(self.system, self.image_source, self.path_manager)
+        mock_calls = self.system.mock_calls
+        # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end
+        self.assertEqual(25, len(mock_calls))
+        self.assertEqual('resolve_paths', mock_calls[0][0])
+        self.assertEqual('set_camera_intrinsics', mock_calls[1][0])
+        self.assertEqual('set_stereo_offset', mock_calls[2][0])
+
+        # first, preload the images
+        for i in range(10):
+            self.assertEqual('preload_image_data', mock_calls[3 + i][0])
+
+        # then, do the trial
+        self.assertEqual('start_trial', mock_calls[13][0])
+        for i in range(10):
+            self.assertEqual('process_image', mock_calls[14 + i][0])
+        self.assertEqual('finish_trial', mock_calls[24][0])
+
     def test_run_system_calls_iter(self):
-        run_system_with_source(self.system, self.image_source)
+        run_system_with_source(self.system, self.image_source, self.path_manager)
         self.assertTrue(self.image_source.__iter__.called)
 
     def test_run_system_returns_trial_result(self):
-        result = run_system_with_source(self.system, self.image_source)
+        result = run_system_with_source(self.system, self.image_source, self.path_manager)
         self.assertEqual(result.system, self.system)
         self.assertEqual(result.image_source, self.image_source)
         self.assertTrue(result.success)
@@ -388,6 +391,7 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
+        cls.path_manager = PathManager(['~'], '~/tmp')
         cls.system = mock_types.MockSystem()
         cls.image_source = mock_types.MockImageSource()
         cls.system.save()
@@ -417,7 +421,7 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
         mock_types.MockSystem._mongometa.collection.drop()
 
     def test_run_system_returns_trial_result_that_can_be_saved(self):
-        result = run_system_with_source(self.system, self.image_source)
+        result = run_system_with_source(self.system, self.image_source, self.path_manager)
         self.assertEqual(result.system, self.system)
         self.assertEqual(result.image_source, self.image_source)
         self.assertTrue(result.success)

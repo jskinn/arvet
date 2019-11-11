@@ -62,10 +62,9 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
             self.fail_with_message("Image source is inappropriate for system {0}".format(self.system.get_pretty_name()))
             return
 
-        self.system.resolve_paths(path_manager)
         logging.getLogger(__name__).info("Start running system {0}...".format(self.system.get_pretty_name()))
         try:
-            trial_result = run_system_with_source(self.system, self.image_source)
+            trial_result = run_system_with_source(self.system, self.image_source, path_manager)
         except Exception as exception:
             self.fail_with_message("Error occurred while running system {0}:\n{1}".format(
                     self.system.get_pretty_name(), traceback.format_exc()))
@@ -117,15 +116,17 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
         self.mark_job_complete()
 
 
-def run_system_with_source(system: VisionSystem, image_source: ImageSource) -> TrialResult:
+def run_system_with_source(system: VisionSystem, image_source: ImageSource, path_manager: PathManager) -> TrialResult:
     """
     Run a given vision system with a given image source.
     This is the structure for how image sources and vision systems should be interacted with.
     Both should already be set up and configured.
     :param system: The system to run.
     :param image_source: The image source to get images from
+    :param path_manager: The path manager, so that the system can resolve paths and make temporary files.
     :return: The TrialResult storing the results of the run. Save it to the database, or None if there's a problem.
     """
+    system.resolve_paths(path_manager)
     system.set_camera_intrinsics(image_source.camera_intrinsics, image_source.average_timestep)
     if image_source.stereo_offset is not None:
         system.set_stereo_offset(image_source.stereo_offset)
