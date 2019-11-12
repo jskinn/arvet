@@ -856,6 +856,198 @@ class TestInvalidateMetricResult(unittest.TestCase):
         self.assertIn(mock.call(MetricResult, [self.metric_results[0].pk]), mock_autoload.call_args_list)
 
 
+class TestInvalidateIncompleteTasks(unittest.TestCase):
+    systems = []
+    image_collections = []
+    metrics = []
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        im_manager.set_image_manager(image_manager)
+
+        # Create the basic image sources, systems, and metrics.
+        cls.image_collections = [make_image_collection() for _ in range(2)]
+        cls.systems = [mock_types.MockSystem() for _ in range(2)]
+        for system in cls.systems:
+            system.save()
+
+        cls.metrics = [mock_types.MockMetric() for _ in range(2)]
+        for metric in cls.metrics:
+            metric.save()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collection for this model
+        Task._mongometa.collection.drop()
+        MetricResult._mongometa.collection.drop()
+        mock_types.MockMetric._mongometa.collection.drop()
+        TrialResult._mongometa.collection.drop()
+        Image._mongometa.collection.drop()
+        ImageCollection._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
+
+    def setUp(self) -> None:
+        # At each test, clear the set of tasks
+        Task.objects.all().delete()
+
+    def test_removes_incomplete_import_dataset_tasks(self):
+        unstarted_task = ImportDatasetTask(
+            module_name='myloader',
+            path='test/filename',
+            state=JobState.UNSTARTED
+        )
+        unstarted_task.save()
+
+        running_task = ImportDatasetTask(
+            module_name='myloader',
+            path='test/filename',
+            state=JobState.RUNNING,
+            job_id=1,
+            node_id='this'
+        )
+        running_task.save()
+
+        complete = []
+        for image_collection in self.image_collections:
+            task = ImportDatasetTask(
+                module_name='myloader',
+                path='test/filename',
+                state=JobState.DONE,
+                result=image_collection
+            )
+            task.save()
+            complete.append(task)
+
+        self.assertEqual(len(complete) + 2, Task.objects.all().count())
+        invalidate.invalidate_incomplete_tasks()
+        self.assertEqual(len(complete), Task.objects.all().count())
+        self.assertEqual(0, Task.objects.raw({'_id': unstarted_task.pk}).count())
+        self.assertEqual(0, Task.objects.raw({'_id': running_task.pk}).count())
+        for complete_task in complete:
+            self.assertEqual(1, Task.objects.raw({'_id': complete_task.pk}).count())
+
+    def test_removes_incomplete_run_system_tasks(self):
+        # Make tasks of each type, some unstarted, some running, some complete
+        unstarted = []
+        running = []
+        complete = []
+        for system in self.systems:
+            for image_collection in self.image_collections:
+                task = RunSystemTask(
+                    system=system,
+                    image_source=image_collection,
+                    state=JobState.UNSTARTED
+                )
+                task.save()
+                unstarted.append(task)
+
+                task = RunSystemTask(
+                    system=system,
+                    image_source=image_collection,
+                    state=JobState.RUNNING,
+                    job_id=10,
+                    node_id='this'
+                )
+                task.save()
+                running.append(task)
+
+                trial_result = mock_types.MockTrialResult(
+                    system=system,
+                    image_source=image_collection,
+                    success=True
+                )
+                trial_result.save()
+                task = RunSystemTask(
+                    system=system,
+                    image_source=image_collection,
+                    state=JobState.DONE,
+                    result=trial_result
+                )
+                task.save()
+                complete.append(task)
+
+        self.assertEqual(len(complete) + len(running) + len(unstarted), Task.objects.all().count())
+        invalidate.invalidate_incomplete_tasks()
+        self.assertEqual(len(complete), Task.objects.all().count())
+        for unstarted_task in unstarted:
+            self.assertEqual(0, Task.objects.raw({'_id': unstarted_task.pk}).count())
+        for running_task in running:
+            self.assertEqual(0, Task.objects.raw({'_id': running_task.pk}).count())
+        for complete_task in complete:
+            self.assertEqual(1, Task.objects.raw({'_id': complete_task.pk}).count())
+
+        # Clean up after ourselves
+        Task.objects.all().delete()
+        TrialResult.objects.all().delete()
+
+    def test_removes_incomplete_measure_results(self):
+        # Make tasks of each type, some unstarted, some running, some complete
+        unstarted = []
+        running = []
+        complete = []
+        for system in self.systems:
+            for image_collection in self.image_collections:
+                trial_result = mock_types.MockTrialResult(
+                    system=system,
+                    image_source=image_collection,
+                    success=True
+                )
+                trial_result.save()
+
+                for metric in self.metrics:
+                    task = MeasureTrialTask(
+                        metric=metric,
+                        trial_results=[trial_result],
+                        state=JobState.UNSTARTED
+                    )
+                    task.save()
+                    unstarted.append(task)
+
+                    task = MeasureTrialTask(
+                        metric=metric,
+                        trial_results=[trial_result],
+                        state=JobState.RUNNING,
+                        job_id=10,
+                        node_id='this'
+                    )
+                    task.save()
+                    running.append(task)
+
+                    metric_result = mock_types.MockMetricResult(
+                        metric=metric,
+                        trial_results=[trial_result],
+                        success=True
+                    )
+                    metric_result.save()
+                    task = MeasureTrialTask(
+                        metric=metric,
+                        trial_results=[trial_result],
+                        state=JobState.DONE,
+                        result=metric_result
+                    )
+                    task.save()
+                    complete.append(task)
+
+        self.assertEqual(len(complete) + len(running) + len(unstarted), Task.objects.all().count())
+        invalidate.invalidate_incomplete_tasks()
+        self.assertEqual(len(complete), Task.objects.all().count())
+        for unstarted_task in unstarted:
+            self.assertEqual(0, Task.objects.raw({'_id': unstarted_task.pk}).count())
+        for running_task in running:
+            self.assertEqual(0, Task.objects.raw({'_id': running_task.pk}).count())
+        for complete_task in complete:
+            self.assertEqual(1, Task.objects.raw({'_id': complete_task.pk}).count())
+
+        # Clean up after ourselves
+        Task.objects.all().delete()
+        MetricResult.objects.all().delete()
+        TrialResult.objects.all().delete()
+
+
 def make_image_collection(length=3) -> ImageCollection:
     """
     A quick helper for making and saving image collections

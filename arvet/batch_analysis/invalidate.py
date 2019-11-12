@@ -7,7 +7,12 @@ from arvet.core.image_source import ImageSource
 from arvet.core.system import VisionSystem
 from arvet.core.trial_result import TrialResult
 from arvet.core.metric import Metric, MetricResult
+from arvet.batch_analysis.task import Task, JobState
+
+# All three of these task types need to be imported so that they are properly removed with their references.
 from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
+from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
+from arvet.batch_analysis.tasks.measure_trial_task import MeasureTrialTask
 
 
 def invalidate_dataset_loaders(loader_modules: typing.Iterable[str]):
@@ -116,4 +121,12 @@ def invalidate_failed_metric_results() -> int:
         'success': False
     }).delete()
     logging.getLogger(__name__).info("removed {0} metric results".format(removed))
+    return removed
+
+
+def invalidate_incomplete_tasks() -> int:
+    removed = Task.objects.raw({
+        'state': {'$ne': JobState.DONE.name}
+    }).delete()
+    logging.getLogger(__name__).info("removed {0} incomplete tasks".format(removed))
     return removed

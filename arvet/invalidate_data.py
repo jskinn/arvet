@@ -30,7 +30,8 @@ def main(
         trial_results: typing.List[str] = None,
         metrics: typing.List[str] = None, metric_results: typing.List[str] = None,
         failed_trials: bool = False,
-        failed_metrics: bool = False
+        failed_metrics: bool = False,
+        incomplete_tasks: bool = False
 ):
     """
     Command line control to invalidate various objects.
@@ -116,6 +117,12 @@ def main(
         logging.getLogger(__name__).info("Invalidating failed metric results")
         invalidate.invalidate_failed_metric_results()
 
+    # Remove incomplete tasks
+    if incomplete_tasks:
+        logging.getLogger(__name__).info("Removing incomplete tasks")
+        invalidate.invalidate_incomplete_tasks()
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -144,6 +151,8 @@ if __name__ == '__main__':
                         help='Also remove all failed trial results')
     parser.add_argument('--failed_metrics', action='store_true',
                         help='Also remove all failed metric results')
+    parser.add_argument('--incomplete_tasks', action='store_true',
+                        help='Remove all incomplete tasks, the necessary ones will be recreated by scheduling')
     args = parser.parse_args()
 
     main(
@@ -156,5 +165,6 @@ if __name__ == '__main__':
         metrics=args.metric,
         metric_results=args.metric_result,
         failed_trials=args.failed_trials,
-        failed_metrics=args.failed_metrics
+        failed_metrics=args.failed_metrics,
+        incomplete_tasks=args.incomplete_tasks
     )
