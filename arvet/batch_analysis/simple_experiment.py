@@ -17,9 +17,9 @@ class SimpleExperiment(ex.Experiment):
     and then are run with all benchmarks.
     If this common case is not your experiment, override base Experiment instead
     """
-    systems = ReferenceListField(VisionSystem, on_delete=fields.ReferenceField.PULL)
-    image_sources = ReferenceListField(ImageSource, on_delete=fields.ReferenceField.PULL)
-    metrics = ReferenceListField(Metric, on_delete=fields.ReferenceField.PULL)
+    systems = ReferenceListField(VisionSystem, on_delete=fields.ReferenceField.PULL, blank=True)
+    image_sources = ReferenceListField(ImageSource, on_delete=fields.ReferenceField.PULL, blank=True)
+    metrics = ReferenceListField(Metric, on_delete=fields.ReferenceField.PULL, blank=True)
     repeats = fields.IntegerField(required=True, default=1)
 
     def schedule_tasks(self):
@@ -30,11 +30,23 @@ class SimpleExperiment(ex.Experiment):
         # Load the referenced models. We need this before we can dereference our reference fields
         self.load_referenced_models()
 
+        # Clean up our lists of systems, image sources, and metrics.
+        # This fixes cases where a system, image source, or metric has been pulled from the list.
+        self.systems = [system for system in self.systems if system is not None]
+        self.image_sources = [image_source for image_source in self.image_sources if image_source is not None]
+        self.metrics = [metric for metric in self.metrics if metric is not None]
+
+        if len(self.image_sources) <= 0 or len(self.systems) <= 0:
+            return
+
         trial_results, trials_remaining = ex.run_all(
             systems=self.systems,
             image_sources=self.image_sources,
             repeats=self.repeats
         )
+        if len(self.metrics) <= 0:
+            return
+
         complete_groups = [
             trial_result_group
             for trials_by_source in trial_results.values()
