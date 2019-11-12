@@ -38,10 +38,10 @@ class TestSimpleJobSystem(unittest.TestCase):
 
     @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.os.path.abspath')
     @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.subprocess.run')
-    def test_run_task_adds_script_to_queue(self, mock_run, mock_abspath):
+    def test_run_task_adds_script_to_queue_when_subprocess_required(self, mock_run, mock_abspath):
         task = make_mock_task()
         mock_abspath.side_effect = lambda pth: 'test/' + pth
-        subject = SimpleJobSystem({}, 'config.yml')
+        subject = SimpleJobSystem({'subprocess': True}, 'config.yml')
         subject.run_task(task)
         self.assertFalse(mock_run.called)
         subject.run_queued_jobs()
@@ -54,7 +54,7 @@ class TestSimpleJobSystem(unittest.TestCase):
         self.assertEqual(arvet.batch_analysis.scripts.run_task.__file__, run_args[python_index + 1])
         self.assertEqual('--config', run_args[python_index + 2])
         self.assertEqual('test/config.yml', run_args[python_index + 3])
-        self.assertEqual(str(task.identifier), run_args[python_index + 4])
+        self.assertEqual(str(task.pk), run_args[python_index + 4])
 
     def test_is_job_running_returns_true_for_jobids_returned_from_run_script(self):
         subject = SimpleJobSystem({}, 'config.yml')
@@ -75,7 +75,7 @@ class TestSimpleJobSystem(unittest.TestCase):
 
     @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.os')
     @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.subprocess.run')
-    def test_run_queued_jobs_finds_and_uses_a_conda_environment(self, mock_run, mock_os):
+    def test_run_queued_jobs_finds_and_uses_a_conda_environment_for_scripts(self, mock_run, mock_os):
         # Create the environment variable used to indicate the presence of the conda env
         mock_os.environ = {'CONDA_DEFAULT_ENV': 'my_conda_env'}
 
@@ -111,8 +111,8 @@ class TestSimpleJobSystem(unittest.TestCase):
         self.assertEqual({'cwd': '/my/current/working/directory'}, run_kwargs)
 
     @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.os.path.abspath')
-    @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.subprocess.run')
-    def test_run_queued_jobs_passes_through_config_to_tasks(self, mock_run, mock_abspath):
+    @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.arvet.batch_analysis.scripts.run_task.main')
+    def test_run_queued_jobs_passes_through_config_to_tasks(self, mock_runtask, mock_abspath):
         # Mock the environ to hide any conda/virtualenv environment running the test
         task = make_mock_task()
         mock_abspath.side_effect = lambda pth: 'test/' + pth
@@ -124,20 +124,16 @@ class TestSimpleJobSystem(unittest.TestCase):
         self.assertTrue(mock_abspath.called)
         self.assertEqual(mock.call('myconf.yml'), mock_abspath.call_args)
 
-        self.assertTrue(mock_run.called)
-        run_args = mock_run.call_args[0][0]
-        self.assertIn('python', run_args)
-        python_index = run_args.index('python')
-        self.assertEqual(python_index + 5, len(run_args))
-        self.assertEqual(arvet.batch_analysis.scripts.run_task.__file__, run_args[python_index + 1])
-        self.assertEqual('--config', run_args[python_index + 2])
-        self.assertEqual('test/myconf.yml', run_args[python_index + 3])
-        self.assertEqual(str(task.identifier), run_args[python_index + 4])
+        self.assertTrue(mock_runtask.called)
+        run_args = mock_runtask.call_args[0]
+        self.assertEqual(2, len(run_args))
+        self.assertEqual(str(task.pk), run_args[0])
+        self.assertEqual('test/myconf.yml', run_args[1])
 
 
 def make_mock_task():
     mock_task = mock.create_autospec(Task)
-    mock_task.identifier = bson.ObjectId()
+    mock_task.pk = bson.ObjectId()
     mock_task.num_cpus = 1
     mock_task.num_gpus = 0
     mock_task.memory_requirements = '4GB'
