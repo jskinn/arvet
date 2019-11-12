@@ -130,12 +130,12 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource, path
     system.set_camera_intrinsics(image_source.camera_intrinsics, image_source.average_timestep)
     if image_source.stereo_offset is not None:
         system.set_stereo_offset(image_source.stereo_offset)
-    logging.getLogger(__name__).info("  Initialized system")
+    logging.getLogger(__name__).info("  Initialized system {0}".format(system.get_pretty_name()))
 
     # Preload images into memory, so we don't have to wait while the system is running
     for _, image in image_source:
         system.preload_image_data(image)
-    logging.getLogger(__name__).info("  Pre-loaded images")
+    logging.getLogger(__name__).info("  Pre-loaded {0} images".format(len(image_source)))
 
     # Actually run the system, tracking the time between frames
     previous_timestamp = None
