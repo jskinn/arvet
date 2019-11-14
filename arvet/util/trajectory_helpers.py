@@ -42,22 +42,23 @@ def zero_trajectory(trajectory: typing.Mapping[float, tf.Transform]) -> typing.M
     }
 
 
-def find_trajectory_scale(trajectory: typing.Mapping[float, tf.Transform]) -> float:
+def find_trajectory_scale(trajectory: typing.Mapping[float, typing.Union[tf.Transform, None]]) -> float:
     """
     Find the average speed of the trajectory as the scale.
-    That is, the average distance moved between frames. We use this to rescale trajectories for comparison
+    That is, the average distance moved between frames. We use this to rescale trajectories for comparison.
+    Timestamps matched to 'None' indicate that the motion is unknown within that time, and the scale can't be found
     :param trajectory:
     :return:
     """
     if len(trajectory) <= 1:
         return 0
-    timestamps = sorted(trajectory.keys())
-    speeds = []
-    for idx in range(1, len(timestamps)):
-        t0 = timestamps[idx - 1]
-        t1 = timestamps[idx]
-        dist = np.linalg.norm(trajectory[t1].location - trajectory[t0].location)
-        speeds.append(dist / (t1 - t0))
+    timestamps = sorted(time for time, position in trajectory.items() if position is not None)
+    speeds = [
+        np.linalg.norm(trajectory[t1].location - trajectory[t0].location) / (t1 - t0)
+        for t1, t0 in zip(timestamps[1:], timestamps[:-1])
+    ]
+    if len(speeds) <= 0:
+        return 0
     return float(np.mean(speeds))
 
 
@@ -77,17 +78,24 @@ def rescale_trajectory(trajectory: typing.Mapping[float, tf.Transform], scale: f
     current_scale = find_trajectory_scale(trajectory)
     timestamps = sorted(trajectory.keys())
     scaled_trajectory = {timestamps[0]: trajectory[timestamps[0]]}
-    for idx in range(1, len(timestamps)):
-        t0 = timestamps[idx - 1]
-        t1 = timestamps[idx]
-        motion = trajectory[t0].find_relative(trajectory[t1])
-        scaled_trajectory[t1] = tf.Transform(
-            location=scaled_trajectory[t0].find_independent(
-                (scale / current_scale) * motion.location
-            ),
-            rotation=trajectory[t1].rotation_quat(w_first=True),
-            w_first=True
-        )
+    prev_time = None
+    for idx, time in enumerate(timestamps):
+        if trajectory[time] is None:
+            scaled_trajectory[time] = None
+        elif prev_time is None:
+            prev_time = time
+            scaled_trajectory[time] = trajectory[time]
+        else:
+            t0 = prev_time
+            t1 = time
+            motion = trajectory[t0].find_relative(trajectory[t1])
+            scaled_trajectory[t1] = tf.Transform(
+                location=scaled_trajectory[t0].find_independent(
+                    (scale / current_scale) * motion.location
+                ),
+                rotation=trajectory[t1].rotation_quat(w_first=True),
+                w_first=True
+            )
     return scaled_trajectory
 
 

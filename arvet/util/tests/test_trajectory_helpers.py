@@ -82,7 +82,7 @@ class TestFindTrajectoryScale(unittest.TestCase):
     def test_scales_with_time(self):
         random = np.random.RandomState(21273)
         speeds = random.uniform(10, 100, 100)
-        times = random.uniform(0.1, 3, 100)
+        times = np.abs(random.uniform(0.1, 3, 100))
         traj = {0: tf.Transform()}
         prev_location = np.zeros(3)
         prev_time = 0
@@ -96,6 +96,23 @@ class TestFindTrajectoryScale(unittest.TestCase):
         result = th.find_trajectory_scale(traj)
         self.assertAlmostEqual(float(np.mean(speeds)), result, places=13)
 
+    def test_handles_none(self):
+        traj = {
+            0: tf.Transform(),
+            1: tf.Transform(location=(10, 0, 0)),
+            2: None,
+            3: tf.Transform(location=(30, 0, 0)),
+            4: tf.Transform(location=(40, 0, 0)),
+            5: None,
+            6: tf.Transform(location=(60, 0, 0)),
+            7: None
+        }
+        self.assertEqual(10, th.find_trajectory_scale(traj))
+
+    def test_returns_zero_for_trajectory_entirely_none(self):
+        result = th.find_trajectory_scale({0.334 * idx: None for idx in range(100)})
+        self.assertEqual(0, result)
+
 
 class TestRescaleTrajectory(ExtendedTestCase):
 
@@ -104,6 +121,11 @@ class TestRescaleTrajectory(ExtendedTestCase):
 
     def test_does_nothing_to_single_pose_trajectory(self):
         self.assertEqual({0: tf.Transform()}, th.rescale_trajectory({0: tf.Transform()}, 3))
+
+    def test_does_nothing_to_a_trajectory_entirely_none(self):
+        traj = {0.2233 * idx: None for idx in range(10)}
+        result = th.rescale_trajectory(traj, 10)
+        self.assertEqual(traj, result)
 
     def test_changes_trajectory_scale(self):
         traj = create_trajectory(seed=64075)
@@ -156,6 +178,29 @@ class TestRescaleTrajectory(ExtendedTestCase):
                         result_distances[time1] / result_distances[time2],
                         places=10
                     )
+
+    def test_handles_trajectory_containing_none(self):
+        traj = {
+            0: tf.Transform(),
+            1: tf.Transform(location=(10, 0, 0)),
+            2: None,
+            3: tf.Transform(location=(30, 0, 0)),
+            4: tf.Transform(location=(40, 0, 0)),
+            5: None,
+            6: tf.Transform(location=(60, 0, 0)),
+            7: None
+        }
+        result = th.rescale_trajectory(traj, 1)
+        self.assertEqual({
+            0: tf.Transform(),
+            1: tf.Transform(location=(1, 0, 0)),
+            2: None,
+            3: tf.Transform(location=(3, 0, 0)),
+            4: tf.Transform(location=(4, 0, 0)),
+            5: None,
+            6: tf.Transform(location=(6, 0, 0)),
+            7: None
+        }, result)
 
 
 class TestTrajectoryToMotionSequence(unittest.TestCase):
