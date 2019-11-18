@@ -210,6 +210,23 @@ class TestExperimentDatabase(unittest.TestCase):
         # check we can still save
         obj.save()
 
+    def test_add_vision_systems_enforces_uniqueness_if_already_dereferenced(self):
+        system1 = mock_core.MockSystem()
+        system1.save()
+
+        system2 = mock_core.MockSystem()
+        system2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            systems=[system1]
+        )
+        obj.add_vision_systems([system1, system2])
+        self.assertEqual(obj.systems, [system1, system2])
+
+        # check we can still save
+        obj.save()
+
     def test_add_image_sources_enforces_uniqueness_without_dereferencing(self):
         image_source1 = CountedImageSource()
         image_source1.save()
@@ -236,6 +253,23 @@ class TestExperimentDatabase(unittest.TestCase):
         # check we can still save
         obj.save()
 
+    def test_add_image_sources_enforces_uniqueness_if_already_dereferenced(self):
+        image_source1 = mock_core.MockImageSource()
+        image_source1.save()
+
+        image_source2 = mock_core.MockImageSource()
+        image_source2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            image_sources=[image_source1]
+        )
+        obj.add_image_sources([image_source1, image_source2])
+        self.assertEqual(obj.image_sources, [image_source1, image_source2])
+
+        # check we can still save
+        obj.save()
+
     def test_add_metrics_enforces_uniqueness_without_dereferencing(self):
         metric1 = CountedMetric()
         metric1.save()
@@ -257,6 +291,23 @@ class TestExperimentDatabase(unittest.TestCase):
         obj.add_metrics([metric1, metric2])
         self.assertEqual(0, CountedMetric.instances)
         # this will auto-dereference
+        self.assertEqual(obj.metrics, [metric1, metric2])
+
+        # check we can still save
+        obj.save()
+
+    def test_add_metrics_enforces_uniqueness_if_already_dereferenced(self):
+        metric1 = mock_core.MockMetric()
+        metric1.save()
+
+        metric2 = mock_core.MockMetric()
+        metric2.save()
+
+        obj = SimpleExperiment(
+            name="TestSimpleExperiment",
+            metrics=[metric1]
+        )
+        obj.add_metrics([metric1, metric2])
         self.assertEqual(obj.metrics, [metric1, metric2])
 
         # check we can still save

@@ -96,7 +96,7 @@ class SimpleExperiment(ex.Experiment):
             if self.systems is None:
                 existing_pks = set()
             else:
-                existing_pks = set(self.systems)
+                existing_pks = {system.pk if hasattr(system, 'pk') else system for system in self.systems}
             new_vision_systems = [vision_system for vision_system in vision_systems
                                   if vision_system.pk not in existing_pks]
             if len(new_vision_systems) > 0:
@@ -115,7 +115,8 @@ class SimpleExperiment(ex.Experiment):
             if self.image_sources is None:
                 existing_pks = set()
             else:
-                existing_pks = set(self.image_sources)
+                existing_pks = {image_source.pk if hasattr(image_source, 'pk') else image_source
+                                for image_source in self.image_sources}
             new_image_sources = [image_source for image_source in image_sources if image_source.pk not in existing_pks]
             if len(new_image_sources) > 0:
                 if self.image_sources is None:
@@ -133,7 +134,7 @@ class SimpleExperiment(ex.Experiment):
             if self.metrics is None:
                 existing_pks = set()
             else:
-                existing_pks = set(self.metrics)
+                existing_pks = {metric.pk if hasattr(metric, 'pk') else metric for metric in self.metrics}
             new_metrics = [metric for metric in metrics if metric.pk not in existing_pks]
             if len(new_metrics) > 0:
                 if self.metrics is None:
