@@ -345,11 +345,6 @@ def quat_mean(quaternions: typing.Sequence[typing.Union[typing.Sequence, np.ndar
         return result / np.linalg.norm(result)
 
 
-def angle_gradient_scale(q1, q2):
-    z0 = q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3]
-    return -1 / np.sqrt(1 - z0 * z0)
-
-
 def compute_average_pose(poses: typing.Iterable[Transform]) -> Transform:
     """
     Given a collection of poses, find the average pose
@@ -362,3 +357,62 @@ def compute_average_pose(poses: typing.Iterable[Transform]) -> Transform:
         rotation=quat_mean([data[1] for data in pose_data]),
         w_first=True
     )
+
+
+def linear_interpolate(transform1: Transform, transform2: Transform, alpha: float) -> Transform:
+    """
+    Interpolate between two transforms, using linear interpolation for position and SLERP for orientation.
+    :param transform1:
+    :param transform2:
+    :param alpha:
+    :return:
+    """
+    return Transform(
+        location=transform1.location + alpha * (transform2.location - transform1.location),
+        rotation=spherical_interpolate(transform1.rotation_quat(False), transform2.rotation_quat(False), alpha),
+        w_first=False
+    )
+
+
+def spherical_interpolate(quat1: np.ndarray, quat2: np.ndarray,
+                          alpha: float, prefer_shortest: bool = True) -> np.ndarray:
+    """
+    Spherical interpolation between two orientations
+    Based upon the wikipedia implementation:
+    https://en.wikipedia.org/wiki/Slerp#Source_code
+
+    Should work with either W-first or W-last, as long as the input is consistent.
+    The result will have the same axis ordering.
+
+    For any two orientations, there are two possible regions "between" them,
+    one on the inside and the other on the outside./
+    Will always prefer the narrower angle, unless prefer_shortest is False,
+    in which case it will  depend on the relative handedness of the two quaternions.
+
+    :param quat1: The first quaternion,
+    :param quat2: The second quaternion
+    :param alpha: The interpolation factor between the two
+    :param prefer_shortest: Should the algorithm interpolate through the narrowest angle
+    :return:
+    """
+    quat1 = np.asarray(quat1)
+    quat2 = np.asarray(quat2)
+    dot_product = np.dot(quat1, quat2)
+    if prefer_shortest and dot_product < 0:
+        # The quaternions have different handedness, the interpolation will take the long way around.
+        # Invert one of the quats to avoid this.
+        quat2 = -1 * quat2
+        dot_product = -1 * dot_product
+    if dot_product > 0.9995:
+        # These quaternions are almost parallel, linearly interpolate and normalise
+        result = quat1 + alpha * (quat2 - quat1)
+        return result / np.linalg.norm(result)
+    # Spherical interpolate
+    theta_0 = np.arccos(dot_product)    # angle between input vectors
+    theta = theta_0 * alpha             # angle between quat1 and the result
+    sin_theta = np.sin(theta)
+    sin_theta_0 = np.sin(theta_0)
+
+    s1 = np.cos(theta) - dot_product * sin_theta / sin_theta_0  # == sin(theta_0 - theta) / sin(theta_0)
+    s2 = sin_theta / sin_theta_0
+    return (s1 * quat1) + (s2 * quat2)

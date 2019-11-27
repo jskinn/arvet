@@ -420,7 +420,7 @@ class TestTransform(ExtendedTestCase):
             self.assertNPEqual(x, normed_x)
 
 
-class TestHelpers(unittest.TestCase):
+class TestHelpers(ExtendedTestCase):
 
     def test_robust_normalize_normalizes_vector(self):
         vector = np.array([1, 2, 3])
@@ -735,11 +735,143 @@ class TestHelpers(unittest.TestCase):
         mean_pose = tf.compute_average_pose(tf.Transform(rotation=rot, w_first=True) for rot in rotations)
         self.assertNPClose(tf.quat_mean(rotations), mean_pose.rotation_quat(w_first=True))
 
-    def assertNPEqual(self, arr1, arr2):
-        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
 
-    def assertNPClose(self, arr1, arr2):
-        self.assertTrue(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are not close".format(str(arr1), str(arr2)))
+class TestInterpolate(ExtendedTestCase):
 
-    def assertNotNPClose(self, arr1, arr2):
-        self.assertFalse(np.all(np.isclose(arr1, arr2)), "Arrays {0} and {1} are close".format(str(arr1), str(arr2)))
+    def test_linearly_interpolates_position(self):
+        loc1 = np.array([17.84, -38.71, 6.43])
+        loc2 = np.array([78.1, 68.643, 18.7])
+        alpha = 0.8641864635
+        transform1 = tf.Transform(location=loc1, rotation=np.random.uniform(-1, 1, 4))
+        transform2 = tf.Transform(location=loc2, rotation=np.random.uniform(-1, 1, 4))
+        result = tf.linear_interpolate(transform1, transform2, alpha)
+        self.assertNPEqual(loc1 + alpha * (loc2 - loc1), result.location)
+        self.assertNPClose(loc2 + (1 - alpha) * (loc1 - loc2), result.location, rtol=0, atol=1e-13)
+
+    def test_linear_interpolate_pose_slerps_rotation(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = _make_quat((16, 5, 4), -np.pi / 6)
+        ratio = 0.5294
+
+        transform1 = tf.Transform(rotation=quat1, w_first=True)
+        transform2 = tf.Transform(rotation=quat2, w_first=True)
+        result = tf.linear_interpolate(transform1, transform2, ratio)
+        result_orientation = result.rotation_quat(w_first=True)
+
+        total_angle = tf.quat_diff(quat1, quat2)
+        angle1 = tf.quat_diff(quat1, result_orientation)
+        angle2 = tf.quat_diff(quat2, result_orientation)
+        self.assertAlmostEqual(total_angle, angle1 + angle2, places=14)
+        self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
+        self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
+
+    def test_slerp_symettric_orientations_cancels_out(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = _make_quat((1, 2, 3), -np.pi / 4)
+        result = tf.spherical_interpolate(quat1, quat2, 0.5)
+        self.assertNPClose((1, 0, 0, 0), result, rtol=0, atol=1e-14)
+
+    def test_slerp_returns_interpolated_angle(self):
+        ratio = 0.5294
+        angle1 = 17 * np.pi / 36
+        angle2 = 23 * np.pi / 43
+        quat1 = _make_quat((1, 2, 3), angle1)
+        quat2 = _make_quat((1, 2, 3), angle2)
+        result = tf.spherical_interpolate(quat1, quat2, ratio)
+        self.assertNPClose(_make_quat((1, 2, 3), angle1 + ratio * (angle2 - angle1)), result, rtol=0, atol=1e-14)
+
+    def test_slerp_provides_an_oientation_where_the_two_angles_sum_to_the_angle_between_the_arguments(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = _make_quat((16, 5, 4), -np.pi / 6)
+        ratio = 0.5294
+        result = tf.spherical_interpolate(quat1, quat2, ratio)
+
+        total_angle = tf.quat_diff(quat1, quat2)
+        angle1 = tf.quat_diff(quat1, result)
+        angle2 = tf.quat_diff(quat2, result)
+        self.assertAlmostEqual(total_angle, angle1 + angle2, places=14)
+        self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
+        self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
+
+    def test_slerp_works_for_widely_separated_angles(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = _make_quat((1, 2, 3), -np.pi / 2)
+        ratio = 0.2486
+        result = tf.spherical_interpolate(quat1, quat2, ratio)
+
+        total_angle = tf.quat_diff(quat1, quat2)
+        angle1 = tf.quat_diff(quat1, result)
+        angle2 = tf.quat_diff(quat2, result)
+        self.assertAlmostEqual(total_angle, angle1 + angle2, places=14)
+        self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
+        self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
+
+    def test_slerp_provides_a_reasonable_approximation_for_close_orientations(self):
+        random = np.random.RandomState(143)
+        axes_and_angles = [
+            (random.uniform(-1, 1, 3), random.uniform(-np.pi, np.pi), random.uniform(0, 1))
+            for _ in range(100)
+        ]
+        for inner_angle in [np.pi / frac for frac in range(20, 220, 20)]:
+            for axis, angle, ratio in axes_and_angles:
+                quat1 = _make_quat(axis, angle)
+                quat2 = _make_quat(axis, angle + inner_angle)
+
+                # quat1 = _make_quat((1, 2, 3), np.pi / 4)
+                # quat2 = _make_quat((1, 2, 3), np.pi / 4 + np.pi / 100)
+                # ratio = 0.4948
+                # self.assertLess(0.9995, np.dot(quat1, quat2))
+                result = tf.spherical_interpolate(quat1, quat2, ratio)
+                total_angle = tf.quat_diff(quat1, quat2)
+                angle1 = tf.quat_diff(quat1, result)
+                angle2 = tf.quat_diff(quat2, result)
+                self.assertNPClose(total_angle, angle1 + angle2, atol=0, rtol=1e-7)
+                self.assertNPClose(total_angle * ratio, angle1, atol=1e-8, rtol=1e-4)
+                self.assertNPClose(total_angle * (1 - ratio), angle2, atol=1e-8, rtol=1e-4)
+
+    def test_slerp_is_stable_at_180_degrees(self):
+        random = np.random.RandomState(469)
+        axes_and_angles = [
+            (random.uniform(-1, 1, 3), random.uniform(-np.pi, np.pi), random.uniform(0, 1))
+            for _ in range(100)
+        ]
+        for offset in np.linspace(-np.pi/32, np.pi/32, num=9, endpoint=True):
+            for axis, angle, ratio in axes_and_angles:
+                quat1 = _make_quat(axis, angle)
+                quat2 = _make_quat(axis, angle + np.pi + offset)
+                result = tf.spherical_interpolate(quat1, quat2, ratio)
+                total_angle = tf.quat_diff(quat1, quat2)
+                self.assertNPClose(total_angle, np.pi - np.abs(offset))
+                angle1 = tf.quat_diff(quat1, result)
+                angle2 = tf.quat_diff(quat2, result)
+                self.assertNPClose(total_angle, angle1 + angle2, atol=1e-12, rtol=0)
+                self.assertNPClose(total_angle * ratio, angle1, atol=1e-12, rtol=0)
+                self.assertNPClose(total_angle * (1 - ratio), angle2, atol=1e-12, rtol=0)
+
+    def test_slerp_prefers_shortest_angle_regardless_of_handedness(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = -1 * _make_quat((16, 5, 4), -np.pi / 6)
+        ratio = 0.6416
+
+        for sign1 in {-1, 1}:
+            for sign2 in {-1, 1}:
+                result = tf.spherical_interpolate(sign1 * quat1, sign2 * quat2, ratio)
+                total_angle = tf.quat_diff(sign1 * quat1, sign2 * quat2)
+                angle1 = tf.quat_diff(sign1 * quat1, result)
+                angle2 = tf.quat_diff(sign2 * quat2, result)
+                self.assertAlmostEqual(total_angle, angle1 + angle2, places=14)
+                self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
+                self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
+
+    def test_slerp_can_take_longest_angle(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = -1 * _make_quat((16, 5, 4), -np.pi / 6)
+        ratio = 0.5294
+        result = tf.spherical_interpolate(quat1, quat2, ratio, prefer_shortest=False)
+
+        total_angle = 2 * np.pi - tf.quat_diff(quat1, quat2)
+        angle1 = tf.quat_diff(quat1, result)
+        angle2 = tf.quat_diff(quat2, result)
+        self.assertAlmostEqual(total_angle, angle1 + angle2, places=14)
+        self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
+        self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
