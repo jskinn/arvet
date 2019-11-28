@@ -765,7 +765,54 @@ class TestInterpolate(ExtendedTestCase):
         self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
         self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
 
-    def test_slerp_symettric_orientations_cancels_out(self):
+    def test_is_symmetric(self):
+        loc1 = np.array([17.84, -38.71, 6.43])
+        loc2 = np.array([78.1, 68.643, 18.7])
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = _make_quat((16, 5, 4), -np.pi / 6)
+        ratio = 0.5294
+
+        transform1 = tf.Transform(location=loc1, rotation=quat1, w_first=True)
+        transform2 = tf.Transform(location=loc2, rotation=quat2, w_first=True)
+        result1 = tf.linear_interpolate(transform1, transform2, ratio)
+        result2 = tf.linear_interpolate(transform2, transform1, 1 - ratio)
+        self.assertNPClose(result1.location, result2.location, atol=1e-14, rtol=0)
+        self.assertNPClose(result1.rotation_quat(True), result2.rotation_quat(True), atol=1e-14, rtol=0)
+
+    def test_extrapolates(self):
+        def make_pose(t):
+            return tf.Transform(
+                location=(10 * t, -t, 6 - t),
+                rotation=tf3d.quaternions.axangle2quat((-2, 3, 2), t * np.pi / 20)
+            )
+        t1 = 2.1
+        t2 = 4.6
+        for ratio in [2.34, -1.96, 6.35]:
+            transform1 = make_pose(t1)
+            transform2 = make_pose(t2)
+            expected_result = make_pose(t1 + ratio * (t2 - t1))
+            result = tf.linear_interpolate(transform1, transform2, ratio)
+            self.assertNPClose(expected_result.location, result.location, atol=1e-13, rtol=0)
+            self.assertNPClose(expected_result.rotation_quat(True), result.rotation_quat(True), atol=1e-13, rtol=0)
+
+    def test_is_symmetric_when_extrapolating(self):
+        def make_pose(t):
+            return tf.Transform(
+                location=(16 * t - 81, -t, 8 * t + 2),
+                rotation=tf3d.quaternions.axangle2quat((4, 6, -3), t * np.pi / 20)
+            )
+
+        t1 = 2.1
+        t2 = 4.6
+        for ratio in [2.34, -1.96, 6.35]:
+            transform1 = make_pose(t1)
+            transform2 = make_pose(t2)
+            result1 = tf.linear_interpolate(transform1, transform2, ratio)
+            result2 = tf.linear_interpolate(transform2, transform1, 1 - ratio)
+            self.assertNPClose(result1.location, result2.location, atol=1e-13, rtol=0)
+            self.assertNPClose(result1.rotation_quat(True), result2.rotation_quat(True), atol=1e-13, rtol=0)
+
+    def test_slerp_symmetric_orientations_cancels_out(self):
         quat1 = _make_quat((1, 2, 3), np.pi / 4)
         quat2 = _make_quat((1, 2, 3), -np.pi / 4)
         result = tf.spherical_interpolate(quat1, quat2, 0.5)
@@ -875,3 +922,14 @@ class TestInterpolate(ExtendedTestCase):
         self.assertAlmostEqual(total_angle, angle1 + angle2, places=14)
         self.assertAlmostEqual(total_angle * ratio, angle1, places=14)
         self.assertAlmostEqual(total_angle * (1 - ratio), angle2, places=14)
+
+    def test_slerp_is_symmetric(self):
+        quat1 = _make_quat((1, 2, 3), np.pi / 4)
+        quat2 = -1 * _make_quat((16, 5, 4), -np.pi / 6)
+        ratio = 0.6416
+        result1 = tf.spherical_interpolate(quat1, quat2, ratio)
+        result2 = tf.spherical_interpolate(quat2, quat1, 1 - ratio)
+        # quick check of handedness for equality
+        if np.dot(result1, result2) < 1:
+            result2 = -1 * result2
+        self.assertNPClose(result1, result2, atol=1e-14, rtol=0)
