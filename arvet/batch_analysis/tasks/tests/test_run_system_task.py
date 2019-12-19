@@ -318,6 +318,19 @@ class TestRunSystemTask(unittest.TestCase):
 
 
 class TestRunSystemWithSource(unittest.TestCase):
+    # These are the system functions we care about what order they are called in
+    # systems have other functions (like __str__, is_deterministic)
+    # but we don't care if they're called out of order
+    stateful_functions = {
+        # these first 4 must be called before
+        'resolve_paths',
+        'set_camera_intrinsics',
+        'set_stereo_offset',
+        'preload_image_data',
+        'start_trial',
+        'process_image',
+        'finish_trial'
+    }
 
     def setUp(self):
         self.path_manager = PathManager(['~'], '~/tmp')
@@ -338,40 +351,44 @@ class TestRunSystemWithSource(unittest.TestCase):
     def test_run_system_calls_trial_functions_in_order_mono(self):
         run_system_with_source(self.system, self.image_source, self.path_manager)
         mock_calls = self.system.mock_calls
+        system_calls = [mock_call[0] for mock_call in mock_calls if mock_call[0] in self.stateful_functions]
+
         # set_camera_intrinsics; begin; 10 process image calls; end
-        self.assertEqual(24, len(mock_calls))
-        self.assertEqual('resolve_paths', mock_calls[0][0])
-        self.assertEqual('set_camera_intrinsics', mock_calls[1][0])
+        self.assertEqual(24, len(system_calls))
+        self.assertEqual('resolve_paths', system_calls[0])
+        self.assertEqual('set_camera_intrinsics', system_calls[1])
 
         # first, preload the images
         for i in range(10):
-            self.assertEqual('preload_image_data', mock_calls[2 + i][0])
+            self.assertEqual('preload_image_data', system_calls[2 + i])
 
         # then, do the trial
-        self.assertEqual('start_trial', mock_calls[12][0])
+        self.assertEqual('start_trial', system_calls[12])
         for i in range(10):
-            self.assertEqual('process_image', mock_calls[13 + i][0])
-        self.assertEqual('finish_trial', mock_calls[23][0])
+            self.assertEqual('process_image', system_calls[13 + i])
+        self.assertEqual('finish_trial', system_calls[23])
 
     def test_run_system_calls_trial_functions_in_order_stereo(self):
         self.image_source.stereo_offset = mock.Mock()
         run_system_with_source(self.system, self.image_source, self.path_manager)
         mock_calls = self.system.mock_calls
+        system_calls = [mock_call[0] for mock_call in mock_calls if mock_call[0] in self.stateful_functions]
+
         # set_camera_intrinsics; set_stereo_offset; begin; 10 process image calls; end
-        self.assertEqual(25, len(mock_calls))
-        self.assertEqual('resolve_paths', mock_calls[0][0])
-        self.assertEqual('set_camera_intrinsics', mock_calls[1][0])
-        self.assertEqual('set_stereo_offset', mock_calls[2][0])
+        self.assertEqual(25, len(system_calls))
+        self.assertEqual('resolve_paths', system_calls[0])
+        self.assertEqual('set_camera_intrinsics', system_calls[1])
+        self.assertEqual('set_stereo_offset', system_calls[2])
 
         # first, preload the images
         for i in range(10):
-            self.assertEqual('preload_image_data', mock_calls[3 + i][0])
+            self.assertEqual('preload_image_data', system_calls[3 + i])
 
         # then, do the trial
-        self.assertEqual('start_trial', mock_calls[13][0])
+        self.assertEqual('start_trial', system_calls[13])
         for i in range(10):
-            self.assertEqual('process_image', mock_calls[14 + i][0])
-        self.assertEqual('finish_trial', mock_calls[24][0])
+            self.assertEqual('process_image', system_calls[14 + i])
+        self.assertEqual('finish_trial', system_calls[24])
 
     def test_run_system_calls_iter(self):
         run_system_with_source(self.system, self.image_source, self.path_manager)

@@ -135,7 +135,10 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource, path
     # Preload images into memory, so we don't have to wait while the system is running
     for _, image in image_source:
         system.preload_image_data(image)
-    logging.getLogger(__name__).info("  Pre-loaded {0} images".format(len(image_source)))
+    if hasattr(image_source, '__len__'):
+        logging.getLogger(__name__).info("  Pre-loaded {0} images".format(len(image_source)))
+    else:
+        logging.getLogger(__name__).info("  Pre-loaded images")
 
     # Actually run the system, tracking the time between frames
     previous_timestamp = None
