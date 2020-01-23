@@ -4,6 +4,8 @@ channels:
   - conda-forge
 dependencies:
   - h5py
+  - numpy
+  - matplotlib
   - pillow
   - pip
   - py-opencv
@@ -12,7 +14,6 @@ dependencies:
   - pyyaml
   - setuptools
   - wheel
-  - matplotlib
   - pip:
     - mongomock
     - pymodm
