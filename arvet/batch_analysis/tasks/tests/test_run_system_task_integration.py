@@ -16,7 +16,7 @@ from arvet.core.image import Image
 from arvet.core.image_source import ImageSource
 from arvet.core.image_collection import ImageCollection
 from arvet.core.sequence_type import ImageSequenceType
-from arvet.core.system import VisionSystem
+from arvet.core.system import VisionSystem, StochasticBehaviour
 from arvet.core.trial_result import TrialResult
 from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.task_manager as task_manager
@@ -28,10 +28,6 @@ class TimerVisionSystem(VisionSystem):
         super(TimerVisionSystem, self).__init__(*args, **kwargs)
         self.start_time = None
         self.actual_times = []
-
-    @property
-    def is_deterministic(self) -> bool:
-        return False
 
     def is_image_source_appropriate(self, image_source: ImageSource) -> bool:
         return True
@@ -45,7 +41,7 @@ class TimerVisionSystem(VisionSystem):
     def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
         pass
 
-    def start_trial(self, sequence_type: ImageSequenceType) -> None:
+    def start_trial(self, sequence_type: ImageSequenceType, seed: int = 0) -> None:
         self.actual_times = []
         self.start_time = time.time()
 
@@ -68,6 +64,10 @@ class TimerVisionSystem(VisionSystem):
         self.start_time = None
         self.actual_times = []
         return result
+
+    @classmethod
+    def is_deterministic(cls) -> StochasticBehaviour:
+        return StochasticBehaviour.DETERMINISTIC
 
 
 class TimerTrialResult(TrialResult):

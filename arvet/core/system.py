@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import abc
 import typing
+from enum import Enum
 import bson
 import pymodm
 import arvet.database.pymodm_abc as pymodm_abc
@@ -10,6 +11,19 @@ from arvet.metadata.camera_intrinsics import CameraIntrinsics
 from arvet.core.image_source import ImageSource
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image import Image
+
+
+class StochasticBehaviour(Enum):
+    """
+    An enum to describe several different possibilities for random behaviour within the system
+
+    DETERMINISTIC:     The system always gives the same result, there is no stochastic process
+    SEEDED:            The system contains pseudo-random processes, but they may be controlled using an initial seed
+    NON_DETERMINISTIC: The system contains uncontrolled random processes, which cannot be controlled via seed
+    """
+    DETERMINISTIC = 0
+    SEEDED = 1
+    NON_DETERMINISTIC = 2
 
 
 class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
@@ -26,20 +40,6 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :return:
         """
         return self._id
-
-    @property
-    @abc.abstractmethod
-    def is_deterministic(self) -> bool:
-        """
-        Is the visual system deterministic.
-
-        If this is false, it will have to be tested multiple times, because the performance will be inconsistent
-        between runs.
-
-        :return: True iff the algorithm will produce the same results each time.
-        :rtype: bool
-        """
-        pass
 
     @abc.abstractmethod
     def is_image_source_appropriate(self, image_source: ImageSource) -> bool:
@@ -81,12 +81,13 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def start_trial(self, sequence_type: ImageSequenceType) -> None:
+    def start_trial(self, sequence_type: ImageSequenceType, seed: int = 0) -> None:
         """
         Start a trial with this system.
         After calling this, we can feed images to the system.
         When the trial is complete, call finish_trial to get the result.
         :param sequence_type: Are the provided images part of a sequence, or just unassociated pictures.
+        :param seed: A seed to control the random state of the trial. Should be ignored if the system is not SEEDED.
         :return: void
         """
         pass
@@ -126,6 +127,20 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         Get the values of the requested properties
         :param columns:
         :return:
+        """
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def is_deterministic(cls) -> StochasticBehaviour:
+        """
+        Is the visual system deterministic.
+
+        If this is false, it will have to be tested multiple times, because the performance will be inconsistent
+        between runs.
+
+        :return: True iff the algorithm will produce the same results each time.
+        :rtype: bool
         """
         pass
 

@@ -2,8 +2,9 @@
 import bson
 import typing
 
+from arvet.database.autoload_modules import get_model_classes
 from arvet.core.image_source import ImageSource
-from arvet.core.system import VisionSystem
+from arvet.core.system import VisionSystem, StochasticBehaviour
 from arvet.core.trial_result import TrialResult
 from arvet.core.metric import Metric
 from arvet.core.trial_comparison import TrialComparisonMetric
@@ -59,7 +60,7 @@ def get_import_dataset_task(
 def get_run_system_task(
         system: typing.Union[VisionSystem, bson.ObjectId],
         image_source: typing.Union[ImageSource, bson.ObjectId],
-        repeat: int = 0,
+        repeat: int = 0, seed: int = 0,
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
 ) -> RunSystemTask:
@@ -69,6 +70,7 @@ def get_run_system_task(
     :param system: The id of the vision system to test
     :param image_source: The id of the image source to test with
     :param repeat: The repeat of this trial, so we can run the same system more than once.
+    :param seed: The random seed to use. Ignored for anything except SEEDED systems.
     :param num_cpus: The number of CPUs required for the job. Default 1.
     :param num_gpus: The number of GPUs required for the job. Default 0.
     :param memory_requirements: The memory required for this job. Default 3 GB.
@@ -76,19 +78,31 @@ def get_run_system_task(
     :return: A RunSystemTask
     """
     if isinstance(system, VisionSystem):
+        use_seed = (system.is_deterministic() is StochasticBehaviour.SEEDED)
         system = system.identifier
-    elif VisionSystem.objects.raw({'_id': system}).count() < 1:
-        raise ValueError("system is not a valid VisionSystem id")
+    else:
+        if VisionSystem.objects.raw({'_id': system}).count() < 1:
+            raise ValueError("system is not a valid VisionSystem id")
+        system_classes = get_model_classes(VisionSystem, [system])
+        if len(system_classes) >= 1:
+            use_seed = (system_classes[0].is_deterministic() is StochasticBehaviour.SEEDED)
+        else:
+            raise ValueError("Could not load class for system {0}".format(system))
     if isinstance(image_source, ImageSource):
         image_source = image_source.identifier
     elif ImageSource.objects.raw({'_id': image_source}).count() < 1:
         raise ValueError("image_source is not a valid ImageSource id")
+
+    query = {
+        'system': system,
+        'image_source': image_source,
+        'repeat': repeat
+    }
+    if use_seed:
+        query['seed'] = seed
+
     try:
-        return RunSystemTask.objects.get({
-            'system': system,
-            'image_source': image_source,
-            'repeat': repeat
-        })
+        return RunSystemTask.objects.get(query)
     except RunSystemTask.DoesNotExist:
         return RunSystemTask(
             system=system,

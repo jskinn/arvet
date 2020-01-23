@@ -21,6 +21,7 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
     system = fields.ReferenceField(VisionSystem, required=True, on_delete=fields.ReferenceField.CASCADE)
     image_source = fields.ReferenceField(ImageSource, required=True, on_delete=fields.ReferenceField.CASCADE)
     repeat = fields.IntegerField(default=0, required=True)
+    seed = fields.IntegerField(blank=True)
     result = fields.ReferenceField(TrialResult, on_delete=fields.ReferenceField.CASCADE)
 
     @property
@@ -62,9 +63,14 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
             self.fail_with_message("Image source is inappropriate for system {0}".format(self.system.get_pretty_name()))
             return
 
+        # Find a seed, if one is set.
+        seed = 0
+        if hasattr(self, 'seed') and isinstance(self.seed, int):
+            seed = self.seed
+
         logging.getLogger(__name__).info("Start running system {0}...".format(self.system.get_pretty_name()))
         try:
-            trial_result = run_system_with_source(self.system, self.image_source, path_manager)
+            trial_result = run_system_with_source(self.system, self.image_source, path_manager, seed=seed)
         except Exception as exception:
             self.fail_with_message("Error occurred while running system {0}:\n{1}".format(
                     self.system.get_pretty_name(), traceback.format_exc()))
@@ -116,7 +122,8 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
         self.mark_job_complete()
 
 
-def run_system_with_source(system: VisionSystem, image_source: ImageSource, path_manager: PathManager) -> TrialResult:
+def run_system_with_source(system: VisionSystem, image_source: ImageSource, path_manager: PathManager, seed: int = 0) \
+        -> TrialResult:
     """
     Run a given vision system with a given image source.
     This is the structure for how image sources and vision systems should be interacted with.
@@ -124,6 +131,7 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource, path
     :param system: The system to run.
     :param image_source: The image source to get images from
     :param path_manager: The path manager, so that the system can resolve paths and make temporary files.
+    :param seed: The random seed to give to the system.
     :return: The TrialResult storing the results of the run. Save it to the database, or None if there's a problem.
     """
     system.resolve_paths(path_manager)
@@ -144,7 +152,7 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource, path
     previous_timestamp = None
     previous_actual = None
     start_time = time.time()
-    system.start_trial(image_source.sequence_type)
+    system.start_trial(image_source.sequence_type, seed=seed)
     for timestamp, image in image_source:
         system.process_image(image, timestamp)
         actual_time = time.time()

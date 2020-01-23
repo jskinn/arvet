@@ -26,16 +26,13 @@ class MockSystem(arvet.core.system.VisionSystem):
     def __repr__(self):
         return "{0}({1})".format(type(self).__name__, self.pk)
 
-    def is_deterministic(self):
-        return True
-
     def is_image_source_appropriate(self, image_source):
         return image_source.identifier not in self.sources_blacklist
 
     def set_camera_intrinsics(self, camera_intrinsics, average_timestep):
         pass
 
-    def start_trial(self, sequence_type):
+    def start_trial(self, sequence_type, seed=0):
         pass
 
     def process_image(self, image, timestamp):
@@ -52,6 +49,10 @@ class MockSystem(arvet.core.system.VisionSystem):
 
     def get_properties(self, columns=None):
         return {}
+
+    @classmethod
+    def is_deterministic(cls):
+        return arvet.core.system.StochasticBehaviour.DETERMINISTIC
 
 
 class MockImageSource(arvet.core.image_source.ImageSource):

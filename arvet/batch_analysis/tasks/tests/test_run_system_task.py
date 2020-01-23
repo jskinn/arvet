@@ -268,6 +268,23 @@ class TestRunSystemTask(unittest.TestCase):
         self.assertEqual(self.system, subject.result.system)
         self.assertEqual(self.image_source, subject.result.image_source)
 
+    def test_run_task_passes_through_seed(self):
+        trial_result = mock.create_autospec(mock_types.MockTrialResult)
+        self.system.finish_trial = lambda: trial_result
+        seed = 14578
+        mock_system = mock.create_autospec(VisionSystem, spec_set=True)
+        subject = RunSystemTask(
+            system=mock_system,
+            image_source=self.image_source,
+            state=JobState.RUNNING,
+            seed=seed,
+            node_id='test',
+            job_id=1
+        )
+        subject.run_task(self.path_manager)
+        self.assertTrue(mock_system.start_trial.called)
+        self.assertEqual(mock.call(self.image_source.sequence_type, seed=seed), mock_system.start_trial.call_args)
+
     def test_run_task_records_returned_trial_result(self):
         trial_result = mock.create_autospec(mock_types.MockTrialResult)
         self.system.finish_trial = lambda: trial_result
@@ -400,6 +417,12 @@ class TestRunSystemWithSource(unittest.TestCase):
         self.assertEqual(result.image_source, self.image_source)
         self.assertTrue(result.success)
 
+    def test_run_system_passes_through_seed(self):
+        seed = 6785941
+        run_system_with_source(self.system, self.image_source, self.path_manager, seed=seed)
+        self.assertTrue(self.system.start_trial.called)
+        self.assertEqual(mock.call(self.image_source.sequence_type, seed=seed), self.system.start_trial.call_args)
+
 
 class TestRunSystemWithSourceDatabase(unittest.TestCase):
     system = None
@@ -413,18 +436,6 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
         cls.image_source = mock_types.MockImageSource()
         cls.system.save()
         cls.image_source.save()
-
-        # cls.system.is_image_source_appropriate.return_value = True
-        # cls.system.finish_trial.side_effect = lambda: tr.TrialResult(system=cls.system, success=True)
-
-        #cls.image_source.right_camera_pose = None
-        #cls.image_source.camera_intrinsics = mock.Mock()
-
-        #def source_iter():
-        #    for idx in range(10):
-        #        yield idx, mock.Mock()
-
-        #cls.image_source.__iter__.side_effect = source_iter
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty

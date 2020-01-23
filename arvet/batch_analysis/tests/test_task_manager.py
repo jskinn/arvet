@@ -8,6 +8,7 @@ import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
+from arvet.core.system import StochasticBehaviour
 import arvet.core.image as im
 import arvet.core.image_collection as ic
 import arvet.core.trial_comparison as tcmp
@@ -122,6 +123,20 @@ class TestTaskManagerImportDataset(unittest.TestCase):
         self.assertFalse(result.is_finished)
 
 
+class SeededMockSystem(mock_types.MockSystem):
+
+    @classmethod
+    def is_deterministic(cls):
+        return StochasticBehaviour.SEEDED
+
+
+class NonDeterministicMockSystem(mock_types.MockSystem):
+
+    @classmethod
+    def is_deterministic(cls):
+        return StochasticBehaviour.NON_DETERMINISTIC
+
+
 class TestTaskManagerRunSystem(unittest.TestCase):
     system = None
     image_source = None
@@ -139,8 +154,8 @@ class TestTaskManagerRunSystem(unittest.TestCase):
         cls.trial_result.save()
 
     def setUp(self):
-        # Remove the collection as the start of the test, so that we're sure it's empty
-        Task._mongometa.collection.drop()
+        # Remove all the tasks at the start of the test, so that we're sure it's empty
+        Task.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
@@ -214,6 +229,115 @@ class TestTaskManagerRunSystem(unittest.TestCase):
         loaded_task = RunSystemTask.objects.get({'_id': task.identifier})
         self.assertEqual(task, loaded_task)
 
+    def test_get_run_system_task_ignores_seed_for_non_seeded_systems(self):
+        task = RunSystemTask(
+            system=self.system,     # The default system is DETERMINISTIC
+            image_source=self.image_source,
+            repeat=13,
+            num_cpus=15,
+            num_gpus=6,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        task.save()
+
+        for idx in range(10):
+            # No matter the seed, we should keep getting the same object
+            seed = (1241151 * idx * idx) % (2 ** 32)
+            result = task_manager.get_run_system_task(self.system, self.image_source, 13, seed=seed)
+            self.assertEqual(result.pk, task.pk)
+            self.assertEqual(result.system, task.system)
+            self.assertEqual(result.image_source, task.image_source)
+            self.assertEqual(result.repeat, task.repeat)
+            self.assertEqual(result.num_cpus, 15)
+            self.assertEqual(result.num_gpus, 6)
+            self.assertEqual(result.state, task.state)
+            self.assertEqual(result.result_id, task.result_id)
+
+        non_deterministic_system = NonDeterministicMockSystem()
+        non_deterministic_system.save()
+        task = RunSystemTask(
+            system=non_deterministic_system,
+            image_source=self.image_source,
+            repeat=22,
+            num_cpus=8,
+            num_gpus=28,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        task.save()
+
+        for idx in range(10):
+            # No matter the seed, we should keep getting the same object
+            seed = (1241151 * idx * idx) % (2 ** 32)
+            result = task_manager.get_run_system_task(non_deterministic_system, self.image_source, 22, seed=seed)
+            self.assertEqual(result.pk, task.pk)
+            self.assertEqual(result.system, non_deterministic_system)
+            self.assertEqual(result.image_source, task.image_source)
+            self.assertEqual(result.repeat, task.repeat)
+            self.assertEqual(result.num_cpus, 8)
+            self.assertEqual(result.num_gpus, 28)
+            self.assertEqual(result.state, task.state)
+            self.assertEqual(result.result_id, task.result_id)
+
+        # Clean up
+        non_deterministic_system.delete()
+
+    def test_get_run_system_task_returns_different_tasks_for_seeded_systems_with_different_seeds(self):
+        seeded_system = SeededMockSystem()
+        seeded_system.save()
+        task = RunSystemTask(
+            system=seeded_system,
+            image_source=self.image_source,
+            repeat=13,
+            num_cpus=15,
+            num_gpus=6,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        task.save()
+
+        for seed in range(10):
+            result = task_manager.get_run_system_task(seeded_system, self.image_source, 13, seed=seed)
+            self.assertIsNone(result.pk)
+            self.assertEqual(result.system, seeded_system)
+            self.assertEqual(result.image_source, self.image_source)
+            self.assertEqual(result.repeat, 13)
+            self.assertEqual(result.num_cpus, 1)
+            self.assertEqual(result.num_gpus, 0)
+            self.assertEqual(result.state, JobState.UNSTARTED)
+
+        # Clean up
+        seeded_system.delete()
+
+    def test_get_run_system_task_returns_same_task_for_same_seed(self):
+        seeded_system = SeededMockSystem()
+        seeded_system.save()
+        task = RunSystemTask(
+            system=seeded_system,
+            image_source=self.image_source,
+            repeat=13,
+            seed=13265,
+            num_cpus=15,
+            num_gpus=6,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        task.save()
+
+        result = task_manager.get_run_system_task(seeded_system, self.image_source, 13, seed=13265)
+        self.assertEqual(result.pk, task.pk)
+        self.assertEqual(result.system, task.system)
+        self.assertEqual(result.image_source, task.image_source)
+        self.assertEqual(result.repeat, task.repeat)
+        self.assertEqual(result.num_cpus, 15)
+        self.assertEqual(result.num_gpus, 6)
+        self.assertEqual(result.state, task.state)
+        self.assertEqual(result.result_id, task.result_id)
+
+        # Clean up
+        seeded_system.delete()
+
     def test_get_run_system_task_works_with_ids_only(self):
         task = task_manager.get_run_system_task(
             system=self.system.identifier,
@@ -227,6 +351,68 @@ class TestTaskManagerRunSystem(unittest.TestCase):
         task.save()
         loaded_task = RunSystemTask.objects.get({'_id': task.identifier})
         self.assertEqual(task, loaded_task)
+
+    def test_get_run_system_task_determines_stochastic_behaviour_with_only_ids(self):
+        task = RunSystemTask(
+            system=self.system,     # Default system is DETERMINISTIC
+            image_source=self.image_source,
+            repeat=6,
+            num_cpus=43,
+            num_gpus=89,
+            state=JobState.UNSTARTED
+        )
+        task.save()
+
+        for seed in range(10):
+            result = task_manager.get_run_system_task(self.system.identifier, self.image_source.identifier,
+                                                      repeat=6, seed=seed)
+            self.assertEqual(result, task)
+
+        seeded_system = SeededMockSystem()
+        seeded_system.save()
+        task = RunSystemTask(
+            system=seeded_system,
+            image_source=self.image_source,
+            repeat=13,
+            seed=13265,
+            num_cpus=15,
+            num_gpus=6,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        task.save()
+
+        result = task_manager.get_run_system_task(seeded_system.identifier, self.image_source.identifier,
+                                                  repeat=13, seed=13265)
+        self.assertEqual(result, task)
+        for seed in range(10):
+            result = task_manager.get_run_system_task(seeded_system.identifier, self.image_source.identifier,
+                                                      repeat=13, seed=seed)
+            self.assertNotEqual(result, task)
+            self.assertIsNone(result.pk)
+
+        non_deterministic_system = NonDeterministicMockSystem()
+        non_deterministic_system.save()
+        task = RunSystemTask(
+            system=non_deterministic_system,
+            image_source=self.image_source,
+            repeat=22,
+            seed=13265,
+            num_cpus=15,
+            num_gpus=6,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        task.save()
+
+        for seed in range(10):
+            result = task_manager.get_run_system_task(non_deterministic_system, self.image_source.identifier,
+                                                      repeat=22, seed=seed)
+            self.assertEqual(result, task)
+
+        # Clean up
+        seeded_system.delete()
+        non_deterministic_system.delete()
 
     def test_get_run_system_task_cannot_save_with_invalid_ids(self):
         with self.assertRaises(ValueError) as exp:
