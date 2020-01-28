@@ -14,7 +14,7 @@ from arvet.database.autoload_modules import autoload_modules
 from arvet.batch_analysis.task import Task
 
 
-def main(task_id: str, config_file: str = 'config.yml'):
+def main(task_id: str, config_file: str = 'config.yml', mongodb_host: str = None, mongodb_port: int = None):
     """
     Run a particular task.
     :args: Only argument is the id of the task to run
@@ -29,7 +29,7 @@ def main(task_id: str, config_file: str = 'config.yml'):
         logging.config.dictConfig(config['logging'])
 
     # Configure the database and the image manager
-    dbconn.configure(config['database'])
+    dbconn.configure(config['database'], override_host=mongodb_host, override_port=mongodb_port)
     im_manager.configure(config['image_manager'])
 
     # Set up the path manager
@@ -64,8 +64,14 @@ if __name__ == '__main__':
                     'This should be called automatically by the job system. Common to all task types.')
     parser.add_argument('--config', default='config.yml',
                         help='The path to the config file to use. default to \'config.yml\'')
+    parser.add_argument('--mongodb_host', default=None,
+                        help='Override the monbodb hostname specified in the config file. '
+                             'the job system can use this for dynamic config.')
+    parser.add_argument('--mongodb_port', default=None,
+                        help='Override the monbodb port specified in the config file. '
+                             'The job system may use this for dynamic config.')
     parser.add_argument('task_id',
                         help='The id of the task to run.')
 
     args = parser.parse_args()
-    main(args.task_id, args.config)
+    main(args.task_id, args.config, args.mongodb_host, args.mongodb_port)

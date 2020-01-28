@@ -41,7 +41,24 @@ class TestRunTask(unittest.TestCase):
 
         run_task.main(str(ObjectId()))
         self.assertTrue(mock_dbconfigure.called)
-        self.assertEqual(mock.call(db_config), mock_dbconfigure.call_args)
+        self.assertEqual(mock.call(db_config, override_host=None, override_port=None), mock_dbconfigure.call_args)
+
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
+    def test_overrides_mongodb_settings(self, mock_conf_load, mock_dbconfigure, *_):
+        db_config = {'test': 22}
+        mongodb_host = 'test-host-6'
+        mongodb_port = 1151
+        mock_conf_load.return_value = {
+            'paths': ['~'], 'temp_folder': '~/tmp', 'database': db_config, 'image_manager': {'path': '/dev/null'}
+        }
+
+        run_task.main(str(ObjectId()), mongodb_host=mongodb_host, mongodb_port=mongodb_port)
+        self.assertTrue(mock_dbconfigure.called)
+        self.assertEqual(
+            mock.call(db_config, override_host=mongodb_host, override_port=mongodb_port), mock_dbconfigure.call_args)
 
     @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
