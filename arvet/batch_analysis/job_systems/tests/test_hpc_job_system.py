@@ -33,7 +33,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({'max_jobs': 100}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            subject.run_script('test_script', [])
+            subject.run_script('test_script', lambda *_: [])
         self.assertIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
 
     @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
@@ -43,7 +43,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            subject.run_script('test_script', [])
+            subject.run_script('test_script', lambda *_: [])
         self.assertNotIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
 
     def test_run_script_wont_submit_more_scripts_than_job_limit(self):
@@ -54,11 +54,11 @@ class TestHPCJobSystem(unittest.TestCase):
                 patch_subprocess(mock_run, num_jobs=0)
                 for _ in range(10):
                     mock_run.called = False
-                    job_id = subject.run_script('test_script', [])
+                    job_id = subject.run_script('test_script', lambda *_: [])
                     self.assertIsNotNone(job_id)
                     self.assertTrue(mock_run.called)
                 mock_run.called = False
-                self.assertIsNone(subject.run_script('test_script', []))
+                self.assertIsNone(subject.run_script('test_script', lambda *_: []))
                 self.assertFalse(mock_run.called)
 
     def test_existing_jobs_reduce_max_jobs(self):
@@ -71,11 +71,11 @@ class TestHPCJobSystem(unittest.TestCase):
                 patch_subprocess(mock_run, num_jobs=5)
                 for _ in range(5):
                     mock_run.called = False
-                    job_id = subject.run_script('test_script', [])
+                    job_id = subject.run_script('test_script', lambda *_: [])
                     self.assertIsNotNone(job_id)
                     self.assertTrue(mock_run.called)
                 mock_run.called = False
-                self.assertIsNone(subject.run_script('test_script', []))
+                self.assertIsNone(subject.run_script('test_script', lambda *_: []))
                 self.assertFalse(mock_run.called)
 
     def test_run_script_creates_job_file(self):
@@ -85,11 +85,11 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
+                subject.run_script('test_script', lambda *_: [])
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         # Creates in the home directory by default
-        self.assertTrue(filename.startswith(os.path.expanduser('~')),
+        self.assertTrue(str(filename).startswith(os.path.expanduser('~')),
                         "{0} is not in the home directory".format(filename))
         self.assertTrue(filename.endswith('.sub'), "{0} does not end with '.sub'".format(filename))
 
@@ -101,11 +101,11 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
+                subject.run_script('test_script', lambda *_: [])
         self.assertTrue(mock_open.called)
         filename = mock_open.call_args[0][0]
         # Creates in the home directory by default
-        self.assertTrue(filename.startswith(target_folder),
+        self.assertTrue(str(filename).startswith(target_folder),
                         "{0} is not in the target directory".format(filename))
 
     def test_run_script_writes_job_script(self):
@@ -116,7 +116,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script(script_name, script_args)
+                subject.run_script(script_name, lambda *_: script_args)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -130,7 +130,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [], num_cpus=15789, num_gpus=0)
+                subject.run_script('test_script', lambda *_: [], num_cpus=15789, num_gpus=0)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -144,7 +144,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [], num_gpus=8026)
+                subject.run_script('test_script', lambda *_: [], num_gpus=8026)
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -159,7 +159,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [], memory_requirements='1542GB')
+                subject.run_script('test_script', lambda *_: [], memory_requirements='1542GB')
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -172,7 +172,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [], expected_duration='125:23:16')
+                subject.run_script('test_script', lambda *_: [], expected_duration='125:23:16')
         self.assertTrue(mock_open.called)
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
@@ -180,69 +180,72 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertIn("#PBS -l walltime={time}".format(time='125:23:16'), script_contents)
 
     def test_run_script_job_name_matches_filename(self):
+        job_name = 'my_job'
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
+                subject.run_script('test_script', lambda *_: [], job_name=job_name)
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "auto_task_[0-9-]+\\.sub$")
+        self.assertTrue(filename.endswith("{0}.sub".format(job_name)))
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
-        self.assertNotEqual('', filename)
+        self.assertEqual(job_name, filename)
         # Check that the name in the job file is exactly the same as the script name
         self.assertIn('#PBS -N {0}'.format(filename), script_contents)
 
     def test_run_script_job_name_has_configured_prefix(self):
+        job_name = 'myjob'
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
+                subject.run_script('test_script', lambda *_: [], job_name=job_name)
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "job_auto_task_[0-9-]+\\.sub$")
+        self.assertTrue(filename.endswith("job_{0}.sub".format(job_name)))
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)
         # Check that the name in the job file is exactly the same as the script name
         self.assertIn('#PBS -N {0}'.format(filename), script_contents)
 
+    def test_run_script_creates_job_file_that_runs_script_with_returned_arguments(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                subject.run_script('test_script', lambda config, port=0: ['--myarg1', str(config)])
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertIn('\npython test_script --myarg1 {0}\n'.format(os.path.abspath('myconf.yml')), script_contents)
+
     def test_run_script_uses_configured_environment(self):
         mock_open = mock.mock_open()
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework/bin/activate'
-        subject = hpc.HPCJobSystem({'environment': virtualenv_path}, 'myconf.yml')
+        environment_path = '/home/user/environment.sh'
+        subject = hpc.HPCJobSystem({'environment': environment_path}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
+                subject.run_script('test_script', lambda *_: [])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}'.format(virtualenv_path), script_contents)
-
-    def test_run_script_uses_virtualenv_from_environment(self):
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
-        mock_open = mock.mock_open()
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
-            subject = hpc.HPCJobSystem({}, 'myconf.yml')
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-                patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
-        mock_file = mock_open()
-        self.assertTrue(mock_file.write.called)
-        script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
+        # split the script into what happens before the script is called, and what happens after
+        parts = script_contents.split('\npython test_script')
+        self.assertEqual(2, len(parts))
+        self.assertIn('\nsource {0}'.format(environment_path), parts[0])
 
     def test_run_script_uses_current_working_directory(self):
         mock_open = mock.mock_open()
@@ -250,11 +253,145 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_script('test_script', [])
+                subject.run_script('test_script', lambda *_: [])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('cd {0}'.format(os.getcwd()), script_contents)
+        # split the script into what happens before the script is called, and what happens after
+        parts = script_contents.split('\npython test_script')
+        self.assertEqual(2, len(parts))
+        self.assertIn('\ncd {0}'.format(os.getcwd()), parts[0])
+
+    def test_run_script_removes_job_after_complete(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                subject.run_script('test_script', lambda *_: [])
+        job_filename = mock_open.call_args[0][0]
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        # split the script into what happens before the script is called, and what happens after
+        parts = script_contents.split('\npython test_script')
+        self.assertEqual(2, len(parts))
+        self.assertIn('\nrm '.format(job_filename), parts[1])
+
+    def test_run_script_doesnt_do_anything_with_ssh_if_not_configured_to(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run)
+                subject.run_script('test_script', lambda *_: [])
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertNotIn('ssh', script_contents)
+
+    def test_run_script_starts_and_stops_ssh_tunnel(self):
+        job_name = 'testjob'
+        mock_open = mock.mock_open()
+        environment_path = '/home/user/environment.sh'
+        subject = hpc.HPCJobSystem({
+            'environment': environment_path,
+            'ssh_tunnel': {
+                'hostname': '127.0.0.1',
+                'username': 'test-user',
+                'ssh_key': 'my-ssh-key.rsa',
+                'min_port': 5060,
+                'max_port': 5062
+            }
+        }, 'myconf.yml')
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run, num_jobs=0)
+                subject.run_script('test_script', lambda *_: [], job_name=job_name)
+        mock_file = mock_open()
+        self.assertTrue(mock_file.write.called)
+        script_contents = mock_file.write.call_args[0][0]
+        # split the script into what happens before the script is called, and what happens after
+        parts = script_contents.split('\npython test_script')
+        self.assertEqual(2, len(parts))
+        self.assertIn(hpc.SSH_TUNNEL_PREFIX.format(
+            ssh_key=os.path.abspath('my-ssh-key.rsa'),
+            local_port=5060,
+            username='test-user',
+            hostname='127.0.0.1',
+            job_name=job_name
+        ).strip(), parts[0])
+
+        self.assertIn(hpc.SSH_TUNNEL_SUFFIX.format(
+            local_port=5060,
+            job_name=job_name
+        ).strip(), parts[1])
+
+    def test_run_script_assigns_different_ssh_ports_to_successive_jobs(self):
+        job_name = 'testjob'
+        min_port = 5060
+        mock_open = mock.mock_open()
+        environment_path = '/home/user/environment.sh'
+        subject = hpc.HPCJobSystem({
+            'environment': environment_path,
+            'ssh_tunnel': {
+                'hostname': '127.0.0.1',
+                'username': 'test-user',
+                'ssh_key': 'my-ssh-key.rsa',
+                'min_port': min_port,
+                'max_port': min_port + 1000
+            }
+        }, 'myconf.yml')
+
+        for port in range(min_port, min_port + 10):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+                with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                    patch_subprocess(mock_run)
+                    subject.run_script('test_script', lambda config, p=0: ['--port', str(p)], job_name=job_name)
+            mock_file = mock_open()
+            self.assertTrue(mock_file.write.called)
+            script_contents = mock_file.write.call_args[0][0]
+            self.assertIn('\npython test_script --port {0}\n'.format(port), script_contents)
+
+            # split the script into what happens before the script is called, and what happens after
+            parts = script_contents.split('\npython test_script')
+            self.assertEqual(2, len(parts))
+            self.assertIn(hpc.SSH_TUNNEL_PREFIX.format(
+                ssh_key=os.path.abspath('my-ssh-key.rsa'),
+                local_port=port,
+                username='test-user',
+                hostname='127.0.0.1',
+                job_name=job_name
+            ).strip(), parts[0])
+
+            self.assertIn(hpc.SSH_TUNNEL_SUFFIX.format(
+                local_port=port,
+                job_name=job_name
+            ).strip(), parts[1])
+
+    def test_run_script_wont_submit_more_scripts_than_available_ssh_ports(self):
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({
+            'environment': '/home/user/environment.sh',
+            'ssh_tunnel': {
+                'hostname': '127.0.0.1',
+                'username': 'test-user',
+                'ssh_key': 'my-ssh-key.rsa',
+                'min_port': 5060,
+                'max_port': 5069    # Max is inclusive
+            }
+        }, 'myconf.yml')
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
+            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+                patch_subprocess(mock_run, num_jobs=0)
+                for _ in range(10):
+                    mock_run.called = False
+                    job_id = subject.run_script('test_script', lambda *_: [])
+                    self.assertIsNotNone(job_id)
+                    self.assertTrue(mock_run.called)
+                mock_run.called = False
+                self.assertIsNone(subject.run_script('test_script', lambda *_: []))
+                self.assertFalse(mock_run.called)
 
     @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
     def test_script_task_submits_job(self, mock_run):
@@ -263,7 +400,7 @@ class TestHPCJobSystem(unittest.TestCase):
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            subject.run_script('test_script', [])
+            subject.run_script('test_script', lambda *_: [])
         filename = mock_open.call_args[0][0]
         self.assertIn(mock.call(['qsub', filename], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
 
@@ -273,7 +410,7 @@ class TestHPCJobSystem(unittest.TestCase):
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run, job_id=25798)
-                result = subject.run_script('test_script', [])
+                result = subject.run_script('test_script', lambda *_: [])
         self.assertEqual(25798, result)
 
     def test_run_task_creates_job_file(self):
@@ -285,7 +422,7 @@ class TestHPCJobSystem(unittest.TestCase):
                 patch_subprocess(mock_run)
                 subject.run_task(make_mock_task())
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         # Creates in the home directory by default
         self.assertTrue(filename.startswith(os.path.expanduser('~')),
                         "{0} is not in the home directory".format(filename))
@@ -301,7 +438,7 @@ class TestHPCJobSystem(unittest.TestCase):
                 patch_subprocess(mock_run)
                 subject.run_task(make_mock_task())
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         # Creates in the home directory by default
         self.assertTrue(filename.startswith(target_folder),
                         "{0} is not in the target directory".format(filename))
@@ -393,18 +530,20 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertIn("#PBS -l walltime={time}".format(time='125:23:16'), script_contents)
 
     def test_run_task_job_name_matches_filename(self):
+        mock_task = make_mock_task()
+        job_name = mock_task.get_unique_name()
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(make_mock_task())
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "auto_task_[0-9-]+\\.sub$")
+        self.assertTrue(filename.endswith("{0}.sub".format(job_name)))
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)
@@ -412,18 +551,20 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertIn('#PBS -N {0}'.format(filename), script_contents)
 
     def test_run_task_job_name_has_configured_prefix(self):
+        mock_task = make_mock_task()
+        job_name = mock_task.get_unique_name()
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
                 patch_subprocess(mock_run)
-                subject.run_task(make_mock_task())
+                subject.run_task(mock_task)
         self.assertTrue(mock_open.called)
-        filename = mock_open.call_args[0][0]
+        filename = str(mock_open.call_args[0][0])
         mock_file = mock_open()
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
-        self.assertRegex(filename, "job_auto_task_[0-9-]+\\.sub$")
+        self.assertTrue(filename.endswith("job_{0}.sub".format(job_name)))
         _, _, filename = filename.rpartition('/')
         filename, _, _ = filename.rpartition('.')
         self.assertNotEqual('', filename)
@@ -442,20 +583,6 @@ class TestHPCJobSystem(unittest.TestCase):
         self.assertTrue(mock_file.write.called)
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn('source {0}'.format(virtualenv_path), script_contents)
-
-    def test_run_task_uses_virtualenv_from_environment(self):
-        virtualenv_path = '/home/user/virtualenv/benchmark-framework'
-        mock_open = mock.mock_open()
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.os.environ', {'VIRTUAL_ENV': virtualenv_path}):
-            subject = hpc.HPCJobSystem({}, 'myconf.yml')
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
-            with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-                patch_subprocess(mock_run)
-                subject.run_task(make_mock_task())
-        mock_file = mock_open()
-        self.assertTrue(mock_file.write.called)
-        script_contents = mock_file.write.call_args[0][0]
-        self.assertIn('source {0}/bin/activate'.format(virtualenv_path), script_contents)
 
     def test_run_task_uses_current_working_directory(self):
         mock_open = mock.mock_open()
@@ -582,4 +709,5 @@ def make_mock_task():
     mock_task.num_gpus = 0
     mock_task.memory_requirements = '4GB'
     mock_task.expected_duration = '1:00:00'
+    mock_task.get_unique_name.return_value = 'job_' + str(mock_task.identifier)
     return mock_task

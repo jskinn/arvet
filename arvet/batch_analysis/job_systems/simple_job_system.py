@@ -53,9 +53,11 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         if self.can_run_task(task):
             if self._use_subprocess:
+                def args_builder(config):
+                    return ['--config', self._config_path, str(task.pk)]
                 return self.run_script(
                     script=arvet.batch_analysis.scripts.run_task.__file__,
-                    script_args=['--config', self._config_path, str(task.pk)],
+                    script_args_builder=args_builder,
                     num_cpus=task.num_cpus,
                     num_gpus=task.num_gpus,
                     memory_requirements=task.memory_requirements,
@@ -67,19 +69,26 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 return len(self._queue) - 1  # Job id is the index in the queue
         return None
 
-    def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
-                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> int:
+    def run_script(
+            self,
+            script: str,
+            script_args_builder: typing.Callable[..., typing.List[str]],
+            job_name: str = "",
+            num_cpus: int = 1, num_gpus: int = 0,
+            memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
+    ) -> int:
         """
         Run a script that is not a task on this job system
         :param script: The path to the script to run
-        :param script_args: A list of command line arguments, as strings
+        :param script_args_builder: A function that returns a list of command line arguments, as strings
+        :param job_name: A unique name for the job
         :param num_cpus: The number of CPUs required
         :param num_gpus: The number of GPUs required
         :param memory_requirements: The required amount of memory
         :param expected_duration: The duration given for the job to run
         :return: The job id if the job has been started correctly, None if failed.
         """
-        self._queue.append((script, script_args))
+        self._queue.append((script, script_args_builder))
         return len(self._queue) - 1  # Job id is the index in the queue
 
     def run_queued_jobs(self):
@@ -101,7 +110,7 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
             else:
                 logging.getLogger(__name__).info("Using default python")
 
-            for idx, (script_path, script_args) in enumerate(self._queue):
+            for idx, (script_path, script_args_builder) in enumerate(self._queue):
                 if is_id(script_path):
                     # This is just a task id, run the task directly
                     logging.getLogger(__name__).info("Running job {0} of {1} ...".format(idx, len(self._queue)))
@@ -109,6 +118,7 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 else:
                     logging.getLogger(__name__).info("Running job {0} of {1} in subprocess...".format(
                         idx, len(self._queue)))
+                    script_args = script_args_builder(self._config_path)
                     subprocess.run(run_args + ['python', script_path] + script_args, cwd=os.getcwd())
             self._queue = []
 

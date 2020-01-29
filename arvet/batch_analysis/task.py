@@ -95,6 +95,14 @@ class Task(pymodm.MongoModel, metaclass=ABCModelMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def get_unique_name(self) -> str:
+        """
+        Get a pretty name for this task
+        :return:
+        """
+        pass
+
     def mark_job_started(self, node_id: str, job_id: int) -> None:
         """
         Mark the job as having been started on a particular node, with a particular job id.

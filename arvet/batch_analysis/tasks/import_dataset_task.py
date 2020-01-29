@@ -18,6 +18,12 @@ class ImportDatasetTask(Task):
     additional_args = fields.DictField(default={}, blank=True)
     result = fields.ReferenceField(ImageSource, on_delete=fields.ReferenceField.CASCADE)
 
+    def get_unique_name(self) -> str:
+        if 'dataset_name' in self.additional_args:
+            name = self.additional_args['dataset_name'].replace(' ', '_')
+            return 'import_{0}_{1}'.format(name, self.pk)
+        return "import_{0}".format(self.pk)
+
     def run_task(self, path_manager: PathManager):
         import logging
         import traceback

@@ -24,7 +24,7 @@ class TestSimpleJobSystem(unittest.TestCase):
     @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.subprocess.run')
     def test_run_script_adds_script_to_queue(self, mock_run):
         subject = SimpleJobSystem({}, 'config.yml')
-        subject.run_script('myscript.py', ['--myarg'])
+        subject.run_script('myscript.py', lambda config: ['--myarg'])
         self.assertFalse(mock_run.called)
         subject.run_queued_jobs()
         self.assertTrue(mock_run.called)
@@ -58,7 +58,7 @@ class TestSimpleJobSystem(unittest.TestCase):
 
     def test_is_job_running_returns_true_for_jobids_returned_from_run_script(self):
         subject = SimpleJobSystem({}, 'config.yml')
-        job_id = subject.run_script('myscript.py', ['--myarg'])
+        job_id = subject.run_script('myscript.py', lambda config: ['--myarg', config])
         self.assertFalse(subject.is_job_running(-1))
         self.assertTrue(subject.is_job_running(job_id))
         self.assertFalse(subject.is_job_running(1))
@@ -80,7 +80,7 @@ class TestSimpleJobSystem(unittest.TestCase):
         mock_os.environ = {'CONDA_DEFAULT_ENV': 'my_conda_env'}
 
         subject = SimpleJobSystem({}, 'config.yml')
-        subject.run_script('myscript.py', ['--myarg'])
+        subject.run_script('myscript.py', lambda config: ['--myarg'])
         subject.run_queued_jobs()
         self.assertTrue(mock_run.called)
         run_args = mock_run.call_args[0][0]
@@ -92,7 +92,7 @@ class TestSimpleJobSystem(unittest.TestCase):
         # Mock the environ to hide any conda/virtualenv environment running the test
         mock_os.environ = {}
         subject = SimpleJobSystem({}, 'config.yml')
-        subject.run_script('myscript.py', ['--myarg'])
+        subject.run_script('myscript.py', lambda config: ['--myarg'])
         subject.run_queued_jobs()
         self.assertTrue(mock_run.called)
         run_args = mock_run.call_args[0][0]
@@ -104,7 +104,7 @@ class TestSimpleJobSystem(unittest.TestCase):
         # Mock the environ to hide any conda/virtualenv environment running the test
         mock_os.getcwd.return_value = '/my/current/working/directory'
         subject = SimpleJobSystem({}, 'config.yml')
-        subject.run_script('myscript.py', ['--myarg'])
+        subject.run_script('myscript.py', lambda config: ['--myarg'])
         subject.run_queued_jobs()
         self.assertTrue(mock_run.called)
         run_kwargs = mock_run.call_args[1]

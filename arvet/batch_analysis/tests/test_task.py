@@ -10,6 +10,9 @@ class MockTask(task.Task):
     def run_task(self, path_manager: PathManager):
         pass
 
+    def get_unique_name(self) -> str:
+        return "mock_task_{0}".format(self.pk)
+
 
 class TestTaskDatabase(unittest.TestCase):
 

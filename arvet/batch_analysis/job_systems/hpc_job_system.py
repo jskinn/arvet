@@ -1,27 +1,23 @@
 # Copyright (c) 2017, John Skinner
-import os
+from os import getcwd
 import logging
 import typing
 import subprocess
 import re
-import time
 import bson
+from pathlib import Path
 import arvet.batch_analysis.job_system
 from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.scripts.run_task
 
 
-# This is the template for python scripts run by the hpc
-JOB_TEMPLATE = """#!/bin/bash -l
+# Basic structure for job arguments
+JOB_ARGS_TEMPLATE = """
 #PBS -N {name}
 #PBS -l walltime={time}
 #PBS -l mem={mem}
 #PBS -l ncpus={cpus}
 #PBS -l cpuarch=avx2
-{job_params}
-{env}
-cd {working_directory}
-python {script} {args}
 """
 
 
@@ -30,6 +26,18 @@ GPU_ARGS_TEMPLATE = """
 #PBS -l ngpus={gpus}
 #PBS -l gputype=M40
 #PBS -l cputype=E5-2680v4
+"""
+
+
+SSH_TUNNEL_PREFIX = """
+ssh -fN -i {ssh_key} -L {local_port}:localhost:27017 {username}@{hostname}
+echo $! > {job_name}-{local_port}.ssh.pid
+"""
+
+
+SSH_TUNNEL_SUFFIX = """
+cat {job_name}-{local_port}.ssh.pid | xargs kill
+rm {job_name}-{local_port}.ssh.pid
 """
 
 
@@ -44,29 +52,51 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         Takes configuration parameters in a dict with the following format:
         {
             'node_id': 'name_of_job_system_node'
-            # Optional, will look for env used by current process if omitted
-            'environment': 'path-to-virtualenv-activate'
+            'environment': 'path-to-activate-script'
             'job_location: 'folder-to-create-jobs'      # Default ~
             'job_name_prefix': 'prefix-to-job-names'    # Default ''
             'max_jobs': int                             # Default no limit
+            'ssh_tunnel': {                             # No tunnel if omitted
+                'hostname': The host to ssh to
+                'username': The username to connect with
+                'ssh_key':  Path to the SSH key to connect with
+                'min_port': The minimum local port to use
+                'max_port': The highest local port to use
+            }
         }
         :param config: A dict of configuration parameters
         """
         super().__init__(config)
-        self._config_path = os.path.abspath(config_file)
-        self._virtual_env = None
-        if 'environment' in config:
-            self._virtual_env = config['environment']
-        elif 'VIRTUAL_ENV' in os.environ:
-            # No configured virtual environment, but this process has one, use it
-            self._virtual_env = os.path.join(os.environ['VIRTUAL_ENV'], 'bin/activate')
-        if self._virtual_env is not None:
-            self._virtual_env = os.path.expanduser(self._virtual_env)
-        self._job_folder = config['job_location'] if 'job_location' in config else '~'
-        self._job_folder = os.path.expanduser(self._job_folder)
-        self._name_prefix = config['job_name_prefix'] if 'job_name_prefix' in config else ''
+        self._config_path = Path(config_file).expanduser().resolve()
+
+        # Work out what execution environment to use, virtualenv or conda
+        self._environment = config.get('environment', None)
+        if self._environment is not None:
+            self._environment = Path(self._environment).expanduser().resolve()
+        self._job_folder = config.get('job_location', '~')
+        self._job_folder = Path(self._job_folder).expanduser().resolve()
+        self._name_prefix = config.get('job_name_prefix', '')
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
+
+        # Configure the job to set up an ssh tunnel before running.
+        ssh_tunnel_config = config.get('ssh_tunnel', {})
+        self._ssh_host = ssh_tunnel_config.get('hostname', None)
+        self._ssh_key = ssh_tunnel_config.get('ssh_key', None)
+        self._ssh_key = Path(self._ssh_key).expanduser().resolve() if self._ssh_key is not None else None
+        self._ssh_username = ssh_tunnel_config.get('username', None)
+        self._ssh_min_port = int(ssh_tunnel_config.get('min_port', 5000))
+        self._ssh_max_port = int(ssh_tunnel_config.get('max_port', 65535))
+        self._use_ssh = bool(
+            self._ssh_host is not None and
+            self._ssh_key is not None and
+            self._ssh_username is not None
+        )
+
+        if self._use_ssh and (self._max_jobs is None or (self._ssh_max_port - self._ssh_min_port + 1) < self._max_jobs):
+            self._max_jobs = self._ssh_max_port - self._ssh_min_port + 1
+
         self._checked_running_jobs = False
+        self._ssh_current_port = self._ssh_min_port
 
     def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
         """
@@ -87,7 +117,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         A running job id produced output like:
         Job id            Name             User              Time Use S Queue
         ----------------  ---------------- ----------------  -------- - -----
-        2315056.pbs       jrs_auto_task_1  n9520864                 0 Q quick
+        2315056.pbs       auto_task_1      user                     0 Q quick
 
         whereas a non-running job produces:
         qstat: Unknown Job Id 2315.pbs
@@ -111,9 +141,15 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :return: The job id if the job has been started correctly, None if failed.
         """
         if self.can_run_task(task):
+            def args_builder(config, port: int = None):
+                if port is not None:
+                    return ['--config', str(config), '--mongodb_port', str(port), str(task.identifier)]
+                return ['--config', str(config), str(task.identifier)]
+
             return self.run_script(
-                script=os.path.abspath(arvet.batch_analysis.scripts.run_task.__file__),
-                script_args=['--config', self._config_path, str(task.identifier)],
+                script=Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+                script_args_builder=args_builder,
+                job_name=task.get_unique_name(),
                 num_cpus=task.num_cpus,
                 num_gpus=task.num_gpus,
                 memory_requirements=task.memory_requirements,
@@ -121,12 +157,19 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             )
         return None
 
-    def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
-                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> typing.Union[int, None]:
+    def run_script(
+            self,
+            script: typing.Union[str, Path],
+            script_args_builder: typing.Callable[..., typing.List[str]],
+            job_name: str = "",
+            num_cpus: int = 1, num_gpus: int = 0,
+            memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
+    ) -> typing.Union[int, None]:
         """
         Run a script that is not a task on this job system
         :param script: The path to the script to run
-        :param script_args: A list of command line arguments, as strings
+        :param script_args_builder: A lambda that returns list of command line arguments, as strings
+        :param job_name: A unique name to use for the job.
         :param num_cpus: The number of CPUs required
         :param num_gpus: The number of GPUs required
         :param memory_requirements: The required amount of memory
@@ -152,34 +195,74 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 return None
             self._max_jobs -= 1
 
-        # Job meta-information
-        # TODO: We need better job names
-        name = self._name_prefix + "auto_task_{0}".format(time.time()).replace('.', '-')
+        # Choose a job name and a unique file
+        job_name = self._name_prefix + job_name
+        job_file_path = self._job_folder / (job_name + '.sub')
+        offset = 0
+        while job_file_path.exists():
+            offset += 1
+            job_file_path = self._job_folder / (job_name + '_{0}.sub'.format(offset))
+
+        lines = ['#!/bin/bash -l']
+        # basic job meta-information
         if not isinstance(expected_duration, str) or not re.match('^[0-9]+:[0-9]{2}:[0-9]{2}$', expected_duration):
             expected_duration = '1:00:00'
         if not isinstance(memory_requirements, str) or not re.match('^[0-9]+[TGMK]B$', memory_requirements):
             memory_requirements = '3GB'
-        job_params = ""
-        if num_gpus > 0:
-            job_params = GPU_ARGS_TEMPLATE.format(gpus=num_gpus)
-        elif int(memory_requirements.rstrip('MGB')) > 125:
-            job_params = '#PBS -l cputype=E5-2680v3'
-        env = ('source ' + quote(self._virtual_env)) if self._virtual_env is not None else ''
+        lines.append(JOB_ARGS_TEMPLATE.format(
+            name=job_name,
+            time=expected_duration,
+            mem=memory_requirements,
+            cpus=num_cpus
+        ).strip())
 
-        # Parameter args
-        job_file_path = os.path.join(self._job_folder, name + '.sub')
+        # Additional args based on the number of GPUs
+        if num_gpus > 0:
+            lines.append(GPU_ARGS_TEMPLATE.format(gpus=num_gpus).strip())
+        elif int(memory_requirements.rstrip('MGB')) > 125:
+            lines.append('#PBS -l cputype=E5-2680v3')
+
+        # Actually assemble the script commands, line group by line group
+        if self._environment is not None:
+            lines.append('source ' + quote(str(self._environment)))
+
+        # change to the current working dir
+        lines.append('cd {0}'.format(quote(getcwd())))
+
+        # Activate an SSH tunnel, if required
+        port = None
+        if self._use_ssh:
+            # Find a port *we* are not using
+            port = self._ssh_current_port
+            while port <= self._ssh_max_port and any(True for _ in self._job_folder.glob('*-{0}.ssh.pid'.format(port))):
+                port += 1
+            self._ssh_current_port = port + 1
+
+            lines.append(SSH_TUNNEL_PREFIX.format(
+                job_name=job_name,
+                username=self._ssh_username,
+                ssh_key=self._ssh_key,
+                local_port=port,
+                hostname=self._ssh_host,
+            ).strip())
+
+        # Add the actual script commands
+        script_args = script_args_builder(self._config_path, port)
+        lines.append('python {script} {args}'.format(
+            script=quote(str(script)),
+            args=' '.join([quote(arg) for arg in script_args])
+        ))
+
+        # Add commands for closing the SSH tunnel, if we have one
+        if self._use_ssh:
+            lines.append(SSH_TUNNEL_SUFFIX.format(job_name=job_name, local_port=port).strip())
+
+        # Clean up the job file when we're done
+        lines.append("rm {0}".format(job_file_path))
+
+        # Write the job file
         with open(job_file_path, 'w+') as job_file:
-            job_file.write(JOB_TEMPLATE.format(
-                name=name,
-                time=expected_duration,
-                mem=memory_requirements,
-                cpus=int(num_cpus),
-                job_params=job_params,
-                env=env,
-                working_directory=quote(os.getcwd()),
-                script=quote(script),
-                args=' '.join([quote(arg) for arg in script_args])
-            ))
+            job_file.write('\n'.join(lines))
 
         logging.getLogger(__name__).info("Submitting job file {0}".format(job_file_path))
         result = subprocess.run(['qsub', job_file_path], stdout=subprocess.PIPE, universal_newlines=True)

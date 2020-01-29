@@ -25,6 +25,9 @@ class CompareTrialTask(arvet.batch_analysis.task.Task):
         required=True)
     result = fields.ReferenceField(TrialComparisonResult, on_delete=fields.ReferenceField.CASCADE)
 
+    def get_unique_name(self) -> str:
+        return "compare_trials_{0}".format(self.pk)
+
     def run_task(self, path_manager: PathManager) -> None:
         import traceback
 

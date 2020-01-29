@@ -74,12 +74,14 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def run_script(self, script: str, script_args: typing.List[str], num_cpus: int = 1, num_gpus: int = 0,
+    def run_script(self, script: str, script_args_builder: typing.Callable[..., typing.List[str]],
+                   job_name: str = "", num_cpus: int = 1, num_gpus: int = 0,
                    memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> typing.Union[int, None]:
         """
         Run a python script that is not a task on this job system
         :param script: The path to the script to run
-        :param script_args: A list of command line arguments, as strings
+        :param script_args_builder: A function that returns a list of command line arguments, as strings
+        :param job_name: A unique name for the job
         :param num_cpus: The number of CPUs required
         :param num_gpus: The number of GPUs required
         :param memory_requirements: The required amount of memory

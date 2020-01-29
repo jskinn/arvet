@@ -53,6 +53,11 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
         # This will now dereference correctly
         return self.result
 
+    def get_unique_name(self) -> str:
+        system_name = self.system.get_pretty_name()
+        system_name = system_name.split('.')[-1]
+        return "run_{0}_{1}".format(system_name, self.pk)
+
     def run_task(self, path_manager: PathManager):
         import traceback
 

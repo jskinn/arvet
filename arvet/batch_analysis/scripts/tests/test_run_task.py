@@ -25,6 +25,9 @@ class MockTask(Task):
             self.mark_job_failed()
         self.mark_job_complete()
 
+    def get_unique_name(self) -> str:
+        return 'run_a_thing'
+
 
 class TestRunTask(unittest.TestCase):
     mock_conf = {'paths': ['~'], 'temp_folder': '~/tmp', 'database': {}, 'image_manager': {'path': '/dev/null'}}

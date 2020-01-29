@@ -50,6 +50,9 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
         # This will now dereference correctly
         return self.result
 
+    def get_unique_name(self) -> str:
+        return "measure_{0}".format(self.pk)
+
     def run_task(self, path_manager: PathManager) -> None:
         import traceback
 
