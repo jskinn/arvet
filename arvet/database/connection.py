@@ -26,6 +26,6 @@ def configure(config: dict, override_host: str = None, override_port: int = None
         mongodb_uri = "mongodb://{host}:{port}/{database}".format(
             host=override_host,
             port=override_port,
-            database=config.get('database', 'arvet-db')
+            database=config.get('db_name', 'arvet-db')
         )
     pymodm_connect(mongodb_uri)
