@@ -31,7 +31,7 @@ GPU_ARGS_TEMPLATE = """
 
 
 SSH_TUNNEL_PREFIX = """
-ssh -fN -i {ssh_key} -L {local_port}:localhost:27017 {username}@{hostname}
+ssh -nN -i {ssh_key} -L {local_port}:localhost:27017 {username}@{hostname} &
 echo $! > {job_name}-{local_port}.ssh.pid
 """
 
