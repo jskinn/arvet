@@ -241,10 +241,7 @@ def schedule_tasks(job_system: JobSystem,
         query['_id'] = {'$in': list(task_ids)}
     all_available = Task.objects.raw(query)
     for task in all_available:
-        job_id = job_system.run_task(task)
-        if job_id is not None:
-            task.mark_job_started(job_system.node_id, job_id)
-            task.save()
+        job_system.run_task(task)
 
 
 def count_pending_tasks() -> int:

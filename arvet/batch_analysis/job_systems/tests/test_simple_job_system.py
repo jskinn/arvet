@@ -56,18 +56,31 @@ class TestSimpleJobSystem(unittest.TestCase):
         self.assertEqual('test/config.yml', run_args[python_index + 3])
         self.assertEqual(str(task.pk), run_args[python_index + 4])
 
+    @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.os.path.abspath')
+    @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.subprocess.run')
+    def test_run_task_marks_task_as_started_when_added_to_subprocess_queue(self, _, mock_abspath):
+        task = make_mock_task()
+        node_id = 'test-node-id-157890'
+        mock_abspath.side_effect = lambda pth: 'test/' + pth
+        subject = SimpleJobSystem({'node_id': node_id, 'subprocess': True}, 'config.yml')
+        subject.run_task(task)
+        self.assertTrue(task.mark_job_started.called)
+        self.assertEqual(node_id, task.mark_job_started.call_args[0][0])
+
+    @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.os.path.abspath')
+    @mock.patch('arvet.batch_analysis.job_systems.simple_job_system.subprocess.run')
+    def test_run_task_marks_task_as_started_when_run_directly(self, _, mock_abspath):
+        task = make_mock_task()
+        node_id = 'test-node-id-157890'
+        mock_abspath.side_effect = lambda pth: 'test/' + pth
+        subject = SimpleJobSystem({'node_id': node_id, 'subprocess': False}, 'config.yml')
+        subject.run_task(task)
+        self.assertTrue(task.mark_job_started.called)
+        self.assertEqual(node_id, task.mark_job_started.call_args[0][0])
+
     def test_is_job_running_returns_true_for_jobids_returned_from_run_script(self):
         subject = SimpleJobSystem({}, 'config.yml')
         job_id = subject.run_script('myscript.py', lambda config: ['--myarg', config])
-        self.assertFalse(subject.is_job_running(-1))
-        self.assertTrue(subject.is_job_running(job_id))
-        self.assertFalse(subject.is_job_running(1))
-        self.assertFalse(subject.is_job_running(10))
-
-    def test_is_job_running_returns_true_for_jobids_returned_from_run_task(self):
-        task = make_mock_task()
-        subject = SimpleJobSystem({}, 'config.yml')
-        job_id = subject.run_task(task)
         self.assertFalse(subject.is_job_running(-1))
         self.assertTrue(subject.is_job_running(job_id))
         self.assertFalse(subject.is_job_running(1))

@@ -715,7 +715,7 @@ class TestTaskManagerCompareTrials(unittest.TestCase):
         self.assertIn('metric', str(exp.exception))
 
 
-class TestTaskManagerScheduleTasks(unittest.TestCase):
+class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
     system = None
     image_source = None
     metric = None
@@ -788,7 +788,6 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
-        mock_job_system.run_task.return_value = None    # Ensure no new tasks are successfully run
 
         task_manager.schedule_tasks(mock_job_system)
 
@@ -809,16 +808,10 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
-        mock_job_system.run_task.return_value = 1433
 
         task_manager.schedule_tasks(mock_job_system)
 
         self.assertEqual(mock.call(task), mock_job_system.run_task.call_args)
-
-        task.refresh_from_db()
-        self.assertTrue(task.is_running)
-        self.assertEqual('here', task.node_id)
-        self.assertEqual(1433, task.job_id)
 
     def test_schedule_tasks_schedules_run_system_task(self):
         task = task_manager.get_run_system_task(
@@ -830,16 +823,10 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
-        mock_job_system.run_task.return_value = 1433
 
         task_manager.schedule_tasks(mock_job_system)
 
         self.assertEqual(mock.call(task), mock_job_system.run_task.call_args)
-
-        task.refresh_from_db()
-        self.assertTrue(task.is_running)
-        self.assertEqual('here', task.node_id)
-        self.assertEqual(1433, task.job_id)
 
     def test_schedule_tasks_schedules_measure_trial_task(self):
         task = task_manager.get_measure_trial_task(
@@ -851,16 +838,10 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
-        mock_job_system.run_task.return_value = 1433
 
         task_manager.schedule_tasks(mock_job_system)
 
         self.assertEqual(mock.call(task), mock_job_system.run_task.call_args)
-
-        task.refresh_from_db()
-        self.assertTrue(task.is_running)
-        self.assertEqual('here', task.node_id)
-        self.assertEqual(1433, task.job_id)
 
     def test_schedule_tasks_schedules_compare_trials_task(self):
         task = task_manager.get_trial_comparison_task(
@@ -873,16 +854,10 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
-        mock_job_system.run_task.return_value = 1433
 
         task_manager.schedule_tasks(mock_job_system)
 
         self.assertEqual(mock.call(task), mock_job_system.run_task.call_args)
-
-        task.refresh_from_db()
-        self.assertTrue(task.is_running)
-        self.assertEqual('here', task.node_id)
-        self.assertEqual(1433, task.job_id)
 
     def test_schedule_tasks_doesnt_rerun_completed_tasks(self):
         # Set up initial database state
@@ -942,17 +917,9 @@ class TestTaskManagerScheduleTasks(unittest.TestCase):
 
         task_manager.schedule_tasks(mock_job_system, task_ids=[included_task.identifier])
 
-        task = Task.objects.get({'_id': included_task._id})
-        self.assertEqual(JobState.RUNNING, task.state)
-        self.assertEqual(33, task.job_id)
-        self.assertEqual('here', task.node_id)
-
-        task = Task.objects.get({'_id': excluded_task._id})
-        self.assertEqual(JobState.UNSTARTED, task.state)
-
-        self.assertTrue(mock_job_system.run_task.called)
         self.assertEqual(1, mock_job_system.run_task.call_count)
         self.assertEqual(mock.call(included_task), mock_job_system.run_task.call_args)
+        self.assertNotIn(mock.call(excluded_task), mock_job_system.run_task.call_args_list)
 
 
 class TestTaskManagerCountPendingTasks(unittest.TestCase):

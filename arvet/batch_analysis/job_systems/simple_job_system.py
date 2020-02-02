@@ -45,7 +45,7 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         return 0 <= job_id < len(self._queue)
 
-    def run_task(self, task: Task) -> typing.Union[int, None]:
+    def run_task(self, task: Task):
         """
         Run a particular task
         :param task: The task object to run
@@ -54,8 +54,8 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         if self.can_run_task(task):
             if self._use_subprocess:
                 def args_builder(config):
-                    return ['--config', self._config_path, str(task.pk)]
-                return self.run_script(
+                    return ['--config', config, str(task.pk)]
+                job_id = self.run_script(
                     script=arvet.batch_analysis.scripts.run_task.__file__,
                     script_args_builder=args_builder,
                     num_cpus=task.num_cpus,
@@ -63,11 +63,13 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
                     memory_requirements=task.memory_requirements,
                     expected_duration=task.expected_duration
                 )
+                task.mark_job_started(self.node_id, job_id)
+                task.save()
             else:
-                # Add just the task id to the queue, that's all we actaull
+                # Add just the task id to the queue, that's all we actually do here
                 self._queue.append((str(task.pk), None))
-                return len(self._queue) - 1  # Job id is the index in the queue
-        return None
+                task.mark_job_started(self.node_id, len(self._queue) - 1)  # Job id is the index in the queue
+                task.save()
 
     def run_script(
             self,

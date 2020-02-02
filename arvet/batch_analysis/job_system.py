@@ -65,18 +65,23 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def run_task(self, task: Task) -> typing.Union[int, None]:
+    def run_task(self, task: Task):
         """
-        Run a particular task
+        Queue a particular task to run.
+        It doesn't necessarily have to start running immediately, but the job system must update the job state
+        when it is started.
+        Task start is deferred to allow the job system to make decisions about what tasks it is running based on
+        the full set.
+        Does not necessarily have to run all tasks passed to it.
         :param task: The task object to run
-        :return: The job id if the job has been started correctly, None if failed.
+        :return: None.
         """
         pass
 
     @abc.abstractmethod
     def run_script(self, script: str, script_args_builder: typing.Callable[..., typing.List[str]],
                    job_name: str = "", num_cpus: int = 1, num_gpus: int = 0,
-                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> typing.Union[int, None]:
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
         """
         Run a python script that is not a task on this job system
         :param script: The path to the script to run

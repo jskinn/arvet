@@ -7,7 +7,8 @@ import re
 import bson
 from pathlib import Path
 import arvet.batch_analysis.job_system
-from arvet.batch_analysis.task import Task
+from arvet.batch_analysis.task import Task, JobState
+from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
 import arvet.batch_analysis.scripts.run_task
 
 
@@ -97,6 +98,9 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
 
         self._checked_running_jobs = False
         self._ssh_current_port = self._ssh_min_port
+        self._tasks_to_run = []
+        self._import_dataset_tasks = []
+        self._scripts_to_run = []
 
     def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
         """
@@ -134,28 +138,17 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         output = result.stdout.lower()  # Case insensitive
         return 'unknown job id' not in output and 'job has finished' not in output
 
-    def run_task(self, task: Task) -> typing.Union[int, None]:
+    def run_task(self, task: Task):
         """
         Run a particular task
         :param task: The the task to run
         :return: The job id if the job has been started correctly, None if failed.
         """
         if self.can_run_task(task):
-            def args_builder(config, port: int = None):
-                if port is not None:
-                    return ['--config', str(config), '--mongodb_port', str(port), str(task.identifier)]
-                return ['--config', str(config), str(task.identifier)]
-
-            return self.run_script(
-                script=Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                script_args_builder=args_builder,
-                job_name=task.get_unique_name(),
-                num_cpus=task.num_cpus,
-                num_gpus=task.num_gpus,
-                memory_requirements=task.memory_requirements,
-                expected_duration=task.expected_duration
-            )
-        return None
+            if isinstance(task, ImportDatasetTask):
+                self._import_dataset_tasks.append(task)
+            else:
+                self._tasks_to_run.append(task)
 
     def run_script(
             self,
@@ -164,7 +157,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             job_name: str = "",
             num_cpus: int = 1, num_gpus: int = 0,
             memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
-    ) -> typing.Union[int, None]:
+    ):
         """
         Run a script that is not a task on this job system
         :param script: The path to the script to run
@@ -176,6 +169,119 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The duration given for the job to run
         :return: The job id if the job has been started correctly, None if failed.
         """
+        self._scripts_to_run.append((
+            script, script_args_builder, job_name, num_cpus, num_gpus, memory_requirements, expected_duration
+        ))
+
+    def run_queued_jobs(self):
+        """
+        Run queued jobs.
+        We're doing something a little complex:
+        HPC will run jobs in parallel. Most tasks are fine to run in parallel,
+        however HDF5 does not support concurrent write, so ImportDatasetTasks must be run sequentially instead
+        So we have three groups of jobs:
+        - Scripts, which are run parallel
+        - Tasks that are not ImportDatasetTasks, which are also run parallel
+        - ImportDatasetTasks, which are run all together in a single job
+        :return:
+        """
+        # Run scripts in parallel
+        logging.getLogger(__name__).info("Submitting {0} scripts to HPC".format(len(self._scripts_to_run)))
+        for (
+                script,
+                script_args_builder,
+                job_name,
+                num_cpus,
+                num_gpus,
+                memory_requirements,
+                expected_duration
+        ) in self._scripts_to_run:
+            self._create_and_run_script(
+                scripts=[(script, script_args_builder)],
+                job_name=job_name,
+                num_cpus=num_cpus,
+                num_gpus=num_gpus,
+                memory_requirements=memory_requirements,
+                expected_duration=expected_duration
+            )
+        self._scripts_to_run = []
+
+        # Submit jobs for tasks that don't import
+        logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
+        for task in self._tasks_to_run:
+            job_id = self._create_and_run_script(
+                scripts=[(
+                    Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+                    make_task_args_builder(task)
+                )],
+                job_name=task.get_unique_name(),
+                num_cpus=task.num_cpus,
+                num_gpus=task.num_gpus,
+                memory_requirements=task.memory_requirements,
+                expected_duration=task.expected_duration
+            )
+            if job_id is not None:
+                task.mark_job_started(self.node_id, job_id)
+                task.save()
+        self._tasks_to_run = []
+
+        # Check if there are any import dataset tasks already running on this node
+        existing_import_tasks_count = ImportDatasetTask.objects.raw({
+            'node_id': self.node_id,
+            'state': JobState.RUNNING.name
+        }).count()
+
+        # Make a single job for all the import dataset tasks
+        # We merge most of the requirements like num cpus as maximum across all the tasks
+        # expected duration is the sum of all the durations.
+        if existing_import_tasks_count <= 0 and len(self._import_dataset_tasks) > 0:
+            logging.getLogger(__name__).info("Submitting script for {0} import jobs".format(len(self._import_dataset_tasks)))
+            memory_requirements = max(
+                parse_memory_requirements(task.memory_requirements)
+                for task in self._import_dataset_tasks
+            )
+            memory_requirements = max(1, memory_requirements // (1024 * 1024))
+            job_id = self._create_and_run_script(
+                scripts=[(
+                    Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+                    make_task_args_builder(task)
+                ) for task in self._import_dataset_tasks],
+                job_name="import_{0}_datasets".format(len(self._import_dataset_tasks)),
+                num_cpus=max(task.num_cpus for task in self._import_dataset_tasks),
+                num_gpus=max(task.num_gpus for task in self._import_dataset_tasks),
+                memory_requirements="{0}GB".format(memory_requirements),
+                expected_duration=merge_expected_durations(
+                    task.expected_duration for task in self._import_dataset_tasks)
+            )
+            if job_id is not None:
+                # The one job is running all the imports, mark that fact on all the tasks
+                for task in self._import_dataset_tasks:
+                    task.mark_job_started(self.node_id, job_id)
+                    task.save()
+            self._import_dataset_tasks = []
+
+    def _create_and_run_script(
+            self,
+            scripts: typing.Collection[typing.Tuple[typing.Union[str, Path], typing.Callable[..., typing.List[str]]]],
+            job_name: str = "",
+            num_cpus: int = 1, num_gpus: int = 0,
+            memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
+    ) -> typing.Union[int, None]:
+        """
+        Actually create and submit a job, which may run one or more actual scripts.
+        Only ever counts as one toward max_jobs
+        :param scripts: A
+        :param job_name:
+        :param num_cpus:
+        :param num_gpus:
+        :param memory_requirements:
+        :param expected_duration:
+        :return:
+        """
+        if len(scripts) <= 0:
+            # No point in creating a job that doesn't run any scripts
+            return None
+
         # Optionally limit the number of jobs
         if self._max_jobs is not None:
             # If we haven't yet, get the current number of running jobs,
@@ -247,11 +353,12 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             ).strip())
 
         # Add the actual script commands
-        script_args = script_args_builder(self._config_path, port)
-        lines.append('python {script} {args}'.format(
-            script=quote(str(script)),
-            args=' '.join([quote(arg) for arg in script_args])
-        ))
+        for script, script_args_builder in scripts:
+            script_args = script_args_builder(self._config_path, port)
+            lines.append('python {script} {args}'.format(
+                script=quote(str(script)),
+                args=' '.join([quote(arg) for arg in script_args])
+            ))
 
         # Add commands for closing the SSH tunnel, if we have one
         if self._use_ssh:
@@ -269,13 +376,55 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         job_id = re.search('(\\d+)', result.stdout).group()
         return int(job_id)
 
-    def run_queued_jobs(self):
-        """
-        Run queued jobs.
-        Since we've already sent the jobs to the PBS job system, don't do anything.
-        :return:
-        """
-        pass
+
+def make_task_args_builder(task: Task) -> typing.Callable[..., typing.List[str]]:
+    """
+    Make a callable that returns the right arguments for run_task to run a particular task
+    :param task:
+    :return:
+    """
+    def args_builder(config, port: int = None):
+        if port is not None:
+            return ['--config', str(config), '--mongodb_port', str(port), str(task.identifier)]
+        return ['--config', str(config), str(task.identifier)]
+
+    return args_builder
+
+
+def parse_memory_requirements(memory: str):
+    """
+    Turn a memory requirements string to a size in KB
+    :param memory:
+    :return:
+    """
+    memory = memory.upper()
+    if memory.endswith('GB'):
+        return 1024 * 1024 * int(memory.rstrip('GMKB'))
+    elif memory.endswith('MB'):
+        return 1024 * int(memory.rstrip('GMKB'))
+    return int(memory.rstrip('GMKB'))
+
+
+def merge_expected_durations(durations: typing.Iterable[str]) -> str:
+    """
+    Join together the estimated times of multiple tasks into a combined time
+    :param durations:
+    :return:
+    """
+    hours = 0
+    minutes = 0
+    seconds = 0
+    for duration in durations:
+        parts = duration.split(':')
+        if len(parts) >= 3:
+            hours += int(parts[0])
+            minutes += int(parts[1])
+            seconds += int(parts[2])
+    minutes += seconds // 60
+    seconds = seconds % 60
+    hours += minutes // 60
+    minutes = minutes % 60
+    return "{0:02}:{1:02}:{2:02}".format(hours, minutes, seconds)
 
 
 def quote(string: str) -> str:
