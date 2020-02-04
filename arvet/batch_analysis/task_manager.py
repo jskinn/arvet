@@ -108,6 +108,7 @@ def get_run_system_task(
             system=system,
             image_source=image_source,
             repeat=repeat,
+            seed=seed if use_seed else None,
             state=JobState.UNSTARTED,
             num_cpus=num_cpus,
             num_gpus=num_gpus,
