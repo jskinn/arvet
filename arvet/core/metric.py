@@ -139,37 +139,6 @@ class MetricResult(pymodm.MongoModel):
         """
         return []
 
-    @classmethod
-    def get_available_plots(cls) -> typing.Set[str]:
-        """
-        Get the set of available plots for this metric.
-        That is, these are the values that when passed to visualise_results, actually do something.
-        They should also be human-readable names.
-        :return: A set of valid plot names
-        """
-        return set()
-
-    @classmethod
-    def visualize_results(cls: typing.Type[T_MetricResult],
-                          results: typing.Iterable[T_MetricResult],
-                          plots: typing.Collection[str],
-                          display: bool = True, output: str = '') -> None:
-        """
-        Given a number of metric results, visualize those results in some number of plots.
-        Will be passed multiple metric results that are instances of this class, and a set of plot names.
-        The result should aggregate date from all the given results, and then produce the specified plots.
-
-        The metric results are passed as a cursor, which will load the results as they are requested,
-        rather than pre-loading them all. Don't immediately wrapp in a list.
-
-        :param results: A group of metric results to form the data.
-        :param plots: A set of plot names to create. Will be a subset of the results from get_available_plots
-        :param display: Should the results be displayed to the screen? if false, suppress window output.
-        :param output: Where should the plots be saved? If empty, do not save the plots.
-        :return:
-        """
-        pass
-
 
 def check_trial_collection(trial_results: typing.Iterable[arvet.core.trial_result.TrialResult]) \
         -> typing.Union[str, None]:

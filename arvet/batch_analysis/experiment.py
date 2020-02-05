@@ -2,13 +2,19 @@
 import abc
 import typing
 import bson
+from pandas import DataFrame
 import pymodm
 import pymodm.fields as fields
+from pymodm.context_managers import no_auto_dereference
+from pathlib import PurePath
 import arvet.database.pymodm_abc as pymodm_abc
+from arvet.database.autoload_modules import autoload_modules
+from arvet.database.reference_list_field import ReferenceListField
 from arvet.core.system import VisionSystem
 from arvet.core.image_source import ImageSource
 from arvet.core.trial_result import TrialResult
 from arvet.core.metric import Metric, MetricResult
+from arvet.core.plot import Plot
 import arvet.batch_analysis.task_manager as task_manager
 
 
@@ -25,9 +31,8 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     """
     name = fields.CharField(primary_key=True)
     enabled = fields.BooleanField(required=True, default=True)
-    metric_results = fields.ListField(
-        fields.ReferenceField(MetricResult, on_delete=fields.ReferenceField.PULL)
-    )
+    metric_results = ReferenceListField(MetricResult, on_delete=fields.ReferenceField.PULL)
+    plots = ReferenceListField(Plot, on_delete=fields.ReferenceField.PULL)
 
     @abc.abstractmethod
     def schedule_tasks(self):
@@ -37,34 +42,79 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
-    @abc.abstractmethod
     def get_plots(self) -> typing.Set[str]:
         """
         Get a list of valid plots for this experiment.
         Each experiment pro
         :return:
         """
-        pass
+        return {
+            plot.name
+            for plot in self.plots
+        }
 
-    def plot_results(self, plot_names: typing.Collection[str], display: bool = False, output: str = '') -> None:
+    def plot_results(self, output_dir: PurePath, plot_names: typing.Container[str] = None, display: bool = False):
         """
         Visualise the results from this experiment in different ways.
 
+        :param output_dir: The base path to save the plots to.
         :param plot_names: The names of the plot to create, should only care about the values from get_plots
         :param display: Should the plot be displayed to the screen. Default false.
-        :param output: The base path to save the plots to. Default '', which means they will not be saved.
         :return: Nothing
         """
-        pass
+        # First, autoload the plot modules
+        with no_auto_dereference(type(self)):
+            plot_ids = set(plot_id for plot_id in self.plots if isinstance(plot_id, bson.ObjectId))
+        if len(plot_ids) > 0:
+            autoload_modules(Plot, ids=list(plot_ids))
 
-    def export_data(self) -> None:
+        # Filter the linked plots down to those selected
+        if plot_names is None:
+            plots = self.plots
+        else:
+            plots = [plot for plot in self.plots if plot.name in plot_names]
+
+        if len(plots) > 0:
+            # First, work out which properties our plots need
+            columns = set(
+                column
+                for plot in plots
+                for column in plot.get_required_columns()
+            )
+            if len(columns) <= 0:
+                # No columns means no data and no plots
+                return
+
+            # The read the data from the results.
+            data = self.get_data(columns)
+
+            # Make the output folder
+            output_dir = (output_dir / self.name).resolve()
+            output_dir.mkdir(exist_ok=True, parents=True)
+
+            # Finally, delegate to the plots themselves to do the actual plotting
+            for plot in plots:
+                plot.plot_results(data, output_dir, display=display)
+
+    def get_data(self, columns: typing.Iterable[str]) -> DataFrame:
         """
-        Allow experiments to export some data, usually to file.
-        I'm currently using this to dump camera trajectories so I can build simulations around them,
-        but there will be other circumstances where we want to. Naturally, this is optional.
-        :return:
-        """
-        pass
+        Read the given columns into a dataframe.
+        Collates data from all the metric results, based on a set of columns
+        :param columns: The columns to get data for
+        :return:        """
+        data = []
+        # Be a bit smarter about which results we load when, rather than accidentally loading and then keeping them all
+        # We're still going to use so much memory, but at least it's only the fields we care about.
+        with no_auto_dereference(type(self)):
+            for result in self.metric_results:
+                if isinstance(result, bson.ObjectId):
+                    # Need to manually load the result, but we can get rid of it when we're done
+                    result_obj = MetricResult.objects.get({'_id': result})
+                    data += result_obj.get_results(columns)
+                    del result_obj
+                else:
+                    data += result.get_results(columns)
+        return DataFrame(data)
 
 
 def run_all(

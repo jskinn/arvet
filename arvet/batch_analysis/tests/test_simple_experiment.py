@@ -40,32 +40,6 @@ class CountedMetric(mock_core.MockMetric):
         CountedMetric.instances += 1
 
 
-class CountedMetricResult(mock_core.MockMetricResult):
-    instances = 0
-
-    def __init__(self, *args, **kwargs):
-        super(CountedMetricResult, self).__init__(*args, **kwargs)
-        self._inc_counter()
-
-    @classmethod
-    def _inc_counter(cls):
-        cls.instances += 1
-
-
-class CountedPlottedMetricResult1(CountedMetricResult):
-
-    @classmethod
-    def get_available_plots(cls):
-        return {'my_plot_1'}
-
-
-class CountedPlottedMetricResult2(CountedMetricResult):
-
-    @classmethod
-    def get_available_plots(cls):
-        return {'plot_2', 'custom_demo_plot_newest'}
-
-
 # ------------------------- DATABASE TESTS -------------------------
 
 
@@ -313,50 +287,6 @@ class TestExperimentDatabase(unittest.TestCase):
         # check we can still save
         obj.save()
 
-    def test_get_plots_returns_result_plots_without_dereferencing(self):
-        # Build the heirarchy of references necessary to save a metric result
-        system = mock_core.MockSystem()
-        system.save()
-
-        image_source = mock_core.MockImageSource()
-        image_source.save()
-
-        metric = mock_core.MockMetric()
-        metric.save()
-
-        trial_result = mock_core.MockTrialResult(system=system, image_source=image_source, success=True)
-        trial_result.save()
-
-        CountedPlottedMetricResult1.instances = 0
-        CountedPlottedMetricResult2.instances = 0
-
-        # Make some metric results that provide plots
-        metric_result_1 = CountedPlottedMetricResult1(metric=metric, trial_results=[trial_result], success=True)
-        metric_result_1.save()
-
-        metric_result_2 = CountedPlottedMetricResult2(metric=metric, trial_results=[trial_result], success=True)
-        metric_result_2.save()
-
-        obj = SimpleExperiment(
-            name="TestSimpleExperiment",
-            metric_results=[metric_result_1, metric_result_2]
-        )
-        obj.save()
-
-        # Check that creating the metric results increased the instance count
-        self.assertEqual(1, CountedPlottedMetricResult1.instances)
-        self.assertEqual(1, CountedPlottedMetricResult2.instances)
-
-        del obj  # Clear the obj to clear existing objects and references
-        CountedPlottedMetricResult1.instances = 0
-        CountedPlottedMetricResult2.instances = 0
-
-        obj = SimpleExperiment.objects.all().first()
-        self.assertEqual(CountedPlottedMetricResult1.get_available_plots() |
-                         CountedPlottedMetricResult2.get_available_plots(), obj.get_plots())
-        self.assertEqual(0, CountedPlottedMetricResult1.instances)
-        self.assertEqual(0, CountedPlottedMetricResult2.instances)
-
 
 # ------------------------- TESTS WITHOUT DATABASE -------------------------
 
@@ -524,44 +454,6 @@ class TestSimpleExperiment(unittest.TestCase):
 
         for metric_result in metric_results:
             self.assertIn(metric_result, subject.metric_results)
-
-    def test_get_plots_returns_plots_from_metric_results(self):
-
-        class PlottedMetricResult1(mock_core.MockMetricResult):
-
-            @classmethod
-            def get_available_plots(cls):
-                return {'my_awesome_plot', 'plot_2_fixed'}
-
-        class PlottedMetricResult2(mock_core.MockMetricResult):
-
-            @classmethod
-            def get_available_plots(cls):
-                return {'demoplot_newer_2'}
-
-        subject = SimpleExperiment(
-            name="TestSimpleExperiment",
-            metric_results=[PlottedMetricResult1(), PlottedMetricResult2()]
-        )
-        self.assertEqual({'my_awesome_plot', 'plot_2_fixed', 'demoplot_newer_2'}, subject.get_plots())
-
-    def test_get_plots_requests_each_type_only_once(self):
-        call_count = 0
-
-        class PlotttedMetricResult(mock_core.MockMetricResult):
-
-            @classmethod
-            def get_available_plots(cls):
-                nonlocal call_count
-                call_count += 1
-                return {'my_awesome_plot', 'plot_2'}
-
-        subject = SimpleExperiment(
-            name="TestSimpleExperiment",
-            metric_results=[PlotttedMetricResult() for _ in range(10)]
-        )
-        self.assertEqual({'my_awesome_plot', 'plot_2'}, subject.get_plots())
-        self.assertEqual(1, call_count)
 
 
 def make_trial_map(systems,  image_sources, repeats):

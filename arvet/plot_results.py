@@ -4,8 +4,10 @@ import logging
 import logging.config
 import typing
 import argparse
+from pathlib import Path
 
 from arvet.config.global_configuration import load_global_config
+from arvet.config.path_manager import PathManager
 import arvet.database.connection as dbconn
 import arvet.database.image_manager as im_manager
 from arvet.database.autoload_modules import autoload_modules
@@ -31,6 +33,10 @@ def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, sho
     dbconn.configure(config['database'])
     im_manager.configure(config['image_manager'])
 
+    # Set up the path manager
+    path_manager = PathManager(paths=config['paths'], temp_folder=config['temp_folder'],
+                               output_dir=config.get('output_dir', None))
+
     # No experiment specified, just list the options
     if experiment_id is None or experiment_id == '':
         print("Which experiment would you like to plot?")
@@ -49,8 +55,18 @@ def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, sho
     if plot_names is None or len(plot_names) <= 0:
         return print_available_plots(experiment)
 
+    # Find an output dir, either using a selected one, or from the path manager
+    if len(output) == 0:
+        output_dir = path_manager.get_output_dir()
+    else:
+        output_dir = Path(output).expanduser().resolve()
+
     # Delegate to the experiment object to plot the results
-    experiment.plot_results(plot_names, show, output)
+    experiment.plot_results(
+        output_dir=output_dir,
+        plot_names=plot_names,
+        display=show
+    )
 
 
 def print_available_experiments() -> None:
@@ -88,8 +104,6 @@ if __name__ == "__main__":
     parser.add_argument('--no-display', action='store_true', dest='hide',
                         help='Don\'t actually show the plots as they are generated. '
                              'By default')
-    parser.add_argument('--output', default='',
-                        help='Save the generated plots to the specified location (or some subfolder thereof)')
     parser.add_argument('experiment_id', nargs='?', default='',
                         help='The experiment id to plot results for. '
                         'Leave blank to list the available experiments')

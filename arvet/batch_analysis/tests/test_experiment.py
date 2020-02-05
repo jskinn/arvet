@@ -1,12 +1,21 @@
 # Copyright (c) 2017, John Skinner
 import os
+import typing
 import unittest
+import unittest.mock as mock
+from pathlib import Path
+from shutil import rmtree
+from pandas import DataFrame
+from pymodm.context_managers import no_auto_dereference
+from traceback import print_stack
+
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image import Image
 from arvet.core.image_collection import ImageCollection
-from arvet.core.metric import Metric
+from arvet.core.metric import Metric, MetricResult
+from arvet.core.plot import Plot
 
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.run_system_task import RunSystemTask
@@ -22,30 +31,186 @@ class MockExperiment(ex.Experiment):
     def __init__(self, name="MockExperiment", *args, **kwargs):
         super().__init__(name=name, *args, **kwargs)
 
-    def do_imports(self, path_manager):
-        pass
-
     def schedule_tasks(self):
         pass
 
-    def get_plots(self):
-        return {}
+
+print("Fields after MockExperiment init")
+for field in ex.Experiment._mongometa.fields_ordered:
+    print("{0}: {1}".format(field.attname, field.model))
+
+
+class MockPlot(Plot):
+
+    def get_required_columns(self) -> typing.Set[str]:
+        return set()
+
+    def plot_results(self, data, output_dir, display=False) -> None:
+        pass
+
+
+class CountedMetricResult(mock_types.MockMetricResult):
+    concurrent_instances = 0
+    max_concurrent_instances = 0
+
+    def __init__(self, *args, **kwargs):
+        super(CountedMetricResult, self).__init__(*args, **kwargs)
+        self._inc_counter()
+        # print_stack()
+
+    def __del__(self):
+        self._dec_counter()
+
+    @classmethod
+    def _inc_counter(cls):
+        cls.concurrent_instances += 1
+        cls.max_concurrent_instances = max(cls.max_concurrent_instances, cls.concurrent_instances)
+
+    @classmethod
+    def _dec_counter(cls):
+        cls.concurrent_instances -= 1
+
+
+class TestExperiment(unittest.TestCase):
+    output_dir = None
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.output_dir = Path(__file__).parent / 'test_experiment_output'
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if cls.output_dir.exists():
+            rmtree(cls.output_dir)
+
+    def test_plot_results_gets_columns_from_each_plot_and_passes_them_to_the_result(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+
+        obj = MockExperiment(
+            name="TestExperiment",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        obj.plot_results(self.output_dir)
+        self.assertTrue(plot1.get_required_columns.called)
+        self.assertTrue(plot2.get_required_columns.called)
+        self.assertTrue(result.get_results.called)
+        self.assertEqual(mock.call(columns1 | columns2), result.get_results.call_args)
+
+    def test_plot_results_creates_output_file(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+        result.get_results.return_value = []
+
+        obj = MockExperiment(
+            name="TestExperiment15618",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        obj.plot_results(self.output_dir)
+        self.assertTrue(self.output_dir.exists())
+        self.assertTrue((self.output_dir / obj.name).exists())
+
+    def test_plot_results_calls_plot_results_on_all_the_plots(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        data = [
+            {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
+            {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
+        ]
+        data_frame = DataFrame(data)
+
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+        result.get_results.return_value = data
+
+        obj = MockExperiment(
+            name="TestExperiment22",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        obj.plot_results(self.output_dir)
+        self.assertTrue(plot1.plot_results.called)
+        self.assertTrue(plot2.plot_results.called)
+
+        called_data_frame, called_output_dir = plot1.plot_results.call_args[0]
+        self.assertTrue(data_frame.equals(called_data_frame))
+        self.assertEqual((self.output_dir / obj.name), called_output_dir)
+
+        called_data_frame, called_output_dir = plot2.plot_results.call_args[0]
+        self.assertTrue(data_frame.equals(called_data_frame))
+        self.assertEqual((self.output_dir / obj.name), called_output_dir)
+
+    def test_plot_results_only_calls_plot_results_on_the_specified_plots(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        data = [
+            {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
+            {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
+        ]
+        data_frame = DataFrame(data)
+
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.name = 'plot1'
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.name = 'plot2'
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+        result.get_results.return_value = data
+
+        obj = MockExperiment(
+            name="TestExperiment22",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        obj.plot_results(self.output_dir, [plot1.name])
+        self.assertTrue(plot1.plot_results.called)
+        self.assertFalse(plot2.plot_results.called)
+
+        called_data_frame, called_output_dir = plot1.plot_results.call_args[0]
+        self.assertTrue(data_frame.equals(called_data_frame))
+        self.assertEqual((self.output_dir / obj.name), called_output_dir)
 
 
 class TestExperimentDatabase(unittest.TestCase):
+    output_dir = None
 
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
+        cls.output_dir = Path(__file__).parent / 'test_experiment_database_output'
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
-        ex.Experiment._mongometa.collection.drop()
+        ex.Experiment.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         ex.Experiment._mongometa.collection.drop()
+        Plot._mongometa.collection.drop()
+        MetricResult._mongometa.collection.drop()
+        if cls.output_dir.exists():
+            rmtree(cls.output_dir)
 
     def test_stores_and_loads(self):
         obj = MockExperiment()
@@ -56,6 +221,94 @@ class TestExperimentDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_plot_results_autoloads_plots(self, mock_autoload):
+        plot = MockPlot(name='TestPlot')
+        plot.save()
+        plot_id = plot.pk
+        obj = MockExperiment(
+            name="TestExperiment",
+            plots=[plot]
+        )
+        obj.save()
+        object_id = obj.pk
+        del plot
+        del obj  # Clear existing references, which should reset the references to ids
+
+        obj = MockExperiment.objects.get({'_id': object_id})
+        with no_auto_dereference(MockExperiment):
+            print(obj.plots)
+        self.assertFalse(mock_autoload.called)
+        obj.plot_results(self.output_dir)
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(Plot, ids=[plot_id]), mock_autoload.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_plot_results_doesnt_load_existing_plots(self, mock_autoload):
+        plot = MockPlot(name='TestPlot')
+        obj = MockExperiment(
+            name="TestExperiment",
+            plots=[plot]
+        )
+
+        self.assertFalse(mock_autoload.called)
+        obj.plot_results(self.output_dir)
+        self.assertFalse(mock_autoload.called)
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_get_data_only_loads_one_result_at_a_time(self, mock_autoload):
+        # TODO: This test fails when SimpleExperiment is also loaded due to a bug in pymodm
+        # For a mongomodel with multiple child classes, each child will update the 'model' reference
+        # on the field objects in the base class to the child class.
+        # This means that if SimpleExperiment is loaded before MockExperiment, the fields on Experiment
+        # all have 'model' set to SimpleExperiment rather than MockExperiment
+        # The auto_dereference property is stored in each _mongometa class, and is referred to by 'model'.
+        # which means that although the context correctly tells MockExperiment to not autoload,
+        # the fields now all ask SimpleExperiment whether they should auto dereference.
+        # This could be fixed with a more powerful context manager that traces the class heirarchy and sets
+        # all _auto_dereference properties the same. Or base model could be changed to centralise that property.
+        metric = mock_types.MockMetric()
+        metric.save()
+        system = mock_types.MockSystem()
+        system.save()
+        image_source = mock_types.MockImageSource()
+        image_source.save()
+        trial_result = mock_types.MockTrialResult(system=system, image_source=image_source, success=True)
+        trial_result.save()
+
+        result1 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result1.save()
+        result2 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result2.save()
+        result3 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result3.save()
+        obj = MockExperiment(
+            name="TestExperiment",
+            metric_results=[result1, result2, result3]
+        )
+        obj.save()
+        object_id = obj.pk
+        del result1
+        del result2
+        del result3
+        del obj  # Clear existing references, which should reset the references to ids
+
+        self.assertEqual(0, CountedMetricResult.concurrent_instances)
+        CountedMetricResult.max_concurrent_instances = 0
+
+        obj = MockExperiment.objects.get({'_id': object_id})
+        self.assertEqual(0, CountedMetricResult.concurrent_instances)
+        self.assertFalse(mock_autoload.called)
+        obj.get_data({'column1', 'column2'})
+        self.assertEqual(1, CountedMetricResult.max_concurrent_instances)
+
+        # Clean up
+        trial_result.delete()
+        system.delete()
+        metric.delete()
+        image_source.delete()
+        obj.delete()
 
 
 class TestRunAllDatabase(unittest.TestCase):
@@ -321,9 +574,11 @@ class TestMeasureAllDatabase(unittest.TestCase):
                     )
                     task.save()
 
-        cls.trial_result_groups = [trial_result_group
-                               for inner_group in cls.trial_results.values()
-                               for trial_result_group in inner_group.values()]
+        cls.trial_result_groups = [
+            trial_result_group
+            for inner_group in cls.trial_results.values()
+            for trial_result_group in inner_group.values()
+        ]
 
     def tearDown(self) -> None:
         # Ensure there are no tasks left at the end of each test
