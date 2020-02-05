@@ -47,7 +47,7 @@ class MockSystem(arvet.core.system.VisionSystem):
     def get_columns(self):
         return set()
 
-    def get_properties(self, columns=None):
+    def get_properties(self, columns=None, settings=None):
         return {}
 
     @classmethod

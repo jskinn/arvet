@@ -38,7 +38,8 @@ class TimerVisionSystem(VisionSystem):
     def get_columns(self) -> typing.Set[str]:
         pass
 
-    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+    def get_properties(self, columns: typing.Iterable[str] = None,
+                       settings: typing.Mapping[str, typing.Any] = None) -> typing.Mapping[str, typing.Any]:
         pass
 
     def start_trial(self, sequence_type: ImageSequenceType, seed: int = 0) -> None:

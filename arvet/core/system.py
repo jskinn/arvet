@@ -122,10 +122,14 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         pass
 
     @abc.abstractmethod
-    def get_properties(self, columns: typing.Iterable[str] = None) -> typing.Mapping[str, typing.Any]:
+    def get_properties(self, columns: typing.Iterable[str] = None,
+                       settings: typing.Mapping[str, typing.Any] = None) -> typing.Mapping[str, typing.Any]:
         """
         Get the values of the requested properties
-        :param columns:
+        These may be overridden by the values stored by the system in a trial result,
+        allowing us to have dynamic properties that vary between trials.
+        :param columns: The list of columns to get the values of
+        :param settings: The settings saved in the trial result
         :return:
         """
         pass
