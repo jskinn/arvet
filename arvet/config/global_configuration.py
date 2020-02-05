@@ -18,6 +18,7 @@ def load_global_config(filename):
     config = {
         'paths': ['~'],
         'temp_folder': '/tmp',
+        'output_folder': '~',
         'database': {},
         'image_manager': {
             'path': '~/arvet-imgs.hdf5',

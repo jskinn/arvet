@@ -32,6 +32,25 @@ class TestPathManger(unittest.TestCase):
         subject = PathManager(['~'], '.')
         self.assertEqual(Path('.').resolve(), subject.get_temp_folder())
 
+    def test_get_output_dir_expands_home_dir(self):
+        subject = PathManager(['~'], '~', output_dir='~')
+        self.assertEqual(Path('~').expanduser(), subject.get_output_dir())
+
+    def test_get_output_dir_uses_configured_dir(self):
+        output_dir = (Path('~') / 'my_dir' / 'output').expanduser().resolve()
+        subject = PathManager(['~'], '~', output_dir=str(output_dir))
+        self.assertEqual(output_dir, subject.get_output_dir())
+
+    def test_get_output_dir_defaults_to_first_path(self):
+        first_path = Path(__file__).parent.resolve()
+        subject = PathManager([str(first_path), '~'], '.')
+        self.assertEqual(first_path, subject.get_output_dir())
+
+    def test_get_output_dir_falls_back_to_first_path_if_output_path_not_within_any_path(self):
+        first_path = Path(__file__).parent.resolve()
+        subject = PathManager([str(first_path)], '.', output_dir=str(first_path.parent / 'myfolder'))
+        self.assertEqual(first_path, subject.get_output_dir())
+
     def test_check_dir(self):
         subject = PathManager([find_project_root()])
         self.assertTrue(subject.check_dir('arvet/config'))

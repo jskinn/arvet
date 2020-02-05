@@ -33,7 +33,8 @@ def main(task_id: str, config_file: str = 'config.yml', mongodb_host: str = None
     im_manager.configure(config['image_manager'])
 
     # Set up the path manager
-    path_manager = PathManager(paths=config['paths'], temp_folder=config['temp_folder'])
+    path_manager = PathManager(paths=config['paths'], temp_folder=config['temp_folder'],
+                               output_dir=config.get('output_dir', None))
 
     # Try and get the task object
     autoload_modules(Task, [task_id])   # Try and autoload the task subclass
