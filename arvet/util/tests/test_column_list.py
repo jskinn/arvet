@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock as mock
+import numpy as np
 from types import GeneratorType
 from operator import attrgetter
 from arvet.util.column_list import ColumnList
@@ -76,6 +77,13 @@ class TestColumnList(unittest.TestCase):
         self.assertEqual(mock.call(obj), getter_func.call_args)
         self.assertEqual(expected_result, result)
 
+    def test_get_value_returns_NaN_for_none_columns(self):
+        obj = object()
+
+        columns = ColumnList(foo=None, bar=None)
+        result = columns.get_value(obj, 'foo')
+        self.assertTrue(np.isnan(result))
+
     def test_get_value_raises_keyerror_if_not_valid_column(self):
         columns = ColumnList(
             foo=attrgetter('foo'),
@@ -110,4 +118,3 @@ class TestColumnList(unittest.TestCase):
         self.assertTrue(getter_func.called)
         self.assertEqual(mock.call(obj), getter_func.call_args)
         self.assertEqual(expected_result, result)
-

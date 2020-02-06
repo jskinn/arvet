@@ -11,7 +11,7 @@ class ColumnList:
     This allows me to override and extend column lists in subclasses
     """
 
-    def __init__(self, *args: 'ColumnList', **kwargs: typing.Callable[[typing.Any], typing.Any]):
+    def __init__(self, *args: 'ColumnList', **kwargs: typing.Union[None, typing.Callable[[typing.Any], typing.Any]]):
         self._parents = args
         self._columns = kwargs
 
@@ -29,6 +29,8 @@ class ColumnList:
 
     def get_value(self, model: typing.Any, column: str) -> typing.Any:
         if column in self._columns:
+            if self._columns[column] is None:
+                return float('nan')     # Return NaN, which pandas uses as value omitted.
             return self._columns[column](model)
         for parent in self._parents:
             if column in parent:
