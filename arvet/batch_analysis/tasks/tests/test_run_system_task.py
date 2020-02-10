@@ -6,6 +6,7 @@ import bson
 from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
+import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.image_source import ImageSource
 from arvet.core.system import VisionSystem
@@ -215,10 +216,18 @@ class InitMonitoredResult(mock_types.MockTrialResult):
 
 
 class TestRunSystemTask(unittest.TestCase):
+    mock_image_manager = None
 
     @classmethod
     def setUpClass(cls):
         logging.disable(logging.CRITICAL)
+        cls.mock_image_manager = mock.MagicMock(spec=im_manager.ImageManager)
+        im_manager.set_image_manager(cls.mock_image_manager)
+
+    @classmethod
+    def tearDownClass(cls):
+        logging.disable(logging.NOTSET)
+        im_manager.set_image_manager(None)
 
     def setUp(self):
         self.system = mock_types.MockSystem()
@@ -348,6 +357,18 @@ class TestRunSystemWithSource(unittest.TestCase):
         'process_image',
         'finish_trial'
     }
+    mock_image_manager = None
+
+    @classmethod
+    def setUpClass(cls):
+        logging.disable(logging.CRITICAL)
+        cls.mock_image_manager = mock.MagicMock(spec=im_manager.ImageManager)
+        im_manager.set_image_manager(cls.mock_image_manager)
+
+    @classmethod
+    def tearDownClass(cls):
+        logging.disable(logging.NOTSET)
+        im_manager.set_image_manager(None)
 
     def setUp(self):
         self.path_manager = PathManager(['~'], '~/tmp')
@@ -431,6 +452,8 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
+        im_manager.set_image_manager(image_manager)
         cls.path_manager = PathManager(['~'], '~/tmp')
         cls.system = mock_types.MockSystem()
         cls.image_source = mock_types.MockImageSource()

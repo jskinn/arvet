@@ -7,6 +7,7 @@ import bson
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
 from arvet.database.autoload_modules import autoload_modules
+import arvet.database.image_manager as image_manager
 from arvet.config.path_manager import PathManager
 from arvet.core.system import VisionSystem
 from arvet.core.image_source import ImageSource
@@ -146,8 +147,9 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource, path
     logging.getLogger(__name__).info("  Initialized system {0}".format(system.get_pretty_name()))
 
     # Preload images into memory, so we don't have to wait while the system is running
-    for _, image in image_source:
-        system.preload_image_data(image)
+    with image_manager.get():
+        for _, image in image_source:
+            system.preload_image_data(image)
     if hasattr(image_source, '__len__'):
         logging.getLogger(__name__).info("  Pre-loaded {0} images".format(len(image_source)))
     else:

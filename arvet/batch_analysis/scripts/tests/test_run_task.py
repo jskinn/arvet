@@ -76,7 +76,22 @@ class TestRunTask(unittest.TestCase):
 
         run_task.main(str(ObjectId()))
         self.assertTrue(mock_im_manager.called)
-        self.assertEqual(mock.call(im_manager_conf), mock_im_manager.call_args)
+        self.assertEqual(mock.call(im_manager_conf, False), mock_im_manager.call_args)
+
+    @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.im_manager.configure", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.dbconn.configure", autospec=True)
+    @mock.patch("arvet.batch_analysis.scripts.run_task.load_global_config", autospec=True)
+    def test_configures_image_manager_to_allow_writing(self, mock_conf_load, _, mock_im_manager, *__):
+        im_manager_conf = {'path': '~/my.hdf5'}
+        mock_conf_load.return_value = {
+            'paths': ['~'], 'temp_folder': '~/tmp', 'database': {}, 'image_manager': im_manager_conf
+        }
+
+        run_task.main(str(ObjectId()), allow_write=True)
+        self.assertTrue(mock_im_manager.called)
+        self.assertEqual(mock.call(im_manager_conf, True), mock_im_manager.call_args)
 
     @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.im_manager.configure", autospec=True)

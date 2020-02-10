@@ -83,7 +83,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
     def setUp(self):

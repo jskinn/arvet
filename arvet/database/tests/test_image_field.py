@@ -57,7 +57,7 @@ class TestImageField(ExtendedTestCase):
 
     def test_image_field_stores_and_loads(self):
         image = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
         # Save the image
@@ -73,7 +73,7 @@ class TestImageField(ExtendedTestCase):
 
     def test_group_modifies_storage_path(self):
         image = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
         # Define a custom model class
@@ -93,7 +93,7 @@ class TestImageField(ExtendedTestCase):
 
     def test_delete_removes(self):
         image = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
         path = image_manager.find_path_for_image(image)
 
@@ -120,7 +120,7 @@ class TestImageField(ExtendedTestCase):
     def test_delete_removes_from_subclass(self):
         image1 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
         image2 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
         path1 = image_manager.find_path_for_image(image1)
         path2 = image_manager.find_path_for_image(image2)
@@ -143,7 +143,7 @@ class TestImageField(ExtendedTestCase):
 
     def test_delete_removes_from_embedded_model(self):
         image = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
         path = image_manager.find_path_for_image(image)
 
@@ -171,7 +171,7 @@ class TestImageField(ExtendedTestCase):
     def test_delete_removes_from_embedded_model_subclass(self):
         image1 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
         image2 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
         path1 = image_manager.find_path_for_image(image1)
         path2 = image_manager.find_path_for_image(image2)
@@ -196,7 +196,7 @@ class TestImageField(ExtendedTestCase):
         self.assertFalse(image_manager.is_valid_path(path2))
 
     def test_delete_removes_from_embedded_model_list(self):
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
         image1 = np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
@@ -228,7 +228,7 @@ class TestImageField(ExtendedTestCase):
         self.assertEqual(0, TestImageInEmbeddedDocumentListModel.objects.all().count())
 
     def test_delete_removes_from_subclass_in_embedded_model_list(self):
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
         images = [np.random.randint(0, 255, size=(64, 64, 3), dtype=np.uint8) for _ in range(4)]
@@ -252,7 +252,7 @@ class TestImageField(ExtendedTestCase):
             self.assertFalse(image_manager.is_valid_path(path))
 
     def test_delete_removes_from_complex_model(self):
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
         images = [
@@ -291,7 +291,7 @@ class TestImageField(ExtendedTestCase):
             self.assertFalse(image_manager.is_valid_path(path))
 
     def test_delete_removes_from_lots_of_complex_models(self):
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
         ids_to_delete = []

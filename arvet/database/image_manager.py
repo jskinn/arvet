@@ -61,15 +61,23 @@ class DefaultImageManager(ImageManager):
     This is what will be created by the configure method below.
     """
 
-    def __init__(self, file_path, group_name=''):
+    def __init__(self, file_path, group_name='', allow_write=False):
         self._file_path = file_path
         self._prefix = group_name.strip('/')
         self._contexts = 0
         self._storage = None
+        self._allow_write = bool(allow_write)
 
     def __enter__(self):
         if self._storage is None:
-            self._storage = h5py.File(self._file_path, 'a')
+            if self._allow_write:
+                # Open the file for writing.
+                # No other process may be accessing the file, we are the single writer
+                self._storage = h5py.File(self._file_path, 'a', libver='latest')
+            else:
+                # Open the file for reading only
+                # Other processes may also open the file.
+                self._storage = h5py.File(self._file_path, 'r', libver='latest', swmr=True)
         self._contexts += 1
         return self
 
@@ -94,27 +102,32 @@ class DefaultImageManager(ImageManager):
 
     def store_image(self, data: np.ndarray, group: str = '') -> str:
         # Use a context to open our file if it is not already open
-        with self:
-            # Try different seeds until we find one that doesn't collide, or we find that this image is already stored
-            # Since the iteration is in the same order every time, and we check equality, will always resolve collisions
-            # if it is possible to do so.
-            for seed in range(2 ** 32):
-                path = self.find_path_for_image(data, group, seed)
-                if path not in self._storage:
-                    # Hash value is available, store the data there
-                    self._storage[path] = data
-                    return path
-                elif np.array_equal(data, self._storage[path]):
-                    # This image is already stored, return the path
-                    return path
-        raise RuntimeError("Could not find a seed that allows this image to be stored in the database")
+        if self._allow_write:
+            with self:
+                # Try different seeds until we find one that doesn't collide,
+                # or we find that this image is already stored.
+                # Since the iteration is in the same order every time, and we check equality,
+                # will always resolve collisions if it is possible to do so.
+                for seed in range(2 ** 32):
+                    path = self.find_path_for_image(data, group, seed)
+                    if path not in self._storage:
+                        # Hash value is available, store the data there
+                        self._storage[path] = data
+                        return path
+                    elif np.array_equal(data, self._storage[path]):
+                        # This image is already stored, return the path
+                        return path
+            raise RuntimeError("Could not find a seed that allows this image to be stored in the database")
+        raise RuntimeError("ImageManager not configured for writing")
 
     def remove_image(self, path: str):
-        with self:
-            if path in self._storage:
-                del self._storage[path]
-                return True
-        return False
+        if self._allow_write:
+            with self:
+                if path in self._storage:
+                    del self._storage[path]
+                    return True
+            return False
+        raise RuntimeError("ImageManager not configured for writing")
 
     def find_path_for_image(self, data, group='', seed=0):
         """
@@ -137,17 +150,21 @@ class DefaultImageManager(ImageManager):
 __image_manager = None
 
 
-def configure(config) -> None:
+def configure(config, allow_write: bool = None) -> None:
     """
     Load the default image manager with some configuration
     :param config:
+    :param allow_write:
     :return:
     """
     if 'image_manager' in config:
         config = config['image_manager']
+    if allow_write is None:
+        allow_write = config.get('allow_write', False)
     image_manager = DefaultImageManager(
         file_path=config['path'],
-        group_name=config.get('group', '')
+        group_name=config.get('group', ''),
+        allow_write=allow_write
     )
     set_image_manager(image_manager)
 

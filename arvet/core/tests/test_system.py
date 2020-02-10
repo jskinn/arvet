@@ -48,7 +48,7 @@ class TestVisionSystemDatabase(unittest.TestCase):
 
     def test_preload_image_data_loads_pixels(self):
         # Mock the image manager
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         image_manager.get_image = mock.Mock(wraps=image_manager.get_image)
         im_manager.set_image_manager(image_manager)
 

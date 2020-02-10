@@ -26,21 +26,21 @@ class TestDefaultImageManager(ExtendedTestCase):
         self.assertIsNone(subject.get_image('notapath'))
 
     def test_store_and_get_image(self):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         path = subject.store_image(image)
         output = subject.get_image(path)
         self.assertNPEqual(image, output)
 
     def test_storing_the_same_image_repeatedly_gives_the_same_path(self):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         path1 = subject.store_image(image)
         path2 = subject.store_image(image)
         self.assertEqual(path1, path2)
 
     def test_is_valid_path_returns_true_only_for_valid_paths(self):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         path = subject.store_image(image)
 
@@ -48,7 +48,7 @@ class TestDefaultImageManager(ExtendedTestCase):
         self.assertFalse(subject.is_valid_path('notapath'))
 
     def test_remove_image_deletes_the_image(self):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image1 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         image2 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         path1 = subject.store_image(image1)
@@ -64,9 +64,29 @@ class TestDefaultImageManager(ExtendedTestCase):
         self.assertIsNone(subject.get_image(path1))
         self.assertNPEqual(image2, subject.get_image(path2))
 
+    def test_storing_raises_exception_if_writing_is_disabled(self):
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=False)
+        image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
+        with self.assertRaises(RuntimeError):
+            subject.store_image(image)
+
+    def test_remove_image_raises_exception_if_writing_disabled(self):
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
+        image1 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
+        image2 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
+        path1 = subject.store_image(image1)
+        path2 = subject.store_image(image2)
+
+        self.assertTrue(subject.is_valid_path(path1))
+        self.assertTrue(subject.is_valid_path(path2))
+
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=False)
+        with self.assertRaises(RuntimeError):
+            subject.remove_image(path1)
+
     @mock.patch('arvet.database.image_manager.xxhash', autospec=True)
     def test_can_use_groups_to_avoid_hash_collisions(self, mock_xxhash):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image1 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         image2 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
 
@@ -91,7 +111,7 @@ class TestDefaultImageManager(ExtendedTestCase):
 
     @mock.patch('arvet.database.image_manager.xxhash', autospec=True)
     def test_store_image_changes_seed_to_avoid_collisions(self, mock_xxhash):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image1 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         image2 = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
 
@@ -166,7 +186,7 @@ class TestDefaultImageManager(ExtendedTestCase):
             self.assertTrue(closed)
 
     def test_handles_nested_contexts(self):
-        subject = im_manager.DefaultImageManager(self._tempfile)
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
         image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         path = subject.store_image(image)
 

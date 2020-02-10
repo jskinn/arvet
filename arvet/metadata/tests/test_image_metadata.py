@@ -352,6 +352,9 @@ class TestMaskedObject(unittest.TestCase):
         self.assertNotIn(c, subject_set)
 
     def test_to_and_from_son(self):
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
+        im_manager.set_image_manager(image_manager)
+
         obj1 = imeta.MaskedObject(
             class_names=('class_3',),
             x=148,
@@ -385,7 +388,7 @@ class TestMaskedObjectDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file)
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
         im_manager.set_image_manager(image_manager)
 
     def setUp(self):
