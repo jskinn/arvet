@@ -589,7 +589,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         self.assertIn("python {0} --config {1} {2}".format(
             hpc.quote(arvet.batch_analysis.scripts.run_task.__file__),
             os.path.abspath('myconf.yml'),
-            mock_task.identifier
+            mock_task.pk
         ), script_contents)
 
     def test_run_task_indicates_desired_cpus(self):
@@ -743,8 +743,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         script_contents = mock_file.write.call_args[0][0]
         self.assertIn('\npython {0} --config {1} {2}\n'.format(
             Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-            Path('myconf.yml').resolve(),
-            mock_task.identifier
+            Path('myconf.yml').resolve(), mock_task.pk
         ), script_contents)
 
     def test_run_task_uses_configured_environment(self):
@@ -878,42 +877,59 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
             patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
-        self.assertEqual(2, mock_open.call_count)
-        self.assertEqual(2, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
+        self.assertEqual(1, mock_open.call_count)
+        self.assertEqual(1, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
 
         mock_file = mock_open()
-        self.assertEqual(2, mock_file.write.call_count)
+        self.assertEqual(1, mock_file.write.call_count)
+        script_contents = mock_file.write.call_args[0][0]
 
-        # work out which script has the imports
-        import_script_contents = None
-        other_script_contents = None
-        for call in mock_file.write.call_args_list:
-            script_contents = call[0][0]
-            if str(normal_task.identifier) in script_contents:
-                other_script_contents = script_contents
-            else:
-                import_script_contents = script_contents
-        self.assertIsNotNone(import_script_contents)
-        self.assertIsNotNone(other_script_contents)
+        self.assertTrue(import_task_1.mark_job_started.called)
+        self.assertTrue(import_task_2.mark_job_started.called)
+        self.assertTrue(import_task_3.mark_job_started.called)
+        self.assertIn('\npython {0} --config {1} --allow_write {2}\n'.format(
+            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+            Path('myconf.yml').resolve(),
+            import_task_1.pk
+        ), script_contents)
+        self.assertIn('\npython {0} --config {1} --allow_write {2}\n'.format(
+            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+            Path('myconf.yml').resolve(),
+            import_task_2.pk
+        ), script_contents)
+        self.assertIn('\npython {0} --config {1} --allow_write {2}\n'.format(
+            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+            Path('myconf.yml').resolve(),
+            import_task_3.pk
+        ), script_contents)
 
-        self.assertNotIn(str(import_task_1.identifier), other_script_contents)
-        self.assertNotIn(str(import_task_2.identifier), other_script_contents)
-        self.assertNotIn(str(import_task_3.identifier), other_script_contents)
-        self.assertIn('\npython {0} --config {1} {2}\n'.format(
-            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-            Path('myconf.yml').resolve(),
-            import_task_1.identifier
-        ), import_script_contents)
-        self.assertIn('\npython {0} --config {1} {2}\n'.format(
-            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-            Path('myconf.yml').resolve(),
-            import_task_2.identifier
-        ), import_script_contents)
-        self.assertIn('\npython {0} --config {1} {2}\n'.format(
-            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-            Path('myconf.yml').resolve(),
-            import_task_3.identifier
-        ), import_script_contents)
+    def test_run_queued_jobs_doesnt_run_other_tasks_if_there_are_imports_to_run(self):
+        normal_task = make_mock_task()
+        import_task_1 = make_mock_import_task()
+        import_task_2 = make_mock_import_task()
+        import_task_3 = make_mock_import_task()
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({}, 'myconf.yml')
+        subject.run_task(normal_task)
+        subject.run_task(import_task_1)
+        subject.run_task(import_task_2)
+        subject.run_task(import_task_3)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
+                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+            patch_import_dataset_objects_count(mock_idt_obj)
+            patch_subprocess(mock_run)
+            subject.run_queued_jobs()
+        self.assertEqual(1, mock_open.call_count)
+        self.assertEqual(1, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
+
+        mock_file = mock_open()
+        self.assertEqual(1, mock_file.write.call_count)
+        script_contents = mock_file.write.call_args[0][0]
+        self.assertNotIn(str(normal_task.pk), script_contents)
+        self.assertFalse(normal_task.mark_job_started.called)
 
     def test_run_task_merges_import_dataset_requirements(self):
         import_task_1 = make_mock_import_task(num_cpus=1, num_gpus=3, memory=4, hours=3, minutes=43, seconds=32)
@@ -943,14 +959,12 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
 
     def test_run_task_marks_all_import_dataset_tasks_as_started(self):
         node_id = 'node-2308'
-        normal_task = make_mock_task()
         import_task_1 = make_mock_import_task()
         import_task_2 = make_mock_import_task()
         import_task_3 = make_mock_import_task()
 
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'node_id': node_id}, 'myconf.yml')
-        subject.run_task(normal_task)
         subject.run_task(import_task_1)
         subject.run_task(import_task_2)
         subject.run_task(import_task_3)
@@ -961,8 +975,6 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
             patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
-        self.assertTrue(normal_task.mark_job_started.called)
-        self.assertEqual(node_id, normal_task.mark_job_started.call_args[0][0])
         self.assertTrue(import_task_1.mark_job_started.called)
         self.assertEqual(node_id, import_task_1.mark_job_started.call_args[0][0])
         job_id = import_task_1.mark_job_started.call_args[0][1]
@@ -972,7 +984,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         self.assertEqual(mock.call(node_id, job_id), import_task_3.mark_job_started.call_args)
 
     @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
-    def test_run_queued_jobs_doesnt_submit_import_dataset_tasks_if_some_are_already_running(self, mock_run):
+    def test_run_queued_jobs_doesnt_submit_any_tasks_if_imports_are_already_running(self, mock_run):
         normal_task = make_mock_task()
         import_task = make_mock_import_task()
 
@@ -986,15 +998,13 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
                            spec=ImportDatasetTask.objects) as mock_idt_obj:
             patch_import_dataset_objects_count(mock_idt_obj, num_tasks=1)
             subject.run_queued_jobs()
-        self.assertEqual(1, mock_open.call_count)
-        self.assertEqual(1, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
-        self.assertTrue(normal_task.mark_job_started.called)
+        self.assertEqual(0, mock_open.call_count)
+        self.assertEqual(0, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
+        self.assertFalse(normal_task.mark_job_started.called)
         self.assertFalse(import_task.mark_job_started.called)
 
         mock_file = mock_open()
-        self.assertTrue(mock_file.write.called)
-        script_contents = mock_file.write.call_args[0][0]
-        self.assertNotIn(str(import_task.identifier), script_contents)
+        self.assertFalse(mock_file.write.called)
 
 
 def patch_subprocess_qjobs(mock_subprocess_run: mock.Mock, num_jobs=4):
@@ -1038,21 +1048,21 @@ def patch_import_dataset_objects_count(mock_import_dataset_objects, num_tasks=0)
 
 def make_mock_task():
     mock_task = mock.create_autospec(Task)
-    mock_task.identifier = bson.ObjectId()
+    mock_task.pk = bson.ObjectId()
     mock_task.num_cpus = 1
     mock_task.num_gpus = 0
     mock_task.memory_requirements = '4GB'
     mock_task.expected_duration = '1:00:00'
-    mock_task.get_unique_name.return_value = 'job_' + str(mock_task.identifier)
+    mock_task.get_unique_name.return_value = 'job_' + str(mock_task.pk)
     return mock_task
 
 
 def make_mock_import_task(num_cpus=1, num_gpus=0, memory=4, hours=1, minutes=0, seconds=0):
     mock_task = mock.create_autospec(ImportDatasetTask)
-    mock_task.identifier = bson.ObjectId()
+    mock_task.pk = bson.ObjectId()
     mock_task.num_cpus = num_cpus
     mock_task.num_gpus = num_gpus
     mock_task.memory_requirements = '{0}GB'.format(memory)
     mock_task.expected_duration = "{0:02}:{1:02}:{2:02}".format(hours, minutes, seconds)
-    mock_task.get_unique_name.return_value = 'job_' + str(mock_task.identifier)
+    mock_task.get_unique_name.return_value = 'job_' + str(mock_task.pk)
     return mock_task

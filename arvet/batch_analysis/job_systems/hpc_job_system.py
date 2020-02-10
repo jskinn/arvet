@@ -6,6 +6,7 @@ import subprocess
 import re
 import bson
 from pathlib import Path
+from functools import partial
 import arvet.batch_analysis.job_system
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
@@ -185,57 +186,21 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         - ImportDatasetTasks, which are run all together in a single job
         :return:
         """
-        # Run scripts in parallel
-        logging.getLogger(__name__).info("Submitting {0} scripts to HPC".format(len(self._scripts_to_run)))
-        for (
-                script,
-                script_args_builder,
-                job_name,
-                num_cpus,
-                num_gpus,
-                memory_requirements,
-                expected_duration
-        ) in self._scripts_to_run:
-            self._create_and_run_script(
-                scripts=[(script, script_args_builder)],
-                job_name=job_name,
-                num_cpus=num_cpus,
-                num_gpus=num_gpus,
-                memory_requirements=memory_requirements,
-                expected_duration=expected_duration
-            )
-        self._scripts_to_run = []
-
-        # Submit jobs for tasks that don't import
-        logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
-        for task in self._tasks_to_run:
-            job_id = self._create_and_run_script(
-                scripts=[(
-                    Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                    make_task_args_builder(task)
-                )],
-                job_name=task.get_unique_name(),
-                num_cpus=task.num_cpus,
-                num_gpus=task.num_gpus,
-                memory_requirements=task.memory_requirements,
-                expected_duration=task.expected_duration
-            )
-            if job_id is not None:
-                task.mark_job_started(self.node_id, job_id)
-                task.save()
-        self._tasks_to_run = []
-
         # Check if there are any import dataset tasks already running on this node
         existing_import_tasks_count = ImportDatasetTask.objects.raw({
             'node_id': self.node_id,
             'state': JobState.RUNNING.name
         }).count()
+        if existing_import_tasks_count >= 1:
+            # There are import dataset tasks running on this node, we can't do anything until they finish.
+            return
 
         # Make a single job for all the import dataset tasks
         # We merge most of the requirements like num cpus as maximum across all the tasks
         # expected duration is the sum of all the durations.
-        if existing_import_tasks_count <= 0 and len(self._import_dataset_tasks) > 0:
-            logging.getLogger(__name__).info("Submitting script for {0} import jobs".format(len(self._import_dataset_tasks)))
+        if len(self._import_dataset_tasks) > 0:
+            logging.getLogger(__name__).info(
+                "Submitting script for {0} import jobs".format(len(self._import_dataset_tasks)))
             memory_requirements = max(
                 parse_memory_requirements(task.memory_requirements)
                 for task in self._import_dataset_tasks
@@ -244,7 +209,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             job_id = self._create_and_run_script(
                 scripts=[(
                     Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                    make_task_args_builder(task)
+                    partial(task_args_builder, task, True)
                 ) for task in self._import_dataset_tasks],
                 job_name="import_{0}_datasets".format(len(self._import_dataset_tasks)),
                 num_cpus=max(task.num_cpus for task in self._import_dataset_tasks),
@@ -259,6 +224,47 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                     task.mark_job_started(self.node_id, job_id)
                     task.save()
             self._import_dataset_tasks = []
+        else:
+            # There are no import tasks, the HDF5 file is not changing
+            # Run scripts in parallel
+            logging.getLogger(__name__).info("Submitting {0} scripts to HPC".format(len(self._scripts_to_run)))
+            for (
+                    script,
+                    script_args_builder,
+                    job_name,
+                    num_cpus,
+                    num_gpus,
+                    memory_requirements,
+                    expected_duration
+            ) in self._scripts_to_run:
+                self._create_and_run_script(
+                    scripts=[(script, script_args_builder)],
+                    job_name=job_name,
+                    num_cpus=num_cpus,
+                    num_gpus=num_gpus,
+                    memory_requirements=memory_requirements,
+                    expected_duration=expected_duration
+                )
+            self._scripts_to_run = []
+
+            # Submit jobs for tasks that don't import
+            logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
+            for task in self._tasks_to_run:
+                job_id = self._create_and_run_script(
+                    scripts=[(
+                        Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+                        partial(task_args_builder, task, False)
+                    )],
+                    job_name=task.get_unique_name(),
+                    num_cpus=task.num_cpus,
+                    num_gpus=task.num_gpus,
+                    memory_requirements=task.memory_requirements,
+                    expected_duration=task.expected_duration
+                )
+                if job_id is not None:
+                    task.mark_job_started(self.node_id, job_id)
+                    task.save()
+            self._tasks_to_run = []
 
     def _create_and_run_script(
             self,
@@ -377,18 +383,23 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         return int(job_id)
 
 
-def make_task_args_builder(task: Task) -> typing.Callable[..., typing.List[str]]:
+def task_args_builder(task: Task, allow_write: bool, config, port: int = None):
     """
-    Make a callable that returns the right arguments for run_task to run a particular task
+    Make the command line arguments for running a task
+    Will use partials to bind the values of task and allow_write
     :param task:
+    :param allow_write:
+    :param config:
+    :param port:
     :return:
     """
-    def args_builder(config, port: int = None):
-        if port is not None:
-            return ['--config', str(config), '--mongodb_port', str(port), str(task.identifier)]
-        return ['--config', str(config), str(task.identifier)]
-
-    return args_builder
+    args = ['--config', str(config)]
+    if port is not None:
+        args += ['--mongodb_port', str(port)]
+    if allow_write:
+        args.append('--allow_write')
+    args.append(str(task.pk))
+    return args
 
 
 def parse_memory_requirements(memory: str):
