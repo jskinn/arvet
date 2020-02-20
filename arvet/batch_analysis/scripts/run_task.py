@@ -14,7 +14,8 @@ from arvet.database.autoload_modules import autoload_modules
 from arvet.batch_analysis.task import Task
 
 
-def main(task_id: str, config_file: str = 'config.yml', allow_write: bool = False, mongodb_host: str = None, mongodb_port: int = None):
+def main(task_id: str, config_file: str = 'config.yml', allow_write: bool = None,
+         mongodb_host: str = None, mongodb_port: int = None):
     """
     Run a particular task.
     :args: Only argument is the id of the task to run

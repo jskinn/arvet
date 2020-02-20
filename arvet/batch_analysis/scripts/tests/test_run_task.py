@@ -76,7 +76,8 @@ class TestRunTask(unittest.TestCase):
 
         run_task.main(str(ObjectId()))
         self.assertTrue(mock_im_manager.called)
-        self.assertEqual(mock.call(im_manager_conf, False), mock_im_manager.call_args)
+        # Passing None allows allow_write to read from the configuration
+        self.assertEqual(mock.call(im_manager_conf, None), mock_im_manager.call_args)
 
     @mock.patch("arvet.batch_analysis.scripts.run_task.autoload_modules", autospec=True)
     @mock.patch("arvet.batch_analysis.scripts.run_task.Task.objects.get", autospec=True)
