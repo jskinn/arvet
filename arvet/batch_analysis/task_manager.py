@@ -40,20 +40,20 @@ def get_import_dataset_task(
 
     try:
         return ImportDatasetTask.objects.get({
-            'module_name': module_name,
-            'path': path,
+            'module_name': str(module_name),
+            'path': str(path),
             'additional_args': additional_args
         })
     except ImportDatasetTask.DoesNotExist:
         return ImportDatasetTask(
-            module_name=module_name,
-            path=path,
+            module_name=str(module_name),
+            path=str(path),
             additional_args=additional_args,
             state=JobState.UNSTARTED,
-            num_cpus=num_cpus,
-            num_gpus=num_gpus,
-            memory_requirements=memory_requirements,
-            expected_duration=expected_duration
+            num_cpus=int(num_cpus),
+            num_gpus=int(num_gpus),
+            memory_requirements=str(memory_requirements),
+            expected_duration=str(expected_duration)
         )
 
 
@@ -96,10 +96,10 @@ def get_run_system_task(
     query = {
         'system': system,
         'image_source': image_source,
-        'repeat': repeat
+        'repeat': int(repeat)
     }
     if use_seed:
-        query['seed'] = seed
+        query['seed'] = int(seed)
 
     try:
         return RunSystemTask.objects.get(query)
@@ -107,13 +107,13 @@ def get_run_system_task(
         return RunSystemTask(
             system=system,
             image_source=image_source,
-            repeat=repeat,
-            seed=seed if use_seed else None,
+            repeat=int(repeat),
+            seed=int(seed) if use_seed else None,
             state=JobState.UNSTARTED,
-            num_cpus=num_cpus,
-            num_gpus=num_gpus,
-            memory_requirements=memory_requirements,
-            expected_duration=expected_duration
+            num_cpus=int(num_cpus),
+            num_gpus=int(num_gpus),
+            memory_requirements=str(memory_requirements),
+            expected_duration=str(expected_duration)
         )
 
 
@@ -154,10 +154,10 @@ def get_measure_trial_task(
             trial_results=trial_results,
             metric=metric,
             state=JobState.UNSTARTED,
-            num_cpus=num_cpus,
-            num_gpus=num_gpus,
-            memory_requirements=memory_requirements,
-            expected_duration=expected_duration
+            num_cpus=int(num_cpus),
+            num_gpus=int(num_gpus),
+            memory_requirements=str(memory_requirements),
+            expected_duration=str(expected_duration)
         )
 
 
@@ -209,10 +209,10 @@ def get_trial_comparison_task(
             trial_results_2=trial_results_2,
             metric=comparison_metric,
             state=JobState.UNSTARTED,
-            num_cpus=num_cpus,
-            num_gpus=num_gpus,
-            memory_requirements=memory_requirements,
-            expected_duration=expected_duration
+            num_cpus=int(num_cpus),
+            num_gpus=int(num_gpus),
+            memory_requirements=str(memory_requirements),
+            expected_duration=str(expected_duration)
         )
 
 
