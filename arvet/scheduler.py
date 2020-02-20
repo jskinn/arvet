@@ -16,7 +16,7 @@ import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
 def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = True,
-             experiment_ids: typing.List[str] = None):
+             experiment_ids: typing.List[str] = None, allow_img_write: bool = True):
     """
     Schedule tasks for all experiments.
     We need to find a way of running this repeatedly as a daemon
@@ -24,6 +24,7 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
     :param schedule_tasks: Whether to schedule execution tasks for the experiments. Default true.
     :param experiment_ids: A limited set of experiments to schedule for. Default None, which is all experiments.
     :param run_tasks: Actually use the job system to execute scheduled tasks
+    :param allow_img_write: Allow writing to the image storage. This must be the only running process.
     """
     # Load the configuration
     config = load_global_config(config_file)
@@ -33,7 +34,7 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
 
     # Configure the database and the image manager
     dbconn.configure(config['database'])
-    im_manager.configure(config['image_manager'])
+    im_manager.configure(config['image_manager'], allow_img_write)
 
     if schedule_tasks:
         # Build the query and load the relevant experiment types
@@ -90,12 +91,15 @@ def main():
                         help='Don\'t schedule the execution or evaluation of systems')
     parser.add_argument('--skip_run_tasks', action='store_true',
                         help='Don\'t actually run tasks, only schedule them')
+    parser.add_argument('--no_image_write', action='store_true',
+                        help='Prevent writing to the image file, use when other processes are running.')
     parser.add_argument('experiment_ids', metavar='experiment_id', nargs='*', default=[],
                         help='Limit the update to only the specified experiment by id. '
                              'You may specify any number of ids.')
 
     args = parser.parse_args()
-    schedule(args.config, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
+    schedule(args.config, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids,
+             not args.no_image_write)
 
 
 if __name__ == '__main__':
