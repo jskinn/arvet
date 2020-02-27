@@ -156,23 +156,10 @@ def run_system_with_source(system: VisionSystem, image_source: ImageSource, path
         logging.getLogger(__name__).info("  Pre-loaded images")
 
     # Actually run the system, tracking the time between frames
-    previous_timestamp = None
-    previous_actual = None
     start_time = time.time()
     system.start_trial(image_source.sequence_type, seed=seed)
     for timestamp, image in image_source:
         system.process_image(image, timestamp)
-        actual_time = time.time()
-
-        if previous_timestamp is not None and previous_actual is not None:
-            stamp_diff = timestamp - previous_timestamp
-            actual_diff = actual_time - previous_actual
-            if actual_diff > stamp_diff:
-                logging.getLogger(__name__).warning("  Frame delta-time {0} exceeded timestamp delta {1}".format(
-                    actual_diff, stamp_diff))
-
-        previous_timestamp = timestamp
-        previous_actual = actual_time
 
     trial_result = system.finish_trial()
     finish_time = time.time()
