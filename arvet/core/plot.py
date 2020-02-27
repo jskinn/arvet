@@ -43,6 +43,18 @@ class Plot(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
+    def check_required_columns(self, data: DataFrame) -> None:
+        """
+        Check that the given data frame has the required columns for this plot.
+        Will raise RuntimeError if any are missing, otherwise return.
+        Call this at the start of plot_results.
+        :param data: The DataFrame given to plot_results
+        :return: None
+        """
+        missing = self.get_required_columns() - set(data.columns)
+        if len(missing) > 0:
+            raise RuntimeError(f"Data frame was missing required columns {missing}")
+
     @classmethod
     def get_instance(cls) -> 'Plot':
         """
