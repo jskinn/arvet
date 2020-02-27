@@ -83,7 +83,8 @@ class TestExperimentDatabase(unittest.TestCase):
             enabled=True,
             systems=[system],
             image_sources=[image_source],
-            metrics=[metric]
+            metrics=[metric],
+            plots=[]
         )
         obj.save()
 

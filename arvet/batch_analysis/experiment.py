@@ -32,7 +32,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     name = fields.CharField(primary_key=True)
     enabled = fields.BooleanField(required=True, default=True)
     metric_results = ReferenceListField(MetricResult, on_delete=fields.ReferenceField.PULL)
-    plots = ReferenceListField(Plot, on_delete=fields.ReferenceField.PULL)
+    plots = ReferenceListField(Plot, on_delete=fields.ReferenceField.PULL, blank=True)
 
     @abc.abstractmethod
     def schedule_tasks(self):
