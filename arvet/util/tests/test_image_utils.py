@@ -1,6 +1,7 @@
 import os
-import unittest
+from pathlib import Path
 import numpy as np
+from arvet.util.test_helpers import ExtendedTestCase
 import arvet.util.image_utils as image_utils
 
 
@@ -32,7 +33,7 @@ _demo_image_depth_binary = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\n\x
                            b'\x00\x00\x00\x00IEND\xaeB`\x82'
 
 
-class TestImageUtils(unittest.TestCase):
+class TestImageUtils(ExtendedTestCase):
     rgb_image_path = None
     depth_image_path = None
 
@@ -62,8 +63,16 @@ class TestImageUtils(unittest.TestCase):
         image_data = image_utils.read_colour(self.rgb_image_path)
         self.assertNPEqual(_demo_image_rgb, image_data)
 
+    def test_read_colour_path(self):
+        image_data = image_utils.read_colour(Path(self.rgb_image_path))
+        self.assertNPEqual(_demo_image_rgb, image_data)
+
     def test_read_depth(self):
         image_data = image_utils.read_depth(self.depth_image_path)
+        self.assertNPEqual(_demo_image_depth, image_data)
+
+    def test_read_depth_path(self):
+        image_data = image_utils.read_depth(Path(self.depth_image_path))
         self.assertNPEqual(_demo_image_depth, image_data)
 
     def test_convert_to_grey_do_nothing(self):
@@ -191,7 +200,7 @@ class TestImageUtils(unittest.TestCase):
             [256.5, 1/256],
             [257.5, 255 / 512]
         ], dtype=np.float16)
-        result = image_utils.resize(image, (1,1), interpolation=image_utils.Interpolation.BILINEAR)
+        result = image_utils.resize(image, (1, 1), interpolation=image_utils.Interpolation.BILINEAR)
         self.assertEqual(np.mean([256.5, 1/256, 257.5, 255 / 512], dtype=np.float16), result[0, 0])
 
         image = np.array([
@@ -219,7 +228,7 @@ class TestImageUtils(unittest.TestCase):
             result = image_utils.to_uint_image(image_data)
             self.assertEqual(np.uint8, result.dtype)
             self.assertEqual((100, 100), result.shape)
-            self.assertEqual(255, result.max())
+            self.assertEqual(255, np.max(result))
 
     def test_to_uint_image_handles_color_floats(self):
         for dtype in [
@@ -236,7 +245,7 @@ class TestImageUtils(unittest.TestCase):
             result = image_utils.to_uint_image(image_data)
             self.assertEqual(np.uint8, result.dtype)
             self.assertEqual((100, 100, 3), result.shape)
-            self.assertEqual(255, result.max())
+            self.assertEqual(255, np.max(result))
 
     def test_to_uint_image_handles_bools(self):
         image_data = np.array([[1 / (0.001 * x * y + 1) for y in range(100)] for x in range(100)])
@@ -244,8 +253,8 @@ class TestImageUtils(unittest.TestCase):
         result = image_utils.to_uint_image(image_data)
         self.assertEqual(np.uint8, result.dtype)
         self.assertEqual((100, 100), result.shape)
-        self.assertEqual(255, result.max())
-        self.assertEqual(0, result.min())
+        self.assertEqual(255, np.max(result))
+        self.assertEqual(0, np.min(result))
 
     def test_to_uint_image_handles_grey_integer(self):
         for dtype in [
@@ -265,7 +274,7 @@ class TestImageUtils(unittest.TestCase):
             result = image_utils.to_uint_image(image_data)
             self.assertEqual(np.uint8, result.dtype)
             self.assertEqual((100, 100), result.shape)
-            self.assertEqual(255, result.max())
+            self.assertEqual(255, np.max(result))
 
     def test_to_uint_image_handles_color_integer(self):
         for dtype in [
@@ -288,10 +297,4 @@ class TestImageUtils(unittest.TestCase):
             result = image_utils.to_uint_image(image_data)
             self.assertEqual(np.uint8, result.dtype)
             self.assertEqual((100, 100, 3), result.shape)
-            self.assertEqual(255, result.max())
-
-    def assertNPEqual(self, arr1, arr2):
-        self.assertTrue(np.array_equal(arr1, arr2), "Arrays {0} and {1} are not equal".format(str(arr1), str(arr2)))
-
-    def assertNotNPEqual(self, arr1, arr2):
-        self.assertFalse(np.array_equal(arr1, arr2), "Arrays {0} and {1} are the same".format(str(arr1), str(arr2)))
+            self.assertEqual(255, np.max(result))

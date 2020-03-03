@@ -2,6 +2,7 @@
 import os
 import typing
 import enum
+from pathlib import Path
 import numpy as np
 import PIL.Image
 
@@ -16,7 +17,7 @@ class Interpolation(enum.Enum):
     BICUBIC = 3
 
 
-def read_colour(filename: str) -> typing.Union[None, np.ndarray]:
+def read_colour(filename: typing.Union[str, bytes, Path]) -> typing.Union[None, np.ndarray]:
     """
     Load an image from file, however we can.
     :param filename:
@@ -31,7 +32,7 @@ def read_colour(filename: str) -> typing.Union[None, np.ndarray]:
     return None
 
 
-def read_depth(filename: str) -> typing.Union[None, np.ndarray]:
+def read_depth(filename: typing.Union[str, bytes, Path]) -> typing.Union[None, np.ndarray]:
     """
     Load a depth image from a file.
     Depth images are single channel with higher bit depth (usually 16-bit)
