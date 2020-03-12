@@ -4,7 +4,7 @@ import unittest.mock as mock
 from pymodm.errors import ValidationError
 from bson import ObjectId
 import arvet.database.tests.database_connection as dbconn
-from arvet.core.system import VisionSystem
+from arvet.core.system import VisionSystem, StochasticBehaviour
 from arvet.core.image_source import ImageSource
 from arvet.core.metric import Metric
 import arvet.core.tests.mock_types as mock_core
@@ -43,7 +43,7 @@ class CountedMetric(mock_core.MockMetric):
 # ------------------------- DATABASE TESTS -------------------------
 
 
-class TestExperimentDatabase(unittest.TestCase):
+class TestSimpleExperimentDatabase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -297,6 +297,48 @@ class TestSimpleExperiment(unittest.TestCase):
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
     def test_schedule_tasks_runs_all_systems_with_all_image_sources_repeatedly(self, mock_task_manager):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
+                                                           return_value=StochasticBehaviour.NON_DETERMINISTIC)
+        image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
+        metric = mock_core.MockMetric(_id=ObjectId())
+        repeats = 2
+
+        run_cpus = 3
+        run_gpus = 2
+        run_memory = '9GB'
+        run_duration = '2:33:44'
+
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            systems=systems,
+            image_sources=image_sources,
+            metrics=[metric],
+            repeats=repeats,
+            run_cpus=run_cpus,
+            run_gpus=run_gpus,
+            run_memory=run_memory,
+            run_duration=run_duration
+        )
+        subject.schedule_tasks()
+
+        for system in systems:
+            for image_source in image_sources:
+                actual_repeats = repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+                for repeat in range(actual_repeats):
+                    self.assertIn(mock.call(
+                        system=system,
+                        image_source=image_source,
+                        repeat=repeat,
+                        num_cpus=run_cpus, num_gpus=run_gpus,
+                        memory_requirements=run_memory,
+                        expected_duration=run_duration
+                    ), mock_task_manager.get_run_system_task.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
+    def test_schedule_tasks_runs_all_systems_with_all_image_sources_with_all_seeds(self, mock_task_manager):
+        systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
+                                                           return_value=StochasticBehaviour.SEEDED)
         image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
         metric = mock_core.MockMetric(_id=ObjectId())
         repeats = 2
@@ -306,17 +348,20 @@ class TestSimpleExperiment(unittest.TestCase):
             systems=systems,
             image_sources=image_sources,
             metrics=[metric],
-            repeats=repeats
+            repeats=repeats,
+            use_seed=True
         )
         subject.schedule_tasks()
+        self.assertEqual(repeats, len(subject.seeds))   # The set of seeds should have auto-filled
 
         for system in systems:
             for image_source in image_sources:
-                for repeat in range(repeats):
+                for seed in subject.seeds:
                     self.assertIn(mock.call(
                         system=system,
                         image_source=image_source,
-                        repeat=repeat,
+                        repeat=0,
+                        seed=seed,
                         num_cpus=mock.ANY, num_gpus=mock.ANY,
                         memory_requirements=mock.ANY,
                         expected_duration=mock.ANY
@@ -345,9 +390,16 @@ class TestSimpleExperiment(unittest.TestCase):
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
     def test_schedule_tasks_measures_all_trial_results(self, mock_task_manager):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
+                                                           return_value=StochasticBehaviour.NON_DETERMINISTIC)
         image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
         metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(3)]
         repeats = 3
+
+        measure_cpus = 16
+        measure_gpus = 22
+        measure_memory = '88GB'
+        measure_duration = '0:01:01'
 
         trial_results_map = make_trial_map(systems, image_sources, repeats)
         trial_groups = [
@@ -362,7 +414,11 @@ class TestSimpleExperiment(unittest.TestCase):
             systems=systems,
             image_sources=image_sources,
             metrics=metrics,
-            repeats=repeats
+            repeats=repeats,
+            measure_cpus=measure_cpus,
+            measure_gpus=measure_gpus,
+            measure_memory=measure_memory,
+            measure_duration=measure_duration
         )
         subject.schedule_tasks()
 
@@ -371,9 +427,9 @@ class TestSimpleExperiment(unittest.TestCase):
                 self.assertIn(mock.call(
                     trial_results=trial_group,
                     metric=metric,
-                    num_cpus=mock.ANY, num_gpus=mock.ANY,
-                    memory_requirements=mock.ANY,
-                    expected_duration=mock.ANY
+                    num_cpus=measure_cpus, num_gpus=measure_gpus,
+                    memory_requirements=measure_memory,
+                    expected_duration=measure_duration
                 ), mock_task_manager.get_measure_trial_task.call_args_list,
                     "\nCouldn't find measure_trial_task for metric {0}, trial group {1}".format(metric_idx, group_idx)
                 )
@@ -381,6 +437,8 @@ class TestSimpleExperiment(unittest.TestCase):
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
     def test_schedule_tasks_stores_metric_results(self, mock_task_manager):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
+                                                           return_value=StochasticBehaviour.NON_DETERMINISTIC)
         image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
         metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(3)]
         repeats = 2
@@ -470,7 +528,8 @@ def make_trial_map(systems,  image_sources, repeats):
         trial_results_map[sys.pk] = {}
         for img_source in image_sources:
             trial_results_map[sys.pk][img_source.pk] = []
-            for repeat in range(repeats):
+            actual_repeats = repeats if sys.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+            for repeat in range(actual_repeats):
                 trial_result = mock_core.MockTrialResult(
                     _id=ObjectId(),
                     image_source=img_source,

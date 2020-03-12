@@ -79,6 +79,7 @@ def get_run_system_task(
     """
     if isinstance(system, VisionSystem):
         use_seed = (system.is_deterministic() is StochasticBehaviour.SEEDED)
+        use_repeat = (system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC)
         system = system.identifier
     else:
         if VisionSystem.objects.raw({'_id': system}).count() < 1:
@@ -86,6 +87,7 @@ def get_run_system_task(
         system_classes = get_model_classes(VisionSystem, [system])
         if len(system_classes) >= 1:
             use_seed = (system_classes[0].is_deterministic() is StochasticBehaviour.SEEDED)
+            use_repeat = (system_classes[0].is_deterministic() is not StochasticBehaviour.DETERMINISTIC)
         else:
             raise ValueError("Could not load class for system {0}".format(system))
     if isinstance(image_source, ImageSource):
@@ -95,9 +97,10 @@ def get_run_system_task(
 
     query = {
         'system': system,
-        'image_source': image_source,
-        'repeat': int(repeat)
+        'image_source': image_source
     }
+    if use_repeat:
+        query['repeat'] = int(repeat)
     if use_seed:
         query['seed'] = int(seed)
 
@@ -107,7 +110,7 @@ def get_run_system_task(
         return RunSystemTask(
             system=system,
             image_source=image_source,
-            repeat=int(repeat),
+            repeat=int(repeat) if use_repeat else 0,
             seed=int(seed) if use_seed else None,
             state=JobState.UNSTARTED,
             num_cpus=int(num_cpus),

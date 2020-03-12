@@ -10,7 +10,7 @@ from pathlib import PurePath
 import arvet.database.pymodm_abc as pymodm_abc
 from arvet.database.autoload_modules import autoload_modules
 from arvet.database.reference_list_field import ReferenceListField
-from arvet.core.system import VisionSystem
+from arvet.core.system import VisionSystem, StochasticBehaviour
 from arvet.core.image_source import ImageSource
 from arvet.core.trial_result import TrialResult
 from arvet.core.metric import Metric, MetricResult
@@ -127,8 +127,8 @@ def run_all(
     """
     Run all the systems on all the image sources.
     Returns the trial results, grouped by system and image source
-    :param systems:
-    :param image_sources:
+    :param systems: The set of systems to run
+    :param image_sources: The set of image sources to run it on
     :param repeats:
     :param num_cpus:
     :param num_gpus:
@@ -141,7 +141,9 @@ def run_all(
     for system in systems:
         for image_source in image_sources:
             if system.is_image_source_appropriate(image_source):
-                for repeat in range(repeats):
+                # If the system is deterministic, run it once
+                actual_repeats = repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+                for repeat in range(actual_repeats):
                     task = task_manager.get_run_system_task(
                         system=system,
                         image_source=image_source,
@@ -156,6 +158,53 @@ def run_all(
                         if image_source.identifier not in trial_results[system.identifier]:
                             trial_results[system.identifier][image_source.identifier] = []
                         trial_results[system.identifier][image_source.identifier].append(task.get_result())
+                    else:
+                        remaining += 1
+                        if task.pk is None:
+                            task.save()
+    return trial_results, remaining
+
+
+def run_all_with_seeds(
+        systems: typing.Iterable[VisionSystem],
+        image_sources: typing.Iterable[ImageSource],
+        seeds: typing.Iterable[int],
+        num_cpus: int = 1, num_gpus: int = 0,
+        memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
+) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.Mapping[bson.ObjectId, typing.List[TrialResult]]], int]:
+    """
+    Run all the systems on all the image sources.
+    Returns the trial results, grouped by system and image source
+    :param systems: The set of systems to run
+    :param image_sources: The set of image sources to run it on
+    :param seeds:
+    :param num_cpus:
+    :param num_gpus:
+    :param memory_requirements:
+    :param expected_duration:
+    :return: A map of system id and image source id to trial results, and the number of new trial results still to come
+    """
+    remaining = 0
+    trial_results = {}
+    for system in systems:
+        for image_source in image_sources:
+            if system.is_image_source_appropriate(image_source):
+                for seed in seeds:
+                    task = task_manager.get_run_system_task(
+                        system=system,
+                        image_source=image_source,
+                        repeat=0,
+                        seed=seed,
+                        num_cpus=num_cpus, num_gpus=num_gpus,
+                        memory_requirements=memory_requirements,
+                        expected_duration=expected_duration
+                    )
+                    if task.is_finished:
+                        if system.pk not in trial_results:
+                            trial_results[system.pk] = {}
+                        if image_source.pk not in trial_results[system.pk]:
+                            trial_results[system.pk][image_source.pk] = []
+                        trial_results[system.pk][image_source.pk].append(task.get_result())
                     else:
                         remaining += 1
                         if task.pk is None:

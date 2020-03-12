@@ -138,13 +138,17 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     @abc.abstractmethod
     def is_deterministic(cls) -> StochasticBehaviour:
         """
-        Is the visual system deterministic.
+        Is the visual system deterministic?
+        There are 3 different classes of behavior, distinguised by the :
+        - Deterministic systems always give the same results for the same inputs
+        - Seeded systems are stochastic, but may be controlled with an initial seed, after which the results are fixed
+        - Non-deterministic systems give varying results regardless of seed.
 
-        If this is false, it will have to be tested multiple times, because the performance will be inconsistent
-        between runs.
+        If this is not DETERMINISTIC, it will have to be tested multiple times either varying the seed or the repeat
+        because the performance will be inconsistent between runs.
 
-        :return: True iff the algorithm will produce the same results each time.
-        :rtype: bool
+        :return: The appropriate StochasticBehaviour enum value
+        :rtype: StochasticBehaviour
         """
         pass
 

@@ -1,13 +1,14 @@
 import typing
 import bson
+from secrets import randbits
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
 from arvet.database.autoload_modules import autoload_modules
 from arvet.database.reference_list_field import ReferenceListField
-from arvet.core.system import VisionSystem
+from arvet.core.system import VisionSystem, StochasticBehaviour
 from arvet.core.image_source import ImageSource
 from arvet.core.metric import Metric
-from arvet.batch_analysis.experiment import Experiment, run_all, measure_all
+from arvet.batch_analysis.experiment import Experiment, run_all, run_all_with_seeds, measure_all
 
 
 class SimpleExperiment(Experiment):
@@ -20,6 +21,18 @@ class SimpleExperiment(Experiment):
     image_sources = ReferenceListField(ImageSource, on_delete=fields.ReferenceField.PULL, blank=True)
     metrics = ReferenceListField(Metric, on_delete=fields.ReferenceField.PULL, blank=True)
     repeats = fields.IntegerField(required=True, default=1)
+    use_seed = fields.BooleanField(required=True, default=False)
+    seeds = fields.ListField(fields.IntegerField(), default=[])
+
+    run_cpus = fields.IntegerField(default=1)
+    run_gpus = fields.IntegerField(default=0)
+    run_memory = fields.CharField(default='3GB')
+    run_duration = fields.CharField(default='1:00:00')
+
+    measure_cpus = fields.IntegerField(default=1)
+    measure_gpus = fields.IntegerField(default=0)
+    measure_memory = fields.CharField(default='3GB')
+    measure_duration = fields.CharField(default='1:00:00')
 
     def schedule_tasks(self):
         """
@@ -38,23 +51,62 @@ class SimpleExperiment(Experiment):
         if len(self.image_sources) <= 0 or len(self.systems) <= 0:
             return
 
-        trial_results, trials_remaining = run_all(
-            systems=self.systems,
-            image_sources=self.image_sources,
-            repeats=self.repeats
-        )
+        if self.use_seed:
+            # We're doing experiments with the seed, vary that
+            if len(self.seeds) < self.repeats:
+                # Choose any seeds we're missing
+                # We need to save them so that we can get the same results next time
+                self.seeds += [randbits(32) for _ in range(self.repeats - len(self.seeds))]
+            trial_results, trials_remaining = run_all_with_seeds(
+                systems=self.systems,
+                image_sources=self.image_sources,
+                seeds=self.seeds,
+                num_cpus=self.run_cpus,
+                num_gpus=self.run_gpus,
+                memory_requirements=self.run_memory,
+                expected_duration=self.run_duration
+            )
+        else:
+            trial_results, trials_remaining = run_all(
+                systems=self.systems,
+                image_sources=self.image_sources,
+                repeats=self.repeats,
+                num_cpus=self.run_cpus,
+                num_gpus=self.run_gpus,
+                memory_requirements=self.run_memory,
+                expected_duration=self.run_duration
+            )
+
         if len(self.metrics) <= 0:
             return
 
+        # A horrifying generator to pull out all the trial results that have enough repeats
+        # Deterministic systems only need (or will get) a single repeat,
+        # Other systems must have as many as the completed
         complete_groups = [
-            trial_result_group
-            for trials_by_source in trial_results.values()
-            for trial_result_group in trials_by_source.values()
-            if len(trial_result_group) >= self.repeats
+            trial_results[system.pk][image_source.pk]
+            for system in self.systems
+            for image_source in self.image_sources
+            if system.pk in trial_results
+            and image_source.pk in trial_results[system.pk]
+            and (
+                (
+                    system.is_deterministic() is StochasticBehaviour.DETERMINISTIC and
+                    len(trial_results[system.pk][image_source.pk]) == 1
+                ) or
+                (
+                    system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC and
+                    len(trial_results[system.pk][image_source.pk]) == self.repeats
+                )
+            )
         ]
         metric_results, metrics_remaining = measure_all(
             metrics=self.metrics,
-            trial_result_groups=complete_groups
+            trial_result_groups=complete_groups,
+            num_cpus=self.measure_cpus,
+            num_gpus=self.measure_gpus,
+            memory_requirements=self.measure_memory,
+            expected_duration=self.measure_duration
         )
         self.metric_results.extend(
             metric_result for metric_result_list in metric_results.values()

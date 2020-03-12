@@ -7,11 +7,11 @@ from pathlib import Path
 from shutil import rmtree
 from pandas import DataFrame
 from pymodm.context_managers import no_auto_dereference
-from traceback import print_stack
 
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
 from arvet.core.sequence_type import ImageSequenceType
+from arvet.core.system import StochasticBehaviour
 from arvet.core.image import Image
 from arvet.core.image_collection import ImageCollection
 from arvet.core.metric import Metric, MetricResult
@@ -35,9 +35,11 @@ class MockExperiment(ex.Experiment):
         pass
 
 
-print("Fields after MockExperiment init")
-for field in ex.Experiment._mongometa.fields_ordered:
-    print("{0}: {1}".format(field.attname, field.model))
+class NonDeterministicMockSystem(mock_types.MockSystem):
+
+    @classmethod
+    def is_deterministic(cls):
+        return StochasticBehaviour.NON_DETERMINISTIC
 
 
 class MockPlot(Plot):
@@ -322,21 +324,22 @@ class TestRunAllDatabase(unittest.TestCase):
         im_manager.set_image_manager(image_manager)
 
         # Ensure we have a clean slate in the database
-        Task._mongometa.collection.drop()
-        mock_types.MockTrialResult._mongometa.collection.drop()
-        Image._mongometa.collection.drop()
-        ImageCollection._mongometa.collection.drop()
-        mock_types.MockSystem._mongometa.collection.drop()
+        Task.objects.all().delete()
+        mock_types.MockTrialResult.objects.all().delete()
+        Image.objects.all().delete()
+        ImageCollection.objects.all().delete()
+        mock_types.MockSystem.objects.all().delete()
 
         cls.systems = [mock_types.MockSystem() for _ in range(2)]
+        cls.systems += [NonDeterministicMockSystem() for _ in range(2)]
         for system in cls.systems:
             system.save()
         cls.image_sources = [make_image_collection() for _ in range(2)]
 
     def tearDown(self) -> None:
         # Ensure there are no tasks left at the end of each test
-        Task._mongometa.collection.drop()
-        mock_types.MockTrialResult._mongometa.collection.drop()
+        Task.objects.all().delete()
+        mock_types.MockTrialResult.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
@@ -352,15 +355,31 @@ class TestRunAllDatabase(unittest.TestCase):
         self.assertEqual(0, RunSystemTask.objects.all().count())
         _, pending = ex.run_all(self.systems, self.image_sources, repeats)
 
-        self.assertEqual(len(self.systems) * len(self.image_sources) * repeats, pending)
+        self.assertEqual(len(self.image_sources) * sum(
+            repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+            for system in self.systems
+        ), pending)
         for system in self.systems:
             for image_source in self.image_sources:
-                for repeat in range(repeats):
+                if system.is_deterministic() == StochasticBehaviour.DETERMINISTIC:
                     self.assertEqual(1, RunSystemTask.objects.raw({
                         'system': system.identifier,
                         'image_source': image_source.identifier,
-                        'repeat': repeat
+                        'repeat': 0
                     }).count())
+                    for repeat in range(1, repeats):
+                        self.assertEqual(0, RunSystemTask.objects.raw({
+                            'system': system.identifier,
+                            'image_source': image_source.identifier,
+                            'repeat': repeat
+                        }).count())
+                else:
+                    for repeat in range(repeats):
+                        self.assertEqual(1, RunSystemTask.objects.raw({
+                            'system': system.identifier,
+                            'image_source': image_source.identifier,
+                            'repeat': repeat
+                        }).count())
 
     def test_passes_through_task_settings(self):
         num_cpus = 3
@@ -377,10 +396,14 @@ class TestRunAllDatabase(unittest.TestCase):
             expected_duration=expected_duration
         )
 
-        self.assertEqual(len(self.systems) * len(self.image_sources) * repeats, pending)
+        self.assertEqual(len(self.image_sources) * sum(
+            repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+            for system in self.systems
+        ), pending)
         for system in self.systems:
             for image_source in self.image_sources:
-                for repeat in range(repeats):
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats
+                for repeat in range(actual_repeats):
                     task = RunSystemTask.objects.get({
                         'system': system.identifier,
                         'image_source': image_source.identifier,
@@ -393,26 +416,31 @@ class TestRunAllDatabase(unittest.TestCase):
 
     def test_run_all_filters_by_allowed_image_sources(self):
         # Make it so that some systems cannot run with some image sources
-        self.systems[0].sources_blacklist.append(self.image_sources[0].identifier)
-        self.systems[1].sources_blacklist.append(self.image_sources[1].identifier)
+        systems = [mock_types.MockSystem(), NonDeterministicMockSystem()]
+        systems[0].sources_blacklist.append(self.image_sources[0].identifier)
+        systems[1].sources_blacklist.append(self.image_sources[1].identifier)
+        for system in systems:
+            system.save()
         repeats = 2
         self.assertEqual(0, RunSystemTask.objects.all().count())
-        _, pending = ex.run_all(self.systems, self.image_sources, repeats)
+        _, pending = ex.run_all(systems, self.image_sources, repeats)
 
         # Check that only those combinations where the image source is appropriate for the system are scheduled.
-        self.assertEqual((len(self.systems) * len(self.image_sources) - 2) * repeats, pending)
-        for sys_idx in range(len(self.systems)):
+        self.assertEqual((len(self.image_sources) - 1) * (1 + repeats), pending)
+        for sys_idx in range(len(systems)):
             for image_source_idx in range(len(self.image_sources)):
-                for repeat in range(repeats):
+                actual_repeats = 1 if systems[sys_idx].is_deterministic() is StochasticBehaviour.DETERMINISTIC else \
+                    repeats
+                for repeat in range(actual_repeats):
                     if sys_idx == image_source_idx == 0 or sys_idx == image_source_idx == 1:
                         self.assertEqual(0, RunSystemTask.objects.raw({
-                            'system': self.systems[sys_idx].identifier,
+                            'system': systems[sys_idx].identifier,
                             'image_source': self.image_sources[image_source_idx].identifier,
                             'repeat': repeat
                         }).count())
                     else:
                         self.assertEqual(1, RunSystemTask.objects.raw({
-                            'system': self.systems[sys_idx].identifier,
+                            'system': systems[sys_idx].identifier,
                             'image_source': self.image_sources[image_source_idx].identifier,
                             'repeat': repeat
                         }).count())
@@ -423,7 +451,8 @@ class TestRunAllDatabase(unittest.TestCase):
         # Create some existing tasks that are incomplete
         for system in self.systems:
             for image_source in self.image_sources:
-                for repeat in range(repeats):
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats
+                for repeat in range(actual_repeats):
                     task = RunSystemTask(
                         system=system,
                         image_source=image_source,
@@ -433,7 +462,10 @@ class TestRunAllDatabase(unittest.TestCase):
                     task.save()
 
         existing_results, pending = ex.run_all(self.systems, self.image_sources, repeats)
-        self.assertEqual(len(self.systems) * len(self.image_sources) * repeats, pending)
+        self.assertEqual(len(self.image_sources) * sum(
+            repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+            for system in self.systems
+        ), pending)
         self.assertEqual({}, existing_results)
 
     def test_returns_completed_results(self):
@@ -446,7 +478,8 @@ class TestRunAllDatabase(unittest.TestCase):
             trial_results[system.identifier] = {}
             for image_source in self.image_sources[1:]:
                 trial_results[system.identifier][image_source.identifier] = []
-                for repeat in range(repeats - 1):
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats - 1
+                for repeat in range(actual_repeats):
                     trial_result = mock_types.MockTrialResult(
                         system=system,
                         image_source=image_source,
@@ -466,11 +499,15 @@ class TestRunAllDatabase(unittest.TestCase):
                     task.save()
 
         existing_results, pending = ex.run_all(self.systems, self.image_sources, repeats)
-        self.assertEqual(len(self.systems) * len(self.image_sources) * repeats - num_complete_trials, pending)
+        self.assertEqual(len(self.image_sources) * sum(
+            repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+            for system in self.systems
+        ) - num_complete_trials, pending)
 
         for system in self.systems[1:]:
             for image_source in self.image_sources[1:]:
-                for repeat in range(repeats - 1):
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats - 1
+                for repeat in range(actual_repeats):
                     self.assertEqual(
                         trial_results[system.identifier][image_source.identifier][repeat],
                         existing_results[system.identifier][image_source.identifier][repeat].identifier
@@ -518,6 +555,188 @@ class TestRunAllDatabaseProfile(unittest.TestCase):
         stats_file = "run_all.prof"
         profile.runctx("ex.run_all(systems, image_sources, repeats)",
                        locals=locals(), globals=globals(), filename=stats_file)
+
+
+class SeededMockSystem(mock_types.MockSystem):
+
+    @classmethod
+    def is_deterministic(cls):
+        return StochasticBehaviour.SEEDED
+
+
+class TestRunAllWithSeedsDatabase(unittest.TestCase):
+    systems = None
+    image_sources = None
+
+    @classmethod
+    def setUpClass(cls):
+        dbconn.connect_to_test_db()
+        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
+        im_manager.set_image_manager(image_manager)
+
+        # Ensure we have a clean slate in the database
+        Task.objects.all().delete()
+        mock_types.MockTrialResult.objects.all().delete()
+        Image.objects.all().delete()
+        ImageCollection.objects.all().delete()
+        mock_types.MockSystem.objects.all().delete()
+
+        cls.systems = [SeededMockSystem() for _ in range(2)]
+        for system in cls.systems:
+            system.save()
+        cls.image_sources = [make_image_collection() for _ in range(2)]
+
+    def tearDown(self) -> None:
+        # Ensure there are no tasks left at the end of each test
+        Task.objects.all().delete()
+        mock_types.MockTrialResult.objects.all().delete()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Clean up after ourselves by dropping the collections for all the models used
+        Image._mongometa.collection.drop()
+        ImageCollection._mongometa.collection.drop()
+        mock_types.MockSystem._mongometa.collection.drop()
+        if os.path.isfile(dbconn.image_file):
+            os.remove(dbconn.image_file)
+
+    def test_makes_run_system_tasks(self):
+        seeds = [1560, 107895]
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+        _, pending = ex.run_all_with_seeds(self.systems, self.image_sources, seeds)
+
+        self.assertEqual(len(self.systems) * len(self.image_sources) * len(seeds), pending)
+        for system in self.systems:
+            for image_source in self.image_sources:
+                for seed in seeds:
+                    self.assertEqual(1, RunSystemTask.objects.raw({
+                        'system': system.identifier,
+                        'image_source': image_source.identifier,
+                        'repeat': 0,
+                        'seed': seed
+                    }).count())
+
+    def test_passes_through_task_settings(self):
+        num_cpus = 3
+        num_gpus = 2
+        memory_requirements = '64K'
+        expected_duration = '6:45:12'
+        seeds = [1560, 107895]
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+        _, pending = ex.run_all_with_seeds(
+            self.systems, self.image_sources, seeds,
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory_requirements=memory_requirements,
+            expected_duration=expected_duration
+        )
+
+        self.assertEqual(len(self.systems) * len(self.image_sources) * len(seeds), pending)
+        for system in self.systems:
+            for image_source in self.image_sources:
+                for seed in seeds:
+                    task = RunSystemTask.objects.get({
+                        'system': system.identifier,
+                        'image_source': image_source.identifier,
+                        'repeat': 0,
+                        'seed': seed
+                    })
+                    self.assertEqual(num_cpus, task.num_cpus)
+                    self.assertEqual(num_gpus, task.num_gpus)
+                    self.assertEqual(memory_requirements, task.memory_requirements)
+                    self.assertEqual(expected_duration, task.expected_duration)
+
+    def test_filters_by_allowed_image_sources(self):
+        # Make it so that some systems cannot run with some image sources
+        systems = [SeededMockSystem() for _ in range(2)]
+        systems[0].sources_blacklist.append(self.image_sources[0].identifier)
+        systems[1].sources_blacklist.append(self.image_sources[1].identifier)
+        for system in systems:
+            system.save()
+        seeds = [1560, 107895]
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+        _, pending = ex.run_all_with_seeds(systems, self.image_sources, seeds)
+
+        # Check that only those combinations where the image source is appropriate for the system are scheduled.
+        self.assertEqual((len(systems) * len(self.image_sources) - 2) * len(seeds), pending)
+        for sys_idx in range(len(systems)):
+            for image_source_idx in range(len(self.image_sources)):
+                for seed in seeds:
+                    if sys_idx == image_source_idx == 0 or sys_idx == image_source_idx == 1:
+                        self.assertEqual(0, RunSystemTask.objects.raw({
+                            'system': systems[sys_idx].identifier,
+                            'image_source': self.image_sources[image_source_idx].identifier,
+                            'repeat': 0,
+                            'seed': seed
+                        }).count())
+                    else:
+                        self.assertEqual(1, RunSystemTask.objects.raw({
+                            'system': systems[sys_idx].identifier,
+                            'image_source': self.image_sources[image_source_idx].identifier,
+                            'repeat': 0,
+                            'seed': seed
+                        }).count())
+
+    def test_doesnt_return_incomplete_results(self):
+        seeds = [1560, 107895]
+
+        # Create some existing tasks that are incomplete
+        for system in self.systems:
+            for image_source in self.image_sources:
+                for seed in seeds:
+                    task = RunSystemTask(
+                        system=system,
+                        image_source=image_source,
+                        repeat=0,
+                        state=JobState.RUNNING,
+                        seed=seed
+                    )
+                    task.save()
+
+        existing_results, pending = ex.run_all_with_seeds(self.systems, self.image_sources, seeds)
+        self.assertEqual(len(self.systems) * len(self.image_sources) * len(seeds), pending)
+        self.assertEqual({}, existing_results)
+
+    def test_returns_completed_results(self):
+        seeds = [45213, 107895, 72389, 7489]
+
+        # Create some existing trial results with complete run system tasks
+        num_complete_trials = 0
+        trial_results = {}
+        for system in self.systems[1:]:
+            trial_results[system.identifier] = {}
+            for image_source in self.image_sources[1:]:
+                trial_results[system.identifier][image_source.identifier] = []
+                for seed in seeds[1:]:
+                    trial_result = mock_types.MockTrialResult(
+                        system=system,
+                        image_source=image_source,
+                        success=True
+                    )
+                    trial_result.save()
+                    trial_results[system.identifier][image_source.identifier].append(trial_result.identifier)
+                    num_complete_trials += 1
+
+                    task = RunSystemTask(
+                        system=system,
+                        image_source=image_source,
+                        repeat=0,
+                        seed=seed,
+                        state=JobState.DONE,
+                        result=trial_result
+                    )
+                    task.save()
+
+        existing_results, pending = ex.run_all_with_seeds(self.systems, self.image_sources, seeds)
+        self.assertEqual(len(self.systems) * len(self.image_sources) * len(seeds) - num_complete_trials, pending)
+
+        for system in self.systems[1:]:
+            for image_source in self.image_sources[1:]:
+                for seed_idx in range(len(seeds) - 1):
+                    self.assertEqual(
+                        trial_results[system.identifier][image_source.identifier][seed_idx],
+                        existing_results[system.identifier][image_source.identifier][seed_idx].identifier
+                    )
 
 
 class TestMeasureAllDatabase(unittest.TestCase):
