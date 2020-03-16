@@ -16,14 +16,17 @@ import arvet.batch_analysis.job_systems.job_system_factory as job_system_factory
 
 
 def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = True,
+             mongodb_host: str = None, mongodb_port: int = None,
              experiment_ids: typing.List[str] = None):
     """
     Schedule tasks for all experiments.
     We need to find a way of running this repeatedly as a daemon
     :param config_file: The location of the config file to load.
     :param schedule_tasks: Whether to schedule execution tasks for the experiments. Default true.
-    :param experiment_ids: A limited set of experiments to schedule for. Default None, which is all experiments.
     :param run_tasks: Actually use the job system to execute scheduled tasks
+    :param mongodb_host: Override the host for the mongodb server from the value in the configuration
+    :param mongodb_port: Override the port for the mongodb server from the value in the configuration
+    :param experiment_ids: A limited set of experiments to schedule for. Default None, which is all experiments.
     """
     # Load the configuration
     config = load_global_config(config_file)
@@ -32,7 +35,7 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
         logging.config.dictConfig(config['logging'])
 
     # Configure the database and the image manager
-    dbconn.configure(config['database'])
+    dbconn.configure(config['database'], override_host=mongodb_host, override_port=mongodb_port)
     im_manager.configure(config['image_manager'])
 
     if schedule_tasks:
@@ -90,12 +93,23 @@ def main():
                         help='Don\'t schedule the execution or evaluation of systems')
     parser.add_argument('--skip_run_tasks', action='store_true',
                         help='Don\'t actually run tasks, only schedule them')
+    parser.add_argument('--mongodb_host', default=None,
+                        help='Override the mongodb hostname specified in the config file.')
+    parser.add_argument('--mongodb_port', default=None,
+                        help='Override the mongodb port specified in the config file.')
     parser.add_argument('experiment_ids', metavar='experiment_id', nargs='*', default=[],
                         help='Limit the update to only the specified experiment by id. '
                              'You may specify any number of ids.')
 
     args = parser.parse_args()
-    schedule(args.config, not args.skip_schedule_tasks, not args.skip_run_tasks, args.experiment_ids)
+    schedule(
+        config_file=args.config,
+        schedule_tasks=not args.skip_schedule_tasks,
+        run_tasks=not args.skip_run_tasks,
+        mongodb_host=args.mongodb_host,
+        mongodb_port=args.mongodb_port,
+        experiment_ids=args.experiment_ids
+    )
 
 
 if __name__ == '__main__':
