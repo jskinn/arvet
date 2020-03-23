@@ -59,7 +59,7 @@ def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, sho
         return print_available_plots(experiment)
 
     # Find an output dir, either using a selected one, or from the path manager
-    if len(output) == 0:
+    if output is None or len(output) == 0:
         output_dir = path_manager.get_output_dir()
     else:
         output_dir = Path(output).expanduser().resolve()
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     parser.add_argument('--no-display', action='store_true', dest='hide',
                         help='Don\'t actually show the plots as they are generated. '
                              'By default')
-    parser.add_argument('--output', default=None,
+    parser.add_argument('--output', default='',
                         help='Override the output location for the plots.')
     parser.add_argument('--mongodb_host', default=None,
                         help='Override the mongodb hostname specified in the config file.')
