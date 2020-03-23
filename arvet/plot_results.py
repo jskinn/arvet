@@ -14,13 +14,16 @@ from arvet.database.autoload_modules import autoload_modules
 from arvet.batch_analysis.experiment import Experiment
 
 
-def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, show: bool = True, output: str = ''):
+def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, show: bool = True, output: str = '',
+         mongodb_host: str = None, mongodb_port: int = None):
     """
 
     :param experiment_id:
     :param plot_names:
     :param show:
     :param output:
+    :param mongodb_host:
+    :param mongodb_port:
     :return:
     """
     # Load the configuration
@@ -30,7 +33,7 @@ def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, sho
         logging.config.dictConfig(config['logging'])
 
     # Configure the database and the image manager
-    dbconn.configure(config['database'])
+    dbconn.configure(config['database'], override_host=mongodb_host, override_port=mongodb_port)
     im_manager.configure(config['image_manager'])
 
     # Set up the path manager
@@ -104,6 +107,12 @@ if __name__ == "__main__":
     parser.add_argument('--no-display', action='store_true', dest='hide',
                         help='Don\'t actually show the plots as they are generated. '
                              'By default')
+    parser.add_argument('--output', default=None,
+                        help='Override the output location for the plots.')
+    parser.add_argument('--mongodb_host', default=None,
+                        help='Override the mongodb hostname specified in the config file.')
+    parser.add_argument('--mongodb_port', default=None,
+                        help='Override the mongodb port specified in the config file.')
     parser.add_argument('experiment_id', nargs='?', default='',
                         help='The experiment id to plot results for. '
                         'Leave blank to list the available experiments')
@@ -112,4 +121,4 @@ if __name__ == "__main__":
                         'Omit to print the list of available plots for the given experiment')
 
     args = parser.parse_args()
-    main(args.experiment_id, args.plots, not args.hide, args.output)
+    main(args.experiment_id, args.plots, not args.hide, args.output, args.mongodb_host, args.mongodb_port)
