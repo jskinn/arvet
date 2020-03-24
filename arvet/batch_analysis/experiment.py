@@ -160,7 +160,20 @@ def run_all(
                         trial_results[system.identifier][image_source.identifier].append(task.get_result())
                     else:
                         remaining += 1
-                        if task.pk is None:
+                        changed = False
+                        if task.num_cpus != num_cpus:
+                            task.num_cpus = num_cpus
+                            changed = True
+                        if task.num_gpus != num_gpus:
+                            task.num_gpus = num_gpus
+                            changed = True
+                        if task.memory_requirements != memory_requirements:
+                            task.memory_requirements = memory_requirements
+                            changed = True
+                        if task.expected_duration != expected_duration:
+                            task.expected_duration = expected_duration
+                            changed = True
+                        if changed or task.pk is None:
                             task.save()
     return trial_results, remaining
 
@@ -207,7 +220,20 @@ def run_all_with_seeds(
                         trial_results[system.pk][image_source.pk].append(task.get_result())
                     else:
                         remaining += 1
-                        if task.pk is None:
+                        changed = False
+                        if task.num_cpus != num_cpus:
+                            task.num_cpus = num_cpus
+                            changed = True
+                        if task.num_gpus != num_gpus:
+                            task.num_gpus = num_gpus
+                            changed = True
+                        if task.memory_requirements != memory_requirements:
+                            task.memory_requirements = memory_requirements
+                            changed = True
+                        if task.expected_duration != expected_duration:
+                            task.expected_duration = expected_duration
+                            changed = True
+                        if changed or task.pk is None:
                             task.save()
     return trial_results, remaining
 
@@ -246,6 +272,19 @@ def measure_all(
                     metric_results[metric.identifier].append(task.get_result())
                 else:
                     remaining += 1
-                    if task.pk is None:
+                    changed = False
+                    if task.num_cpus != num_cpus:
+                        task.num_cpus = num_cpus
+                        changed = True
+                    if task.num_gpus != num_gpus:
+                        task.num_gpus = num_gpus
+                        changed = True
+                    if task.memory_requirements != memory_requirements:
+                        task.memory_requirements = memory_requirements
+                        changed = True
+                    if task.expected_duration != expected_duration:
+                        task.expected_duration = expected_duration
+                        changed = True
+                    if changed or task.pk is None:
                         task.save()
     return metric_results, remaining

@@ -414,6 +414,79 @@ class TestRunAllDatabase(unittest.TestCase):
                     self.assertEqual(memory_requirements, task.memory_requirements)
                     self.assertEqual(expected_duration, task.expected_duration)
 
+    def test_updates_task_settings(self):
+        num_cpus = 3
+        num_gpus = 2
+        memory_requirements = '64K'
+        expected_duration = '6:45:12'
+
+        existing_num_cpus = num_cpus + 3
+        existing_num_gpus = num_gpus + 5
+        existing_memory_requirements = '13GB'
+        existing_duration = '12:12:13'
+
+        repeats = 2
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+
+        # Make some existing tasks with different states
+        for system in self.systems:
+            if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC:
+                for image_source in self.image_sources:
+                    for repeat, state in enumerate([JobState.UNSTARTED, JobState.RUNNING, JobState.DONE]):
+                        trial_result = mock_types.MockTrialResult(
+                            system=system,
+                            image_source=image_source,
+                            success=True
+                        )
+                        trial_result.save()
+
+                        task = RunSystemTask(
+                            system=system,
+                            image_source=image_source,
+                            repeat=repeat,
+                            state=state,
+                            result=trial_result,
+                            num_cpus=existing_num_cpus,
+                            num_gpus=existing_num_gpus,
+                            memory_requirements=existing_memory_requirements,
+                            expected_duration=existing_duration
+                        )
+                        task.save()
+
+        _, pending = ex.run_all(
+            self.systems, self.image_sources, repeats,
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory_requirements=memory_requirements,
+            expected_duration=expected_duration
+        )
+
+        self.assertEqual(len(self.image_sources) * sum(
+            repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
+            for system in self.systems
+        ), pending)
+        for system in self.systems:
+            for image_source in self.image_sources:
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats
+                for repeat in range(actual_repeats):
+                    task = RunSystemTask.objects.get({
+                        'system': system.identifier,
+                        'image_source': image_source.identifier,
+                        'repeat': repeat
+                    })
+                    if task.is_finished:
+                        # Finished tasks should not be changed
+                        self.assertEqual(existing_num_cpus, task.num_cpus)
+                        self.assertEqual(existing_num_gpus, task.num_gpus)
+                        self.assertEqual(existing_memory_requirements, task.memory_requirements)
+                        self.assertEqual(existing_duration, task.expected_duration)
+                    else:
+                        # Unfinished tasks should have their requirements updated
+                        self.assertEqual(num_cpus, task.num_cpus)
+                        self.assertEqual(num_gpus, task.num_gpus)
+                        self.assertEqual(memory_requirements, task.memory_requirements)
+                        self.assertEqual(expected_duration, task.expected_duration)
+
     def test_run_all_filters_by_allowed_image_sources(self):
         # Make it so that some systems cannot run with some image sources
         systems = [mock_types.MockSystem(), NonDeterministicMockSystem()]
@@ -646,6 +719,75 @@ class TestRunAllWithSeedsDatabase(unittest.TestCase):
                     self.assertEqual(memory_requirements, task.memory_requirements)
                     self.assertEqual(expected_duration, task.expected_duration)
 
+    def test_updates_task_settings(self):
+        num_cpus = 3
+        num_gpus = 2
+        memory_requirements = '64K'
+        expected_duration = '6:45:12'
+
+        existing_cpus = num_cpus + 4
+        existing_gpus = num_gpus + 2
+        existing_memory = '34GB'
+        existing_duration = '3:33:22'
+
+        seeds = [1560, 107895, 50782]
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+
+        for system in self.systems:
+            for image_source in self.image_sources:
+                for seed, job_state in zip(seeds, [JobState.UNSTARTED, JobState.RUNNING, JobState.DONE]):
+                    trial_result = mock_types.MockTrialResult(
+                        system=system,
+                        image_source=image_source,
+                        success=True
+                    )
+                    trial_result.save()
+
+                    task = RunSystemTask(
+                        system=system,
+                        image_source=image_source,
+                        repeat=0,
+                        seed=seed,
+                        state=job_state,
+                        result=trial_result,
+                        num_cpus=existing_cpus,
+                        num_gpus=existing_gpus,
+                        memory_requirements=existing_memory,
+                        expected_duration=existing_duration
+                    )
+                    task.save()
+
+        _, pending = ex.run_all_with_seeds(
+            self.systems, self.image_sources, seeds,
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory_requirements=memory_requirements,
+            expected_duration=expected_duration
+        )
+
+        self.assertEqual(len(self.systems) * len(self.image_sources) * (len(seeds) - 1), pending)
+        for system in self.systems:
+            for image_source in self.image_sources:
+                for seed in seeds:
+                    task = RunSystemTask.objects.get({
+                        'system': system.identifier,
+                        'image_source': image_source.identifier,
+                        'repeat': 0,
+                        'seed': seed
+                    })
+                    if task.is_finished:
+                        # Finished tasks should not be changed
+                        self.assertEqual(existing_cpus, task.num_cpus)
+                        self.assertEqual(existing_gpus, task.num_gpus)
+                        self.assertEqual(existing_memory, task.memory_requirements)
+                        self.assertEqual(existing_duration, task.expected_duration)
+                    else:
+                        # Unfinished tasks should have their requirements updated
+                        self.assertEqual(num_cpus, task.num_cpus)
+                        self.assertEqual(num_gpus, task.num_gpus)
+                        self.assertEqual(memory_requirements, task.memory_requirements)
+                        self.assertEqual(expected_duration, task.expected_duration)
+
     def test_filters_by_allowed_image_sources(self):
         # Make it so that some systems cannot run with some image sources
         systems = [SeededMockSystem() for _ in range(2)]
@@ -854,6 +996,63 @@ class TestMeasureAllDatabase(unittest.TestCase):
                 self.assertEqual(memory_requirements, task.memory_requirements)
                 self.assertEqual(expected_duration, task.expected_duration)
 
+    def test_updates_task_settings(self):
+        num_cpus = 3
+        num_gpus = 2
+        memory_requirements = '64K'
+        expected_duration = '6:45:12'
+
+        existing_cpus = num_cpus + 4
+        existing_gpus = num_gpus + 2
+        existing_memory = '34GB'
+        existing_duration = '3:33:22'
+
+        expected_pending = 0
+        self.assertEqual(0, MeasureTrialTask.objects.all().count())
+        for idx1, metric in enumerate(self.metrics):
+            for idx2, tr_group in enumerate(self.trial_result_groups):
+                job_state = JobState((idx1 * len(self.trial_result_groups) + idx2) % 3)
+                if job_state is not JobState.DONE:
+                    expected_pending += 1
+                task = MeasureTrialTask(
+                    metric=metric,
+                    trial_results=tr_group,
+                    state=job_state,
+                    num_cpus=existing_cpus,
+                    num_gpus=existing_gpus,
+                    memory_requirements=existing_memory,
+                    expected_duration=existing_duration
+                )
+                task.save()
+
+        _, pending = ex.measure_all(
+            self.metrics, self.trial_result_groups,
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory_requirements=memory_requirements,
+            expected_duration=expected_duration
+        )
+
+        self.assertEqual(expected_pending, pending)
+        for metric in self.metrics:
+            for trial_result_group in self.trial_result_groups:
+                task = MeasureTrialTask.objects.get({
+                    'metric': metric.identifier,
+                    'trial_results': {'$all': [tr.identifier for tr in trial_result_group]}
+                })
+                if task.is_finished:
+                    # Finished tasks should not be changed
+                    self.assertEqual(existing_cpus, task.num_cpus)
+                    self.assertEqual(existing_gpus, task.num_gpus)
+                    self.assertEqual(existing_memory, task.memory_requirements)
+                    self.assertEqual(existing_duration, task.expected_duration)
+                else:
+                    # Unfinished tasks should have their requirements updated
+                    self.assertEqual(num_cpus, task.num_cpus)
+                    self.assertEqual(num_gpus, task.num_gpus)
+                    self.assertEqual(memory_requirements, task.memory_requirements)
+                    self.assertEqual(expected_duration, task.expected_duration)
+
     def test_run_all_filters_by_allowed_image_sources(self):
         # Make it so that some systems cannot run with some image sources
         self.metrics[0].trials_blacklist.extend(tr.identifier for tr in self.trial_result_groups[0])
@@ -875,6 +1074,10 @@ class TestMeasureAllDatabase(unittest.TestCase):
                         'metric': self.metrics[mtr_idx].identifier,
                         'trial_results': {'$all': [tr.identifier for tr in self.trial_result_groups[tr_idx]]}
                     }).count())
+
+        # clean up
+        self.metrics[0].trials_blacklist.clear()
+        self.metrics[1].trials_blacklist.clear()
 
     def test_doesnt_return_incomplete_results(self):
         # Create some existing measure trials tasks that are incomplete
