@@ -61,7 +61,7 @@ class DefaultImageManager(ImageManager):
     This is what will be created by the configure method below.
     """
 
-    def __init__(self, file_path, group_name='', allow_write=False):
+    def __init__(self, file_path, group_name: str = '', allow_write: bool = False):
         self._file_path = file_path
         self._prefix = group_name.strip('/')
         self._contexts = 0
@@ -102,23 +102,24 @@ class DefaultImageManager(ImageManager):
 
     def store_image(self, data: np.ndarray, group: str = '') -> str:
         # Use a context to open our file if it is not already open
-        if self._allow_write:
-            with self:
-                # Try different seeds until we find one that doesn't collide,
-                # or we find that this image is already stored.
-                # Since the iteration is in the same order every time, and we check equality,
-                # will always resolve collisions if it is possible to do so.
-                for seed in range(2 ** 32):
-                    path = self.find_path_for_image(data, group, seed)
-                    if path not in self._storage:
+        with self:
+            # Try different seeds until we find one that doesn't collide,
+            # or we find that this image is already stored.
+            # Since the iteration is in the same order every time, and we check equality,
+            # will always resolve collisions if it is possible to do so.
+            for seed in range(2 ** 32):
+                path = self.find_path_for_image(data, group, seed)
+                if path not in self._storage:
+                    if self._allow_write:
                         # Hash value is available, store the data there
                         self._storage[path] = data
                         return path
-                    elif np.array_equal(data, self._storage[path]):
-                        # This image is already stored, return the path
-                        return path
-            raise RuntimeError("Could not find a seed that allows this image to be stored in the database")
-        raise RuntimeError("ImageManager not configured for writing")
+                    # We reached the point we'd write to the file, but we are not configured to do so. Fail.
+                    raise RuntimeError("ImageManager not configured for writing")
+                elif np.array_equal(data, self._storage[path]):
+                    # This image is already stored, return the path
+                    return path
+        raise RuntimeError("Could not find a seed that allows this image to be stored in the database")
 
     def remove_image(self, path: str):
         if self._allow_write:

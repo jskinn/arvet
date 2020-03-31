@@ -1,4 +1,4 @@
-import os.path
+from pathlib import Path
 import unittest.mock as mock
 import numpy as np
 import xxhash
@@ -9,17 +9,17 @@ from arvet.util.test_helpers import ExtendedTestCase
 
 class TestDefaultImageManager(ExtendedTestCase):
 
-    _tempfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test-image-manager.h5py')
+    _tempfile = Path(__file__).parent / 'test-image-manager.h5py'
 
     @classmethod
     def setUpClass(cls):
-        if os.path.isfile(cls._tempfile):
-            os.remove(cls._tempfile)
+        if cls._tempfile.exists():
+            cls._tempfile.unlink()
 
     @classmethod
     def tearDownClass(cls):
-        if os.path.isfile(cls._tempfile):
-            os.remove(cls._tempfile)
+        if cls._tempfile.exists():
+            cls._tempfile.unlink()
 
     def test_get_image_for_missing_path_returns_none(self):
         subject = im_manager.DefaultImageManager(self._tempfile)
@@ -65,10 +65,21 @@ class TestDefaultImageManager(ExtendedTestCase):
         self.assertNPEqual(image2, subject.get_image(path2))
 
     def test_storing_raises_exception_if_writing_is_disabled(self):
+        if not self._tempfile.exists():
+            h5py.File(self._tempfile, 'a', libver='latest')     # Create the HDF5 file if it doesn't exist
         subject = im_manager.DefaultImageManager(self._tempfile, allow_write=False)
         image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
         with self.assertRaises(RuntimeError):
             subject.store_image(image)
+
+    def test_storing_succeeds_for_existing_even_if_not_able_to_write(self):
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
+        image = np.random.randint(0, 255, dtype=np.uint8, size=(64, 64, 3))
+        path = subject.store_image(image)
+
+        subject = im_manager.DefaultImageManager(self._tempfile, allow_write=False)
+        existing_path = subject.store_image(image)
+        self.assertEqual(path, existing_path)
 
     def test_remove_image_raises_exception_if_writing_disabled(self):
         subject = im_manager.DefaultImageManager(self._tempfile, allow_write=True)
