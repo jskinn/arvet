@@ -31,8 +31,8 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
     """
     name = fields.CharField(primary_key=True)
     enabled = fields.BooleanField(required=True, default=True)
-    metric_results = ReferenceListField(MetricResult, on_delete=fields.ReferenceField.PULL)
-    plots = ReferenceListField(Plot, on_delete=fields.ReferenceField.PULL, blank=True)
+    metric_results = ReferenceListField(MetricResult, blank=True, on_delete=fields.ReferenceField.PULL)
+    plots = ReferenceListField(Plot, blank=True, on_delete=fields.ReferenceField.PULL)
 
     @abc.abstractmethod
     def schedule_tasks(self):
@@ -50,7 +50,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :return:
         """
         self.metric_results = [metric_result for metric_result in self.metric_results if metric_result is not None]
-        self.plots = [plot for plot in self.plot if plot is not None]
+        self.plots = [plot for plot in self.plots if plot is not None]
 
     def get_plots(self) -> typing.Set[str]:
         """
