@@ -31,7 +31,9 @@ def main(
         metrics: typing.List[str] = None, metric_results: typing.List[str] = None,
         failed_trials: bool = False,
         failed_metrics: bool = False,
-        incomplete_tasks: bool = False
+        incomplete_tasks: bool = False,
+        mongodb_host: str = None,
+        mongodb_port: int = None
 ):
     """
     Command line control to invalidate various objects.
@@ -71,7 +73,7 @@ def main(
         logging.config.dictConfig(config['logging'])
 
     # Configure the database and the image manager
-    dbconn.configure(config['database'])
+    dbconn.configure(config['database'], override_host=mongodb_host, override_port=mongodb_port)
     im_manager.configure(config['image_manager'])
 
     # Invalidate systems
@@ -123,7 +125,6 @@ def main(
         invalidate.invalidate_incomplete_tasks()
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Invalidate obsolete or incorrect data from the database.\n'
@@ -153,6 +154,10 @@ if __name__ == '__main__':
                         help='Also remove all failed metric results')
     parser.add_argument('--incomplete_tasks', action='store_true',
                         help='Remove all incomplete tasks, the necessary ones will be recreated by scheduling')
+    parser.add_argument('--mongodb_host', default=None,
+                        help='Override the mongodb hostname specified in the config file.')
+    parser.add_argument('--mongodb_port', default=None,
+                        help='Override the mongodb port specified in the config file.')
     args = parser.parse_args()
 
     main(
@@ -166,5 +171,7 @@ if __name__ == '__main__':
         metric_results=args.metric_result,
         failed_trials=args.failed_trials,
         failed_metrics=args.failed_metrics,
-        incomplete_tasks=args.incomplete_tasks
+        incomplete_tasks=args.incomplete_tasks,
+        mongodb_host=args.mongodb_host,
+        mongodb_port=args.mongodb_port
     )
