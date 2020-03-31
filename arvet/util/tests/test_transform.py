@@ -410,7 +410,7 @@ class TestTransform(ExtendedTestCase):
         for _ in range(100):
             x = np.random.uniform(-1, 1, 4)
             normed_x = tf.robust_normalize(x)
-            self.assertTrue(np.isclose([1.0], [np.linalg.norm(normed_x)], atol=1e-14))
+            self.assertTrue(np.isclose(1.0, np.linalg.norm(normed_x), atol=1e-14))
 
     def test_robust_normalize_doesnt_change_values_where_norm_is_already_1(self):
         for _ in range(100):
@@ -428,8 +428,8 @@ class TestHelpers(ExtendedTestCase):
         self.assertAlmostEqual(1.0, np.linalg.norm(result), places=14)
 
     def test_robust_normalize_doesnt_change_already_unit_vectors(self):
-        random = np.random.RandomState()
-        for _ in range(100):
+        random = np.random.RandomState(5)
+        for idx in range(100):
             vector = random.uniform(-1, 1, 4)
             norm_vector1 = tf.robust_normalize(vector)
             norm_vector2 = tf.robust_normalize(norm_vector1)

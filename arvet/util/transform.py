@@ -266,6 +266,11 @@ class Transform:
                    w_first=True)
 
 
+# tolerance window for normalizing vectors
+MAX_NORM = np.nextafter(1.0, 2.0)
+MIN_NORM = np.nextafter(1.0, 0.0)
+
+
 def robust_normalize(vector: np.ndarray) -> np.ndarray:
     """
     Normalize the given vector in such a way that if we call this on it again, we get the same output.
@@ -280,7 +285,7 @@ def robust_normalize(vector: np.ndarray) -> np.ndarray:
     """
     norm = np.linalg.norm(vector)
     loop_count = 0
-    while not np.isclose(norm, 1.0, 1e-14, 1e-14) and loop_count < 10:
+    while not MIN_NORM <= norm <= MAX_NORM and loop_count < 10:
         vector = vector / norm
         norm = np.linalg.norm(vector)
         loop_count += 1
