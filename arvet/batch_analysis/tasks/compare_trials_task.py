@@ -70,7 +70,7 @@ class CompareTrialTask(arvet.batch_analysis.task.Task):
                 "Successfully Compared trials using metric {0}".format(self.metric.get_pretty_name()))
 
         logging.getLogger(__name__).info("Saving comparison result...")
-        metric_result.save()
+        metric_result.save(True)
 
         self.result = metric_result
         self.mark_job_complete()

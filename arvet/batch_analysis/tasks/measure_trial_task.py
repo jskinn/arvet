@@ -89,7 +89,7 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
                 "Successfully measured trials using metric {0}".format(self.metric.get_pretty_name()))
 
         logging.getLogger(__name__).info("Saving metric result...")
-        metric_result.save()
+        metric_result.save(True)
 
         self.result = metric_result
         self.mark_job_complete()

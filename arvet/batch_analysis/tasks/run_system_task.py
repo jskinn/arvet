@@ -90,7 +90,7 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
             logging.getLogger(__name__).info("Successfully ran system {0}".format(self.system.get_pretty_name()))
 
         logging.getLogger(__name__).info("Saving trial result...")
-        trial_result.save()
+        trial_result.save(True)
 
         self.result = trial_result
         self.mark_job_complete()
