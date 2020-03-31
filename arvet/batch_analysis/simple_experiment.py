@@ -41,12 +41,7 @@ class SimpleExperiment(Experiment):
         """
         # Load the referenced models. We need this before we can dereference our reference fields
         self.load_referenced_models()
-
-        # Clean up our lists of systems, image sources, and metrics.
-        # This fixes cases where a system, image source, or metric has been pulled from the list.
-        self.systems = [system for system in self.systems if system is not None]
-        self.image_sources = [image_source for image_source in self.image_sources if image_source is not None]
-        self.metrics = [metric for metric in self.metrics if metric is not None]
+        self.clean_references()
 
         if len(self.image_sources) <= 0 or len(self.systems) <= 0:
             return
@@ -136,6 +131,18 @@ class SimpleExperiment(Experiment):
             model_ids = set(metric_id for metric_id in self.metrics if isinstance(metric_id, bson.ObjectId))
         if len(model_ids) > 0:
             autoload_modules(Metric, ids=list(model_ids))
+
+    def clean_references(self):
+        """
+        Clean up our lists of systems, image sources, and metrics.
+        This fixes cases where a system, image source, or metric has been pulled from the list.
+        The experiment may fail to save with nulls in its reference lists.
+        :return:
+        """
+        super(SimpleExperiment, self).clean_references()
+        self.systems = [system for system in self.systems if system is not None]
+        self.image_sources = [image_source for image_source in self.image_sources if image_source is not None]
+        self.metrics = [metric for metric in self.metrics if metric is not None]
 
     def add_vision_systems(self, vision_systems: typing.Iterable[VisionSystem]):
         """

@@ -42,6 +42,16 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
+    def clean_references(self):
+        """
+        Clean up our lists of systems, image sources, and metrics.
+        This fixes cases where a system, image source, or metric has been pulled from the list.
+        The experiment may fail to save with nulls in its reference lists.
+        :return:
+        """
+        self.metric_results = [metric_result for metric_result in self.metric_results if metric_result is not None]
+        self.plots = [plot for plot in self.plot if plot is not None]
+
     def get_plots(self) -> typing.Set[str]:
         """
         Get a list of valid plots for this experiment.
@@ -67,6 +77,9 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             plot_ids = set(plot_id for plot_id in self.plots if isinstance(plot_id, bson.ObjectId))
         if len(plot_ids) > 0:
             autoload_modules(Plot, ids=list(plot_ids))
+
+        # Clean out null plots and other pulled references
+        self.clean_references()
 
         # Filter the linked plots down to those selected
         if plot_names is None:
