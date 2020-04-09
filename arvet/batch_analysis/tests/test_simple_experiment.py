@@ -132,9 +132,9 @@ class TestSimpleExperimentDatabase(unittest.TestCase):
         self.assertFalse(mock_autoload.called)
         obj.load_referenced_models()
         self.assertTrue(mock_autoload.called)
-        self.assertIn(mock.call(VisionSystem, ids=[system.identifier]), mock_autoload.call_args_list)
-        self.assertIn(mock.call(ImageSource, ids=[image_source.identifier]), mock_autoload.call_args_list)
-        self.assertIn(mock.call(Metric, ids=[metric.identifier]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(VisionSystem, ids=[system.pk]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(ImageSource, ids=[image_source.pk]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(Metric, ids=[metric.pk]), mock_autoload.call_args_list)
 
     @mock.patch('arvet.batch_analysis.simple_experiment.autoload_modules', autospec=True)
     def test_load_referenced_models_does_nothing_to_models_that_are_already_objects(self, mock_autoload):

@@ -1,5 +1,6 @@
 import typing
 import bson
+import logging
 from secrets import randbits
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
@@ -87,11 +88,11 @@ class SimpleExperiment(Experiment):
             and (
                 (
                     system.is_deterministic() is StochasticBehaviour.DETERMINISTIC and
-                    len(trial_results[system.pk][image_source.pk]) == 1
+                    len(trial_results[system.pk][image_source.pk]) >= 1
                 ) or
                 (
                     system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC and
-                    len(trial_results[system.pk][image_source.pk]) == self.repeats
+                    len(trial_results[system.pk][image_source.pk]) >= self.repeats
                 )
             )
         ]
