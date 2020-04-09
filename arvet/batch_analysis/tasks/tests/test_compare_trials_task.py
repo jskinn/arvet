@@ -237,6 +237,52 @@ class TestCompareTrialsTaskDatabase(unittest.TestCase):
         # Clean up
         InitMonitoredResult.side_effect = None
 
+    @mock.patch('arvet.batch_analysis.tasks.compare_trials_task.autoload_modules')
+    def test_load_referenced_models_autoloads_models_that_are_just_ids(self, mock_autoload):
+        # Set up objects
+        obj = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.DONE,
+            result=self.metric_result
+        )
+        obj.save()
+        obj_id = obj.pk
+        del obj     # Clear existing references, which should reset the references to ids
+
+        obj = CompareTrialTask.objects.get({'_id': obj_id})
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(TrialComparisonMetric, [self.metric.pk]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(TrialComparisonResult, [self.metric_result.pk]), mock_autoload.call_args_list)
+
+        # Need to manually search, because the order of the keys may change
+        found_trial_result_call = False
+        for call_args in mock_autoload.call_args_list:
+            model, ids = call_args[0]
+            if model is TrialResult:
+                found_trial_result_call = True
+                self.assertEqual({self.trial_result_1.pk, self.trial_result_2.pk}, set(ids))
+        self.assertTrue(found_trial_result_call)
+
+    @mock.patch('arvet.batch_analysis.tasks.compare_trials_task.autoload_modules')
+    def test_load_referenced_models_does_nothing_to_models_that_are_already_objects(self, mock_autoload):
+        # Set up objects
+        obj = CompareTrialTask(
+            metric=self.metric,
+            trial_results_1=[self.trial_result_1],
+            trial_results_2=[self.trial_result_2],
+            state=JobState.DONE,
+            result=self.metric_result
+        )
+        obj.save()
+
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertFalse(mock_autoload.called)
+
 
 class InitMonitoredResult(TrialComparisonResult):
     side_effect = None

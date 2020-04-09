@@ -28,6 +28,23 @@ class CompareTrialTask(arvet.batch_analysis.task.Task):
     def get_unique_name(self) -> str:
         return "compare_trials_{0}".format(self.pk)
 
+    def load_referenced_models(self) -> None:
+        """
+        Load the metric, trial, and result types so we can save the task
+        :return:
+        """
+        with no_auto_dereference(CompareTrialTask):
+            if isinstance(self.metric, bson.ObjectId):
+                # The metric is just an ID, we will need the model to
+                autoload_modules(TrialComparisonMetric, [self.metric])
+            trials_to_load = {trial_id for trial_id in self.trial_results_1 if isinstance(trial_id, bson.ObjectId)}
+            trials_to_load |= {trial_id for trial_id in self.trial_results_2 if isinstance(trial_id, bson.ObjectId)}
+            if len(trials_to_load) > 0:
+                autoload_modules(TrialResult, list(trials_to_load))
+            if isinstance(self.result, bson.ObjectId):
+                # result is an id and not a model, autoload the model
+                autoload_modules(TrialComparisonResult, [self.result])
+
     def run_task(self, path_manager: PathManager) -> None:
         import traceback
 

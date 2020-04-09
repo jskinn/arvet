@@ -139,6 +139,15 @@ class TestTask(unittest.TestCase):
         self.assertIsNone(subject.node_id)
         self.assertIsNone(subject.job_id)
 
+    def test_mark_job_failed_increases_failed_count(self):
+        subject = MockTask(state=task.JobState.RUNNING, node_id='test', job_id=5, failure_count=4)
+        self.assertFalse(subject.is_unstarted)
+        self.assertTrue(subject.is_running)
+        subject.mark_job_failed()
+        self.assertTrue(subject.is_unstarted)
+        self.assertFalse(subject.is_running)
+        self.assertEqual(5, subject.failure_count)
+
     def test_mark_job_failed_doesnt_affect_unstarted_jobs(self):
         subject = MockTask(state=task.JobState.UNSTARTED)
         self.assertTrue(subject.is_unstarted)
@@ -146,6 +155,7 @@ class TestTask(unittest.TestCase):
         subject.mark_job_failed()
         self.assertTrue(subject.is_unstarted)
         self.assertFalse(subject.is_finished)
+        self.assertEqual(0, subject.failure_count)
 
     def test_mark_job_failed_doesnt_affect_finished_jobs(self):
         subject = MockTask(state=task.JobState.DONE)

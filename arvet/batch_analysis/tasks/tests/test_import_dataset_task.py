@@ -13,8 +13,8 @@ import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image_source import ImageSource
-import arvet.core.image as im
-import arvet.core.image_collection as ic
+from arvet.core.image import Image
+from arvet.core.image_collection import ImageCollection
 from arvet.batch_analysis.task import Task, JobState
 from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
 import arvet.batch_analysis.tasks.tests.mock_importer as mock_importer
@@ -33,7 +33,7 @@ class TestImportDatasetTaskDatabase(unittest.TestCase):
         cls.image = mock_types.make_image()
         cls.image.save()
 
-        cls.image_collection = ic.ImageCollection(
+        cls.image_collection = ImageCollection(
             images=[cls.image],
             timestamps=[1.2],
             sequence_type=ImageSequenceType.SEQUENTIAL
@@ -41,15 +41,15 @@ class TestImportDatasetTaskDatabase(unittest.TestCase):
         cls.image_collection.save()
 
     def setUp(self):
-        # Remove the collection as the start of the test, so that we're sure it's empty
-        Task._mongometa.collection.drop()
+        # Remove all the tasks at the start of each test
+        Task.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
         Task._mongometa.collection.drop()
-        im.Image._mongometa.collection.drop()
-        ic.ImageCollection._mongometa.collection.drop()
+        Image._mongometa.collection.drop()
+        ImageSource._mongometa.collection.drop()
         if os.path.isfile(dbconn.image_file):
             os.remove(dbconn.image_file)
 
@@ -183,6 +183,41 @@ class TestImportDatasetTaskDatabase(unittest.TestCase):
 
         # Clean up
         InitMonitoredImageSource.side_effect = None
+        result.delete()
+
+    @mock.patch('arvet.batch_analysis.tasks.import_dataset_task.autoload_modules')
+    def test_load_referenced_models_autoloads_models_that_are_just_ids(self, mock_autoload):
+        # Set up objects
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.DONE,
+            result=self.image_collection
+        )
+        obj.save()
+        obj_id = obj.pk
+        del obj     # Clear existing references, which should reset the references to ids
+
+        obj = ImportDatasetTask.objects.get({'_id': obj_id})
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(ImageSource, [self.image_collection.pk]), mock_autoload.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.tasks.import_dataset_task.autoload_modules')
+    def test_load_referenced_models_does_nothing_to_models_that_are_already_objects(self, mock_autoload):
+        # Set up objects
+        obj = ImportDatasetTask(
+            module_name='test.MyTestImporter',
+            path='/dev/null',
+            state=JobState.DONE,
+            result=self.image_collection
+        )
+        obj.save()
+
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertFalse(mock_autoload.called)
 
 
 class InitMonitoredImageSource(mock_types.MockImageSource):
@@ -204,7 +239,7 @@ class TestImportDatasetTask(unittest.TestCase):
         self.path_manager = PathManager(['~'], '~/tmp')
         mock_importer.reset()
         image = mock_types.make_image()
-        self.image_collection = ic.ImageCollection(
+        self.image_collection = ImageCollection(
             images=[image],
             timestamps=[1.2],
             sequence_type=ImageSequenceType.SEQUENTIAL

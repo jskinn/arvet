@@ -24,6 +24,16 @@ class ImportDatasetTask(Task):
             return 'import_{0}_{1}'.format(name, self.pk)
         return "import_{0}".format(self.pk)
 
+    def load_referenced_models(self) -> None:
+        """
+        Load the result type so we can save the task
+        :return:
+        """
+        with no_auto_dereference(ImportDatasetTask):
+            if isinstance(self.result, bson.ObjectId):
+                # result is an id and not a model, autoload the model
+                autoload_modules(ImageSource, [self.result])
+
     def run_task(self, path_manager: PathManager):
         import logging
         import traceback

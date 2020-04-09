@@ -59,6 +59,19 @@ class RunSystemTask(arvet.batch_analysis.task.Task):
         system_name = system_name.split('.')[-1]
         return "run_{0}_{1}".format(system_name, self.pk)
 
+    def load_referenced_models(self) -> None:
+        """
+        Load the system, image source, and result types so we can save the task
+        :return:
+        """
+        with no_auto_dereference(RunSystemTask):
+            if isinstance(self.system, bson.ObjectId):
+                autoload_modules(VisionSystem, [self.system])
+            if isinstance(self.image_source, bson.ObjectId):
+                autoload_modules(ImageSource, [self.image_source])
+            if isinstance(self.result, bson.ObjectId):
+                autoload_modules(TrialResult, [self.result])
+
     def run_task(self, path_manager: PathManager):
         import traceback
 

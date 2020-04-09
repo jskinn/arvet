@@ -45,6 +45,7 @@ class Task(pymodm.MongoModel, metaclass=ABCModelMeta):
     state = EnumField(JobState, required=True)
     node_id = fields.CharField(blank=True)
     job_id = fields.IntegerField(blank=True)
+    failure_count = fields.IntegerField(default=0)
     num_cpus = fields.IntegerField(default=1, min_value=1)
     num_gpus = fields.IntegerField(default=0, min_value=0)
     memory_requirements = fields.CharField(default='3GB')
@@ -84,6 +85,15 @@ class Task(pymodm.MongoModel, metaclass=ABCModelMeta):
         :return: True iff the task has been completed
         """
         return JobState.DONE == self.state
+
+    def load_referenced_models(self) -> None:
+        """
+        Auto-load referenced model types.
+        This allows the task to be manipulated and saved when it references models that have not been loaded yet.
+        The default task does not reference any models, so this does nothing.
+        :return: void
+        """
+        pass
 
     @abc.abstractmethod
     def run_task(self, path_manager: PathManager) -> None:
@@ -147,3 +157,4 @@ class Task(pymodm.MongoModel, metaclass=ABCModelMeta):
             self.state = JobState.UNSTARTED
             self.node_id = None
             self.job_id = None
+            self.failure_count += 1

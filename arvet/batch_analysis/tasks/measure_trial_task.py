@@ -53,6 +53,22 @@ class MeasureTrialTask(arvet.batch_analysis.task.Task):
     def get_unique_name(self) -> str:
         return "measure_{0}".format(self.pk)
 
+    def load_referenced_models(self) -> None:
+        """
+        Load the metric, trial, and result types so we can save the task
+        :return:
+        """
+        with no_auto_dereference(MeasureTrialTask):
+            if isinstance(self.metric, bson.ObjectId):
+                # The metric is just an ID, we will need the model to
+                autoload_modules(Metric, [self.metric])
+            trials_to_load = [trial_id for trial_id in self.trial_results if isinstance(trial_id, bson.ObjectId)]
+            if len(trials_to_load) > 0:
+                autoload_modules(TrialResult, trials_to_load)
+            if isinstance(self.result, bson.ObjectId):
+                # result is an id and not a model, autoload the model
+                autoload_modules(MetricResult, [self.result])
+
     def run_task(self, path_manager: PathManager) -> None:
         import traceback
 

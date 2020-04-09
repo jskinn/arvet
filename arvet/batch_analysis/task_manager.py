@@ -236,6 +236,7 @@ def schedule_tasks(job_system: JobSystem,
     for task in all_running:
         if not job_system.is_job_running(task.job_id):
             # Task should be running, but job system says it isn't re-run
+            task.load_referenced_models()   # This ensures that the task can be saved later
             task.mark_job_failed()
             task.save()
 
@@ -245,6 +246,7 @@ def schedule_tasks(job_system: JobSystem,
         query['_id'] = {'$in': list(task_ids)}
     all_available = Task.objects.raw(query)
     for task in all_available:
+        task.load_referenced_models()
         job_system.run_task(task)
 
 

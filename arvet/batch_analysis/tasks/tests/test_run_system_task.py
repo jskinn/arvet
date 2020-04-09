@@ -32,8 +32,8 @@ class TestRunSystemTaskDatabase(unittest.TestCase):
         cls.trial_result.save()
 
     def setUp(self):
-        # Remove the collection as the start of the test, so that we're sure it's empty
-        Task._mongometa.collection.drop()
+        # Remove all the tasks at the start of each test
+        Task.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
@@ -204,6 +204,42 @@ class TestRunSystemTaskDatabase(unittest.TestCase):
 
         # Clean up
         InitMonitoredResult.side_effect = None
+
+    @mock.patch('arvet.batch_analysis.tasks.run_system_task.autoload_modules')
+    def test_load_referenced_models_autoloads_models_that_are_just_ids(self, mock_autoload):
+        # Set up objects
+        obj = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        obj.save()
+        obj_id = obj.pk
+        del obj     # Clear existing references, which should reset the references to ids
+
+        obj = RunSystemTask.objects.get({'_id': obj_id})
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(VisionSystem, [self.system.pk]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(ImageSource, [self.image_source.pk]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(TrialResult, [self.trial_result.pk]), mock_autoload.call_args_list)
+
+    @mock.patch('arvet.batch_analysis.tasks.run_system_task.autoload_modules')
+    def test_load_referenced_models_does_nothing_to_models_that_are_already_objects(self, mock_autoload):
+        # Set up objects
+        obj = RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            state=JobState.DONE,
+            result=self.trial_result
+        )
+        obj.save()
+
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertFalse(mock_autoload.called)
 
 
 class InitMonitoredResult(mock_types.MockTrialResult):
