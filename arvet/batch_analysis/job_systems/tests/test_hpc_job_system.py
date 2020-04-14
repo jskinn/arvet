@@ -1006,6 +1006,35 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_file = mock_open()
         self.assertFalse(mock_file.write.called)
 
+    @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
+    def test_run_queued_jobs_submits_least_failed_jobs_first(self, mock_run):
+        task_1 = make_mock_task()
+        task_1.failure_count = 10
+        task_2 = make_mock_task()
+        task_2.failure_count = 0
+        task_3 = make_mock_task()
+        task_3.failure_count = 4
+
+        mock_open = mock.mock_open()
+        patch_subprocess(mock_run, num_jobs=0)
+        subject = hpc.HPCJobSystem({'max_jobs': 2}, 'myconf.yml')
+        subject.run_task(task_1)
+        subject.run_task(task_2)
+        subject.run_task(task_3)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
+                           spec=ImportDatasetTask.objects) as mock_idt_obj:
+            patch_import_dataset_objects_count(mock_idt_obj)
+            subject.run_queued_jobs()
+        self.assertEqual(2, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
+        self.assertIn(mock.call(['qsub', subject._job_folder / (task_2.get_unique_name() + '.sub')],
+                                stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
+        self.assertIn(mock.call(['qsub', subject._job_folder / (task_3.get_unique_name() + '.sub')],
+                                stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
+        self.assertFalse(task_1.mark_job_started.called)
+        self.assertTrue(task_2.mark_job_started.called)
+        self.assertTrue(task_3.mark_job_started.called)
+
 
 def patch_subprocess_qjobs(mock_subprocess_run: mock.Mock, num_jobs=4):
     mock_completed_process = mock.Mock()

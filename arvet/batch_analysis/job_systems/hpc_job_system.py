@@ -6,6 +6,7 @@ import subprocess
 import re
 import bson
 from pathlib import Path
+from operator import attrgetter
 from functools import partial
 import arvet.batch_analysis.job_system
 from arvet.batch_analysis.task import Task, JobState
@@ -247,9 +248,9 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 )
             self._scripts_to_run = []
 
-            # Submit jobs for tasks that don't import
+            # Submit jobs for tasks that don't import, starting with those that have failed the least
             logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
-            for task in self._tasks_to_run:
+            for task in sorted(self._tasks_to_run, key=attrgetter('failure_count')):
                 job_id = self._create_and_run_script(
                     scripts=[(
                         Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
