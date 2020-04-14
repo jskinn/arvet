@@ -72,11 +72,14 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :param display: Should the plot be displayed to the screen. Default false.
         :return: Nothing
         """
-        # First, autoload the plot modules
+        # First, autoload the plot and result modules, to prevent a crash
         with no_auto_dereference(type(self)):
             plot_ids = set(plot_id for plot_id in self.plots if isinstance(plot_id, bson.ObjectId))
+            result_ids = set(result_id for result_id in self.metric_results if isinstance(result_id, bson.ObjectId))
         if len(plot_ids) > 0:
             autoload_modules(Plot, ids=list(plot_ids))
+        if len(result_ids) > 0:
+            autoload_modules(MetricResult, ids=list(result_ids))
 
         # Clean out null plots and other pulled references
         self.clean_references()

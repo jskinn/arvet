@@ -239,8 +239,6 @@ class TestExperimentDatabase(unittest.TestCase):
         del obj  # Clear existing references, which should reset the references to ids
 
         obj = MockExperiment.objects.get({'_id': object_id})
-        with no_auto_dereference(MockExperiment):
-            print(obj.plots)
         self.assertFalse(mock_autoload.called)
         obj.plot_results(self.output_dir)
         self.assertTrue(mock_autoload.called)
@@ -257,6 +255,42 @@ class TestExperimentDatabase(unittest.TestCase):
         self.assertFalse(mock_autoload.called)
         obj.plot_results(self.output_dir)
         self.assertFalse(mock_autoload.called)
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_plot_results_autoloads_metric_results(self, mock_autoload):
+        metric = mock_types.MockMetric()
+        metric.save()
+        system = mock_types.MockSystem()
+        system.save()
+        image_source = mock_types.MockImageSource()
+        image_source.save()
+        trial_result = mock_types.MockTrialResult(system=system, image_source=image_source, success=True)
+        trial_result.save()
+
+        result = mock_types.MockMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result.save()
+        result_id = result.pk
+        obj = MockExperiment(
+            name="TestExperiment",
+            metric_results=[result]
+        )
+        obj.save()
+        object_id = obj.pk
+        del result
+        del obj  # Clear existing references, which should reset the references to ids
+
+        obj = MockExperiment.objects.get({'_id': object_id})
+        self.assertFalse(mock_autoload.called)
+        obj.plot_results(self.output_dir)
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(MetricResult, ids=[result_id]), mock_autoload.call_args_list)
+
+        # Clean up
+        trial_result.delete()
+        system.delete()
+        metric.delete()
+        image_source.delete()
+        obj.delete()
 
     @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
     def test_get_data_only_loads_one_result_at_a_time(self, mock_autoload):
