@@ -1,6 +1,5 @@
 import typing
 import bson
-import logging
 from secrets import randbits
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
@@ -115,6 +114,9 @@ class SimpleExperiment(Experiment):
         This is necessary or accessing any of the reference fields will cause an exception
         :return:
         """
+        # Load superclass models
+        super(SimpleExperiment, self).load_referenced_models()
+
         # Load system models
         with no_auto_dereference(type(self)):
             model_ids = set(sys_id for sys_id in self.systems if isinstance(sys_id, bson.ObjectId))

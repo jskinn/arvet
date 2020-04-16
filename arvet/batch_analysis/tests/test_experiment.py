@@ -6,7 +6,6 @@ import unittest.mock as mock
 from pathlib import Path
 from shutil import rmtree
 from pandas import DataFrame
-from pymodm.context_managers import no_auto_dereference
 
 import arvet.database.tests.database_connection as dbconn
 import arvet.database.image_manager as im_manager
@@ -223,6 +222,77 @@ class TestExperimentDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0], obj)
         all_entities[0].delete()
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_load_referenced_models_autoloads_models_that_are_just_ids(self, mock_autoload):
+        plot = MockPlot(name='TestPlot')
+        plot.save()
+        plot_id = plot.pk
+
+        metric = mock_types.MockMetric()
+        metric.save()
+        system = mock_types.MockSystem()
+        system.save()
+        image_source = mock_types.MockImageSource()
+        image_source.save()
+        trial_result = mock_types.MockTrialResult(system=system, image_source=image_source, success=True)
+        trial_result.save()
+
+        result = mock_types.MockMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result.save()
+        result_id = result.pk
+        obj = MockExperiment(
+            name="TestExperiment",
+            metric_results=[result],
+            plots=[plot]
+        )
+        obj.save()
+        object_id = obj.pk
+        del obj  # Clear existing references, which should reset the references to ids
+
+        obj = MockExperiment.objects.get({'_id': object_id})
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertTrue(mock_autoload.called)
+        self.assertIn(mock.call(MetricResult, ids=[result_id]), mock_autoload.call_args_list)
+        self.assertIn(mock.call(Plot, ids=[plot_id]), mock_autoload.call_args_list)
+
+        # Clean up
+        result.delete()
+        plot.delete()
+        trial_result.delete()
+        system.delete()
+        metric.delete()
+        image_source.delete()
+        obj.delete()
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_load_referenced_models_does_nothing_to_models_that_are_already_objects(self, mock_autoload):
+        plot = MockPlot(name='TestPlot')
+        plot.save()
+
+        metric = mock_types.MockMetric()
+        metric.save()
+        system = mock_types.MockSystem()
+        system.save()
+        image_source = mock_types.MockImageSource()
+        image_source.save()
+        trial_result = mock_types.MockTrialResult(system=system, image_source=image_source, success=True)
+        trial_result.save()
+
+        result = mock_types.MockMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result.save()
+
+        obj = MockExperiment(
+            name="TestExperiment",
+            metric_results=[result],
+            plots=[plot]
+        )
+        obj.save()
+
+        self.assertFalse(mock_autoload.called)
+        obj.load_referenced_models()
+        self.assertFalse(mock_autoload.called)
 
     @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
     def test_plot_results_autoloads_plots(self, mock_autoload):

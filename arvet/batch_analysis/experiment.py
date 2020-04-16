@@ -42,6 +42,25 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
+    def load_referenced_models(self):
+        """
+        Go through the models referenced by this experiment and ensure their model types have been loaded.
+        This is necessary or accessing any of the reference fields will cause an exception.
+        Clean references will access the metric results and plots, so we want to ensure that those models are loaded.
+        :return:
+        """
+        # Load metric result models
+        with no_auto_dereference(type(self)):
+            model_ids = set(result_id for result_id in self.metric_results if isinstance(result_id, bson.ObjectId))
+        if len(model_ids) > 0:
+            autoload_modules(MetricResult, ids=list(model_ids))
+
+        # Load plot models
+        with no_auto_dereference(type(self)):
+            model_ids = set(plot_id for plot_id in self.plots if isinstance(plot_id, bson.ObjectId))
+        if len(model_ids) > 0:
+            autoload_modules(Plot, ids=list(model_ids))
+
     def clean_references(self):
         """
         Clean up our lists of systems, image sources, and metrics.
@@ -73,13 +92,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :return: Nothing
         """
         # First, autoload the plot and result modules, to prevent a crash
-        with no_auto_dereference(type(self)):
-            plot_ids = set(plot_id for plot_id in self.plots if isinstance(plot_id, bson.ObjectId))
-            result_ids = set(result_id for result_id in self.metric_results if isinstance(result_id, bson.ObjectId))
-        if len(plot_ids) > 0:
-            autoload_modules(Plot, ids=list(plot_ids))
-        if len(result_ids) > 0:
-            autoload_modules(MetricResult, ids=list(result_ids))
+        self.load_referenced_models()
 
         # Clean out null plots and other pulled references
         self.clean_references()
