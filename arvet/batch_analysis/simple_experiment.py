@@ -114,9 +114,6 @@ class SimpleExperiment(Experiment):
         This is necessary or accessing any of the reference fields will cause an exception
         :return:
         """
-        # Load superclass models
-        super(SimpleExperiment, self).load_referenced_models()
-
         # Load system models
         with no_auto_dereference(type(self)):
             model_ids = set(sys_id for sys_id in self.systems if isinstance(sys_id, bson.ObjectId))
@@ -134,6 +131,9 @@ class SimpleExperiment(Experiment):
             model_ids = set(metric_id for metric_id in self.metrics if isinstance(metric_id, bson.ObjectId))
         if len(model_ids) > 0:
             autoload_modules(Metric, ids=list(model_ids))
+
+        # Load superclass models - which may reference the types we just loaded, so we do that first
+        super(SimpleExperiment, self).load_referenced_models()
 
     def clean_references(self):
         """
