@@ -108,7 +108,7 @@ class MockMetric(arvet.core.metric.Metric):
         pass
 
     def get_properties(self, columns=None):
-        pass
+        return {}
 
 
 class MockMetricResult(arvet.core.metric.MetricResult):
