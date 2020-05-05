@@ -13,7 +13,7 @@ with open(path.join(here, 'README.rst'), 'r', encoding='utf-8') as f:
 
 setup(
     name='arvet',
-    version='2.0.5',
+    version='2.0.6',
     description='Framework and utilities for performing robotic vision experiments',
     long_description=long_description,
     author='John Skinner',

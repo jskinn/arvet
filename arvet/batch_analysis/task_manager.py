@@ -83,17 +83,17 @@ def get_run_system_task(
         system = system.identifier
     else:
         if VisionSystem.objects.raw({'_id': system}).count() < 1:
-            raise ValueError("system is not a valid VisionSystem id")
+            raise ValueError(f"system \"{system}\" is not a valid VisionSystem id")
         system_classes = get_model_classes(VisionSystem, [system])
         if len(system_classes) >= 1:
             use_seed = (system_classes[0].is_deterministic() is StochasticBehaviour.SEEDED)
             use_repeat = (system_classes[0].is_deterministic() is not StochasticBehaviour.DETERMINISTIC)
         else:
-            raise ValueError("Could not load class for system {0}".format(system))
+            raise ValueError(f"Could not load class for system {system}")
     if isinstance(image_source, ImageSource):
         image_source = image_source.identifier
     elif ImageSource.objects.raw({'_id': image_source}).count() < 1:
-        raise ValueError("image_source is not a valid ImageSource id")
+        raise ValueError(f"image_source \"{image_source}\" is not a valid ImageSource id")
 
     query = {
         'system': system,
@@ -142,11 +142,11 @@ def get_measure_trial_task(
         for trial_result in trial_results
     ]
     if TrialResult.objects.raw({'_id': {'$in': trial_results}}).count() < len(trial_results):
-        raise ValueError('trial_results contains invalid trial result id')
+        raise ValueError(f'trial_results "{trial_results}" contains invalid trial result id')
     if isinstance(metric, Metric):
         metric = metric.identifier
     elif Metric.objects.raw({'_id': metric}).count() < 1:
-        raise ValueError("metric is not a valid Metric id")
+        raise ValueError(f"metric \"{metric}\" is not a valid Metric id")
     try:
         return MeasureTrialTask.objects.get({
             'trial_results': {'$all': trial_results},
@@ -192,13 +192,13 @@ def get_trial_comparison_task(
         for trial_result in trial_results_2
     ]
     if TrialResult.objects.raw({'_id': {'$in': trial_results_1}}).count() < len(trial_results_1):
-        raise ValueError('trial_results_1 contains invalid trial result id')
+        raise ValueError(f'trial_results_1 \"{trial_results_1}\" contains invalid trial result id')
     if TrialResult.objects.raw({'_id': {'$in': trial_results_2}}).count() < len(trial_results_2):
-        raise ValueError('trial_results_2 contains invalid trial result id')
+        raise ValueError(f'trial_results_2 \"{trial_results_2}\" contains invalid trial result id')
     if isinstance(comparison_metric, TrialComparisonMetric):
         comparison_metric = comparison_metric.identifier
     elif TrialComparisonMetric.objects.raw({'_id': comparison_metric}).count() < 1:
-        raise ValueError("metric is not a valid Metric id")
+        raise ValueError(f"metric \"{comparison_metric}\" is not a valid Metric id")
 
     try:
         return CompareTrialTask.objects.get({

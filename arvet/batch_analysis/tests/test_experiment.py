@@ -690,6 +690,54 @@ class TestRunAllDatabase(unittest.TestCase):
                         existing_results[system.identifier][image_source.identifier][repeat].identifier
                     )
 
+    def test_resets_tasks_with_no_result(self):
+        repeats = 3
+        expected_pending = 0
+        RunSystemTask.objects.all().delete()
+        for sys_idx, system in enumerate(self.systems):
+            for img_source_idx, image_source in enumerate(self.image_sources):
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats
+                for repeat_idx in range(actual_repeats):
+                    task = RunSystemTask(
+                        system=system,
+                        image_source=image_source,
+                        repeat=repeat_idx,
+                        state=JobState.DONE
+                    )
+                    if (sys_idx * len(self.image_sources) * actual_repeats +
+                            img_source_idx * actual_repeats + repeat_idx) % 3 == 2:
+                        trial_result = mock_types.MockTrialResult(
+                            system=system,
+                            image_source=image_source,
+                            success=True
+                        )
+                        trial_result.save()
+                        task.result = trial_result
+                    else:
+                        expected_pending += 1
+                    task.save()
+
+        _, pending = ex.run_all(self.systems, self.image_sources, repeats)
+
+        self.assertEqual(expected_pending, pending)
+        for sys_idx, system in enumerate(self.systems):
+            for img_source_idx, image_source in enumerate(self.image_sources):
+                actual_repeats = 1 if system.is_deterministic() is StochasticBehaviour.DETERMINISTIC else repeats
+                for repeat_idx in range(actual_repeats):
+                    task = RunSystemTask.objects.get({
+                        'system': system.identifier,
+                        'image_source': image_source.identifier,
+                        'repeat': repeat_idx
+                    })
+                    if (sys_idx * len(self.image_sources) * actual_repeats +
+                            img_source_idx * actual_repeats + repeat_idx) % 3 == 2:
+                        self.assertTrue(task.is_finished)
+                        self.assertIsNotNone(task.result)
+                    else:
+                        # Unfinished tasks should have their requirements updated
+                        self.assertFalse(task.is_finished)
+                        self.assertIsNone(task.result)
+
 
 @unittest.skip("Not running profiling")
 class TestRunAllDatabaseProfile(unittest.TestCase):
@@ -984,6 +1032,53 @@ class TestRunAllWithSeedsDatabase(unittest.TestCase):
                         existing_results[system.identifier][image_source.identifier][seed_idx].identifier
                     )
 
+    def test_resets_tasks_with_no_result(self):
+        seeds = [1560, 107895, 50782]
+        self.assertEqual(0, RunSystemTask.objects.all().count())
+
+        expected_pending = 0
+        for sys_idx, system in enumerate(self.systems):
+            for img_source_idx, image_source in enumerate(self.image_sources):
+                for seed in seeds:
+                    task = RunSystemTask(
+                        system=system,
+                        image_source=image_source,
+                        repeat=0,
+                        seed=seed,
+                        state=JobState.DONE
+                    )
+                    if (sys_idx * len(self.image_sources) + img_source_idx + seed) % 3 == 2:
+                        trial_result = mock_types.MockTrialResult(
+                            system=system,
+                            image_source=image_source,
+                            success=True
+                        )
+                        trial_result.save()
+                        task.result = trial_result
+                    else:
+                        expected_pending += 1
+                    task.save()
+
+        _, pending = ex.run_all_with_seeds(self.systems, self.image_sources, seeds)
+
+        self.assertEqual(expected_pending, pending)
+        for sys_idx, system in enumerate(self.systems):
+            for img_source_idx, image_source in enumerate(self.image_sources):
+                for seed in seeds:
+                    task = RunSystemTask.objects.get({
+                        'system': system.identifier,
+                        'image_source': image_source.identifier,
+                        'repeat': 0,
+                        'seed': seed
+                    })
+                    if (sys_idx * len(self.image_sources) + img_source_idx + seed) % 3 == 2:
+                        self.assertTrue(task.is_finished)
+                        self.assertIsNotNone(task.result)
+                    else:
+                        # Unfinished tasks should have their requirements updated
+                        self.assertFalse(task.is_finished)
+                        self.assertIsNone(task.result)
+
 
 class TestMeasureAllDatabase(unittest.TestCase):
     systems = None
@@ -1127,6 +1222,15 @@ class TestMeasureAllDatabase(unittest.TestCase):
                     memory_requirements=existing_memory,
                     expected_duration=existing_duration
                 )
+                if job_state is JobState.DONE:
+                    # Metric results cannot be none
+                    metric_result = mock_types.MockMetricResult(
+                        metric=metric,
+                        trial_results=tr_group,
+                        success=True
+                    )
+                    metric_result.save()
+                    task.result = metric_result
                 task.save()
 
         _, pending = ex.measure_all(
@@ -1231,6 +1335,57 @@ class TestMeasureAllDatabase(unittest.TestCase):
                     metric_results[metric.identifier][tr_idx],
                     existing_results[metric.identifier][tr_idx].identifier
                 )
+
+    def test_resets_complete_tasks_with_no_result(self):
+        expected_pending = 0
+        removed_ids = set()
+        kept_ids = set()
+        self.assertEqual(0, MeasureTrialTask.objects.all().count())
+        for idx1, metric in enumerate(self.metrics):
+            for idx2, tr_group in enumerate(self.trial_result_groups):
+                task = MeasureTrialTask(
+                    metric=metric,
+                    trial_results=tr_group,
+                    state=JobState.DONE
+                )
+                if (idx1 * len(self.trial_result_groups) + idx2) % 3 == 2:
+                    # Metric results cannot be none
+                    metric_result = mock_types.MockMetricResult(
+                        metric=metric,
+                        trial_results=tr_group,
+                        success=True
+                    )
+                    metric_result.save()
+                    task.result = metric_result
+                else:
+                    expected_pending += 1
+                task.save()
+                if task.result is None:
+                    removed_ids.add(task.pk)
+                else:
+                    kept_ids.add(task.pk)
+
+        _, pending = ex.measure_all(self.metrics, self.trial_result_groups)
+
+        self.assertEqual(expected_pending, pending)
+        self.assertEqual(0, MeasureTrialTask.objects.raw({
+            '_id': {'$in': list(removed_ids)}
+        }).count())
+        for idx1, metric in enumerate(self.metrics):
+            for idx2, trial_result_group in enumerate(self.trial_result_groups):
+                task = MeasureTrialTask.objects.get({
+                    'metric': metric.identifier,
+                    'trial_results': {'$all': [tr.identifier for tr in trial_result_group]}
+                })
+                if (idx1 * len(self.trial_result_groups) + idx2) % 3 == 2:
+                    # These tasks are valid, and should be retained
+                    self.assertTrue(task.is_finished)
+                    self.assertIn(task.pk, kept_ids)
+                    self.assertIsNotNone(task.result)
+                else:
+                    # These should be new tasks
+                    self.assertFalse(task.is_finished)
+                    self.assertNotIn(task.pk, kept_ids | removed_ids)
 
 
 def make_image_collection(length=3) -> ImageCollection:

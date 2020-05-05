@@ -182,11 +182,27 @@ def run_all(
                         expected_duration=expected_duration
                     )
                     if task.is_finished:
-                        if system.identifier not in trial_results:
-                            trial_results[system.identifier] = {}
-                        if image_source.identifier not in trial_results[system.identifier]:
-                            trial_results[system.identifier][image_source.identifier] = []
-                        trial_results[system.identifier][image_source.identifier].append(task.get_result())
+                        result = task.get_result()
+                        if result is None:
+                            # Task was finished, but has since been deleted. Re-create the task as unfinished.
+                            task.delete()
+                            task = task_manager.get_run_system_task(
+                                system=system,
+                                image_source=image_source,
+                                repeat=repeat,
+                                num_cpus=num_cpus, num_gpus=num_gpus,
+                                memory_requirements=memory_requirements,
+                                expected_duration=expected_duration
+                            )
+                            remaining += 1
+                            task.save()
+                        else:
+                            # Got a valid trial result
+                            if system.identifier not in trial_results:
+                                trial_results[system.identifier] = {}
+                            if image_source.identifier not in trial_results[system.identifier]:
+                                trial_results[system.identifier][image_source.identifier] = []
+                            trial_results[system.identifier][image_source.identifier].append(result)
                     else:
                         remaining += 1
                         changed = False
@@ -242,11 +258,28 @@ def run_all_with_seeds(
                         expected_duration=expected_duration
                     )
                     if task.is_finished:
-                        if system.pk not in trial_results:
-                            trial_results[system.pk] = {}
-                        if image_source.pk not in trial_results[system.pk]:
-                            trial_results[system.pk][image_source.pk] = []
-                        trial_results[system.pk][image_source.pk].append(task.get_result())
+                        result = task.get_result()
+                        if result is None:
+                            # Task finished, but the result has since been deleted. Delete and re-create the task
+                            task.delete()
+                            task = task_manager.get_run_system_task(
+                                system=system,
+                                image_source=image_source,
+                                repeat=0,
+                                seed=seed,
+                                num_cpus=num_cpus, num_gpus=num_gpus,
+                                memory_requirements=memory_requirements,
+                                expected_duration=expected_duration
+                            )
+                            remaining += 1
+                            task.save()
+                        else:
+                            # Job is done, add the trial result to the map
+                            if system.pk not in trial_results:
+                                trial_results[system.pk] = {}
+                            if image_source.pk not in trial_results[system.pk]:
+                                trial_results[system.pk][image_source.pk] = []
+                            trial_results[system.pk][image_source.pk].append(result)
                     else:
                         remaining += 1
                         changed = False
@@ -296,9 +329,23 @@ def measure_all(
                     expected_duration=expected_duration
                 )
                 if task.is_finished:
-                    if metric.identifier not in metric_results:
-                        metric_results[metric.identifier] = []
-                    metric_results[metric.identifier].append(task.get_result())
+                    result = task.get_result()
+                    if result is None:
+                        # Metric result was since deleted, delete and re-create the task
+                        task.delete()
+                        task = task_manager.get_measure_trial_task(
+                            trial_results=trial_results,
+                            metric=metric,
+                            num_cpus=num_cpus, num_gpus=num_gpus,
+                            memory_requirements=memory_requirements,
+                            expected_duration=expected_duration
+                        )
+                        task.save()
+                        remaining += 1
+                    else:
+                        if metric.identifier not in metric_results:
+                            metric_results[metric.identifier] = []
+                        metric_results[metric.identifier].append(result)
                 else:
                     remaining += 1
                     changed = False
