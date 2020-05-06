@@ -476,6 +476,53 @@ class TestSimpleExperiment(unittest.TestCase):
             self.assertIn(metric_result, subject.metric_results)
 
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
+    def test_schedule_tasks_discards_old_metric_results(self, mock_task_manager):
+        systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
+        systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
+                                                           return_value=StochasticBehaviour.NON_DETERMINISTIC)
+        image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(3)]
+        metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(3)]
+        repeats = 2
+
+        trial_results_map = make_trial_map(systems, image_sources, repeats)
+        make_mock_get_run_system_task(mock_task_manager, trial_results_map)
+
+        old_metric_results = [
+            mock_core.MockMetricResult(_id=ObjectId(), success=True)
+        ]
+        metric_results = []
+
+        def mock_get_measure_trial_task(trial_results, metric, *_, **__):
+            result = mock_core.MockMetricResult(
+                _id=ObjectId(),
+                metric=metric,
+                trial_results=trial_results,
+                success=True
+            )
+            metric_results.append(result)
+            mock_task = mock.MagicMock()
+            mock_task.is_finished = True
+            mock_task.get_result.return_value = result
+            return mock_task
+
+        mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
+
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            systems=systems,
+            image_sources=image_sources,
+            metrics=metrics,
+            repeats=repeats,
+            metric_results=old_metric_results
+        )
+        subject.schedule_tasks()
+
+        for metric_result in metric_results:
+            self.assertIn(metric_result, subject.metric_results)
+        for metric_result in old_metric_results:
+            self.assertNotIn(metric_result, subject.metric_results)
+
+    @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
     def test_schedule_tasks_uses_measure_trial_tasks_correctly(self, mock_task_manager):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(1)]
         image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(1)]

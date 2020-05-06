@@ -103,7 +103,9 @@ class SimpleExperiment(Experiment):
             memory_requirements=self.measure_memory,
             expected_duration=self.measure_duration
         )
-        self.metric_results.extend(
+        # The results for this experiment must be only and exactly what is returned from measure_all
+        # so that if a system or image source is removed from the experiment, its results don't contaminate the output
+        self.metric_results = list(
             metric_result for metric_result_list in metric_results.values()
             for metric_result in metric_result_list
         )
