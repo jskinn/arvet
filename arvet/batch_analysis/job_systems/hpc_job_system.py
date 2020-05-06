@@ -34,13 +34,13 @@ GPU_ARGS_TEMPLATE = """
 
 SSH_TUNNEL_PREFIX = """
 ssh -nN -i {ssh_key} -L {local_port}:localhost:27017 {username}@{hostname} &
-echo $! > {job_name}-{local_port}.ssh.pid
+echo $! > {job_folder}/{job_name}-{local_port}.ssh.pid
 """
 
 
 SSH_TUNNEL_SUFFIX = """
-cat {job_name}-{local_port}.ssh.pid | xargs kill
-rm {job_name}-{local_port}.ssh.pid
+cat {job_folder}/{job_name}-{local_port}.ssh.pid | xargs kill
+rm {job_folder}/{job_name}-{local_port}.ssh.pid
 """
 
 
@@ -357,6 +357,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 ssh_key=self._ssh_key,
                 local_port=port,
                 hostname=self._ssh_host,
+                job_folder=self._job_folder
             ).strip())
 
         # Add the actual script commands
@@ -369,7 +370,8 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
 
         # Add commands for closing the SSH tunnel, if we have one
         if self._use_ssh:
-            lines.append(SSH_TUNNEL_SUFFIX.format(job_name=job_name, local_port=port).strip())
+            lines.append(SSH_TUNNEL_SUFFIX.format(
+                job_name=job_name, local_port=port, job_folder=self._job_folder).strip())
 
         # Clean up the job file when we're done
         lines.append("rm {0}".format(job_file_path))

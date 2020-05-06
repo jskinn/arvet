@@ -380,7 +380,9 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         job_name = 'testjob'
         mock_open = mock.mock_open()
         environment_path = '/home/user/environment.sh'
+        job_folder = str(Path(__file__).parent)
         subject = hpc.HPCJobSystem({
+            'job_location': job_folder,
             'environment': environment_path,
             'ssh_tunnel': {
                 'hostname': '127.0.0.1',
@@ -408,12 +410,14 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
             local_port=5060,
             username='test-user',
             hostname='127.0.0.1',
-            job_name=job_name
+            job_name=job_name,
+            job_folder=job_folder
         ).strip(), parts[0])
 
         self.assertIn(hpc.SSH_TUNNEL_SUFFIX.format(
             local_port=5060,
-            job_name=job_name
+            job_name=job_name,
+            job_folder=job_folder
         ).strip(), parts[1])
 
     def test_run_script_assigns_different_ssh_ports_to_successive_jobs(self):
@@ -421,8 +425,9 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         min_port = 5060
         mock_open = mock.mock_open()
         environment_path = '/home/user/environment.sh'
+        job_folder = str(Path(__file__).parent)
         subject = hpc.HPCJobSystem({
-            'job_location': str(Path(__file__).parent),
+            'job_location': job_folder,
             'environment': environment_path,
             'ssh_tunnel': {
                 'hostname': '127.0.0.1',
@@ -454,12 +459,14 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
                 local_port=port,
                 username='test-user',
                 hostname='127.0.0.1',
-                job_name=job_name
+                job_name=job_name,
+                job_folder=job_folder
             ).strip(), parts[0])
 
             self.assertIn(hpc.SSH_TUNNEL_SUFFIX.format(
                 local_port=port,
-                job_name=job_name
+                job_name=job_name,
+                job_folder=job_folder
             ).strip(), parts[1])
 
     def test_run_script_wont_submit_more_scripts_than_available_ssh_ports(self):
