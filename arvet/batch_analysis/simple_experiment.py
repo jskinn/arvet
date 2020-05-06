@@ -1,6 +1,6 @@
 import typing
 import bson
-from secrets import randbits
+from secrets import randbelow
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
 from arvet.database.autoload_modules import autoload_modules
@@ -49,9 +49,7 @@ class SimpleExperiment(Experiment):
         if self.use_seed:
             # We're doing experiments with the seed, vary that
             if len(self.seeds) < self.repeats:
-                # Choose any seeds we're missing
-                # We need to save them so that we can get the same results next time
-                self.seeds += [randbits(32) for _ in range(self.repeats - len(self.seeds))]
+                self.refill_seeds()
             trial_results, trials_remaining = run_all_with_seeds(
                 systems=self.systems,
                 image_sources=self.image_sources,
@@ -148,6 +146,20 @@ class SimpleExperiment(Experiment):
         self.systems = [system for system in self.systems if system is not None]
         self.image_sources = [image_source for image_source in self.image_sources if image_source is not None]
         self.metrics = [metric for metric in self.metrics if metric is not None]
+
+    def refill_seeds(self):
+        """
+        Choose new random seeds to try the system with, using the secrets module.
+        Seeds are range [0, 2**31), because secrets doesn't want to output negatives
+        and MongoDB will convert values above 2**31 to longs, which later cause errors.
+        :return:
+        """
+        if self.use_seed:
+            # Use a set to ensure that seeds are unique
+            seed_set = set(self.seeds)
+            while len(seed_set) < self.repeats:
+                seed_set = seed_set | set(randbelow(2 ** 31) for _ in range(self.repeats - len(seed_set)))
+            self.seeds = list(seed_set)
 
     def add_vision_systems(self, vision_systems: typing.Iterable[VisionSystem]):
         """

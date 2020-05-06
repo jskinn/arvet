@@ -294,6 +294,40 @@ class TestSimpleExperimentDatabase(unittest.TestCase):
 
 class TestSimpleExperiment(unittest.TestCase):
 
+    def test_refill_seeds_makes_a_unique_set_equal_to_the_number_of_repeats(self):
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            repeats=20,
+            use_seed=True
+        )
+        subject.refill_seeds()
+        self.assertEqual(20, len(subject.seeds))
+        self.assertEqual(len(set(subject.seeds)), len(subject.seeds))
+
+    def test_refill_seeds_makes_a_different_set_every_time(self):
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            repeats=20,
+            use_seed=True
+        )
+        subject.refill_seeds()
+        seeds_1 = set(subject.seeds)
+        subject.seeds = []
+        subject.refill_seeds()
+        self.assertNotEqual(seeds_1, set(subject.seeds))
+
+    def test_refill_seeds_preserves_existing_seeds(self):
+        subject = SimpleExperiment(
+            name="TestSimpleExperiment",
+            repeats=20,
+            use_seed=True,
+            seeds=[1, 2, 3]
+        )
+        subject.refill_seeds()
+        self.assertIn(1, subject.seeds)
+        self.assertIn(2, subject.seeds)
+        self.assertIn(3, subject.seeds)
+
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
     def test_schedule_tasks_runs_all_systems_with_all_image_sources_repeatedly(self, mock_task_manager):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
@@ -353,6 +387,7 @@ class TestSimpleExperiment(unittest.TestCase):
         )
         subject.schedule_tasks()
         self.assertEqual(repeats, len(subject.seeds))   # The set of seeds should have auto-filled
+        self.assertEqual(len(subject.seeds), len(set(subject.seeds)))   # The set of seeds must be distinct
 
         for system in systems:
             for image_source in image_sources:
