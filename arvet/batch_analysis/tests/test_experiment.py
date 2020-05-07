@@ -3,6 +3,7 @@ import os
 import typing
 import unittest
 import unittest.mock as mock
+import logging
 from pathlib import Path
 from shutil import rmtree
 from pandas import DataFrame
@@ -77,10 +78,12 @@ class TestExperiment(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        logging.disable(logging.CRITICAL)
         cls.output_dir = Path(__file__).parent / 'test_experiment_output'
 
     @classmethod
     def tearDownClass(cls) -> None:
+        logging.disable(logging.NOTSET)
         if cls.output_dir.exists():
             rmtree(cls.output_dir)
 
@@ -190,6 +193,105 @@ class TestExperiment(unittest.TestCase):
         called_data_frame, called_output_dir = plot1.plot_results.call_args[0]
         self.assertTrue(data_frame.equals(called_data_frame))
         self.assertEqual((self.output_dir / obj.name), called_output_dir)
+
+    def test_plot_results_reads_from_cache_file(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        data = [
+            {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
+            {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
+        ]
+        data_frame = DataFrame(data)
+
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.name = 'plot1'
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.name = 'plot2'
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+        result.get_results.return_value = data
+
+        obj = MockExperiment(
+            name="TestExperiment22",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        # Mock the file-exists, the file read, and the
+        with mock.patch('pathlib.Path.exists', spec_set=True) as mock_exists, \
+                mock.patch('arvet.batch_analysis.experiment.pd_read_pickle', spec_set=True) as mock_read:
+            mock_exists.return_value = True
+            mock_read.return_value = data_frame
+            obj.plot_results(self.output_dir, plot_names=None, cache_folder=self.output_dir)
+            self.assertTrue(mock_read.called)
+        self.assertFalse(result.get_results.called)
+
+        # make sure the data is passed through to the plots
+        called_data_frame, called_output_dir = plot1.plot_results.call_args[0]
+        self.assertTrue(data_frame.equals(called_data_frame))
+        self.assertEqual((self.output_dir / obj.name), called_output_dir)
+
+        called_data_frame, called_output_dir = plot2.plot_results.call_args[0]
+        self.assertTrue(data_frame.equals(called_data_frame))
+        self.assertEqual((self.output_dir / obj.name), called_output_dir)
+
+    def test_cache_plot_data_writes_cache_file(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        data = [
+            {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
+            {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
+        ]
+
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.name = 'plot1'
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.name = 'plot2'
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+        result.get_results.return_value = data
+
+        obj = MockExperiment(
+            name="TestExperiment22",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        with mock.patch('pandas.DataFrame.to_pickle') as mock_pickle:
+            obj.cache_plot_data(self.output_dir)
+            self.assertTrue(mock_pickle.called)
+            self.assertEqual(str(obj.get_cache_file(self.output_dir)), mock_pickle.call_args[0][0])
+
+    def test_cache_plot_data_requests_all_columns(self):
+        columns1 = {'mycolumn1', 'mycolumn2'}
+        columns2 = {'mycolumn1', 'mycolumn3'}
+        data = [
+            {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
+            {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
+        ]
+
+        plot1 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot1.name = 'plot1'
+        plot1.get_required_columns.return_value = columns1
+        plot2 = mock.create_autospec(spec=Plot, spec_set=True)
+        plot2.name = 'plot2'
+        plot2.get_required_columns.return_value = columns2
+        result = mock.create_autospec(spec=MetricResult, spec_set=True)
+        result.get_results.return_value = data
+
+        obj = MockExperiment(
+            name="TestExperiment22",
+            plots=[plot1, plot2],
+            metric_results=[result]
+        )
+
+        with mock.patch('pandas.DataFrame.to_pickle') as mock_pickle:
+            obj.cache_plot_data(self.output_dir)
+        self.assertTrue(result.get_results.called)
+        self.assertEqual(mock.call(columns1 | columns2), result.get_results.call_args)
+
 
 
 class TestExperimentDatabase(unittest.TestCase):

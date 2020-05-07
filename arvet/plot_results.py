@@ -15,16 +15,19 @@ from arvet.batch_analysis.experiment import Experiment
 
 
 def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, show: bool = True, output: str = '',
-         mongodb_host: str = None, mongodb_port: int = None):
+         cache: str = '', mongodb_host: str = None, mongodb_port: int = None):
     """
+    Plot the results from a particular experiment using matplotlib.
+    By default, plots will be saved to the output directory.
+    Plot data may be loaded from a cache file if available, or the database (see cache_plot_data.py)
 
-    :param experiment_id:
-    :param plot_names:
-    :param show:
-    :param output:
-    :param mongodb_host:
-    :param mongodb_port:
-    :return:
+    :param experiment_id: The ID of the experiment to plot results from.
+    :param plot_names: The names of the plots to create
+    :param show: If true, display the plots using matplotlib.show
+    :param output: Override the output directory specified in the config file
+    :param cache: Override the cache directory to look for cached plot data
+    :param mongodb_host: Override the mongodb host to connect to
+    :param mongodb_port: Override the port to connect to on the database server
     """
     # Load the configuration
     config = load_global_config('config.yml')
@@ -59,16 +62,23 @@ def main(experiment_id: str = '', plot_names: typing.Collection[str] = None, sho
         return print_available_plots(experiment)
 
     # Find an output dir, either using a selected one, or from the path manager
-    if output is None or len(output) == 0:
+    if output is None or len(output) <= 0:
         output_dir = path_manager.get_output_dir()
     else:
         output_dir = Path(output).expanduser().resolve()
+
+    # Find the cache directory, either the output directory or the specified argument
+    if cache is None or len(cache) <= 0:
+        cache_dir = path_manager.get_output_dir()
+    else:
+        cache_dir = Path(cache).expanduser().resolve()
 
     # Delegate to the experiment object to plot the results
     experiment.plot_results(
         output_dir=output_dir,
         plot_names=plot_names,
-        display=show
+        display=show,
+        cache_folder=cache_dir
     )
 
 
@@ -109,6 +119,9 @@ if __name__ == "__main__":
                              'By default')
     parser.add_argument('--output', default='',
                         help='Override the output location for the plots.')
+    parser.add_argument('--cache', default='',
+                        help='Specify the directory where the plot data is cached. '
+                             'The cache will be used rather than the database if available.')
     parser.add_argument('--mongodb_host', default=None,
                         help='Override the mongodb hostname specified in the config file.')
     parser.add_argument('--mongodb_port', default=None,
@@ -121,4 +134,11 @@ if __name__ == "__main__":
                         'Omit to print the list of available plots for the given experiment')
 
     args = parser.parse_args()
-    main(args.experiment_id, args.plots, not args.hide, args.output, args.mongodb_host, args.mongodb_port)
+    main(
+        experiment_id=args.experiment_id,
+        plot_names=args.plots,
+        show=not args.hide,
+        output=args.output,
+        mongodb_host=args.mongodb_host,
+        mongodb_port=args.mongodb_port
+    )

@@ -1,12 +1,13 @@
 # Copyright (c) 2017, John Skinner
 import abc
 import typing
+import logging
 import bson
-from pandas import DataFrame
+from pandas import DataFrame, read_pickle as pd_read_pickle
 import pymodm
 import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
-from pathlib import PurePath
+from pathlib import Path
 import arvet.database.pymodm_abc as pymodm_abc
 from arvet.database.autoload_modules import autoload_modules
 from arvet.database.reference_list_field import ReferenceListField
@@ -82,13 +83,25 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             for plot in self.plots
         }
 
-    def plot_results(self, output_dir: PurePath, plot_names: typing.Container[str] = None, display: bool = False):
+    def get_cache_file(self, cache_folder: Path) -> Path:
+        """
+        Choose the name of the file within a cache folder to store
+        data underlying the plots.
+        cache_plot_data will save to here, and plot_results will draw from here if available
+        :param cache_folder: The
+        :return: A file within the cache folder where plot data will be stored
+        """
+        return cache_folder / (self.name.lower().replace(' ', '_') + '.pkl')
+
+    def plot_results(self, output_dir: Path, plot_names: typing.Container[str] = None, display: bool = False,
+                     cache_folder: Path = None):
         """
         Visualise the results from this experiment in different ways.
 
         :param output_dir: The base path to save the plots to.
         :param plot_names: The names of the plot to create, should only care about the values from get_plots
         :param display: Should the plot be displayed to the screen. Default false.
+        :param cache_folder: A folder where the plot data is cached. Data will be loaded from there if available.
         :return: Nothing
         """
         # First, autoload the plot and result modules, to prevent a crash
@@ -112,18 +125,63 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             )
             if len(columns) <= 0:
                 # No columns means no data and no plots
+                logging.getLogger(__name__).info(f"No plots specified for {self.name}")
                 return
 
             # The read the data from the results.
-            data = self.get_data(columns)
+            data = None
+            if cache_folder is not None:
+                cache_file = self.get_cache_file(cache_folder)
+                if cache_file.exists():
+                    logging.getLogger(__name__).info(f"Reading plot data from cache file {cache_file}")
+                    data = pd_read_pickle(cache_file)
+            if data is None:
+                # Cache didn't exist, load the data from the database
+                logging.getLogger(__name__).info("Reading plot data from database...")
+                data = self.get_data(columns)
 
             # Make the output folder
             output_dir = (output_dir / self.name).resolve()
             output_dir.mkdir(exist_ok=True, parents=True)
+            logging.getLogger(__name__).info(f"Outputting plots to {output_dir}")
 
             # Finally, delegate to the plots themselves to do the actual plotting
             for plot in plots:
                 plot.plot_results(data, output_dir, display=display)
+
+    def cache_plot_data(self, cache_folder: Path):
+        """
+        Cache all the data necessary for producing all the plots in this experiment to file
+        :param cache_folder: The folder to store the cache file
+        :return:
+        """
+        # First, autoload the plot and result modules, to prevent a crash
+        self.load_referenced_models()
+
+        # Clean out null plots and other pulled references
+        self.clean_references()
+
+        # First, work out which properties our plots need. Use all the plots.
+        columns = set(
+            column
+            for plot in self.plots
+            for column in plot.get_required_columns()
+        )
+        if len(columns) <= 0:
+            # No columns means no data and no plots
+            logging.getLogger(__name__).info(f"No data to cache for {self.name}")
+            return
+
+        # Load the data to save
+        logging.getLogger(__name__).info(f"Loading data for {len(columns)}...")
+        data = self.get_data(columns)
+
+        # Save the data to file
+        cache_file = self.get_cache_file(cache_folder)
+        if not cache_file.parent.exists():
+            cache_file.parent.mkdir(parents=True)
+        logging.getLogger(__name__).info(f"Saving data to {cache_file}")
+        data.to_pickle(str(cache_file))
 
     def get_data(self, columns: typing.Iterable[str]) -> DataFrame:
         """
