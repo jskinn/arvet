@@ -173,9 +173,10 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             return
 
         # Load the data to save
-        logging.getLogger(__name__).info(f"Accumulating {len(columns)} values over "
+        logging.getLogger(__name__).info(f"Accumulating columns [{columns}] over "
                                          f"{len(self.metric_results)} results...")
         data = self.get_data(columns)
+        logging.getLogger(__name__).info(f"Collected {len(data)} rows.")
 
         # Save the data to file
         cache_file = self.get_cache_file(cache_folder)
