@@ -1,4 +1,5 @@
 import typing
+import logging
 import bson
 from secrets import randbelow
 import pymodm.fields as fields
@@ -69,6 +70,8 @@ class SimpleExperiment(Experiment):
                 memory_requirements=self.run_memory,
                 expected_duration=self.run_duration
             )
+        logging.getLogger(__name__).info(f"{self.name} collected {len(trial_results)} trial result groups, "
+                                         f"{trials_remaining} trials awaiting execution")
 
         if len(self.metrics) <= 0:
             return
@@ -93,6 +96,8 @@ class SimpleExperiment(Experiment):
                 )
             )
         ]
+        logging.getLogger(__name__).info(f"{self.name} found {len(complete_groups)} "
+                                         f"complete groups of trial results to measure")
         metric_results, metrics_remaining = measure_all(
             metrics=self.metrics,
             trial_result_groups=complete_groups,
@@ -101,12 +106,21 @@ class SimpleExperiment(Experiment):
             memory_requirements=self.measure_memory,
             expected_duration=self.measure_duration
         )
+        num_existing_results = len(self.metric_results)
         # The results for this experiment must be only and exactly what is returned from measure_all
         # so that if a system or image source is removed from the experiment, its results don't contaminate the output
         self.metric_results = list(
             metric_result for metric_result_list in metric_results.values()
             for metric_result in metric_result_list
         )
+        if len(self.metric_results) < num_existing_results:
+            logging.getLogger(__name__).info(f"{self.name} removed {num_existing_results - len(self.metric_results)} "
+                                             f"metric results, awaiting {metrics_remaining} more")
+        elif num_existing_results < len(self.metric_results):
+            logging.getLogger(__name__).info(f"{self.name} added {len(self.metric_results) - num_existing_results} "
+                                             f"metric results, awaiting a further {metrics_remaining}")
+        else:
+            logging.getLogger(__name__).info(f"No changes to metric results, {metrics_remaining} still to come")
 
     def load_referenced_models(self):
         """
