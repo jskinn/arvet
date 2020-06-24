@@ -210,6 +210,7 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
                 self.normal_maps_enabled == other.normal_maps_enabled and
                 self.roughness_enabled == other.roughness_enabled and
                 self.geometry_decimation == other.geometry_decimation and
+                self.minimum_object_volume == other.minimum_object_volume and
 
                 self.procedural_generation_seed == other.procedural_generation_seed and
                 set(self.labelled_objects) == set(other.labelled_objects))
@@ -244,6 +245,7 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
                 self.normal_maps_enabled,
                 self.roughness_enabled,
                 self.geometry_decimation,
+                self.minimum_object_volume,
                 self.procedural_generation_seed
             ) + tuple(hash(obj) for obj in self.labelled_objects)
         )
@@ -305,6 +307,7 @@ def make_right_metadata(pixels: np.array, left_metadata: ImageMetadata, depth: n
         'normal_maps_enabled',
         'roughness_enabled',
         'geometry_decimation',
+        'minimum_object_volume',
         'procedural_generation_seed'
     ]:
         value = getattr(left_metadata, field_name, None)

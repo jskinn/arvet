@@ -535,6 +535,7 @@ class TestImageMetadata(unittest.TestCase):
         'normal_maps_enabled': [False],
         'roughness_enabled': [False],
         'geometry_decimation': [0.3],
+        'minimum_object_volume': [0.9887],
 
         'procedural_generation_seed': [7329],
         'labelled_objects': [tuple(), (
@@ -690,6 +691,7 @@ class TestImageMetadata(unittest.TestCase):
         self.assertEqual(metadata1.texture_mipmap_bias, metadata2.texture_mipmap_bias)
         self.assertEqual(metadata1.normal_maps_enabled, metadata2.normal_maps_enabled)
         self.assertEqual(metadata1.roughness_enabled, metadata2.roughness_enabled)
+        self.assertEqual(metadata1.minimum_object_volume, metadata2.minimum_object_volume)
         self.assertEqual(metadata1.geometry_decimation, metadata2.geometry_decimation)
 
         self.assertEqual(metadata1.procedural_generation_seed, metadata2.procedural_generation_seed)
@@ -836,6 +838,7 @@ class TestMakeRightMetadata(unittest.TestCase):
         self.assertEqual(left_metadata.normal_maps_enabled, right_metadata.normal_maps_enabled)
         self.assertEqual(left_metadata.roughness_enabled, right_metadata.roughness_enabled)
         self.assertEqual(left_metadata.geometry_decimation, right_metadata.geometry_decimation)
+        self.assertEqual(left_metadata.minimum_object_volume, right_metadata.minimum_object_volume)
         self.assertEqual(left_metadata.procedural_generation_seed, right_metadata.procedural_generation_seed)
 
         # These should not be
@@ -927,6 +930,7 @@ class TestMakeRightMetadata(unittest.TestCase):
             normal_maps_enabled=False,
             roughness_enabled=False,
             geometry_decimation=0.2,
+            minimum_object_volume=0.542,
 
             procedural_generation_seed=6743,
         )
@@ -944,6 +948,7 @@ class TestMakeRightMetadata(unittest.TestCase):
         self.assertEqual(left_metadata.normal_maps_enabled, right_metadata.normal_maps_enabled)
         self.assertEqual(left_metadata.roughness_enabled, right_metadata.roughness_enabled)
         self.assertEqual(left_metadata.geometry_decimation, right_metadata.geometry_decimation)
+        self.assertEqual(left_metadata.minimum_object_volume, right_metadata.minimum_object_volume)
         self.assertEqual(left_metadata.procedural_generation_seed, right_metadata.procedural_generation_seed)
 
         self.assertEqual(mean_red, right_metadata.red_mean)
