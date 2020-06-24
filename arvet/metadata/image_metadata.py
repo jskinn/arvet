@@ -170,14 +170,13 @@ class ImageMetadata(pymodm.EmbeddedMongoModel):
     light_level = EnumField(LightingLevel)
     time_of_day = EnumField(TimeOfDay)
 
-    # TODO: Reference a simulator?
-    # _simulator = pymodm.fields.ReferenceField(Simulator, on_delete=pymodm.fields.ReferenceField.NULLIFY)
     simulation_world = pymodm.fields.CharField()
     lighting_model = EnumField(LightingModel)
     texture_mipmap_bias = pymodm.fields.IntegerField()
     normal_maps_enabled = pymodm.fields.BooleanField()
     roughness_enabled = pymodm.fields.BooleanField()
     geometry_decimation = pymodm.fields.FloatField()
+    minimum_object_volume = pymodm.fields.FloatField()
 
     procedural_generation_seed = pymodm.fields.IntegerField()
     labelled_objects = pymodm.fields.EmbeddedDocumentListField(LabelledObject)

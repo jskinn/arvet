@@ -476,6 +476,7 @@ def make_metadata(**kwargs):
         'normal_maps_enabled': True,
         'roughness_enabled': True,
         'geometry_decimation': 0.8,
+        'minimum_object_volume': 0.236,
 
         'procedural_generation_seed': 16234,
         'labelled_objects': [
