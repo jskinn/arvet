@@ -106,18 +106,19 @@ class SimpleExperiment(Experiment):
             memory_requirements=self.measure_memory,
             expected_duration=self.measure_duration
         )
-        num_existing_results = len(self.metric_results)
-        # The results for this experiment must be only and exactly what is returned from measure_all
-        # so that if a system or image source is removed from the experiment, its results don't contaminate the output
-        self.metric_results = list(
+        all_results = list(
             metric_result for metric_result_list in metric_results.values()
             for metric_result in metric_result_list
         )
-        if len(self.metric_results) < num_existing_results:
-            logging.getLogger(__name__).info(f"{self.name} removed {num_existing_results - len(self.metric_results)} "
+        num_existing_results = len(self.metric_results)
+        # The results for this experiment must be only and exactly what is returned from measure_all
+        # so that if a system or image source is removed from the experiment, its results don't contaminate the output
+        self.metric_results = all_results
+        if len(all_results) < num_existing_results:
+            logging.getLogger(__name__).info(f"{self.name} removed {num_existing_results - len(all_results)} "
                                              f"metric results, awaiting {metrics_remaining} more")
-        elif num_existing_results < len(self.metric_results):
-            logging.getLogger(__name__).info(f"{self.name} added {len(self.metric_results) - num_existing_results} "
+        elif num_existing_results < len(all_results):
+            logging.getLogger(__name__).info(f"{self.name} added {len(all_results) - num_existing_results} "
                                              f"metric results, awaiting a further {metrics_remaining}")
         else:
             logging.getLogger(__name__).info(f"No changes to metric results, {metrics_remaining} still to come")
