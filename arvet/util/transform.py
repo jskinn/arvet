@@ -55,7 +55,8 @@ class Transform:
         if rotation is not None and len(rotation) == 3:
             # Rotation is euler angles, convert to quaternion
             # I'm using the roll, pitch, yaw order of input, for consistency with Unreal
-            self._qw, self._qx, self._qy, self._qz = tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0])
+            self._qw, self._qx, self._qy, self._qz = robust_normalize(
+                tf.taitbryan.euler2quat(rotation[2], rotation[1], rotation[0]))
         elif rotation is not None and len(rotation) >= 4:
             rotation = np.asarray(rotation, dtype=np.dtype('float'))
             if w_first:
