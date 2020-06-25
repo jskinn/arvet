@@ -781,6 +781,13 @@ class TestMakeMetadata(unittest.TestCase):
         self.assertEqual(np.mean(depth), metadata.depth_mean)
         self.assertEqual(np.std(depth), metadata.depth_std)
 
+    def test_removes_empty_labelled_objects_so_that_it_is_valid(self):
+        pixels = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        # Need an actual model to call validate?
+        model = TestImageMetadataMongoModel()
+        model.object = imeta.make_metadata(pixels, source_type=imeta.ImageSourceType.SYNTHETIC, labelled_objects=[])
+        self.assertTrue(model.is_valid())
+
     def test_overrides_arguments(self):
         pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
         depth = np.random.normal(100, 50, size=(100, 100))

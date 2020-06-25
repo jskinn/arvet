@@ -280,6 +280,10 @@ def make_metadata(pixels: np.ndarray, depth: np.ndarray = None, **kwargs) -> Ima
         kwargs['depth_mean'] = np.mean(depth)
         kwargs['depth_std'] = np.std(depth)
 
+    # If no labelled objects are passed, clear the field
+    if 'labelled_objects' in kwargs and len(kwargs['labelled_objects']) <= 0:
+        del kwargs['labelled_objects']
+
     return ImageMetadata(**kwargs)
 
 
