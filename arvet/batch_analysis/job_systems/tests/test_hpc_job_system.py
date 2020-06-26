@@ -910,6 +910,52 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
             import_task_3.pk
         ), script_contents)
 
+    def test_run_task_accepts_only_a_limited_number_of_import_dataset_tasks(self):
+        normal_task = make_mock_task()
+        import_task_1 = make_mock_import_task()
+        import_task_2 = make_mock_import_task()
+        import_task_3 = make_mock_import_task()
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'max_imports': 2}, 'myconf.yml')
+        subject.run_task(normal_task)
+        subject.run_task(import_task_1)
+        subject.run_task(import_task_2)
+        subject.run_task(import_task_3)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
+                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+            patch_import_dataset_objects_count(mock_idt_obj)
+            patch_subprocess(mock_run)
+            subject.run_queued_jobs()
+        self.assertEqual(1, mock_open.call_count)
+        self.assertEqual(1, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
+
+        mock_file = mock_open()
+        self.assertEqual(1, mock_file.write.call_count)
+        script_contents = mock_file.write.call_args[0][0]
+
+        # The first two tasks should appear in the file, but the third should not.
+        self.assertTrue(import_task_1.mark_job_started.called)
+        self.assertTrue(import_task_2.mark_job_started.called)
+        self.assertFalse(import_task_3.mark_job_started.called)
+        self.assertIn('\npython {0} --config {1} --allow_write {2}\n'.format(
+            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+            Path('myconf.yml').resolve(),
+            import_task_1.pk
+        ), script_contents)
+        self.assertIn('\npython {0} --config {1} --allow_write {2}\n'.format(
+            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+            Path('myconf.yml').resolve(),
+            import_task_2.pk
+        ), script_contents)
+        self.assertNotIn('\npython {0} --config {1} --allow_write {2}\n'.format(
+            Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+            Path('myconf.yml').resolve(),
+            import_task_3.pk
+        ), script_contents)
+
     def test_run_queued_jobs_doesnt_run_other_tasks_if_there_are_imports_to_run(self):
         normal_task = make_mock_task()
         import_task_1 = make_mock_import_task()

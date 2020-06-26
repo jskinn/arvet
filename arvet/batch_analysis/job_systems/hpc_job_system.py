@@ -59,6 +59,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             'job_location: 'folder-to-create-jobs'      # Default ~
             'job_name_prefix': 'prefix-to-job-names'    # Default ''
             'max_jobs': int                             # Default no limit
+            'max_imports': int                          # Default no limit
             'ssh_tunnel': {                             # No tunnel if omitted
                 'hostname': The host to ssh to
                 'username': The username to connect with
@@ -80,6 +81,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._job_folder = Path(self._job_folder).expanduser().resolve()
         self._name_prefix = config.get('job_name_prefix', '')
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
+        self._max_imports = max(1, int(config['max_imports'])) if 'max_imports'in config else None
 
         # Configure the job to set up an ssh tunnel before running.
         ssh_tunnel_config = config.get('ssh_tunnel', {})
@@ -148,7 +150,11 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         if self.can_run_task(task):
             if isinstance(task, ImportDatasetTask):
-                self._import_dataset_tasks.append(task)
+                if self._max_imports is None or len(self._import_dataset_tasks) < self._max_imports:
+                    self._import_dataset_tasks.append(task)
+                else:
+                    logging.getLogger(__name__).info(
+                        "Not collecting more than {0} import dataset tasks together".format(self._max_imports))
             else:
                 self._tasks_to_run.append(task)
 
@@ -382,7 +388,11 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
 
         logging.getLogger(__name__).info("Submitting job file {0}".format(job_file_path))
         result = subprocess.run(['qsub', job_file_path], stdout=subprocess.PIPE, universal_newlines=True)
-        job_id = re.search('(\\d+)', result.stdout).group()
+        match_result = re.search('(\\d+)', result.stdout)
+        if match_result is None:
+            raise RuntimeError(f"Failed to find JobId in ouput of qsub call, probably failed to submit job.\n"
+                               f"Output was:\n{result.stdout}")
+        job_id = match_result.group()
         return int(job_id)
 
 
