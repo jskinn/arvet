@@ -134,6 +134,17 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         pass
 
+    def preload_image_data(self, image: Image) -> None:
+        """
+        Read some data from an image object, to force it to load pixel data.
+        We do this to pre-load the image data into memory, so that when we actually run the system we don't have
+        to wait for the images to load
+        Stereo vision systems, or RGB-D vision systems should also read right pixels or depth respectively
+        :param image:
+        :return:
+        """
+        _ = image.pixels
+
     @classmethod
     @abc.abstractmethod
     def is_deterministic(cls) -> StochasticBehaviour:
@@ -151,18 +162,6 @@ class VisionSystem(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         :rtype: StochasticBehaviour
         """
         pass
-
-    @classmethod
-    def preload_image_data(cls, image: Image) -> None:
-        """
-        Read some data from an image object, to force it to load pixel data.
-        We do this to pre-load the image data into memory, so that when we actually run the system we don't have
-        to wait for the images to load
-        Stereo vision systems, or RGB-D vision systems should also read right pixels or depth respectively
-        :param image:
-        :return:
-        """
-        _ = image.pixels
 
     @classmethod
     def get_pretty_name(cls) -> str:
