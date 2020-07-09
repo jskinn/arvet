@@ -81,7 +81,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._job_folder = Path(self._job_folder).expanduser().resolve()
         self._name_prefix = config.get('job_name_prefix', '')
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
-        self._max_imports = max(1, int(config['max_imports'])) if 'max_imports'in config else None
+        self._max_imports = max(1, int(config['max_imports'])) if 'max_imports' in config else None
 
         # Configure the job to set up an ssh tunnel before running.
         ssh_tunnel_config = config.get('ssh_tunnel', {})
@@ -150,11 +150,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         if self.can_run_task(task):
             if isinstance(task, ImportDatasetTask):
-                if self._max_imports is None or len(self._import_dataset_tasks) < self._max_imports:
-                    self._import_dataset_tasks.append(task)
-                else:
-                    logging.getLogger(__name__).info(
-                        "Not collecting more than {0} import dataset tasks together".format(self._max_imports))
+                self._import_dataset_tasks.append(task)
             else:
                 self._tasks_to_run.append(task)
 
@@ -206,31 +202,37 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         # We merge most of the requirements like num cpus as maximum across all the tasks
         # expected duration is the sum of all the durations.
         if len(self._import_dataset_tasks) > 0:
+            import_dataset_tasks = sorted(self._import_dataset_tasks, key=attrgetter('failure_count'))
+            if len(import_dataset_tasks) > self._max_imports:
+                import_dataset_tasks = import_dataset_tasks[:self._max_imports]
+                self._import_dataset_tasks = import_dataset_tasks[self._max_imports:]
+            else:
+                self._import_dataset_tasks = []
             logging.getLogger(__name__).info(
-                "Submitting script for {0} import jobs".format(len(self._import_dataset_tasks)))
+                "Submitting script for {0} import jobs".format(len(import_dataset_tasks)))
             memory_requirements = max(
                 parse_memory_requirements(task.memory_requirements)
-                for task in self._import_dataset_tasks
+                for task in import_dataset_tasks
             )
             memory_requirements = max(1, memory_requirements // (1024 * 1024))
             job_id = self._create_and_run_script(
                 scripts=[(
                     Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
                     partial(task_args_builder, task, True)
-                ) for task in self._import_dataset_tasks],
-                job_name="import_{0}_datasets".format(len(self._import_dataset_tasks)),
-                num_cpus=max(task.num_cpus for task in self._import_dataset_tasks),
-                num_gpus=max(task.num_gpus for task in self._import_dataset_tasks),
+                ) for task in import_dataset_tasks],
+                job_name="import_{0}_datasets".format(len(import_dataset_tasks)),
+                num_cpus=max(task.num_cpus for task in import_dataset_tasks),
+                num_gpus=max(task.num_gpus for task in import_dataset_tasks),
                 memory_requirements="{0}GB".format(memory_requirements),
                 expected_duration=merge_expected_durations(
-                    task.expected_duration for task in self._import_dataset_tasks)
+                    task.expected_duration for task in import_dataset_tasks)
             )
             if job_id is not None:
                 # The one job is running all the imports, mark that fact on all the tasks
-                for task in self._import_dataset_tasks:
+                for task in import_dataset_tasks:
                     task.mark_job_started(self.node_id, job_id)
                     task.save()
-            self._import_dataset_tasks = []
+
         else:
             # There are no import tasks, the HDF5 file is not changing
             # Run scripts in parallel
