@@ -866,14 +866,12 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
             self.assertFalse(mock_run.called)
 
     def test_run_task_makes_single_script_for_all_import_dataset_tasks(self):
-        normal_task = make_mock_task()
         import_task_1 = make_mock_import_task()
         import_task_2 = make_mock_import_task()
         import_task_3 = make_mock_import_task()
 
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
-        subject.run_task(normal_task)
         subject.run_task(import_task_1)
         subject.run_task(import_task_2)
         subject.run_task(import_task_3)
@@ -911,14 +909,12 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         ), script_contents)
 
     def test_run_task_accepts_only_a_limited_number_of_import_dataset_tasks(self):
-        normal_task = make_mock_task()
         import_task_1 = make_mock_import_task()
         import_task_2 = make_mock_import_task()
         import_task_3 = make_mock_import_task()
 
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'max_imports': 2}, 'myconf.yml')
-        subject.run_task(normal_task)
         subject.run_task(import_task_1)
         subject.run_task(import_task_2)
         subject.run_task(import_task_3)
@@ -956,14 +952,50 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
             import_task_3.pk
         ), script_contents)
 
-    def test_run_queued_jobs_doesnt_run_other_tasks_if_there_are_imports_to_run(self):
+    def test_run_queued_jobs_runs_other_tasks_if_there_are_imports_to_run(self):
         normal_task = make_mock_task()
         import_task_1 = make_mock_import_task()
         import_task_2 = make_mock_import_task()
         import_task_3 = make_mock_import_task()
 
         mock_open = mock.mock_open()
-        subject = hpc.HPCJobSystem({}, 'myconf.yml')
+        subject = hpc.HPCJobSystem({'allow_read_during_import': True}, 'myconf.yml')
+        subject.run_task(normal_task)
+        subject.run_task(import_task_1)
+        subject.run_task(import_task_2)
+        subject.run_task(import_task_3)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
+                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
+                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
+            patch_import_dataset_objects_count(mock_idt_obj)
+            patch_subprocess(mock_run)
+            subject.run_queued_jobs()
+        self.assertEqual(2, mock_open.call_count)
+        self.assertEqual(2, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
+
+        mock_file = mock_open()
+        self.assertEqual(2, mock_file.write.call_count)
+        script_contents = mock_file.write.call_args_list[0][0][0]
+        self.assertIn(str(import_task_1.pk), script_contents)
+        self.assertIn(str(import_task_2.pk), script_contents)
+        self.assertIn(str(import_task_3.pk), script_contents)
+        self.assertTrue(import_task_1.mark_job_started.called)
+        self.assertTrue(import_task_2.mark_job_started.called)
+        self.assertTrue(import_task_3.mark_job_started.called)
+
+        script_contents = mock_file.write.call_args_list[1][0][0]
+        self.assertIn(str(normal_task.pk), script_contents)
+        self.assertTrue(normal_task.mark_job_started.called)
+
+    def test_run_queued_jobs_doesnt_run_other_tasks_if_there_are_imports_to_run_and_configured_not_to(self):
+        normal_task = make_mock_task()
+        import_task_1 = make_mock_import_task()
+        import_task_2 = make_mock_import_task()
+        import_task_3 = make_mock_import_task()
+
+        mock_open = mock.mock_open()
+        subject = hpc.HPCJobSystem({'allow_read_during_import': False}, 'myconf.yml')
         subject.run_task(normal_task)
         subject.run_task(import_task_1)
         subject.run_task(import_task_2)
@@ -1139,11 +1171,12 @@ def make_mock_task():
     return mock_task
 
 
-def make_mock_import_task(num_cpus=1, num_gpus=0, memory=4, hours=1, minutes=0, seconds=0):
+def make_mock_import_task(num_cpus=1, num_gpus=0, memory=4, hours=1, minutes=0, seconds=0, failure_count=0):
     mock_task = mock.create_autospec(ImportDatasetTask)
     mock_task.pk = bson.ObjectId()
     mock_task.num_cpus = num_cpus
     mock_task.num_gpus = num_gpus
+    mock_task.failure_count = failure_count
     mock_task.memory_requirements = '{0}GB'.format(memory)
     mock_task.expected_duration = "{0:02}:{1:02}:{2:02}".format(hours, minutes, seconds)
     mock_task.get_unique_name.return_value = 'job_' + str(mock_task.pk)

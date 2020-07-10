@@ -60,6 +60,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             'job_name_prefix': 'prefix-to-job-names'    # Default ''
             'max_jobs': int                             # Default no limit
             'max_imports': int                          # Default no limit
+            'allow_read_during_import': bool            # Default True
             'ssh_tunnel': {                             # No tunnel if omitted
                 'hostname': The host to ssh to
                 'username': The username to connect with
@@ -82,6 +83,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._name_prefix = config.get('job_name_prefix', '')
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
         self._max_imports = max(1, int(config['max_imports'])) if 'max_imports' in config else None
+        self._allow_read_during_import = bool(config.get('allow_read_during_import', True))
 
         # Configure the job to set up an ssh tunnel before running.
         ssh_tunnel_config = config.get('ssh_tunnel', {})
@@ -203,13 +205,14 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         # expected duration is the sum of all the durations.
         if len(self._import_dataset_tasks) > 0:
             import_dataset_tasks = sorted(self._import_dataset_tasks, key=attrgetter('failure_count'))
-            if len(import_dataset_tasks) > self._max_imports:
+            if self._max_imports is not None and len(import_dataset_tasks) > self._max_imports:
                 import_dataset_tasks = import_dataset_tasks[:self._max_imports]
                 self._import_dataset_tasks = import_dataset_tasks[self._max_imports:]
             else:
                 self._import_dataset_tasks = []
             logging.getLogger(__name__).info(
-                "Submitting script for {0} import jobs".format(len(import_dataset_tasks)))
+                "Submitting script for {0} import jobs, {0} still pending".format(
+                    len(import_dataset_tasks), len(self._import_dataset_tasks)))
             memory_requirements = max(
                 parse_memory_requirements(task.memory_requirements)
                 for task in import_dataset_tasks
@@ -232,48 +235,49 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 for task in import_dataset_tasks:
                     task.mark_job_started(self.node_id, job_id)
                     task.save()
+                if not self._allow_read_during_import:
+                    # No more jobs are allowed to run, we're running imports
+                    return
 
-        else:
-            # There are no import tasks, the HDF5 file is not changing
-            # Run scripts in parallel
-            logging.getLogger(__name__).info("Submitting {0} scripts to HPC".format(len(self._scripts_to_run)))
-            for (
-                    script,
-                    script_args_builder,
-                    job_name,
-                    num_cpus,
-                    num_gpus,
-                    memory_requirements,
-                    expected_duration
-            ) in self._scripts_to_run:
-                self._create_and_run_script(
-                    scripts=[(script, script_args_builder)],
-                    job_name=job_name,
-                    num_cpus=num_cpus,
-                    num_gpus=num_gpus,
-                    memory_requirements=memory_requirements,
-                    expected_duration=expected_duration
-                )
-            self._scripts_to_run = []
+        # Run non-import scripts in parallel
+        logging.getLogger(__name__).info("Submitting {0} scripts to HPC".format(len(self._scripts_to_run)))
+        for (
+                script,
+                script_args_builder,
+                job_name,
+                num_cpus,
+                num_gpus,
+                memory_requirements,
+                expected_duration
+        ) in self._scripts_to_run:
+            self._create_and_run_script(
+                scripts=[(script, script_args_builder)],
+                job_name=job_name,
+                num_cpus=num_cpus,
+                num_gpus=num_gpus,
+                memory_requirements=memory_requirements,
+                expected_duration=expected_duration
+            )
+        self._scripts_to_run = []
 
-            # Submit jobs for tasks that don't import, starting with those that have failed the least
-            logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
-            for task in sorted(self._tasks_to_run, key=attrgetter('failure_count')):
-                job_id = self._create_and_run_script(
-                    scripts=[(
-                        Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                        partial(task_args_builder, task, False)
-                    )],
-                    job_name=task.get_unique_name(),
-                    num_cpus=task.num_cpus,
-                    num_gpus=task.num_gpus,
-                    memory_requirements=task.memory_requirements,
-                    expected_duration=task.expected_duration
-                )
-                if job_id is not None:
-                    task.mark_job_started(self.node_id, job_id)
-                    task.save()
-            self._tasks_to_run = []
+        # Submit jobs for tasks that don't import, starting with those that have failed the least
+        logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
+        for task in sorted(self._tasks_to_run, key=attrgetter('failure_count')):
+            job_id = self._create_and_run_script(
+                scripts=[(
+                    Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
+                    partial(task_args_builder, task, False)
+                )],
+                job_name=task.get_unique_name(),
+                num_cpus=task.num_cpus,
+                num_gpus=task.num_gpus,
+                memory_requirements=task.memory_requirements,
+                expected_duration=task.expected_duration
+            )
+            if job_id is not None:
+                task.mark_job_started(self.node_id, job_id)
+                task.save()
+        self._tasks_to_run = []
 
     def _create_and_run_script(
             self,
