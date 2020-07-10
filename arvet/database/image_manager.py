@@ -1,4 +1,5 @@
 import abc
+import logging
 import typing
 import numpy as np
 import h5py
@@ -116,9 +117,16 @@ class DefaultImageManager(ImageManager):
                         return path
                     # We reached the point we'd write to the file, but we are not configured to do so. Fail.
                     raise RuntimeError("ImageManager not configured for writing")
-                elif np.array_equal(data, self._storage[path]):
-                    # This image is already stored, return the path
-                    return path
+                else:
+                    try:
+                        existing_data = self._storage[path]
+                    except KeyError as exp:
+                        logging.getLogger(__name__).error(f"Error reading data for key {path}, derived with group "
+                                                          f"'{group}' and seed '{seed}'")
+                        raise exp
+                    if np.array_equal(data, existing_data):
+                        # This image is already stored, return the path
+                        return path
         raise RuntimeError("Could not find a seed that allows this image to be stored in the database")
 
     def remove_image(self, path: str):
