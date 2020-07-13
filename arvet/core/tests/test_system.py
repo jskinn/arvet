@@ -1,5 +1,4 @@
 # Copyright (c) 2017, John Skinner
-import os
 import unittest
 import unittest.mock as mock
 import arvet.database.tests.database_connection as dbconn
@@ -48,30 +47,30 @@ class TestVisionSystemDatabase(unittest.TestCase):
 
     def test_preload_image_data_loads_pixels(self):
         # Mock the image manager
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        image_manager.get_image = mock.Mock(wraps=image_manager.get_image)
-        im_manager.set_image_manager(image_manager)
+        group_name = 'test'
+        dbconn.setup_image_manager()
+        image_group = im_manager.get().get_group(group_name, allow_write=True)
+        image_group.get_image = mock.Mock(wraps=image_group.get_image)
 
         # Make an image, and then let it go out of scope, so the data is not in memory
-        image_id = make_and_store_image()
+        image_id = make_and_store_image(image_group=group_name)
 
-        self.assertFalse(image_manager.get_image.called)
+        system = MockSystem.get_instance()
+        self.assertFalse(image_group.get_image.called)
         image = Image.objects.get({'_id': image_id})
-        MockSystem.preload_image_data(image)
-        self.assertTrue(image_manager.get_image.called)
+        system.preload_image_data(image)
+        self.assertTrue(image_group.get_image.called)
 
         # Clean up
-        im_manager.set_image_manager(None)
         Image._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
 
-def make_and_store_image():
+def make_and_store_image(image_group: str):
     """
     Make an image, and then let it go out of scope, so it needs to be loaded.
     :return:
     """
-    image = make_image()
+    image = make_image(image_group=image_group)
     image.save()
     return image.pk

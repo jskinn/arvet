@@ -1,11 +1,9 @@
 # Copyright (c) 2017, John Skinner
 import unittest
-import os
 from operator import itemgetter
 import numpy as np
 from pymodm.errors import ValidationError
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 import arvet.util.transform as tf
 import arvet.metadata.image_metadata as imeta
 import arvet.core.image as im
@@ -19,8 +17,7 @@ class TestImageCollectionDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
@@ -31,8 +28,7 @@ class TestImageCollectionDatabase(unittest.TestCase):
         # Clean up after ourselves by dropping the collection for this model
         im.Image._mongometa.collection.drop()
         ic.ImageCollection._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_stores_and_loads_mono_kwargs(self):
         images = []
@@ -151,6 +147,16 @@ class TestImageCollectionDatabase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             collection.save()
 
+        # blank image_group
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL,
+        )
+        collection.image_group = None   # Explicitly clear because it is inferred by the constructor
+        with self.assertRaises(ValidationError):
+            collection.save()
+
         # Empty images and timestamps
         collection = ic.ImageCollection(
             images=[],
@@ -165,6 +171,7 @@ class TestImageCollectionDatabase(unittest.TestCase):
         for idx in range(10):
             img = CountedImage(
                 pixels=np.random.uniform(0, 255, (32, 32, 3)),
+                image_group='test',
                 metadata=make_metadata(idx),
             )
             img.save()
@@ -208,6 +215,14 @@ class CountedImage(im.Image):
 
 class TestImageCollection(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        dbconn.setup_image_manager()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        dbconn.tear_down_image_manager()
+
     def test_constructor_works_with_mixed_args(self):
         images = [make_image(idx, depth=None) for idx in range(10)]
 
@@ -215,6 +230,7 @@ class TestImageCollection(unittest.TestCase):
             ('images', images),
             ('timestamps', [1.1 * idx for idx in range(10)]),
             ('sequence_type', ImageSequenceType.SEQUENTIAL),
+            ('image_group', images[0].image_group),
             ('is_depth_available', True),
             ('is_normals_available', False),
             ('is_stereo_available', False),
@@ -240,6 +256,7 @@ class TestImageCollection(unittest.TestCase):
             timestamps=[1.1 * idx for idx in range(10)],
             sequence_type=ImageSequenceType.SEQUENTIAL
         )
+        self.assertEqual(images[0].image_group, collection.image_group)
         self.assertFalse(collection.is_depth_available)
         self.assertTrue(collection.is_normals_available)
         self.assertFalse(collection.is_stereo_available)
@@ -289,6 +306,7 @@ class TestImageCollection(unittest.TestCase):
             timestamps=[1.1 * idx for idx in range(10)],
             sequence_type=ImageSequenceType.SEQUENTIAL
         )
+        self.assertEqual(images[0].image_group, collection.image_group)
         self.assertFalse(collection.is_depth_available)
         self.assertTrue(collection.is_normals_available)
         self.assertTrue(collection.is_stereo_available)

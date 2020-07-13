@@ -134,6 +134,15 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
         pass
 
     @abc.abstractmethod
+    def get_image_group(self) -> str:
+        """
+        If the image source is stored in the database, get the image group it is stored under.
+        This lets us pre-load images from that group
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
     def get_columns(self) -> typing.Set[str]:
         """
         Get the set of available properties for this image source. Pass these to "get_properties", below.

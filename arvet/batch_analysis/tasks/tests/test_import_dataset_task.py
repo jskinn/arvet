@@ -1,7 +1,6 @@
 # Copyright (c) 2017, John Skinner
 import unittest
 import unittest.mock as mock
-import os
 import os.path as path
 import bson
 import logging
@@ -9,7 +8,6 @@ from pathlib import Path
 from pymodm.errors import ValidationError
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image_source import ImageSource
@@ -27,8 +25,7 @@ class TestImportDatasetTaskDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         cls.image = mock_types.make_image()
         cls.image.save()
@@ -50,8 +47,7 @@ class TestImportDatasetTaskDatabase(unittest.TestCase):
         Task._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageSource._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_stores_and_loads_unstarted(self):
         obj = ImportDatasetTask(
@@ -234,6 +230,11 @@ class TestImportDatasetTask(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         logging.disable(logging.CRITICAL)
+        dbconn.setup_image_manager()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         self.path_manager = PathManager(['~'], '~/tmp')

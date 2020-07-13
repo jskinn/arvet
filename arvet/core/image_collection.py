@@ -2,7 +2,6 @@
 from operator import itemgetter, attrgetter
 import typing
 import pymodm
-import numpy as np
 
 from arvet.util.column_list import ColumnList
 from arvet.database.enum_field import EnumField
@@ -25,6 +24,7 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
     )
     timestamps = pymodm.fields.ListField(pymodm.fields.FloatField(required=True), required=True)
     sequence_type = EnumField(ImageSequenceType, required=True)
+    image_group = pymodm.fields.CharField(required=True)
 
     is_depth_available = pymodm.fields.BooleanField(required=True)
     is_normals_available = pymodm.fields.BooleanField(required=True)
@@ -60,6 +60,8 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
 
         # Infer missing properties from the images
         if len(self.images) > 0:
+            if self.image_group is None or len(self.image_group) <= 0:
+                self.image_group = self.images[0].image_group
             if self.is_depth_available is None:
                 self.is_depth_available = all(image.depth is not None for image in self.images)
             if self.is_normals_available is None:
@@ -116,6 +118,14 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
         :return: The total time divided by 1 less than the number of frames (the number of intervals)
         """
         return (max(self.timestamps) - min(self.timestamps)) / (len(self.timestamps) - 1)
+
+    def get_image_group(self) -> str:
+        """
+        If the image source is stored in the database, get the image group it is stored under.
+        This lets us pre-load images from that group
+        :return: The image_group property
+        """
+        return self.image_group
 
     def get_columns(self) -> typing.Set[str]:
         """

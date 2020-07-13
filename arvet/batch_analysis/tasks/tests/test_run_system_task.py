@@ -268,6 +268,7 @@ class TestRunSystemTask(unittest.TestCase):
     def setUp(self):
         self.system = mock_types.MockSystem()
         self.image_source = mock_types.MockImageSource()
+        self.image_source.build_images(10)
         self.path_manager = PathManager(['~'], '~/tmp')
 
     def test_run_task_records_unable_to_measure_trial(self):
@@ -488,11 +489,11 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
         cls.path_manager = PathManager(['~'], '~/tmp')
         cls.system = mock_types.MockSystem()
         cls.image_source = mock_types.MockImageSource()
+        cls.image_source.build_images()
         cls.system.save()
         cls.image_source.save()
 
@@ -506,6 +507,7 @@ class TestRunSystemWithSourceDatabase(unittest.TestCase):
         mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockImageSource._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
+        dbconn.tear_down_image_manager()
 
     def test_run_system_returns_trial_result_that_can_be_saved(self):
         result = run_system_with_source(self.system, self.image_source, self.path_manager)

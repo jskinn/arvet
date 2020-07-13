@@ -21,7 +21,7 @@ def load_global_config(filename):
         'output_folder': '~',
         'database': {},
         'image_manager': {
-            'path': '~/arvet-imgs.hdf5',
+            'path': '~/arvet-imgs',
         },
         'task_config': {
             'allow_generate_dataset': True,

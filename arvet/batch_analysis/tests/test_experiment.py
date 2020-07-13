@@ -1,5 +1,4 @@
 # Copyright (c) 2017, John Skinner
-import os
 import typing
 import unittest
 import unittest.mock as mock
@@ -9,7 +8,6 @@ from shutil import rmtree
 from pandas import DataFrame
 
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.system import StochasticBehaviour
 from arvet.core.image import Image
@@ -526,8 +524,7 @@ class TestRunAllDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Ensure we have a clean slate in the database
         Task.objects.all().delete()
@@ -553,8 +550,7 @@ class TestRunAllDatabase(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_makes_run_system_tasks(self):
         repeats = 2
@@ -849,8 +845,7 @@ class TestRunAllDatabaseProfile(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Ensure we have a clean slate in the database
         Task._mongometa.collection.drop()
@@ -865,8 +860,7 @@ class TestRunAllDatabaseProfile(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_profile(self):
         import cProfile as profile
@@ -898,8 +892,7 @@ class TestRunAllWithSeedsDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Ensure we have a clean slate in the database
         Task.objects.all().delete()
@@ -924,8 +917,7 @@ class TestRunAllWithSeedsDatabase(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_makes_run_system_tasks(self):
         seeds = [1560, 107895]
@@ -1192,8 +1184,7 @@ class TestMeasureAllDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Ensure we have a clean slate in the database
         Task._mongometa.collection.drop()
@@ -1255,8 +1246,7 @@ class TestMeasureAllDatabase(unittest.TestCase):
         ImageCollection._mongometa.collection.drop()
         Metric._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_makes_measure_trial_tasks(self):
         self.assertEqual(0, MeasureTrialTask.objects.all().count())

@@ -1,6 +1,7 @@
 import os.path
 import pymodm
 import numpy as np
+import unittest
 from arvet.util.test_helpers import ExtendedTestCase
 import arvet.database.tests.database_connection as dbconn
 from arvet.database.image_field import ImageField, ImageManager
@@ -39,6 +40,7 @@ class TestComplexImageModel(pymodm.MongoModel):
     objects = ImageManager()
 
 
+@unittest.skip("ImageField is currently deprecated")
 class TestImageField(ExtendedTestCase):
 
     @classmethod

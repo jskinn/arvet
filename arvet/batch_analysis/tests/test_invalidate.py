@@ -1,9 +1,7 @@
-import os
 import unittest
 import unittest.mock as mock
 
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.image import Image
@@ -26,8 +24,7 @@ class TestInvalidateDatasetLoader(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
     @classmethod
     def tearDownClass(cls):
@@ -35,8 +32,7 @@ class TestInvalidateDatasetLoader(unittest.TestCase):
         Task._mongometa.collection.drop()
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -131,8 +127,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
     @classmethod
     def tearDownClass(cls):
@@ -142,8 +137,7 @@ class TestInvalidateImageCollection(unittest.TestCase):
         ImageCollection._mongometa.collection.drop()
         mock_types.MockTrialResult._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -293,8 +287,7 @@ class TestInvalidateSystem(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
     @classmethod
     def tearDownClass(cls):
@@ -304,8 +297,7 @@ class TestInvalidateSystem(unittest.TestCase):
         ImageCollection._mongometa.collection.drop()
         TrialResult._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -446,8 +438,7 @@ class TestInvalidateTrial(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Create the basic image sources, systems, and metrics.
         cls.image_collections = [make_image_collection() for _ in range(2)]
@@ -472,8 +463,7 @@ class TestInvalidateTrial(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -617,8 +607,7 @@ class TestInvalidateMetric(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Create the basic image sources, systems, and metrics.
         cls.image_collections = [make_image_collection() for _ in range(2)]
@@ -654,8 +643,7 @@ class TestInvalidateMetric(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -760,8 +748,7 @@ class TestInvalidateMetricResult(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Create the basic image sources, systems, and metrics.
         cls.image_collections = [make_image_collection() for _ in range(2)]
@@ -793,8 +780,7 @@ class TestInvalidateMetricResult(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self):
         # Remove the collections as the start of the test, so that we're sure it's empty
@@ -865,8 +851,7 @@ class TestInvalidateIncompleteTasks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         # Create the basic image sources, systems, and metrics.
         cls.image_collections = [make_image_collection() for _ in range(2)]
@@ -888,8 +873,7 @@ class TestInvalidateIncompleteTasks(unittest.TestCase):
         Image._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         mock_types.MockSystem._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def setUp(self) -> None:
         # At each test, clear the set of tasks

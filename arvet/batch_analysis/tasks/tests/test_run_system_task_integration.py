@@ -1,13 +1,11 @@
 # Copyright (c) 2017, John Skinner
 import typing
 import unittest
-import os
 import time
 import numpy as np
 import pymodm.fields as fields
 from arvet.config.path_manager import PathManager
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 
 import arvet.metadata.image_metadata as imeta
@@ -83,8 +81,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
     def setUp(self):
         pass
@@ -105,8 +102,7 @@ class TestRunSystemTaskPerformance(unittest.TestCase):
         mock_types.MockSystem._mongometa.collection.drop()
         ImageCollection._mongometa.collection.drop()
         Image._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_runs_real_time_10_fps_320x240(self):
         path_manager = PathManager(['~'], '~/tmp')

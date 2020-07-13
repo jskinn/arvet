@@ -1,11 +1,9 @@
 # Copyright (c) 2017, John Skinner
-import os
 import unittest
 import unittest.mock as mock
 import bson
 import pymodm.manager
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 import arvet.core.tests.mock_types as mock_types
 from arvet.core.sequence_type import ImageSequenceType
 from arvet.core.system import StochasticBehaviour
@@ -29,8 +27,7 @@ class TestTaskManagerImportDataset(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         cls.image = mock_types.make_image()
         cls.image.save()
@@ -52,8 +49,7 @@ class TestTaskManagerImportDataset(unittest.TestCase):
         Task._mongometa.collection.drop()
         im.Image._mongometa.collection.drop()
         ic.ImageCollection._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_get_import_dataset_task_checks_for_existing_task(self):
         module_name = 'test_module'
@@ -1040,8 +1036,7 @@ class TestTaskManagerCountPendingTasks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
         cls.image = mock_types.make_image()
         cls.image.save()
@@ -1088,8 +1083,7 @@ class TestTaskManagerCountPendingTasks(unittest.TestCase):
         mock_types.MockSystem._mongometa.collection.drop()
         ic.ImageCollection._mongometa.collection.drop()
         im.Image._mongometa.collection.drop()
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
+        dbconn.tear_down_image_manager()
 
     def test_returns_number_of_incomplete_tasks(self):
         # Set up initial database state. We have 3 tasks of each type, 1 complete, 1 running, 1 unstarted of each

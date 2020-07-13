@@ -7,7 +7,6 @@ import xxhash
 import arvet.util.transform as tf
 import arvet.util.dict_utils as du
 import arvet.database.tests.database_connection as dbconn
-import arvet.database.image_manager as im_manager
 import arvet.metadata.camera_intrinsics as cam_intr
 import arvet.metadata.image_metadata as imeta
 
@@ -143,6 +142,7 @@ class TestLabelledObjectDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
+        dbconn.setup_image_manager()
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
@@ -150,10 +150,8 @@ class TestLabelledObjectDatabase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Clean up after ourselves by dropping the collection for this model
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
         TestLabelledObjectMongoModel._mongometa.collection.drop()
+        dbconn.tear_down_image_manager()
 
     def test_stores_and_loads(self):
         obj = imeta.LabelledObject(
@@ -201,6 +199,14 @@ class TestLabelledObjectDatabase(unittest.TestCase):
 # -------------------- MASKED OBJECT --------------------
 
 class TestMaskedObject(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        dbconn.setup_image_manager()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        dbconn.tear_down_image_manager()
 
     def test_incorrect_size(self):
         with self.assertRaises(ValueError):
@@ -352,9 +358,6 @@ class TestMaskedObject(unittest.TestCase):
         self.assertNotIn(c, subject_set)
 
     def test_to_and_from_son(self):
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
-
         obj1 = imeta.MaskedObject(
             class_names=('class_3',),
             x=148,
@@ -388,8 +391,7 @@ class TestMaskedObjectDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dbconn.connect_to_test_db()
-        image_manager = im_manager.DefaultImageManager(dbconn.image_file, allow_write=True)
-        im_manager.set_image_manager(image_manager)
+        dbconn.setup_image_manager()
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
@@ -398,9 +400,8 @@ class TestMaskedObjectDatabase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
         TestMaskedObjectMongoModel._mongometa.collection.drop()
+        dbconn.tear_down_image_manager()
 
     def test_stores_and_loads(self):
         obj = imeta.MaskedObject(
@@ -710,13 +711,11 @@ class ImageMetadataDatabase(unittest.TestCase):
 
     def setUp(self):
         # Remove the collection as the start of the test, so that we're sure it's empty
-        TestImageMetadataMongoModel._mongometa.collection.drop()
+        TestImageMetadataMongoModel.objects.all().delete()
 
     @classmethod
     def tearDownClass(cls):
         # Clean up after ourselves by dropping the collection for this model
-        if os.path.isfile(dbconn.image_file):
-            os.remove(dbconn.image_file)
         TestImageMetadataMongoModel._mongometa.collection.drop()
 
     def test_stores_and_loads(self):

@@ -65,9 +65,14 @@ class MockImageSource(arvet.core.image_source.ImageSource):
     is_stored_in_database = True
     camera_intrinsics = cam_intr.CameraIntrinsics()
 
+    def __init__(self, *args, **kwargs):
+        super(MockImageSource, self).__init__(*args, **kwargs)
+        self.images = None
+
     def __iter__(self):
-        for idx in range(10):
-            yield 0.6 * idx, make_image(idx)
+        if self.images is None:
+            self.build_images()
+        yield from self.images
 
     def __repr__(self):
         return "{0}({1})".format(type(self).__name__, self.pk)
@@ -76,11 +81,22 @@ class MockImageSource(arvet.core.image_source.ImageSource):
     def average_timestep(self):
         return 0.0
 
+    def get_image_group(self):
+        return 'test'
+
     def get_columns(self):
         return set()
 
     def get_properties(self, columns=None):
         return {}
+
+    def build_images(self, num: int = 10):
+        """
+        Due to interaction with the ImageManager, sometimes we need to construct image objects before iterating
+        :param num: The number of images. Default 10.
+        :return:
+        """
+        self.images = [(0.6 * idx, make_image(idx)) for idx in range(num)]
 
 
 class MockTrialResult(arvet.core.trial_result.TrialResult):
@@ -174,6 +190,7 @@ def make_metadata(index=1, **kwargs):
 def make_image(index=1, **kwargs):
     kwargs = du.defaults(kwargs, {
         'pixels': np.random.uniform(0, 255, (32, 32, 3)),
+        'image_group': 'test',
         'metadata': make_metadata(index),
         'additional_metadata': {
             'Source': 'Generated',
@@ -193,6 +210,7 @@ def make_stereo_image(index=1, **kwargs):
     kwargs = du.defaults(kwargs, {
         'pixels': np.random.uniform(0, 255, (32, 32, 3)),
         'right_pixels': np.random.uniform(0, 255, (32, 32, 3)),
+        'image_group': 'test',
         'metadata': make_metadata(index),
         'right_metadata': make_metadata(
             index,

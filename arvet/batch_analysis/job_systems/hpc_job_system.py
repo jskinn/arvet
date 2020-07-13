@@ -221,7 +221,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             job_id = self._create_and_run_script(
                 scripts=[(
                     Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                    partial(task_args_builder, task, True)
+                    partial(task_args_builder, task)
                 ) for task in import_dataset_tasks],
                 job_name="import_{0}_datasets".format(len(import_dataset_tasks)),
                 num_cpus=max(task.num_cpus for task in import_dataset_tasks),
@@ -266,7 +266,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             job_id = self._create_and_run_script(
                 scripts=[(
                     Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                    partial(task_args_builder, task, False)
+                    partial(task_args_builder, task)
                 )],
                 job_name=task.get_unique_name(),
                 num_cpus=task.num_cpus,
@@ -402,12 +402,11 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         return int(job_id)
 
 
-def task_args_builder(task: Task, allow_write: bool, config, port: int = None):
+def task_args_builder(task: Task, config, port: int = None):
     """
     Make the command line arguments for running a task
     Will use partials to bind the values of task and allow_write
     :param task:
-    :param allow_write:
     :param config:
     :param port:
     :return:
@@ -415,8 +414,6 @@ def task_args_builder(task: Task, allow_write: bool, config, port: int = None):
     args = ['--config', str(config)]
     if port is not None:
         args += ['--mongodb_port', str(port)]
-    if allow_write:
-        args.append('--allow_write')
     args.append(str(task.pk))
     return args
 

@@ -52,8 +52,8 @@ class ImageField(pymodm.fields.MongoBaseField):
             return value
 
         if isinstance(value, str):
-            with arvet.database.image_manager.get() as image_manager:
-                return image_manager.get_image(value)
+            with arvet.database.image_manager.get().get_group() as image_group:
+                return image_group.get_image(value)
         return value
 
     def to_mongo(self, value):
