@@ -125,15 +125,18 @@ class HDF5Group(ImageGroup):
         return self._allow_write
 
     def get_image(self, path: str) -> typing.Union[np.ndarray, None]:
-        with self:
-            data = self._storage.get(path, default=None)
-            if data is not None:
-                return np.array(data)
+        if path is not None:
+            with self:
+                data = self._storage.get(path, default=None)
+                if data is not None:
+                    return np.array(data)
         return None
 
     def is_valid_path(self, path: str) -> bool:
-        with self:
-            return path in self._storage
+        if path is not None:
+            with self:
+                return path in self._storage
+        return False
 
     def store_image(self, data: np.ndarray) -> str:
         # Use a context to open our file if it is not already open

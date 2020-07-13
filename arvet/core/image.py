@@ -92,7 +92,7 @@ class Image(pymodm.MongoModel):
 
     @property
     def pixels(self) -> typing.Union[None, np.ndarray]:
-        if self._pixels is None:
+        if self._pixels is None and self.pixel_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.pixel_path):
                     self._pixels = image_group.get_image(self.pixel_path)
@@ -100,7 +100,7 @@ class Image(pymodm.MongoModel):
 
     @property
     def depth(self) -> typing.Union[None, np.ndarray]:
-        if self._depth is None:
+        if self._depth is None and self.depth_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.depth_path):
                     self._depth = image_group.get_image(self.depth_path)
@@ -108,7 +108,7 @@ class Image(pymodm.MongoModel):
 
     @property
     def true_depth(self) -> typing.Union[None, np.ndarray]:
-        if self._true_depth is None:
+        if self._true_depth is None and self.true_depth_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.true_depth_path):
                     self._true_depth = image_group.get_image(self.true_depth_path)
@@ -116,7 +116,7 @@ class Image(pymodm.MongoModel):
 
     @property
     def normals(self) -> typing.Union[None, np.ndarray]:
-        if self._normals is None:
+        if self._normals is None and self.normals_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.normals_path):
                     self._normals = image_group.get_image(self.normals_path)
@@ -313,7 +313,7 @@ class StereoImage(Image):
 
     @property
     def right_pixels(self) -> typing.Union[None, np.ndarray]:
-        if self._right_pixels is None:
+        if self._right_pixels is None and self.right_pixel_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.right_pixel_path):
                     self._right_pixels = image_group.get_image(self.right_pixel_path)
@@ -321,7 +321,7 @@ class StereoImage(Image):
 
     @property
     def right_depth(self) -> typing.Union[None, np.ndarray]:
-        if self._right_pixels is None:
+        if self._right_pixels is None and self.right_depth_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.right_depth_path):
                     self._right_depth = image_group.get_image(self.right_depth_path)
@@ -329,7 +329,7 @@ class StereoImage(Image):
 
     @property
     def right_true_depth(self) -> typing.Union[None, np.ndarray]:
-        if self._right_true_depth is None:
+        if self._right_true_depth is None and self.right_true_depth_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.right_true_depth_path):
                     self._right_true_depth = image_group.get_image(self.right_true_depth_path)
@@ -337,7 +337,7 @@ class StereoImage(Image):
 
     @property
     def right_normals(self) -> typing.Union[None, np.ndarray]:
-        if self._right_normals is None:
+        if self._right_normals is None and self.right_normals_path is not None:
             with image_manager.get().get_group(self.image_group) as image_group:
                 if image_group.is_valid_path(self.right_normals_path):
                     self._right_normals = image_group.get_image(self.right_normals_path)

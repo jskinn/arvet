@@ -246,6 +246,90 @@ class TestImage(th.ExtendedTestCase):
         )
         self.assertEqual(img_hash, bytes(img.hash))
 
+    def test_pixels_retrieves_data(self):
+        pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.Image(
+            pixels=pixels,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(pixels, img.pixels)
+
+    def test_depth_retrieves_data(self):
+        depth = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            depth=depth,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(depth, img.depth)
+
+    def test_depth_is_none_when_omitted(self):
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertIsNone(img.depth)
+
+    def test_true_depth_retrieves_data(self):
+        true_depth = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            true_depth=true_depth,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(true_depth, img.true_depth)
+
+    def test_true_depth_is_none_when_omitted(self):
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertIsNone(img.true_depth)
+
+    def test_normals_retrieves_data(self):
+        normals = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            normals=normals,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(normals, img.normals)
+
+    def test_normals_is_none_when_omitted(self):
+        img = im.Image(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertIsNone(img.normals)
+
     def test_get_columns_returns_column_list(self):
         img = im.Image(
             pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
@@ -919,6 +1003,89 @@ class TestStereoImage(th.ExtendedTestCase):
         # Hash is hard-coded in SetUp
         self.assertEqual(b'\x1f`\xa8\x8aR\xed\x9f\x0b', bytes(self.image.hash))
         self.assertEqual(b'\xa5\xc9\x08\xaf$\x0b\x116', bytes(self.image.right_hash))
+
+    def test_right_pixels_retrieves_data(self):
+        right_pixels = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.StereoImage(
+            right_pixels=right_pixels,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(right_pixels, img.right_pixels)
+
+    def test_right_depth_retrieves_data(self):
+        right_depth = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.StereoImage(
+            right_depth=right_depth,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(right_depth, img.right_depth)
+
+    def test_right_depth_is_none_when_omitted(self):
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertIsNone(img.right_depth)
+
+    def test_right_true_depth_retrieves_data(self):
+        right_true_depth = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_true_depth=right_true_depth,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(right_true_depth, img.right_true_depth)
+
+    def test_right_true_depth_is_none_when_omitted(self):
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertIsNone(img.right_true_depth)
+
+    def test_normals_retrieves_data(self):
+        right_normals = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            right_normals=right_normals,
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertNPEqual(right_normals, img.right_normals)
+
+    def test_normals_is_none_when_omitted(self):
+        img = im.StereoImage(
+            pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
+            image_group='test',
+            metadata=imeta.ImageMetadata(
+                img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
+                source_type=imeta.ImageSourceType.SYNTHETIC
+            )
+        )
+        self.assertIsNone(img.right_normals)
 
     def test_left_image_is_base(self):
         self.assertNPEqual(self.image.pixels, self.image.left_pixels)
