@@ -59,8 +59,6 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             'job_location: 'folder-to-create-jobs'      # Default ~
             'job_name_prefix': 'prefix-to-job-names'    # Default ''
             'max_jobs': int                             # Default no limit
-            'max_imports': int                          # Default no limit
-            'allow_read_during_import': bool            # Default True
             'ssh_tunnel': {                             # No tunnel if omitted
                 'hostname': The host to ssh to
                 'username': The username to connect with
@@ -82,8 +80,6 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._job_folder = Path(self._job_folder).expanduser().resolve()
         self._name_prefix = config.get('job_name_prefix', '')
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
-        self._max_imports = max(1, int(config['max_imports'])) if 'max_imports' in config else None
-        self._allow_read_during_import = bool(config.get('allow_read_during_import', True))
 
         # Configure the job to set up an ssh tunnel before running.
         ssh_tunnel_config = config.get('ssh_tunnel', {})
@@ -105,7 +101,6 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._checked_running_jobs = False
         self._ssh_current_port = self._ssh_min_port
         self._tasks_to_run = []
-        self._import_dataset_tasks = []
         self._scripts_to_run = []
 
     def can_generate_dataset(self, simulator: bson.ObjectId, config: dict) -> bool:
@@ -151,10 +146,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :return: The job id if the job has been started correctly, None if failed.
         """
         if self.can_run_task(task):
-            if isinstance(task, ImportDatasetTask):
-                self._import_dataset_tasks.append(task)
-            else:
-                self._tasks_to_run.append(task)
+            self._tasks_to_run.append(task)
 
     def run_script(
             self,
@@ -191,55 +183,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         - ImportDatasetTasks, which are run all together in a single job
         :return:
         """
-        # Check if there are any import dataset tasks already running on this node
-        existing_import_tasks_count = ImportDatasetTask.objects.raw({
-            'node_id': self.node_id,
-            'state': JobState.RUNNING.name
-        }).count()
-        if existing_import_tasks_count >= 1:
-            # There are import dataset tasks running on this node, we can't do anything until they finish.
-            return
-
-        # Make a single job for all the import dataset tasks
-        # We merge most of the requirements like num cpus as maximum across all the tasks
-        # expected duration is the sum of all the durations.
-        if len(self._import_dataset_tasks) > 0:
-            import_dataset_tasks = sorted(self._import_dataset_tasks, key=attrgetter('failure_count'))
-            if self._max_imports is not None and len(import_dataset_tasks) > self._max_imports:
-                import_dataset_tasks = import_dataset_tasks[:self._max_imports]
-                self._import_dataset_tasks = import_dataset_tasks[self._max_imports:]
-            else:
-                self._import_dataset_tasks = []
-            logging.getLogger(__name__).info(
-                "Submitting script for {0} import jobs, {0} still pending".format(
-                    len(import_dataset_tasks), len(self._import_dataset_tasks)))
-            memory_requirements = max(
-                parse_memory_requirements(task.memory_requirements)
-                for task in import_dataset_tasks
-            )
-            memory_requirements = max(1, memory_requirements // (1024 * 1024))
-            job_id = self._create_and_run_script(
-                scripts=[(
-                    Path(arvet.batch_analysis.scripts.run_task.__file__).resolve(),
-                    partial(task_args_builder, task)
-                ) for task in import_dataset_tasks],
-                job_name="import_{0}_datasets".format(len(import_dataset_tasks)),
-                num_cpus=max(task.num_cpus for task in import_dataset_tasks),
-                num_gpus=max(task.num_gpus for task in import_dataset_tasks),
-                memory_requirements="{0}GB".format(memory_requirements),
-                expected_duration=merge_expected_durations(
-                    task.expected_duration for task in import_dataset_tasks)
-            )
-            if job_id is not None:
-                # The one job is running all the imports, mark that fact on all the tasks
-                for task in import_dataset_tasks:
-                    task.mark_job_started(self.node_id, job_id)
-                    task.save()
-                if not self._allow_read_during_import:
-                    # No more jobs are allowed to run, we're running imports
-                    return
-
-        # Run non-import scripts in parallel
+        # Run scripts in parallel
         logging.getLogger(__name__).info("Submitting {0} scripts to HPC".format(len(self._scripts_to_run)))
         for (
                 script,
