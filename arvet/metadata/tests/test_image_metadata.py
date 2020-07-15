@@ -1,5 +1,4 @@
 # Copyright (c) 2017, John Skinner
-import os.path
 import unittest
 import numpy as np
 import pymodm
@@ -745,6 +744,21 @@ class ImageMetadataDatabase(unittest.TestCase):
         self.assertGreaterEqual(len(all_entities), 1)
         self.assertEqual(all_entities[0].object, obj)
         all_entities[0].delete()
+
+    def test_loaded_hash_matches_stored(self):
+        pixels = np.random.uniform(0, 255, (100, 100, 3))
+        img_hash = xxhash.xxh64(pixels).digest()
+        obj = imeta.ImageMetadata(source_type=imeta.ImageSourceType.SYNTHETIC, img_hash=img_hash)
+
+        # Save the model
+        model = TestImageMetadataMongoModel()
+        model.object = obj
+        model.save()
+
+        # Re-load the model
+        loaded_model = TestImageMetadataMongoModel.objects.get({'_id': model.pk})
+        print(type(loaded_model.object.img_hash))
+        self.assertEqual(bytes(img_hash), bytes(loaded_model.object.img_hash))
 
 
 class TestMakeMetadata(unittest.TestCase):
