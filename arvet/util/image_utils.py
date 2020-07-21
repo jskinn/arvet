@@ -48,8 +48,8 @@ def convert_to_grey(image_data: np.ndarray) -> np.ndarray:
     :param image_data: The three channel image data, in RGB format
     :return: The image in greyscale, single channel
     """
-    if len(image_data.shape) > 2 and image_data.shape[2] == 3:
-        pil_image = PIL.Image.fromarray(to_uint_image(image_data))
+    if len(image_data.shape) > 2 and (image_data.shape[2] == 3 or image_data.shape[2] == 4):
+        pil_image = PIL.Image.fromarray(to_uint_image(image_data), mode='RGBA' if image_data.shape[2] == 4 else 'RGB')
         return np.array(pil_image.convert('L'))
     return image_data
 
@@ -138,6 +138,6 @@ def to_uint_image(image_data: np.ndarray) -> np.ndarray:
         return image_data
     if (image_data.dtype == np.float or image_data.dtype == np.float16 or
             image_data.dtype == np.float32 or image_data.dtype == np.float64 or
-            image_data.dtype == np.double or image_data.dtype == np.bool) and image_data.max() <= 1:
+            image_data.dtype == np.double or image_data.dtype == np.bool) and np.max(image_data) <= 1:
         return (255 * image_data).astype(dtype=np.uint8)
     return image_data.astype(np.uint8)

@@ -99,6 +99,20 @@ class TestImageUtils(ExtendedTestCase):
         self.assertNotNPEqual(rgb_image[:, :, 1], result)
         self.assertNotNPEqual(rgb_image[:, :, 2], result)
 
+    def test_convert_to_grey_handles_RGBA(self):
+        rgb_image = np.array([
+            [[255 * r, 255 * g, 127.5 * (2 - r - g), 255 * (1 - g * r)] for r in np.arange(0, 1, 0.01)]
+            for g in np.arange(0, 1, 0.01)
+        ], dtype=np.uint8)
+        result = image_utils.convert_to_grey(rgb_image)
+        rgb_only_result = image_utils.convert_to_grey(rgb_image[:, :, 0:3])
+        self.assertEqual(2, len(result.shape))
+        self.assertEqual(rgb_image.shape[0:2], result.shape)
+        self.assertNotNPEqual(rgb_image[:, :, 0], result)
+        self.assertNotNPEqual(rgb_image[:, :, 1], result)
+        self.assertNotNPEqual(rgb_image[:, :, 2], result)
+        self.assertNPEqual(rgb_only_result, result)     # The extra alpha channel should not make a difference
+
     def test_get_bounding_box_logical(self):
         logical_image = np.array([[False for _ in range(100)] for _ in range(100)])
         left = 12
