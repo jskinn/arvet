@@ -70,9 +70,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({'max_jobs': 100}, 'myconf.yml')
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt:
-            patch_import_dataset_count(mock_idt)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()   # Doesn't actually make the job until we run the queue
         self.assertIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
@@ -83,9 +81,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt:
-            patch_import_dataset_count(mock_idt)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
         self.assertNotIn(mock.call(['qjobs'], stdout=mock.ANY, universal_newlines=True), mock_run.call_args_list)
@@ -97,25 +93,36 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
             subject.run_script('test_script_{0}'.format(idx), lambda *_: [])
 
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run, num_jobs=0)
             subject.run_queued_jobs()
             self.assertEqual(11, mock_run.call_count)   # Plus 1 for the check for existing
             # Make sure there are exactly 10 qsub calls
             self.assertEqual(10, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
 
-    def test_existing_jobs_reduce_max_jobs(self):
+    def test_run_script_returns_false_once_queue_is_full(self):
+        subject = hpc.HPCJobSystem({'max_jobs': 10}, 'myconf.yml')
+        for idx in range(12):
+            result = subject.run_script('test_script_{0}'.format(idx), lambda *_: [])
+            if idx < 9:
+                self.assertTrue(result)
+                self.assertFalse(subject.is_queue_full())
+            elif idx == 9:
+                # The 10th job should successfully add, but the queue should now be full
+                self.assertTrue(result)
+                self.assertTrue(subject.is_queue_full())
+            else:
+                self.assertFalse(result)
+                self.assertTrue(subject.is_queue_full())
+
+    def test_existing_jobs_count_toward_max_jobs(self):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'max_jobs': 10}, 'myconf.yml')
         for idx in range(12):
             subject.run_script('test_script_{0}'.format(idx), lambda *_: [])
 
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run, num_jobs=5)
             subject.run_queued_jobs()
             self.assertEqual(6, mock_run.call_count)  # Plus 1 for the check for existing
@@ -127,9 +134,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
@@ -146,9 +151,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         target_folder = os.path.join('/tmp', 'trial-{}'.format(bson.ObjectId()))
         subject = hpc.HPCJobSystem({'job_location': target_folder}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
@@ -164,9 +167,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script(script_name, lambda *_: script_args)
             subject.run_queued_jobs()
@@ -181,9 +182,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [], num_cpus=15789, num_gpus=0)
             subject.run_queued_jobs()
@@ -198,9 +197,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [], num_gpus=8026)
             subject.run_queued_jobs()
@@ -216,9 +213,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [], memory_requirements='1542GB')
             subject.run_queued_jobs()
@@ -232,9 +227,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [], expected_duration='125:23:16')
             subject.run_queued_jobs()
@@ -249,9 +242,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [], job_name=job_name)
             subject.run_queued_jobs()
@@ -272,9 +263,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [], job_name=job_name)
             subject.run_queued_jobs()
@@ -294,9 +283,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda config, port=0: ['--myarg1', str(config)])
             subject.run_queued_jobs()
@@ -310,9 +297,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         environment_path = '/home/user/environment.sh'
         subject = hpc.HPCJobSystem({'environment': environment_path}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
@@ -328,9 +313,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
@@ -346,9 +329,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
@@ -365,9 +346,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run)
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
@@ -393,9 +372,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
             }
         }, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run, num_jobs=0)
             subject.run_script('test_script', lambda *_: [], job_name=job_name)
             subject.run_queued_jobs()
@@ -440,9 +417,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
 
         for port in range(min_port, min_port + 10):
             with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                     mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-                patch_import_dataset_count(mock_idt)
                 patch_subprocess(mock_run)
                 subject.run_script('test_script', lambda config, p=0: ['--port', str(p)], job_name=job_name)
                 subject.run_queued_jobs()
@@ -484,9 +459,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         for _ in range(12):
             subject.run_script('test_script', lambda *_: [])
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_count(mock_idt)
             patch_subprocess(mock_run, num_jobs=0)
             subject.run_queued_jobs()
             self.assertEqual(11, mock_run.call_count)  # Plus 1 for the check for existing
@@ -499,9 +472,7 @@ class TestHPCJobSystemRunScript(unittest.TestCase):
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask') as mock_idt:
-            patch_import_dataset_count(mock_idt)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_script('test_script', lambda *_: [])
             subject.run_queued_jobs()
         filename = mock_open.call_args[0][0]
@@ -526,10 +497,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject = hpc.HPCJobSystem({'node_id': node_id}, 'myconf.yml')
         subject.run_task(mock_task)
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
 
@@ -543,10 +511,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         subject.run_task(make_mock_task())
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
 
@@ -563,10 +528,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         target_folder = os.path.join('/tmp', 'trial-{}'.format(bson.ObjectId()))
         subject = hpc.HPCJobSystem({'job_location': target_folder}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(make_mock_task())
             subject.run_queued_jobs()
@@ -581,10 +543,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -606,10 +565,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -627,10 +583,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -649,10 +602,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -669,10 +619,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -688,10 +635,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -713,10 +657,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'job_name_prefix': 'job_'}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(mock_task)
             subject.run_queued_jobs()
@@ -739,10 +680,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject = hpc.HPCJobSystem({'environment': environment_path}, 'myconf.yml')
         subject.run_task(mock_task)
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
         mock_file = mock_open()
@@ -758,10 +696,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         environment_path = '/home/user/environment.sh'
         subject = hpc.HPCJobSystem({'environment': environment_path}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(make_mock_task())
             subject.run_queued_jobs()
@@ -777,10 +712,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(make_mock_task())
             subject.run_queued_jobs()
@@ -798,10 +730,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         patch_subprocess(mock_run)
         mock_open.return_value = mock.MagicMock()
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj:
-            patch_import_dataset_objects_count(mock_idt_obj)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             patch_subprocess(mock_run)
             subject.run_task(make_mock_task())
             subject.run_queued_jobs()
@@ -814,10 +743,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'task_config': {'allow_import_dataset': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(task)
             subject.run_queued_jobs()
@@ -829,10 +755,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'task_config': {'allow_run_system': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(task)
             self.assertFalse(mock_run.called)
@@ -843,10 +766,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'task_config': {'allow_run_system': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(task)
             self.assertFalse(mock_run.called)
@@ -857,13 +777,49 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         mock_open = mock.mock_open()
         subject = hpc.HPCJobSystem({'task_config': {'allow_run_system': False}}, 'myconf.yml')
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_task(task)
             self.assertFalse(mock_run.called)
+
+    def test_run_task_returns_false_once_queue_is_full(self):
+        subject = hpc.HPCJobSystem({'max_jobs': 10}, 'myconf.yml')
+        for idx in range(12):
+            task = make_mock_task()
+            result = subject.run_task(task)
+            if idx < 9:
+                self.assertTrue(result)
+                self.assertFalse(subject.is_queue_full())
+            elif idx == 9:
+                # The 10th job should successfully add, but the queue should now be full
+                self.assertTrue(result)
+                self.assertTrue(subject.is_queue_full())
+            else:
+                self.assertFalse(result)
+                self.assertTrue(subject.is_queue_full())
+
+    def test_run_task_only_counts_tasks_that_have_not_previously_failed(self):
+        subject = hpc.HPCJobSystem({'max_jobs': 5}, 'myconf.yml')
+        # These tasks should go in the queue, but should not count toward it's length
+        for idx in range(7):
+            task = make_mock_task(failure_count=idx + 2)
+            result = subject.run_task(task)
+            self.assertTrue(result)
+            self.assertFalse(subject.is_queue_full())
+        # We should still be able to add new tasks that haven't failed
+        for idx in range(7):
+            task = make_mock_task()
+            result = subject.run_task(task)
+            if idx < 4:
+                self.assertTrue(result)
+                self.assertFalse(subject.is_queue_full())
+            elif idx == 4:
+                # The 10th job should successfully add, but the queue should now be full
+                self.assertTrue(result)
+                self.assertTrue(subject.is_queue_full())
+            else:
+                self.assertFalse(result)
+                self.assertTrue(subject.is_queue_full())
 
     def test_run_queued_jobs_runs_other_tasks_even_if_there_are_imports_to_run(self):
         normal_task = make_mock_task()
@@ -878,10 +834,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject.run_task(import_task_2)
         subject.run_task(import_task_3)
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
         self.assertEqual(4, mock_open.call_count)
@@ -911,10 +864,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject.run_task(import_task_2)
         subject.run_task(import_task_3)
         with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj, \
                 mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run') as mock_run:
-            patch_import_dataset_objects_count(mock_idt_obj)
             patch_subprocess(mock_run)
             subject.run_queued_jobs()
         self.assertTrue(import_task_1.mark_job_started.called)
@@ -935,10 +885,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject = hpc.HPCJobSystem({}, 'myconf.yml')
         subject.run_task(normal_task)
         subject.run_task(import_task)
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj:
-            patch_import_dataset_objects_count(mock_idt_obj, num_tasks=1)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_queued_jobs()
         self.assertEqual(2, mock_open.call_count)
         self.assertEqual(2, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
@@ -951,7 +898,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
     @mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.subprocess.run')
     def test_run_queued_jobs_submits_least_failed_jobs_first(self, mock_run):
         task_1 = make_mock_task(failure_count=10)
-        task_2 = make_mock_task(failure_count= 0)
+        task_2 = make_mock_task(failure_count=0)
         task_3 = make_mock_task(failure_count=4)
 
         mock_open = mock.mock_open()
@@ -960,10 +907,7 @@ class TestHPCJobSystemRunTask(unittest.TestCase):
         subject.run_task(task_1)
         subject.run_task(task_2)
         subject.run_task(task_3)
-        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True), \
-                mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.ImportDatasetTask.objects',
-                           spec=ImportDatasetTask.objects) as mock_idt_obj:
-            patch_import_dataset_objects_count(mock_idt_obj)
+        with mock.patch('arvet.batch_analysis.job_systems.hpc_job_system.open', mock_open, create=True):
             subject.run_queued_jobs()
         self.assertEqual(2, sum(1 for call in mock_run.call_args_list if call[0][0][0] == 'qsub'))
         self.assertIn(mock.call(['qsub', subject._job_folder / (task_2.get_unique_name() + '.sub')],
@@ -1002,16 +946,6 @@ def patch_subprocess(mock_subprocess_run: mock.Mock, job_id=4, num_jobs=15):
 
     mock_subprocess_run.side_effect = lambda script_args, *args, **kwargs: \
         mock_qjobs_completed_process if script_args[0] is 'qjobs' else mock_qsub_completed_process
-
-
-def patch_import_dataset_count(mock_import_dataset, num_tasks=0):
-    patch_import_dataset_objects_count(mock_import_dataset.objects, num_tasks)
-
-
-def patch_import_dataset_objects_count(mock_import_dataset_objects, num_tasks=0):
-    mock_cursor = mock.Mock()
-    mock_cursor.count.return_value = num_tasks
-    mock_import_dataset_objects.raw.return_value = mock_cursor
 
 
 def make_mock_task(failure_count=0):

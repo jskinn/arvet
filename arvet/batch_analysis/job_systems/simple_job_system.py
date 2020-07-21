@@ -45,7 +45,7 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         return 0 <= job_id < len(self._queue)
 
-    def run_task(self, task: Task):
+    def run_task(self, task: Task) -> bool:
         """
         Run a particular task
         :param task: The task object to run
@@ -70,6 +70,8 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 self._queue.append((str(task.pk), None))
                 task.mark_job_started(self.node_id, len(self._queue) - 1)  # Job id is the index in the queue
                 task.save()
+            return True
+        return False
 
     def run_script(
             self,
@@ -92,6 +94,13 @@ class SimpleJobSystem(arvet.batch_analysis.job_system.JobSystem):
         """
         self._queue.append((script, script_args_builder))
         return len(self._queue) - 1  # Job id is the index in the queue
+
+    def is_queue_full(self) -> bool:
+        """
+        Simple job systems never fill up as long as they have memory, queue is never full.
+        :return:
+        """
+        return False
 
     def run_queued_jobs(self):
         """

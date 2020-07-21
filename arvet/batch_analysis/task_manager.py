@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 import bson
 import typing
+import logging
 
 from arvet.database.autoload_modules import get_model_classes
 from arvet.core.image_source import ImageSource
@@ -248,6 +249,10 @@ def schedule_tasks(job_system: JobSystem,
     for task in all_available:
         task.load_referenced_models()
         job_system.run_task(task)
+        if job_system.is_queue_full():
+            # No point to adding more jobs, the queue is full
+            logging.getLogger(__name__).info("Not queueing any more tasks, queue is full.")
+            break
 
 
 def count_pending_tasks() -> int:

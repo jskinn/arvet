@@ -9,8 +9,7 @@ from pathlib import Path
 from operator import attrgetter
 from functools import partial
 import arvet.batch_analysis.job_system
-from arvet.batch_analysis.task import Task, JobState
-from arvet.batch_analysis.tasks.import_dataset_task import ImportDatasetTask
+from arvet.batch_analysis.task import Task
 import arvet.batch_analysis.scripts.run_task
 
 
@@ -39,7 +38,7 @@ echo $! > {job_folder}/{job_name}-{local_port}.ssh.pid
 
 
 SSH_TUNNEL_SUFFIX = """
-cat {job_folder}/{job_name}-{local_port}.ssh.pid | xargs kill
+xargs kill < {job_folder}/{job_name}-{local_port}.ssh.pid
 rm {job_folder}/{job_name}-{local_port}.ssh.pid
 """
 
@@ -80,6 +79,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         self._job_folder = Path(self._job_folder).expanduser().resolve()
         self._name_prefix = config.get('job_name_prefix', '')
         self._max_jobs = max(1, int(config['max_jobs'])) if 'max_jobs' in config else None
+        self._expected_jobs_to_run = 0
 
         # Configure the job to set up an ssh tunnel before running.
         ssh_tunnel_config = config.get('ssh_tunnel', {})
@@ -139,14 +139,19 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         output = result.stdout.lower()  # Case insensitive
         return 'unknown job id' not in output and 'job has finished' not in output
 
-    def run_task(self, task: Task):
+    def run_task(self, task: Task) -> bool:
         """
         Run a particular task
         :param task: The the task to run
         :return: The job id if the job has been started correctly, None if failed.
         """
-        if self.can_run_task(task):
+        if self.can_run_task(task) and not self.is_queue_full():
             self._tasks_to_run.append(task)
+            # Jobs that have failed before may not actually be run if there are enough jobs that haven't failed yet
+            if task.failure_count <= 0:
+                self._expected_jobs_to_run += 1
+            return True
+        return False
 
     def run_script(
             self,
@@ -155,7 +160,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             job_name: str = "",
             num_cpus: int = 1, num_gpus: int = 0,
             memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
-    ):
+    ) -> bool:
         """
         Run a script that is not a task on this job system
         :param script: The path to the script to run
@@ -167,9 +172,20 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
         :param expected_duration: The duration given for the job to run
         :return: The job id if the job has been started correctly, None if failed.
         """
-        self._scripts_to_run.append((
-            script, script_args_builder, job_name, num_cpus, num_gpus, memory_requirements, expected_duration
-        ))
+        if not self.is_queue_full():
+            self._scripts_to_run.append((
+                script, script_args_builder, job_name, num_cpus, num_gpus, memory_requirements, expected_duration
+            ))
+            self._expected_jobs_to_run += 1
+            return True
+        return False
+
+    def is_queue_full(self) -> bool:
+        """
+        If we have collected enough jobs that we expect to run to fill the queue.
+        :return:
+        """
+        return self._max_jobs is not None and self._expected_jobs_to_run >= self._max_jobs
 
     def run_queued_jobs(self):
         """
@@ -204,7 +220,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             )
         self._scripts_to_run = []
 
-        # Submit jobs for tasks that don't import, starting with those that have failed the least
+        # Submit jobs for tasks, starting with those that have failed the least
         logging.getLogger(__name__).info("Submitting {0} tasks to HPC".format(len(self._tasks_to_run)))
         for task in sorted(self._tasks_to_run, key=attrgetter('failure_count')):
             job_id = self._create_and_run_script(
@@ -222,6 +238,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
                 task.mark_job_started(self.node_id, job_id)
                 task.save()
         self._tasks_to_run = []
+        self._expected_jobs_to_run = 0
 
     def _create_and_run_script(
             self,
@@ -296,7 +313,7 @@ class HPCJobSystem(arvet.batch_analysis.job_system.JobSystem):
             lines.append('source ' + quote(str(self._environment)))
 
         # change to the current working dir
-        lines.append('cd {0}'.format(quote(getcwd())))
+        lines.append('cd {0} || exit'.format(quote(getcwd())))
 
         # Activate an SSH tunnel, if required
         port = None

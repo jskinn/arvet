@@ -65,7 +65,7 @@ class JobSystem(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def run_task(self, task: Task):
+    def run_task(self, task: Task) -> bool:
         """
         Queue a particular task to run.
         It doesn't necessarily have to start running immediately, but the job system must update the job state
@@ -74,14 +74,14 @@ class JobSystem(metaclass=abc.ABCMeta):
         the full set.
         Does not necessarily have to run all tasks passed to it.
         :param task: The task object to run
-        :return: None.
+        :return: True if the job is expected to run, false if it will not (such as if the queue is full).
         """
         pass
 
     @abc.abstractmethod
     def run_script(self, script: str, script_args_builder: typing.Callable[..., typing.List[str]],
                    job_name: str = "", num_cpus: int = 1, num_gpus: int = 0,
-                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00'):
+                   memory_requirements: str = '3GB', expected_duration: str = '1:00:00') -> bool:
         """
         Run a python script that is not a task on this job system
         :param script: The path to the script to run
@@ -91,7 +91,17 @@ class JobSystem(metaclass=abc.ABCMeta):
         :param num_gpus: The number of GPUs required
         :param memory_requirements: The required amount of memory
         :param expected_duration: The duration given for the job to run
-        :return: The job id if the job has been started correctly, None if failed.
+        :return: True if the
+        """
+        pass
+
+    @abc.abstractmethod
+    def is_queue_full(self) -> bool:
+        """
+        Some job systems may only allow a finite number of jobs at once.
+        Once we have hit this limit, we expect run_script and run_task to no longer run the scripts/tasks given.
+        In this case, we should stop providing them.
+        :return:
         """
         pass
 
