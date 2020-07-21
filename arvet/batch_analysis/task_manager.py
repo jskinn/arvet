@@ -245,7 +245,7 @@ def schedule_tasks(job_system: JobSystem,
     query = {'state': JobState.UNSTARTED.name}
     if task_ids is not None:
         query['_id'] = {'$in': list(task_ids)}
-    all_available = Task.objects.raw(query)
+    all_available = Task.objects.raw(query).order_by([('failure_count', 1)])
     for task in all_available:
         task.load_referenced_models()
         job_system.run_task(task)

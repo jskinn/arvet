@@ -888,6 +888,7 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
+        mock_job_system.is_queue_full.return_value = False
 
         task_manager.schedule_tasks(mock_job_system)
 
@@ -908,6 +909,7 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
+        mock_job_system.is_queue_full.return_value = False
 
         task_manager.schedule_tasks(mock_job_system)
 
@@ -923,6 +925,7 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
+        mock_job_system.is_queue_full.return_value = False
 
         task_manager.schedule_tasks(mock_job_system)
 
@@ -959,15 +962,116 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
 
         self.assertEqual(mock.call(task), mock_job_system.run_task.call_args)
 
+    def test_schedule_tasks_runs_many_tasks(self):
+        # Set up initial database state
+        tasks = [RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            repeat=repeat,
+            failure_count=0,
+            state=JobState.UNSTARTED
+        ) for repeat in range(10)]
+        for task in tasks:
+            task.save()
+
+        mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
+        mock_job_system.node_id = 'here'
+        mock_job_system.is_job_running.return_value = True
+        mock_job_system.run_task.return_value = 33
+        mock_job_system.is_queue_full.return_value = False
+
+        task_manager.schedule_tasks(mock_job_system)
+
+        self.assertEqual(len(tasks), mock_job_system.run_task.call_count)
+        called_task_ids = set(call_args[0][0].pk for call_args in mock_job_system.run_task.call_args_list)
+        self.assertEqual(set(task.pk for task in tasks), called_task_ids)
+
+    def test_schedule_tasks_stops_early_if_queue_is_full(self):
+        # Set up initial database state
+        tasks = [RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            repeat=repeat,
+            failure_count=0,
+            state=JobState.UNSTARTED
+        ) for repeat in range(10)]
+        for task_obj in tasks:
+            task_obj.save()
+
+        # Mock methods to fill a queue
+        max_jobs = 5
+        queue_len = 0
+
+        def is_queue_full():
+            nonlocal queue_len
+            return queue_len >= max_jobs
+
+        def run_task(task):
+            nonlocal queue_len
+            queue_len += 1
+            return queue_len
+
+        mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
+        mock_job_system.node_id = 'here'
+        mock_job_system.is_job_running.return_value = True
+        mock_job_system.run_task.side_effect = run_task
+        mock_job_system.is_queue_full.side_effect = is_queue_full
+
+        task_manager.schedule_tasks(mock_job_system)
+
+        self.assertEqual(max_jobs, mock_job_system.run_task.call_count)
+        self.assertEqual(max_jobs, queue_len)
+
+    def test_schedule_runs_least_failed_jobs_first(self):
+        # Set up initial database state
+        tasks = [RunSystemTask(
+            system=self.system,
+            image_source=self.image_source,
+            repeat=repeat,
+            failure_count=15 - repeat,
+            state=JobState.UNSTARTED
+        ) for repeat in range(10)]
+        for task_obj in tasks:
+            task_obj.save()
+
+        # Mock methods to fill a queue
+        max_jobs = 5
+        queue = []
+
+        def is_queue_full():
+            nonlocal queue
+            return len(queue) >= max_jobs
+
+        def run_task(task):
+            nonlocal queue
+            queue.append(task)
+            return len(queue)
+
+        mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
+        mock_job_system.node_id = 'here'
+        mock_job_system.is_job_running.return_value = True
+        mock_job_system.run_task.side_effect = run_task
+        mock_job_system.is_queue_full.side_effect = is_queue_full
+
+        task_manager.schedule_tasks(mock_job_system)
+
+        self.assertEqual(max_jobs, mock_job_system.run_task.call_count)
+        self.assertEqual(max_jobs, len(queue))
+
+        called_task_ids = [call_args[0][0].pk for call_args in mock_job_system.run_task.call_args_list]
+        self.assertEqual([task.pk for task in tasks[9:4:-1]], called_task_ids)
+
     def test_schedule_tasks_doesnt_rerun_completed_tasks(self):
         # Set up initial database state
+        job_id = 221
+        node_id = 'this_node'
         unfinished_task = RunSystemTask(
             system=self.system,
             image_source=self.image_source,
             repeat=1,
             state=JobState.RUNNING,
-            node_id='here',
-            job_id=10
+            node_id=node_id,
+            job_id=job_id
         )
         unfinished_task.save()
         finished_task = RunSystemTask(
@@ -980,9 +1084,10 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
         finished_task.save()
 
         mock_job_system = mock.create_autospec(spec=arvet.batch_analysis.job_system.JobSystem, spec_set=True)
-        mock_job_system.node_id = 'here'
+        mock_job_system.node_id = node_id
         mock_job_system.is_job_running.return_value = True
         mock_job_system.run_task.return_value = 33
+        mock_job_system.is_queue_full.return_value = False
 
         task_manager.schedule_tasks(mock_job_system)
 
@@ -994,7 +1099,7 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
 
         self.assertTrue(mock_job_system.is_job_running.called)
         self.assertEqual(1, mock_job_system.is_job_running.call_count)
-        self.assertEqual(10, mock_job_system.is_job_running.call_args[0][0])
+        self.assertEqual(job_id, mock_job_system.is_job_running.call_args[0][0])
         self.assertFalse(mock_job_system.run_task.called)
 
     def test_schedule_tasks_can_limit_task_ids(self):
@@ -1014,6 +1119,7 @@ class TestTaskManagerScheduleTasksDatabase(unittest.TestCase):
         mock_job_system.node_id = 'here'
         mock_job_system.is_job_running.return_value = False
         mock_job_system.run_task.return_value = 33
+        mock_job_system.is_queue_full.return_value = False
 
         task_manager.schedule_tasks(mock_job_system, task_ids=[included_task.identifier])
 
