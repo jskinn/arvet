@@ -368,6 +368,7 @@ class TestImage(th.ExtendedTestCase):
             'normal_maps_enabled',
             'roughness_enabled',
             'geometry_decimation',
+            'minimum_object_volume'
         }, img.get_columns())
 
     def test_get_properties_returns_the_value_of_all_columns(self):
@@ -399,6 +400,7 @@ class TestImage(th.ExtendedTestCase):
         normal_maps_enabled = False
         roughness_enabled = True
         geometry_decimation = np.random.uniform(0, 1)
+        minimum_object_volume = np.random.uniform(0, 1000)
 
         img = im.Image(
             pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
@@ -425,7 +427,8 @@ class TestImage(th.ExtendedTestCase):
                 texture_mipmap_bias=texture_mipmap_bias,
                 normal_maps_enabled=normal_maps_enabled,
                 roughness_enabled=roughness_enabled,
-                geometry_decimation=geometry_decimation
+                geometry_decimation=geometry_decimation,
+                minimum_object_volume=minimum_object_volume
             )
         )
         self.assertEqual({
@@ -457,7 +460,8 @@ class TestImage(th.ExtendedTestCase):
             'texture_mipmap_bias': texture_mipmap_bias,
             'normal_maps_enabled': normal_maps_enabled,
             'roughness_enabled': roughness_enabled,
-            'geometry_decimation': geometry_decimation
+            'geometry_decimation': geometry_decimation,
+            'minimum_object_volume': minimum_object_volume
         }, img.get_properties())
 
     def test_get_properties_returns_defaults_for_minimal_parameters(self):
@@ -500,7 +504,8 @@ class TestImage(th.ExtendedTestCase):
             'texture_mipmap_bias': None,
             'normal_maps_enabled': None,
             'roughness_enabled': None,
-            'geometry_decimation': None
+            'geometry_decimation': None,
+            'minimum_object_volume': None
         }, img.get_properties())
 
     def test_get_properties_returns_only_requested_columns_that_exist(self):
@@ -882,7 +887,7 @@ class TestStereoImage(th.ExtendedTestCase):
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
             lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
-            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8, minimum_object_volume=0.335,
             procedural_generation_seed=16234, labelled_objects=(
                 imeta.LabelledObject(class_names=('car',), x=12, y=144, width=67, height=43,
                                      relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)),
@@ -915,7 +920,7 @@ class TestStereoImage(th.ExtendedTestCase):
             light_level=imeta.LightingLevel.WELL_LIT, time_of_day=imeta.TimeOfDay.DAY,
             lens_focal_distance=5, aperture=22, simulation_world='TestSimulationWorld',
             lighting_model=imeta.LightingModel.LIT, texture_mipmap_bias=1,
-            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
+            normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8, minimum_object_volume=0.335,
             procedural_generation_seed=16234, labelled_objects=(
                 imeta.LabelledObject(class_names=('car',), x=12, y=144, width=67, height=43,
                                      relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)),
@@ -1222,6 +1227,7 @@ class TestStereoImage(th.ExtendedTestCase):
             'normal_maps_enabled',
             'roughness_enabled',
             'geometry_decimation',
+            'minimum_object_volume',
 
             # Right columns
             'stereo_offset',
@@ -1270,6 +1276,7 @@ class TestStereoImage(th.ExtendedTestCase):
             'normal_maps_enabled': True,
             'roughness_enabled': True,
             'geometry_decimation': 0.8,
+            'minimum_object_volume': self.metadata.minimum_object_volume,
 
             # Right columns
             'stereo_offset': np.linalg.norm(self.full_image.stereo_offset.location),
@@ -1335,6 +1342,7 @@ class TestStereoImage(th.ExtendedTestCase):
             'normal_maps_enabled': None,
             'roughness_enabled': None,
             'geometry_decimation': None,
+            'minimum_object_volume': None,
 
             # Right columns
             'stereo_offset': None,

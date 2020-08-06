@@ -50,7 +50,8 @@ class Image(pymodm.MongoModel):
         texture_mipmap_bias=attrgetter('metadata.texture_mipmap_bias'),
         normal_maps_enabled=attrgetter('metadata.normal_maps_enabled'),
         roughness_enabled=attrgetter('metadata.roughness_enabled'),
-        geometry_decimation=attrgetter('metadata.geometry_decimation')
+        geometry_decimation=attrgetter('metadata.geometry_decimation'),
+        minimum_object_volume=attrgetter('metadata.minimum_object_volume')
     )
 
     def __init__(self, *args, **kwargs):
