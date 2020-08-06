@@ -1,7 +1,6 @@
 import typing
 import logging
 import bson
-from pymodm.context_managers import no_auto_dereference
 from arvet.database.autoload_modules import autoload_modules
 from arvet.core.image_source import ImageSource
 from arvet.core.system import VisionSystem
@@ -24,10 +23,9 @@ def invalidate_dataset_loaders(loader_modules: typing.Iterable[str]):
     """
     loader_module_list = list(loader_modules)
     # Step 1: Find all tasks with this module and invalidate the collections
-    with no_auto_dereference(ImportDatasetTask):
-        image_collection_ids = [task.result for task in ImportDatasetTask.objects.raw({
-            'module_name': {'$in': loader_module_list}, 'result': {'$exists': True}
-        }).only('result')]
+    image_collection_ids = [task['result'] for task in ImportDatasetTask.objects.raw({
+        'module_name': {'$in': loader_module_list}, 'result': {'$exists': True}
+    }).only('result').values()]
 
     # Step 2: Delete all the associated image collections
     invalidate_image_collections(image_collection_ids)
