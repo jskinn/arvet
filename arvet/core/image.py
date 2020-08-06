@@ -22,6 +22,8 @@ class Image(pymodm.MongoModel):
 
     # List of available metadata columns, and getters for each
     columns = ColumnList(
+        pixel_path=attrgetter('pixel_path'),
+        image_group=attrgetter('image_group'),
         source_type=attrgetter('metadata.source_type'),
         lens_focal_distance=attrgetter('metadata.lens_focal_distance'),
         aperture=attrgetter('metadata.aperture'),

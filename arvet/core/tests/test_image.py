@@ -339,6 +339,8 @@ class TestImage(th.ExtendedTestCase):
             )
         )
         self.assertEqual({
+            'pixel_path',
+            'image_group',
             'source_type',
             'lens_focal_distance',
             'aperture',
@@ -369,6 +371,7 @@ class TestImage(th.ExtendedTestCase):
         }, img.get_columns())
 
     def test_get_properties_returns_the_value_of_all_columns(self):
+        image_group = 'my-test-group'
         source_type = imeta.ImageSourceType.SYNTHETIC
         lens_focal_distance = np.random.uniform(10, 1000)
         aperture = np.random.uniform(1.2, 3.6)
@@ -399,7 +402,7 @@ class TestImage(th.ExtendedTestCase):
 
         img = im.Image(
             pixels=np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8),
-            image_group='test',
+            image_group=image_group,
             metadata=imeta.ImageMetadata(
                 img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
                 camera_pose=tf.Transform(location=[pos_x, pos_y, pos_z]),
@@ -426,6 +429,8 @@ class TestImage(th.ExtendedTestCase):
             )
         )
         self.assertEqual({
+            'pixel_path': img.pixel_path,
+            'image_group': image_group,
             'source_type': source_type,
             'lens_focal_distance': lens_focal_distance,
             'aperture': aperture,
@@ -467,6 +472,8 @@ class TestImage(th.ExtendedTestCase):
             )
         )
         self.assertEqual({
+            'pixel_path': img.pixel_path,
+            'image_group': 'test',
             'source_type': source_type,
             'lens_focal_distance': None,
             'aperture': None,
@@ -597,7 +604,7 @@ class TestStereoImageDatabase(unittest.TestCase):
                 img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
                 source_type=imeta.ImageSourceType.SYNTHETIC
             ),
-            right_metadata = imeta.ImageMetadata(
+            right_metadata=imeta.ImageMetadata(
                 img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0',
                 source_type=imeta.ImageSourceType.SYNTHETIC
             )
@@ -878,7 +885,8 @@ class TestStereoImage(th.ExtendedTestCase):
             normal_maps_enabled=2, roughness_enabled=True, geometry_decimation=0.8,
             procedural_generation_seed=16234, labelled_objects=(
                 imeta.LabelledObject(class_names=('car',), x=12, y=144, width=67, height=43,
-                                     relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)), instance_name='Car-002'),
+                                     relative_pose=tf.Transform((12, 3, 4), (0.5, 0.1, 1, 1.7)),
+                                     instance_name='Car-002'),
                 imeta.LabelledObject(class_names=('cat',), x=125, y=244, width=117, height=67,
                                      relative_pose=tf.Transform((378, -1890, 38), (0.3, 1.12, 1.1, 0.2)),
                                      instance_name='cat-090')
@@ -1185,6 +1193,8 @@ class TestStereoImage(th.ExtendedTestCase):
     def test_get_columns_returns_column_list(self):
         self.assertEqual({
             # Left columns
+            'pixel_path',
+            'image_group',
             'source_type',
             'lens_focal_distance',
             'aperture',
@@ -1231,6 +1241,8 @@ class TestStereoImage(th.ExtendedTestCase):
     def test_get_properties_returns_the_value_of_all_columns(self):
         self.assertEqual({
             # Left image properties
+            'pixel_path': self.full_image.pixel_path,
+            'image_group': self.image_group,
             'source_type': imeta.ImageSourceType.SYNTHETIC,
             'lens_focal_distance': 5.0,
             'aperture': 22,
@@ -1276,22 +1288,26 @@ class TestStereoImage(th.ExtendedTestCase):
         }, self.full_image.get_properties())
 
     def test_get_properties_returns_defaults_for_minimal_parameters(self):
+        image_group = 'test-images-6'
         source_type = imeta.ImageSourceType.SYNTHETIC
 
         img = im.StereoImage(
             pixels=self.left_pixels,
             right_pixels=self.right_pixels,
+            image_group=image_group,
             metadata=imeta.ImageMetadata(
                 img_hash=b'\x1f`\xa8\x8aR\xed\x9f\x0b',
                 source_type=imeta.ImageSourceType.SYNTHETIC
             ),
-            right_metadata = imeta.ImageMetadata(
+            right_metadata=imeta.ImageMetadata(
                 img_hash=b'\x3a`\x8a\xa8H\xde\xf9\xb0',
                 source_type=imeta.ImageSourceType.SYNTHETIC
             )
         )
         self.assertEqual({
             # Left image properties
+            'pixel_path': img.pixel_path,
+            'image_group': image_group,
             'source_type': source_type,
             'lens_focal_distance': None,
             'aperture': None,
