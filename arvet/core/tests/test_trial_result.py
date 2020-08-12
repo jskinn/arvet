@@ -100,3 +100,18 @@ class TestTrialResultDatabase(unittest.TestCase):
         self.assertEqual(MonitoredImageSource.instance_count, 1)
 
         all_entities[0].delete()
+
+    def test_load_minimal_loads_a_minimal_trial_result(self):
+        obj = mock_types.MockTrialResult(
+            system=self.system,
+            image_source=self.image_source,
+            success=True
+        )
+        obj.save()
+        trial_id = obj.pk
+
+        loaded_obj = mock_types.MockTrialResult.load_minimal(trial_id)
+        self.assertIsInstance(loaded_obj, mock_types.MockTrialResult)
+        self.assertEqual(self.system.pk, loaded_obj.system.pk)
+        self.assertEqual(self.image_source.pk, loaded_obj.image_source.pk)
+        self.assertTrue(loaded_obj.success)

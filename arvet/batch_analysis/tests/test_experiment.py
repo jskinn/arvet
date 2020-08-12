@@ -285,11 +285,10 @@ class TestExperiment(unittest.TestCase):
             metric_results=[result]
         )
 
-        with mock.patch('pandas.DataFrame.to_pickle') as mock_pickle:
+        with mock.patch('pandas.DataFrame.to_pickle'):
             obj.cache_plot_data(self.output_dir)
         self.assertTrue(result.get_results.called)
         self.assertEqual(mock.call(columns1 | columns2), result.get_results.call_args)
-
 
 
 class TestExperimentDatabase(unittest.TestCase):
@@ -743,7 +742,7 @@ class TestRunAllDatabase(unittest.TestCase):
         ), pending)
         self.assertEqual({}, existing_results)
 
-    def test_returns_completed_results(self):
+    def test_returns_completed_result_ids(self):
         repeats = 3
 
         # Create some existing trial results with complete run system tasks
@@ -785,7 +784,7 @@ class TestRunAllDatabase(unittest.TestCase):
                 for repeat in range(actual_repeats):
                     self.assertEqual(
                         trial_results[system.identifier][image_source.identifier][repeat],
-                        existing_results[system.identifier][image_source.identifier][repeat].identifier
+                        existing_results[system.identifier][image_source.identifier][repeat]
                     )
 
     def test_resets_tasks_with_no_result(self):
@@ -1085,7 +1084,7 @@ class TestRunAllWithSeedsDatabase(unittest.TestCase):
         self.assertEqual(len(self.systems) * len(self.image_sources) * len(seeds), pending)
         self.assertEqual({}, existing_results)
 
-    def test_returns_completed_results(self):
+    def test_returns_completed_result_ids(self):
         seeds = [45213, 107895, 72389, 7489]
 
         # Create some existing trial results with complete run system tasks
@@ -1123,7 +1122,7 @@ class TestRunAllWithSeedsDatabase(unittest.TestCase):
                 for seed_idx in range(len(seeds) - 1):
                     self.assertEqual(
                         trial_results[system.identifier][image_source.identifier][seed_idx],
-                        existing_results[system.identifier][image_source.identifier][seed_idx].identifier
+                        existing_results[system.identifier][image_source.identifier][seed_idx]
                     )
 
     def test_resets_tasks_with_no_result(self):
@@ -1394,7 +1393,7 @@ class TestMeasureAllDatabase(unittest.TestCase):
         self.assertEqual(len(self.metrics) * len(self.trial_result_groups), pending)
         self.assertEqual({}, existing_results)
 
-    def test_returns_completed_results(self):
+    def test_returns_completed_result_ids(self):
         # Create some existing trial results with complete run system tasks
         num_complete_measures = 0
         metric_results = {}
@@ -1425,7 +1424,7 @@ class TestMeasureAllDatabase(unittest.TestCase):
             for tr_idx in range(len(self.trial_result_groups) - 1):
                 self.assertEqual(
                     metric_results[metric.identifier][tr_idx],
-                    existing_results[metric.identifier][tr_idx].identifier
+                    existing_results[metric.identifier][tr_idx]
                 )
 
     def test_resets_complete_tasks_with_no_result(self):

@@ -94,10 +94,6 @@ class Metric(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         return obj
 
 
-# A type variable bound at MetricResult
-T_MetricResult = typing.TypeVar('T_MetricResult', bound='MetricResult')
-
-
 class MetricResult(pymodm.MongoModel):
     """
     A general superclass for metric results for all metrics

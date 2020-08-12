@@ -1,6 +1,7 @@
 # Copyright (c) 2017, John Skinner
 from operator import itemgetter, attrgetter
 import typing
+import bson
 import pymodm
 
 from arvet.util.column_list import ColumnList
@@ -147,3 +148,22 @@ class ImageCollection(arvet.core.image_source.ImageSource, pymodm.MongoModel):
             for col_name in columns
             if col_name in self.columns
         }
+
+    @classmethod
+    def load_minimal(cls, object_id: bson.ObjectId) -> 'ImageCollection':
+        """
+        Load an image collection without actual references to the images or the timestamps.
+        This allows us to check if it is appropriate for certain systems, without using as much memory
+        :param object_id: The id of the object to load
+        :return:
+        """
+        return cls.objects.only(
+            'sequence_type',
+            'image_group',
+            'is_depth_available',
+            'is_normals_available',
+            'is_stereo_available',
+            'is_labels_available',
+            'is_masks_available',
+            'camera_intrinsics'
+        ).get({'_id': object_id})

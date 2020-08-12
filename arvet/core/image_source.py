@@ -162,3 +162,14 @@ class ImageSource(MongoModel, metaclass=ABCModelMeta):
     # Optional properties for sources of stereo images
     stereo_offset = None
     right_camera_intrinsics = None
+
+    @classmethod
+    @abc.abstractmethod
+    def load_minimal(cls, object_id: bson.ObjectId) -> 'ImageSource':
+        """
+        Load a minimal ImageSource object, which lets us query information about the image source,
+        as for is_image_source_appropriate, but does not contain the full image source data
+        :param object_id:
+        :return:
+        """
+        pass

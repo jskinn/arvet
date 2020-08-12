@@ -98,6 +98,10 @@ class MockImageSource(arvet.core.image_source.ImageSource):
         """
         self.images = [(0.6 * idx, make_image(idx)) for idx in range(num)]
 
+    @classmethod
+    def load_minimal(cls, object_id):
+        return MockImageSource.objects.get({'id': object_id})
+
 
 class MockTrialResult(arvet.core.trial_result.TrialResult):
 

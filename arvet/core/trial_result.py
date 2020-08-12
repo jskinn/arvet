@@ -37,3 +37,17 @@ class TrialResult(pymodm.MongoModel):
         :return:
         """
         return self._id
+
+    @classmethod
+    def load_minimal(cls, object_id: bson.ObjectId) -> 'TrialResult':
+        """
+        Load a minimal ImageSource object, which lets us query information about the image source,
+        as for is_image_source_appropriate, but does not contain the full image source data
+        :param object_id:
+        :return:
+        """
+        return cls.objects.only(
+            'system',
+            'image_source',
+            'success',
+        ).get({'_id': object_id})

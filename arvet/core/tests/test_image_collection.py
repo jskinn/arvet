@@ -204,6 +204,52 @@ class TestImageCollectionDatabase(unittest.TestCase):
         all_entities[0].delete()
         all_entities[1].delete()
 
+    def test_load_minimal_returns_object_without_images(self):
+        images = []
+        for idx in range(10):
+            img = CountedImage(
+                pixels=np.random.uniform(0, 255, (32, 32, 3)),
+                image_group='test',
+                metadata=make_metadata(idx),
+            )
+            img.save()
+            images.append(img)
+
+        collection = ic.ImageCollection(
+            images=images,
+            timestamps=[1.1 * idx for idx in range(10)],
+            sequence_type=ImageSequenceType.SEQUENTIAL
+        )
+        collection.save()
+
+        collection_id = collection.pk
+        sequence_type = collection.sequence_type
+        image_group = collection.image_group
+        is_depth_available = collection.is_depth_available
+        is_normals_available = collection.is_normals_available
+        is_stereo_available = collection.is_stereo_available
+        is_labels_available = collection.is_labels_available
+        is_masks_available = collection.is_masks_available
+        camera_intrinsics = collection.camera_intrinsics
+
+        del images
+        del img
+        del collection
+        CountedImage.instance_count = 0
+
+        collection = ic.ImageCollection.load_minimal(collection_id)
+        self.assertEqual(0, CountedImage.instance_count)
+        self.assertEqual(sequence_type, collection.sequence_type)
+        self.assertEqual(image_group, collection.image_group)
+        self.assertEqual(is_depth_available, collection.is_depth_available)
+        self.assertEqual(is_normals_available, collection.is_normals_available)
+        self.assertEqual(is_stereo_available, collection.is_stereo_available)
+        self.assertEqual(is_labels_available, collection.is_labels_available)
+        self.assertEqual(is_masks_available, collection.is_masks_available)
+        self.assertEqual(camera_intrinsics, collection.camera_intrinsics)
+        self.assertEqual([], collection.images)
+        self.assertEqual([], collection.timestamps)
+
 
 class CountedImage(im.Image):
     instance_count = 0

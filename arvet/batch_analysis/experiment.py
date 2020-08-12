@@ -9,7 +9,7 @@ import pymodm.fields as fields
 from pymodm.context_managers import no_auto_dereference
 from pathlib import Path
 import arvet.database.pymodm_abc as pymodm_abc
-from arvet.database.autoload_modules import autoload_modules
+from arvet.database.autoload_modules import autoload_modules, get_model_classes
 from arvet.database.reference_list_field import ReferenceListField
 from arvet.core.system import VisionSystem, StochasticBehaviour
 from arvet.core.image_source import ImageSource
@@ -207,12 +207,12 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
 
 
 def run_all(
-        systems: typing.Iterable[VisionSystem],
-        image_sources: typing.Iterable[ImageSource],
+        systems: typing.Iterable[typing.Union[VisionSystem, bson.ObjectId]],
+        image_sources: typing.Iterable[typing.Union[ImageSource, bson.ObjectId]],
         repeats: int,
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
-) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.Mapping[bson.ObjectId, typing.List[TrialResult]]], int]:
+) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.Mapping[bson.ObjectId, typing.List[bson.ObjectId]]], int]:
     """
     Run all the systems on all the image sources.
     Returns the trial results, grouped by system and image source
@@ -228,7 +228,18 @@ def run_all(
     remaining = 0
     trial_results = {}
     for system in systems:
+        # If the system is just an id, load the object
+        if isinstance(system, bson.ObjectId):
+            system = VisionSystem.objects.get({'_id': system})
         for image_source in image_sources:
+            # If the image source is just an ID, load the object, minimally
+            if isinstance(image_source, bson.ObjectId):
+                try:
+                    image_source = load_minimal_image_source(image_source)
+                except RuntimeError:
+                    logging.getLogger(__name__).exception(f"Failed to load image source {image_source}, skipping")
+                    continue
+
             if system.is_image_source_appropriate(image_source):
                 # If the system is deterministic, run it once
                 actual_repeats = repeats if system.is_deterministic() is not StochasticBehaviour.DETERMINISTIC else 1
@@ -242,7 +253,7 @@ def run_all(
                         expected_duration=expected_duration
                     )
                     if task.is_finished:
-                        result = task.get_result()
+                        result = task.result_id
                         if result is None:
                             # Task was finished, but has since been deleted. Re-create the task as unfinished.
                             task.delete()
@@ -284,12 +295,12 @@ def run_all(
 
 
 def run_all_with_seeds(
-        systems: typing.Iterable[VisionSystem],
-        image_sources: typing.Iterable[ImageSource],
+        systems: typing.Iterable[typing.Union[VisionSystem, bson.ObjectId]],
+        image_sources: typing.Iterable[typing.Union[ImageSource, bson.ObjectId]],
         seeds: typing.Iterable[int],
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
-) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.Mapping[bson.ObjectId, typing.List[TrialResult]]], int]:
+) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.Mapping[bson.ObjectId, typing.List[bson.ObjectId]]], int]:
     """
     Run all the systems on all the image sources.
     Returns the trial results, grouped by system and image source
@@ -305,7 +316,18 @@ def run_all_with_seeds(
     remaining = 0
     trial_results = {}
     for system in systems:
+        # If the system is just an id, load the object
+        if isinstance(system, bson.ObjectId):
+            system = VisionSystem.objects.get({'_id': system})
         for image_source in image_sources:
+            # If the image source is just an ID, load the object, minimally
+            if isinstance(image_source, bson.ObjectId):
+                try:
+                    image_source = load_minimal_image_source(image_source)
+                except RuntimeError:
+                    logging.getLogger(__name__).exception(f"Failed to load image source {image_source}, skipping")
+                    continue
+
             if system.is_image_source_appropriate(image_source):
                 for seed in seeds:
                     task = task_manager.get_run_system_task(
@@ -318,7 +340,7 @@ def run_all_with_seeds(
                         expected_duration=expected_duration
                     )
                     if task.is_finished:
-                        result = task.get_result()
+                        result = task.result_id
                         if result is None:
                             # Task finished, but the result has since been deleted. Delete and re-create the task
                             task.delete()
@@ -361,11 +383,11 @@ def run_all_with_seeds(
 
 
 def measure_all(
-        metrics: typing.Iterable[Metric],
-        trial_result_groups: typing.Iterable[typing.List[TrialResult]],
+        metrics: typing.Iterable[typing.Union[Metric, bson.ObjectId]],
+        trial_result_groups: typing.Iterable[typing.List[typing.Union[TrialResult, bson.ObjectId]]],
         num_cpus: int = 1, num_gpus: int = 0,
         memory_requirements: str = '3GB', expected_duration: str = '1:00:00'
-) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.List[MetricResult]], int]:
+) -> typing.Tuple[typing.Mapping[bson.ObjectId, typing.List[bson.ObjectId]], int]:
     """
 
     :param metrics:
@@ -379,7 +401,15 @@ def measure_all(
     remaining = 0
     metric_results = {}
     for metric in metrics:
+        # If the metric is just an id, load the object
+        if isinstance(metric, bson.ObjectId):
+            metric = Metric.objects.get({'_id': metric})
         for trial_results in trial_result_groups:
+            # Load minimal trial result objects for the missing trial results
+            trial_results = [
+                load_minimal_trial_result(trial_result) if isinstance(trial_result, bson.ObjectId) else trial_result
+                for trial_result in trial_results
+            ]
             if all(metric.is_trial_appropriate(trial_result) for trial_result in trial_results):
                 task = task_manager.get_measure_trial_task(
                     trial_results=trial_results,
@@ -389,7 +419,7 @@ def measure_all(
                     expected_duration=expected_duration
                 )
                 if task.is_finished:
-                    result = task.get_result()
+                    result = task.result_id
                     if result is None:
                         # Metric result was since deleted, delete and re-create the task
                         task.delete()
@@ -424,3 +454,31 @@ def measure_all(
                     if changed or task.pk is None:
                         task.save()
     return metric_results, remaining
+
+
+def load_minimal_image_source(image_source_id: bson.ObjectId) -> ImageSource:
+    """
+    Load a minimally sized image source object from its ID
+    :param image_source_id:
+    :return:
+    """
+    image_source_type = get_model_classes(ImageSource, [image_source_id])
+    if len(image_source_type) != 1:
+        raise RuntimeError("Got multiple image source types for id \"{0}\", got types {1}".format(
+            image_source_id, image_source_type))
+    image_source_type = image_source_type[0]
+    return image_source_type.load_minimal(image_source_id)
+
+
+def load_minimal_trial_result(image_source_id: bson.ObjectId) -> TrialResult:
+    """
+    Load a minimally sized image source object from its ID
+    :param image_source_id:
+    :return:
+    """
+    trial_type = get_model_classes(TrialResult, [image_source_id])
+    if len(trial_type) != 1:
+        raise RuntimeError("Got multiple trial result types for id \"{0}\", got types {1}".format(
+            image_source_id, trial_type))
+    trial_type = trial_type[0]
+    return trial_type.load_minimal(image_source_id)

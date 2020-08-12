@@ -2,6 +2,7 @@
 import unittest
 import unittest.mock as mock
 from pymodm.errors import ValidationError
+from pymodm.context_managers import no_auto_dereference
 from bson import ObjectId
 import arvet.database.tests.database_connection as dbconn
 from arvet.core.system import VisionSystem, StochasticBehaviour
@@ -402,8 +403,9 @@ class TestSimpleExperiment(unittest.TestCase):
                         expected_duration=mock.ANY
                     ), mock_task_manager.get_run_system_task.call_args_list)
 
+    @mock.patch('arvet.batch_analysis.experiment.load_minimal_trial_result', autospec=True)
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
-    def test_schedule_tasks_uses_run_system_tasks_correctly(self, mock_task_manager):
+    def test_schedule_tasks_uses_run_system_tasks_correctly(self, mock_task_manager, mock_load_minimal_trial):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(1)]
         image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(1)]
         metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(1)]
@@ -412,6 +414,7 @@ class TestSimpleExperiment(unittest.TestCase):
         trial_results_map = make_trial_map(systems, image_sources, repeats)
         # Note: This is a separate test because autospecs are expensive in a loop
         make_mock_get_run_system_task(mock_task_manager, trial_results_map, autospec=True)
+        patch_load_minimal_trial(mock_load_minimal_trial)
 
         subject = SimpleExperiment(
             name="TestSimpleExperiment",
@@ -422,8 +425,9 @@ class TestSimpleExperiment(unittest.TestCase):
         )
         subject.schedule_tasks()
 
+    @mock.patch('arvet.batch_analysis.experiment.load_minimal_trial_result', autospec=True)
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
-    def test_schedule_tasks_measures_all_trial_results(self, mock_task_manager):
+    def test_schedule_tasks_measures_all_trial_results(self, mock_task_manager, mock_load_minimal_trial):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
         systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
                                                            return_value=StochasticBehaviour.NON_DETERMINISTIC)
@@ -442,7 +446,20 @@ class TestSimpleExperiment(unittest.TestCase):
             for trials_by_source in trial_results_map.values()
             for trial_group in trials_by_source.values()
         ]
+        trials_by_id = {
+            trial_result.pk: trial_result
+            for trial_group in trial_groups
+            for trial_result in trial_group
+        }
         make_mock_get_run_system_task(mock_task_manager, trial_results_map, autospec=False)
+        patch_load_minimal_trial(mock_load_minimal_trial)
+
+        def mock_load_minimal_trial_impl(object_id):
+            if object_id in trials_by_id:
+                return trials_by_id[object_id]
+            raise ValueError(f"Unidentified trial result id {object_id}")
+
+        mock_load_minimal_trial.side_effect = mock_load_minimal_trial_impl
 
         subject = SimpleExperiment(
             name="TestSimpleExperiment",
@@ -469,8 +486,9 @@ class TestSimpleExperiment(unittest.TestCase):
                     "\nCouldn't find measure_trial_task for metric {0}, trial group {1}".format(metric_idx, group_idx)
                 )
 
+    @mock.patch('arvet.batch_analysis.experiment.load_minimal_trial_result', autospec=True)
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
-    def test_schedule_tasks_stores_metric_results(self, mock_task_manager):
+    def test_schedule_tasks_stores_metric_results(self, mock_task_manager, mock_load_minimal_trial):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
         systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
                                                            return_value=StochasticBehaviour.NON_DETERMINISTIC)
@@ -480,20 +498,16 @@ class TestSimpleExperiment(unittest.TestCase):
 
         trial_results_map = make_trial_map(systems, image_sources, repeats)
         make_mock_get_run_system_task(mock_task_manager, trial_results_map)
+        patch_load_minimal_trial(mock_load_minimal_trial)
 
-        metric_results = []
+        metric_result_ids = []
 
-        def mock_get_measure_trial_task(trial_results, metric, *_, **__):
-            result = mock_core.MockMetricResult(
-                _id=ObjectId(),
-                metric=metric,
-                trial_results=trial_results,
-                success=True
-            )
-            metric_results.append(result)
+        def mock_get_measure_trial_task(*_, **__):
+            result_id = ObjectId()
+            metric_result_ids.append(result_id)
             mock_task = mock.MagicMock()
             mock_task.is_finished = True
-            mock_task.get_result.return_value = result
+            mock_task.result_id = result_id
             return mock_task
 
         mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
@@ -507,11 +521,13 @@ class TestSimpleExperiment(unittest.TestCase):
         )
         subject.schedule_tasks()
 
-        for metric_result in metric_results:
-            self.assertIn(metric_result, subject.metric_results)
+        with no_auto_dereference(SimpleExperiment):
+            for metric_result_id in metric_result_ids:
+                self.assertIn(metric_result_id, subject.metric_results)
 
+    @mock.patch('arvet.batch_analysis.experiment.load_minimal_trial_result', autospec=True)
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
-    def test_schedule_tasks_discards_old_metric_results(self, mock_task_manager):
+    def test_schedule_tasks_discards_old_metric_results(self, mock_task_manager, mock_load_minimal_trial):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(3)]
         systems[0].is_deterministic = mock.create_autospec(systems[0].is_deterministic,
                                                            return_value=StochasticBehaviour.NON_DETERMINISTIC)
@@ -521,23 +537,19 @@ class TestSimpleExperiment(unittest.TestCase):
 
         trial_results_map = make_trial_map(systems, image_sources, repeats)
         make_mock_get_run_system_task(mock_task_manager, trial_results_map)
+        patch_load_minimal_trial(mock_load_minimal_trial)
 
         old_metric_results = [
             mock_core.MockMetricResult(_id=ObjectId(), success=True)
         ]
-        metric_results = []
+        metric_result_ids = []
 
-        def mock_get_measure_trial_task(trial_results, metric, *_, **__):
-            result = mock_core.MockMetricResult(
-                _id=ObjectId(),
-                metric=metric,
-                trial_results=trial_results,
-                success=True
-            )
-            metric_results.append(result)
+        def mock_get_measure_trial_task(*_, **__):
+            result_id = ObjectId()
+            metric_result_ids.append(result_id)
             mock_task = mock.MagicMock()
             mock_task.is_finished = True
-            mock_task.get_result.return_value = result
+            mock_task.result_id = result_id
             return mock_task
 
         mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
@@ -552,13 +564,16 @@ class TestSimpleExperiment(unittest.TestCase):
         )
         subject.schedule_tasks()
 
-        for metric_result in metric_results:
-            self.assertIn(metric_result, subject.metric_results)
-        for metric_result in old_metric_results:
-            self.assertNotIn(metric_result, subject.metric_results)
+        with no_auto_dereference(SimpleExperiment):
+            # Results should be all ids, from the measure_all
+            for metric_result_id in metric_result_ids:
+                self.assertIn(metric_result_id, subject.metric_results)
+            for metric_result in old_metric_results:
+                self.assertNotIn(metric_result.pk, subject.metric_results)
 
+    @mock.patch('arvet.batch_analysis.experiment.load_minimal_trial_result', autospec=True)
     @mock.patch('arvet.batch_analysis.experiment.task_manager', autospec=True)
-    def test_schedule_tasks_uses_measure_trial_tasks_correctly(self, mock_task_manager):
+    def test_schedule_tasks_uses_measure_trial_tasks_correctly(self, mock_task_manager, mock_load_minimal_trial):
         systems = [mock_core.MockSystem(_id=ObjectId()) for _ in range(1)]
         image_sources = [mock_core.MockImageSource(_id=ObjectId()) for _ in range(1)]
         metrics = [mock_core.MockMetric(_id=ObjectId()) for _ in range(1)]
@@ -566,20 +581,16 @@ class TestSimpleExperiment(unittest.TestCase):
 
         trial_results_map = make_trial_map(systems, image_sources, repeats)
         make_mock_get_run_system_task(mock_task_manager, trial_results_map)
+        patch_load_minimal_trial(mock_load_minimal_trial)
 
-        metric_results = []
+        metric_result_ids = []
 
-        def mock_get_measure_trial_task(trial_results, metric, *_, **__):
-            result = mock_core.MockMetricResult(
-                _id=ObjectId(),
-                metric=metric,
-                trial_results=trial_results,
-                success=True
-            )
-            metric_results.append(result)
+        def mock_get_measure_trial_task(*_, **__):
+            result_id = ObjectId()
+            metric_result_ids.append(result_id)
             mock_task = mock.create_autospec(MeasureTrialTask)
             mock_task.is_finished = True
-            mock_task.get_result.return_value = result
+            mock_task.result_id = result_id
             return mock_task
 
         mock_task_manager.get_measure_trial_task.side_effect = mock_get_measure_trial_task
@@ -593,8 +604,9 @@ class TestSimpleExperiment(unittest.TestCase):
         )
         subject.schedule_tasks()
 
-        for metric_result in metric_results:
-            self.assertIn(metric_result, subject.metric_results)
+        with no_auto_dereference(SimpleExperiment):
+            for metric_result_id in metric_result_ids:
+                self.assertIn(metric_result_id, subject.metric_results)
 
 
 def make_trial_map(systems,  image_sources, repeats):
@@ -631,6 +643,16 @@ def make_mock_get_run_system_task(mock_task_manager, trial_results_map, autospec
             mock_task = mock.MagicMock()
         mock_task.is_finished = True
         mock_task.get_result.return_value = trial_results_map[system.pk][image_source.pk][repeat]
+        mock_task.result_id = trial_results_map[system.pk][image_source.pk][repeat].pk
         return mock_task
 
     mock_task_manager.get_run_system_task.side_effect = mock_get_run_system_task
+
+
+def patch_load_minimal_trial(mock_load_minimal_trial):
+    def mock_load_minimal_trial_impl(object_id):
+        mock_trial = mock.Mock()
+        mock_trial.pk = object_id
+        return mock_trial
+
+    mock_load_minimal_trial.side_effect = mock_load_minimal_trial_impl

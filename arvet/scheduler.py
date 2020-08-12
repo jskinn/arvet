@@ -4,7 +4,6 @@ import logging
 import logging.config
 import argparse
 import typing
-import traceback
 
 from arvet.config.global_configuration import load_global_config
 import arvet.database.connection as dbconn
@@ -60,11 +59,11 @@ def schedule(config_file: str, schedule_tasks: bool = True, run_tasks: bool = Tr
             try:
                 experiment.schedule_tasks()
                 experiment.save()
-            except Exception as ex:
-                logging.getLogger(__name__).error("Exception occurred during scheduling {0}({1}):\n{2}".format(
-                    type(experiment).__name__, str(experiment.pk), traceback.format_exc()
+            except Exception:
+                logging.getLogger(__name__).exception("Exception occurred during scheduling {0} ({1})".format(
+                    type(experiment).__name__, str(experiment.pk)
                 ))
-                raise ex
+                continue
         logging.getLogger(__name__).info("Scheduling complete, there are {0} pending tasks.".format(
             task_manager.count_pending_tasks()
         ))
