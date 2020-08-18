@@ -139,6 +139,7 @@ if __name__ == "__main__":
         plot_names=args.plots,
         show=not args.hide,
         output=args.output,
+        cache=args.cache,
         mongodb_host=args.mongodb_host,
         mongodb_port=args.mongodb_port
     )

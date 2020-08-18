@@ -93,7 +93,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         """
         return cache_folder / (self.name.lower().replace(' ', '_') + '.pkl')
 
-    def plot_results(self, output_dir: Path, plot_names: typing.Container[str] = None, display: bool = False,
+    def plot_results(self, output_dir: Path, plot_names: typing.Collection[str] = None, display: bool = False,
                      cache_folder: Path = None):
         """
         Visualise the results from this experiment in different ways.
@@ -115,6 +115,9 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             plots = self.plots
         else:
             plots = [plot for plot in self.plots if plot.name in plot_names]
+            extra_names = set(plot_names) - {plot.name for plot in self.plots}
+            if len(extra_names) > 0:
+                logging.getLogger(__name__).warning(f"Got unexpected plot names {extra_names}")
 
         if len(plots) > 0:
             # First, work out which properties our plots need
@@ -135,6 +138,8 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
                 if cache_file.exists():
                     logging.getLogger(__name__).info(f"Reading plot data from cache file {cache_file}")
                     data = pd_read_pickle(cache_file)
+                else:
+                    logging.getLogger(__name__).warning(f"Cannot find cache file {cache_file}")
             if data is None:
                 # Cache didn't exist, load the data from the database
                 logging.getLogger(__name__).info("Reading plot data from database...")
