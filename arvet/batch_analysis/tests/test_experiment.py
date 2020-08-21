@@ -5,7 +5,9 @@ import unittest.mock as mock
 import logging
 from pathlib import Path
 from shutil import rmtree
-from pandas import DataFrame
+import numpy as np
+import pandas as pd
+import pymodm.fields as fields
 
 import arvet.database.tests.database_connection as dbconn
 from arvet.core.sequence_type import ImageSequenceType
@@ -41,9 +43,10 @@ class NonDeterministicMockSystem(mock_types.MockSystem):
 
 
 class MockPlot(Plot):
+    columns = fields.ListField(fields.CharField())
 
     def get_required_columns(self) -> typing.Set[str]:
-        return set()
+        return set(col for col in self.columns)
 
     def plot_results(self, data, output_dir, display=False) -> None:
         pass
@@ -69,6 +72,13 @@ class CountedMetricResult(mock_types.MockMetricResult):
     @classmethod
     def _dec_counter(cls):
         cls.concurrent_instances -= 1
+
+    def get_results(self, columns):
+        rng = np.random.default_rng()
+        return [
+            {column: rng.standard_normal() for column in columns}
+            for _ in range(10)
+        ]
 
 
 class TestExperiment(unittest.TestCase):
@@ -133,7 +143,7 @@ class TestExperiment(unittest.TestCase):
             {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
             {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
         ]
-        data_frame = DataFrame(data)
+        data_frame = pd.DataFrame(data)
 
         plot1 = mock.create_autospec(spec=Plot, spec_set=True)
         plot1.get_required_columns.return_value = columns1
@@ -167,7 +177,7 @@ class TestExperiment(unittest.TestCase):
             {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
             {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
         ]
-        data_frame = DataFrame(data)
+        data_frame = pd.DataFrame(data)
 
         plot1 = mock.create_autospec(spec=Plot, spec_set=True)
         plot1.name = 'plot1'
@@ -199,7 +209,7 @@ class TestExperiment(unittest.TestCase):
             {'mycolumn1': 'foo', 'mycolumn2': 'A', 'mycolumn3': 6},
             {'mycolumn1': 'bar', 'mycolumn2': 'B', 'mycolumn3': 17}
         ]
-        data_frame = DataFrame(data)
+        data_frame = pd.DataFrame(data)
 
         plot1 = mock.create_autospec(spec=Plot, spec_set=True)
         plot1.name = 'plot1'
@@ -235,6 +245,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual((self.output_dir / obj.name), called_output_dir)
 
     def test_cache_plot_data_writes_cache_file(self):
+        experiment_name = 'TestExperiment22'
         columns1 = {'mycolumn1', 'mycolumn2'}
         columns2 = {'mycolumn1', 'mycolumn3'}
         data = [
@@ -252,7 +263,7 @@ class TestExperiment(unittest.TestCase):
         result.get_results.return_value = data
 
         obj = MockExperiment(
-            name="TestExperiment22",
+            name=experiment_name,
             plots=[plot1, plot2],
             metric_results=[result]
         )
@@ -260,7 +271,7 @@ class TestExperiment(unittest.TestCase):
         with mock.patch('pandas.DataFrame.to_pickle') as mock_pickle:
             obj.cache_plot_data(self.output_dir)
             self.assertTrue(mock_pickle.called)
-            self.assertEqual(str(obj.get_cache_file(self.output_dir)), mock_pickle.call_args[0][0])
+            self.assertEqual(str(obj.get_cache_file(self.output_dir, experiment_name)), mock_pickle.call_args[0][0])
 
     def test_cache_plot_data_requests_all_columns(self):
         columns1 = {'mycolumn1', 'mycolumn2'}
@@ -514,6 +525,66 @@ class TestExperimentDatabase(unittest.TestCase):
         metric.delete()
         image_source.delete()
         obj.delete()
+
+    @mock.patch('arvet.batch_analysis.experiment.autoload_modules', autospec=True)
+    def test_export_plot_data_saves_plot_data(self, _):
+        metric = mock_types.MockMetric()
+        metric.save()
+        system = mock_types.MockSystem()
+        system.save()
+        image_source = mock_types.MockImageSource()
+        image_source.save()
+        trial_result = mock_types.MockTrialResult(system=system, image_source=image_source, success=True)
+        trial_result.save()
+
+        result1 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result1.save()
+        result2 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result2.save()
+        result3 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result3.save()
+        result3 = CountedMetricResult(metric=metric, trial_results=[trial_result], success=True)
+        result3.save()
+
+        plot1 = MockPlot(columns=['foo', 'bar'], name='mock_plot 1')
+        plot1.save()
+        plot2 = MockPlot(columns=['bar', 'baz'], name='mock_plot 2')
+        plot2.save()
+
+        experiment_name = 'TestExperiment441'
+        obj = MockExperiment(
+            name=experiment_name,
+            metric_results=[result1, result2, result3],
+            plots=[plot1, plot2]
+        )
+        obj.save()
+        result_size = len(result1.get_results(['foo']))     # Find out how many results we expect
+        del result1
+        del result2
+        del result3
+        del obj  # Clear existing references, which should reset the references to ids
+
+        self.assertEqual(0, CountedMetricResult.concurrent_instances)
+        CountedMetricResult.max_concurrent_instances = 0
+
+        MockExperiment.export_plot_data(experiment_name, self.output_dir)
+        output_file = MockExperiment.get_cache_file(self.output_dir, experiment_name)
+        self.assertTrue(output_file.exists())
+        self.assertEqual(1, CountedMetricResult.max_concurrent_instances)
+
+        # Check the output file
+        data = pd.read_pickle(output_file)
+        self.assertEqual({'foo', 'bar', 'baz'}, set(data.columns))
+        self.assertEqual(3 * result_size, len(data))
+
+        # Clean up
+        trial_result.delete()
+        system.delete()
+        metric.delete()
+        image_source.delete()
+        MockPlot.objects.all().delete()
+        CountedMetricResult.objects.all().delete()
+        MockExperiment.objects.all().delete()
 
 
 class TestRunAllDatabase(unittest.TestCase):

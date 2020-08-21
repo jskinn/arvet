@@ -83,16 +83,6 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             for plot in self.plots
         }
 
-    def get_cache_file(self, cache_folder: Path) -> Path:
-        """
-        Choose the name of the file within a cache folder to store
-        data underlying the plots.
-        cache_plot_data will save to here, and plot_results will draw from here if available
-        :param cache_folder: The
-        :return: A file within the cache folder where plot data will be stored
-        """
-        return cache_folder / (self.name.lower().replace(' ', '_') + '.pkl')
-
     def plot_results(self, output_dir: Path, plot_names: typing.Collection[str] = None, display: bool = False,
                      cache_folder: Path = None):
         """
@@ -134,7 +124,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
             # The read the data from the results.
             data = None
             if cache_folder is not None:
-                cache_file = self.get_cache_file(cache_folder)
+                cache_file = self.get_cache_file(cache_folder, self.name)
                 if cache_file.exists():
                     logging.getLogger(__name__).info(f"Reading plot data from cache file {cache_file}")
                     data = pd_read_pickle(cache_file)
@@ -184,7 +174,7 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
         logging.getLogger(__name__).info(f"Collected {len(data)} rows.")
 
         # Save the data to file
-        cache_file = self.get_cache_file(cache_folder)
+        cache_file = self.get_cache_file(cache_folder, self.name)
         if not cache_file.parent.exists():
             cache_file.parent.mkdir(parents=True)
         logging.getLogger(__name__).info(f"Saving data to {cache_file}")
@@ -209,6 +199,78 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
                 else:
                     data += result.get_results(columns)
         return DataFrame(data)
+
+    @staticmethod
+    def get_cache_file(cache_folder: Path, experiment_name: str) -> Path:
+        """
+        Choose the name of the file within a cache folder to store
+        data underlying the plots.
+        cache_plot_data will save to here, and plot_results will draw from here if available
+        :param cache_folder: The folder in which the data will be cached.
+        :param experiment_name: The name of the experiment to get the file for
+        :return: A file within the cache folder where plot data will be stored
+        """
+        return cache_folder / (experiment_name.lower().replace(' ', '_') + '.pkl')
+
+    @staticmethod
+    def export_plot_data(experiment_name: str, cache_folder: Path) -> None:
+        """
+        Export the plot data for a particular experiment to the given folder
+        :param experiment_name: The unique name of the experiment
+        :param cache_folder: The folder to store the data in
+        :return:
+        """
+        # Autoload the experiment type
+        autoload_modules(Experiment, ids=[experiment_name])
+
+        # Get the result ids from the experiment, bypassing the experiment object
+        object_partials = list(
+            Experiment.objects.raw({'_id': experiment_name}).only('metric_results', 'plots').values())
+        metric_result_ids = [
+            result_id
+            for experiment_doc in object_partials
+            for result_id in experiment_doc.get('metric_results', [])
+        ]
+        plot_ids = [
+            plot_id
+            for experiment_doc in object_partials
+            for plot_id in experiment_doc.get('plots', [])
+        ]
+        if len(metric_result_ids) <= 0:
+            logging.getLogger(__name__).info(f"No results for {experiment_name}, maybe re-run update_experiments?")
+            return
+        logging.getLogger(__name__).info(f"Caching plot data for {experiment_name} in {cache_folder} ...")
+
+        # Get the columns
+        columns = get_columns_for_plots(plot_ids)
+        if len(columns) <= 0:
+            # No columns means no data and no plots
+            logging.getLogger(__name__).info(f"No data to cache for {experiment_name}, are there any plots?")
+            return
+
+        # Load the metric result types
+        autoload_modules(MetricResult, ids=metric_result_ids)
+
+        # Read all the results
+        logging.getLogger(__name__).info(f"Accumulating columns [{columns}] over {len(metric_result_ids)} results...")
+        data = []
+        for result_id in metric_result_ids:
+            try:
+                metric_result = MetricResult.objects.get({'_id': result_id})
+            except MetricResult.DoesNotExist:
+                continue
+            if metric_result is not None:
+                data.extend(metric_result.get_results(columns))
+            del metric_result
+        data = DataFrame(data)
+        logging.getLogger(__name__).info(f"Collected {len(data)} rows.")
+
+        # Save the data to file
+        cache_file = Experiment.get_cache_file(cache_folder, experiment_name)
+        if not cache_file.parent.exists():
+            cache_file.parent.mkdir(parents=True)
+        logging.getLogger(__name__).info(f"Saving data to {cache_file}")
+        data.to_pickle(str(cache_file))
 
 
 def run_all(
@@ -487,3 +549,21 @@ def load_minimal_trial_result(image_source_id: bson.ObjectId) -> TrialResult:
             image_source_id, trial_type))
     trial_type = trial_type[0]
     return trial_type.load_minimal(image_source_id)
+
+
+def get_columns_for_plots(plot_ids: typing.Iterable[bson.ObjectId]) -> typing.Set[str]:
+    """
+    For a set of plot ids, get the required columns for those plots.
+    Handles auto-loading the plot types, and the plot objects themselves will go out of scope once this helper completes
+    :param plot_ids: The list of plot ids to search for
+    :return: A combined set of the required columns for all the given plots
+    """
+    plot_ids = list(plot_ids)
+    autoload_modules(Plot, ids=plot_ids)
+    plots = Plot.objects.raw({'_id': {'$in': plot_ids}})
+    columns = set(
+        column
+        for plot in plots
+        for column in plot.get_required_columns()
+    )
+    return columns

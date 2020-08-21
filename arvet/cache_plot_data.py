@@ -37,16 +37,7 @@ def main(experiment_id: str = '', output: str = '', mongodb_host: str = None, mo
 
     # No experiment specified, just list the options
     if experiment_id is None or experiment_id == '':
-        print("Which experiment would you like to plot?")
-        return print_available_experiments()
-
-    # Get the experiment, pre-loading the type
-    autoload_modules(Experiment, [experiment_id])
-    try:
-        experiment = Experiment.objects.get({'_id': experiment_id})
-    except Experiment.DoesNotExist:
-        # Could not find experiment, print the list of valid ones, and return
-        print("Could not find experiment \"{0}\"".format(experiment_id))
+        print("Which experiment would you like to export data for?")
         return print_available_experiments()
 
     # Find an output dir, either using a selected one, or from the path manager
@@ -55,8 +46,13 @@ def main(experiment_id: str = '', output: str = '', mongodb_host: str = None, mo
     else:
         output_dir = Path(output).expanduser().resolve()
 
-    # Delegate to the experiment object to get and store the data
-    experiment.cache_plot_data(cache_folder=output_dir)
+    # Export the plot data to the cache folder
+    try:
+        Experiment.export_plot_data(experiment_id, output_dir)
+    except Experiment.DoesNotExist:
+        # Could not find experiment, print the list of valid ones, and return
+        print("Could not find experiment \"{0}\"".format(experiment_id))
+        return print_available_experiments()
 
 
 def print_available_experiments() -> None:
