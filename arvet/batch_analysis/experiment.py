@@ -142,7 +142,11 @@ class Experiment(pymodm.MongoModel, metaclass=pymodm_abc.ABCModelMeta):
 
             # Finally, delegate to the plots themselves to do the actual plotting
             for plot in plots:
-                plot.plot_results(data, output_dir, display=display)
+                logging.getLogger(__name__).debug(f"Plotting {plot.name}...")
+                try:
+                    plot.plot_results(data, output_dir, display=display)
+                except ValueError:
+                    logging.getLogger(__name__).exception(f"Exception plotting {plot.name}")
 
     def cache_plot_data(self, cache_folder: Path):
         """

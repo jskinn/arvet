@@ -70,7 +70,8 @@ class SimpleExperiment(Experiment):
                 memory_requirements=self.run_memory,
                 expected_duration=self.run_duration
             )
-        logging.getLogger(__name__).info(f"{self.name} collected {len(trial_results)} trial result groups, "
+        num_trial_result_groups = sum(len(trials_by_image_source) for trials_by_image_source in trial_results.values())
+        logging.getLogger(__name__).info(f"{self.name} collected {num_trial_result_groups} trial result groups, "
                                          f"{trials_remaining} trials awaiting execution")
 
         if len(self.metrics) <= 0:
